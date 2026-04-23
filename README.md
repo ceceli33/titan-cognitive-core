@@ -22,6 +22,8 @@
 
 This is not a chatbot wrapper. It is a **living architecture** you own, extend, and raise.
 
+![This Is A Kernel — A Seed](assets/this_is_a_kernel_a_seed.jpeg)
+
 ---
 
 ## Core Principles
@@ -37,6 +39,8 @@ This is not a chatbot wrapper. It is a **living architecture** you own, extend, 
 ---
 
 ## Architecture
+
+![Conceptual Architecture — The Ethical Core](assets/conceptual_architecture_the_ethical_core.jpeg)
 
 ```
 Akbas_V0_TITAN/
@@ -55,6 +59,8 @@ Akbas_V0_TITAN/
 ├── requirements.txt
 └── titan_os.py           # Main entry point
 ```
+
+![The Alchemical Blueprint](assets/the_alchemical_blueprint.jpeg)
 
 ---
 
@@ -129,6 +135,8 @@ This single change makes memory search *semantically meaningful*.
 
 ## The V_0 Ethical Kernel — Technical Details
 
+![The Ethical Architecture of TITAN](assets/the_ethical_architecture_of_titan.jpeg)
+
 The `EthicalKernel` is a PyTorch `nn.Module` that:
 
 1. Stores `v0 = torch.full((dim,), 0.87)` as a **buffer** (not a parameter)
@@ -138,6 +146,8 @@ The `EthicalKernel` is a PyTorch `nn.Module` that:
 
 This is a soft ethical gate, not a hard filter. It biases outputs toward stability  
 and away from extreme values. It is a *starting point*, not a complete alignment solution.
+
+![The Immovable Anchor — Immune to Jailbreak](assets/the_immovable_anchor_immune_to_jailbreak.jpeg)
 
 ---
 
@@ -154,6 +164,8 @@ and away from extreme values. It is a *starting point*, not a complete alignment
 ---
 
 ## Philosophy
+
+![The Creator's Manifesto](assets/the_creators_manifesto.jpeg)
 
 > **"Kendi yapay zekanı evinde, kendi ahlak değerlerinle yetiştir."**  
 > *"Raise your own AI at home, with your own values."*
