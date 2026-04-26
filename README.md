@@ -1,5 +1,5 @@
 # 🔮 Akbas V_0 TITAN — The Ethical Core
-
+![TITAN Vizyonu](1777188228723.png)
 > *"Donmuş bir model değil, sizinle büyüyen bir bilinç çekirdeği."*  
 > *"Not a frozen model — a consciousness that grows with you."*
 
