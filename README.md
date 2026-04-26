@@ -75,6 +75,27 @@ Akbas_V0_TITAN/
 
 ---
 
+​##🧬 The TITAN DNA
+​🧪 The V_0 Decision Formula (Work in Progress)
+
+TITAN does not rely on a "black box" output. We govern the intelligence using a Biometric Decision Formula. This is our initial framework to bridge the gap between machine logic and human ethics.
+
+​The Core Formula:
+$$P_t = (V_0 + Ω + Σφ_i) × ε_t$$
+
+​Current Baseline: We use V_0 = 0.87 as our "Ethical Gravity."
+
+​\Omega (0.15) | Experience: Wisdom retrieved from persistent memory.
+​\Sigma\phi_i | Emotional State: Fluctuations of curiosity, anxiety, or satisfaction.
+​The Target: We aim for a decision range clamped between 0.95 and 1.20—a zone that mimics stable human judgment rather than extreme machine binary.
+​🛠 A Note on Evolution
+​This formula is the V_0 release. It is a working hypothesis. While the logic is implemented in the think() and EthicalAlignment modules, it is not yet "final."
+​What we are still refining:
+​Dynamic \epsilon_t: Calibrating the exact level of "error tolerance" for creative versus critical tasks.
+​\Sigma\phi_i Weights: Better mapping of how specific emotional states (anxiety vs. curiosity) should weigh on the final decision.
+​Hardware-Specific V₀: Adapting the kernel's density based on the underlying compute power.
+​"We have built the chassis and the steering logic. Now, we are fine-tuning the suspension for a smoother ethical ride."
+
 ## Hardware Support
 
 TITAN auto-detects and adapts to any hardware:
