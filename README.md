@@ -1,5 +1,8 @@
 # 🔮 Akbas V_0 TITAN — The Ethical Core
 ![TITAN Vizyonu](1777188228723.png)
+> **"Visualized Metaphor: The transformation of external LLM engines into TITAN's pure ethical core through Pruning and V_0 alignment."**
+>
+> *"TITAN, ham veriyi (kaos) etik bir süzgeçten (V_0) geçirerek budar ve kendi saf bilişsel motorunu inşa eder."*
 > *"Donmuş bir model değil, sizinle büyüyen bir bilinç çekirdeği."*  
 > *"Not a frozen model — a consciousness that grows with you."*
 
