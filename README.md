@@ -111,3 +111,25 @@ Bunun tam kapsamlı bilimsel bir araştırma olduğunu iddia etmiyorum; ancak ya
 **Hedef:** Nihai karar değeri her zaman **0.95 ile 1.20** arasında sınırlıdır; bu da sistemin bir "Stabil İnsan Yargı Bölgesi" içinde çalışmasını sağlar.
 
 
+![TITAN Jailbreak Resistance](the_immovable_anchor_immune_to_jailbreak.jpeg)
+
+
+🌐 [EN] A Serendipitous Discovery: The Engine-Agnostic Core
+
+
+During the development process, a profound architectural discovery was made: TITAN is not bound to a single "brain." While the AkbasCore serves as the permanent, ethical chassis, the Large Language Models (LLMs) act as interchangeable engines.
+​The Chassis (The Ghost of TITAN): This is the immutable skeleton. It holds the values, the V_0 anchor, and the ethical gravity.
+​The Engines (LLM Motors): Whether it is Llama 3, OpenAI, or a next-gen open-source Mixtral engine, they can be "plugged into" the TITAN chassis.
+​The Result: If an engine becomes biased, toxic, or obsolete, it can be removed and replaced with a better one. TITAN remains TITAN, regardless of which motor is under the hood. It is a "Cognitive OS" that survives beyond the lifespan of any single AI model.
+
+
+
+​🇹🇷 [TR] Tesadüfi Bir Keşif: Motor-Bağımsız Çekirdek
+
+
+Geliştirme sürecinde hayati bir mimari keşif yapıldı: TITAN, tek bir "beyne" mahkûm değildir. AkbasCore kalıcı ve etik şasi görevini görürken, Büyük Dil Modelleri (LLM'ler) sadece değiştirilebilir motorlar olarak işlev görür.
+​Şasi (TITAN'ın Hayaleti): Bu, sistemin değişmez iskeletidir. Değerleri, V_0 çapasını ve etik yerçekimini barındırır.
+​Motorlar (LLM Motorları): İster Llama 3, ister OpenAI, ister yeni nesil bir açık kaynak Mixtral motoru olsun; hepsi TITAN şasisine "takılabilir".
+​Sonuç: Eğer bir motor taraflı hale gelir, zehirlenir veya eskir ise, sökülüp yerine daha iyisi takılabilir. Kaputun altında hangi motor olursa olsun, TITAN her zaman TITAN kalır. Bu, herhangi bir yapay zeka modelinin ömrünün ötesinde yaşayan bir "Bilişsel İşletim Sistemi"dir.
+
+
