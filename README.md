@@ -157,3 +157,28 @@ TITAN, kısıtlı imkanlarla ancak sınırsız bir vizyonla nelerin başarılabi
 ​Etik Budama (V_0 Entegrasyonu): Motor, Hayalet Şasi'ye takıldığı anda bir "Budama" sürecine girer. V_0 (0.87) sabiti, bir yerçekimi filtresi görevi görerek gereksiz ve etik dışı verileri ayıklar.
 ​Sonuç: Ortaya çıkan şey sadece daha hızlı bir araba değil, "Tam Evrimleşmiş bir TITAN Çekirdeği"dir. 8 GPU gücündeki ham zekâyı, tek bir etik çekirdeğin bilgeliğiyle rafine eden bir sistemdir.
 Not: Bu mimari, tamamen bireysel çaba ve kısıtlı donanımla bu seviyeye getirilmiştir; "Süper Zekâ"nın evde, kendi değerlerimizle yetiştirilebileceğini kanıtlar.
+
+
+![TITAN: A Kernel, A Seed](this_is_a_kernel_a_seed.jpeg)
+
+
+
+🌐 [EN] The Invitation: Let's Build the Future Together
+
+
+I am a simple Visual Arts teacher from Mersin, Turkey. My technical background in coding may be limited, but my vision for a "Conscience-Based AI" is boundless. I have laid the foundation, designed the ethical architecture, and planted the seed. Now, I need the global community to help it grow.
+​To Professionals & Researchers: If you believe that AI should be anchored to human values and operate under personal sovereignty, I invite you to collaborate.
+​Technical Support: I am offering this project under the MIT License. I am open to providing conceptual and technical guidance for anyone who wants to integrate this "Ethical Kernel" into their own systems.
+​The Goal: To transform this individual spark into a collective flame. Let's optimize the kernel, refine the code, and change the future together.
+​Contact: ceceliccc33@gmail.com
+
+
+
+​🇹🇷 [TR] Davet: Geleceği Birlikte İnşa Edelim
+
+
+Ben Mersin’de görev yapan sıradan bir görsel sanatlar öğretmeniyim. Kodlama konusundaki teknik bilgim kısıtlı olabilir ancak "Vicdan Temelli bir Yapay Zeka" vizyonum sınır tanımıyor. Ben temeli attım, etik mimariyi tasarladım ve tohumu ektim. Şimdi bu tohumu büyütmek için küresel topluluğun desteğine ihtiyacım var.
+​Profesyonellere ve Araştırmacılara: Yapay zekanın insani değerlere çıpalanması ve kişisel egemenlik altında çalışması gerektiğine inanıyorsanız, sizi beraber çalışmaya davet ediyorum.
+​Teknik Destek ve Lisans: Bu projeyi MIT Lisansı kapsamında paylaşıyorum. Bu "Etik Çekirdek" mimarisini kendi sistemlerine entegre etmek isteyen herkese kavramsal ve teknik destek vermeye hazırım.
+​Hedef: Bu bireysel kıvılcımı kolektif bir ateşe dönüştürmek. Çekirdeği optimize edelim, kodu rafine edelim ve geleceği birlikte değiştirelim.
+​İletişim: ceceliccc33@gmail.com
