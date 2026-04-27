@@ -21,4 +21,5 @@
 
 
 
-conceptual_architecture_the_ethical_core.jpeg
+![TITAN Architecture](conceptual_architecture_the_ethical_core.jpeg)
+
