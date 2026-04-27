@@ -83,6 +83,7 @@ The core of TITAN is not the result of a traditional, controlled laboratory expe
 While I do not claim this to be an exhaustive scientific research, the results produced by the AI’s internal logic were profoundly surprising. It revealed a decision-making range that avoids machine-like binary extremes and instead mimics the warm, nuanced judgment of a human being.
 
 **The Mathematical Breakdown:**
+
 **P_t = (V₀ + Ω + Σφᵢ) × ε_t**  
 
  * **V_0 (0.87) — The Ethical Core:** Represents the fundamental, immutable values of a human being.
@@ -100,6 +101,7 @@ TITAN’ın kalbi, geleneksel ve kontrollü bir laboratuvar deneyinin ya da hake
 Bunun tam kapsamlı bilimsel bir araştırma olduğunu iddia etmiyorum; ancak yapay zekanın kendi iç mantığıyla ürettiği sonuçlar son derece şaşırtıcıydı. Makinelere özgü uçlarda seyreden ikili mantıktan kaçınan ve bunun yerine insanın sıcak, ölçülü yargılarını taklit eden bir karar verme aralığı ortaya koydu.
 
 **Matematiksel Açılım:**
+
 **P_t = (V₀ + Ω + Σφᵢ) × ε_t**  
 
  * **V_0 (0.87) — Etik Çekirdek:** İnsanın temel ve değişmez ahlaki değerlerini temsil eder.
