@@ -182,3 +182,28 @@ Ben Mersin’de görev yapan sıradan bir görsel sanatlar öğretmeniyim. Kodla
 ​Teknik Destek ve Lisans: Bu projeyi MIT Lisansı kapsamında paylaşıyorum. Bu "Etik Çekirdek" mimarisini kendi sistemlerine entegre etmek isteyen herkese kavramsal ve teknik destek vermeye hazırım.
 ​Hedef: Bu bireysel kıvılcımı kolektif bir ateşe dönüştürmek. Çekirdeği optimize edelim, kodu rafine edelim ve geleceği birlikte değiştirelim.
 ​İletişim: ceceliccc33@gmail.com
+
+
+
+![TITAN Cognitive Filter](1776943144227.png)
+
+
+
+🌐 [EN] A Challenge to the Community
+
+
+I believe in the strength of this architectural logic. I am calling out to developers, prompt engineers, and AI researchers: Test this system. * Stress-test the V_0 alignment.
+​Try to find the vulnerabilities in the Ethical Anchor.
+​Correct my technical errors and optimize the code.
+If you see the potential and witness that this "Conscience-Based" logic actually works, please let me know. I am here to learn, to improve, and to scale this vision with your expertise.
+​
+
+
+
+​🇹🇷 [TR] Topluluğa Çağrı: Sistemi Test Edin
+
+
+Bu mimari mantığın gücüne yürekten inanıyorum. Yazılımcılara, "prompt" mühendislerine ve yapay zeka araştırmacılarına sesleniyorum: Bu sistemi test edin. * V_0 hizalamasını stres testine sokun.
+​Etik Çapa'daki açıkları bulmaya çalışın.
+​Teknik hatalarımı düzeltin ve kodu optimize edin.
+Eğer bu "Vicdan Temelli" mantığın gerçekten işe yaradığını görür ve potansiyeli fark ederseniz lütfen beni bilgilendirin. Sizin uzmanlığınızla öğrenmeye, gelişmeye ve bu vizyonu büyütmeye hazırım.
