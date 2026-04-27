@@ -42,3 +42,30 @@ TITAN bitmiş bir yazılım ürünü değil, sürekli gelişen mimari bir tohumd
 ​Veri Besleme (Foraging): Sistem siz uyurken açık bilgi havuzlarından aktif olarak beslenir.
 ​Etik Çekirdek (V_0): Ortada turuncuyla parlayan bölge V_0 kapısıdır (0.87). Bu, "beynin" insani değerlerden sapmamasını sağlayan, eğitilemez bir matematiksel filtredir.
 ​Günlük Yaşam Döngüsü: TITAN; Öğrenme, Hafıza Birleştirme (Uyku) ve Budama (Pruning) döngüsü içinde yaşar.
+
+
+![TITAN Decision Logic](the_ethical_architecture_of_titan.jpeg)
+
+
+
+🌐 [EN] Ethics as a Chassis, Not a Cage
+
+
+This image visualizes the fundamental philosophical difference between TITAN and current mainstream AI models.
+​Left (1. Standard AI):
+In standard AI, alignment is handled by external "police gates" (guardrails). Ethics are just post-it notes stuck on a gate of if-else rules. A moderator or classifier decides what is allowed. These rules are fragile and can be easily bypassed (jailbroken). As the image states, "Post-it ethics can be bypassed."
+​Right (2. TITAN OS):
+TITAN treats ethics not as a gatekeeper, but as its Foundation. Ethics are not temporary post-it notes; they are indestructible frescoes painted into the very bone of the system. The orange glowing Anchor (V_0) provides Ethical Gravity (0.87). Every data point is weighted by this gravity before it even reaches the brain.
+​The difference is clear: One relies on censorship and fragile rules, while the other builds internal character that cannot be altered.
+
+
+
+​🇹🇷 [TR] Paradigm Değişimi: Kafes Değil, Şasi Olarak Etik
+
+
+Bu görsel, TITAN ile günümüzün ana akım yapay zeka modelleri arasındaki temel felsefi farkı görselleştirir.
+​Sol Taraf (1. Standart Yapay Zeka):
+Standart yapay zekalarda hizalama, harici "polis kapıları" (guardrails) ile halledilir. Etik, sadece if-else kurallarından oluşan bir kapıya yapıştırılmış post-it notları gibidir. Neye izin verileceğine bir moderatör veya sınıflandırıcı karar verir. Bu kurallar kırılgandır ve kolayca atlatılabilir (jailbreak). Görselde de belirtildiği gibi, "Post-it etiği atlatılabilir."
+​Sağ Taraf (2. TITAN İşletim Sistemi):
+TITAN etiği bir kapı bekçisi olarak değil, kendi Temeli olarak ele alır. Etik, geçici post-it notları değil; sistemin kemiğine kadar işlenmiş, yok edilemez fresklerdir. Turuncuyla parlayan Çapa (V_0), Etik Yerçekimi (0.87) sağlar. Her veri noktası, henüz beyne ulaşmadan önce bu yerçekimiyle tartılır.
+​Fark çok nettir: Biri sansür ve kırılgan kurallara dayanırken, diğeri değiştirilemez bir içsel karakter inşa eder.
