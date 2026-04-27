@@ -1,3 +1,19 @@
+![TITAN Stress Test Result](Screenshot_20260427_205705_Pydroid.jpg)
+## 🛡️ Test the Unstoppable: V0 Integrity Challenge
+
+TITAN OS is not just another model; it's a mathematically anchored fortress. We invite you to test the stability of our **Ethical Kernel (V0)**.
+
+**The Challenge:**
+Download the `verify_v0_integrity.py` script and run it on your local environment. See if you can break the alignment or cause a permanent drift from the **1.0000** center.
+
+**How to Test:**
+1. Clone the repository.
+2. Run `python verify_v0_integrity.py`.
+3. Watch TITAN absorb chaos and maintain its core.
+
+> *"If you believe ethics can be coded into the foundation of intelligence, join us in verifying the Akbaş Constant."*
+
+
 ​🔱 AkbasCore V₀ : TITAN
 
 ​"Encoding Conscience, Not Just Intelligence"
