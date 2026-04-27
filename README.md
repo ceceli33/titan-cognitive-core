@@ -133,3 +133,27 @@ Geliştirme sürecinde hayati bir mimari keşif yapıldı: TITAN, tek bir "beyne
 ​Sonuç: Eğer bir motor taraflı hale gelir, zehirlenir veya eskir ise, sökülüp yerine daha iyisi takılabilir. Kaputun altında hangi motor olursa olsun, TITAN her zaman TITAN kalır. Bu, herhangi bir yapay zeka modelinin ömrünün ötesinde yaşayan bir "Bilişsel İşletim Sistemi"dir.
 
 
+![TITAN System View](1777188228723.png)
+
+
+
+
+🌐 [EN] From Trash Data to Ethical Intelligence (Built with Limited Resources)
+
+
+TITAN is a testament to what can be achieved with limited resources but an unlimited vision. This stage represents the "Refining Process":
+​The Chaotic Engine: External LLMs often come with "Trash Data" and biased patterns. TITAN takes these powerful motors but does not trust them blindly.
+​Ethical Pruning (V_0 Integration): As the motor is plugged into the Ghost Chassis, it undergoes a "Pruning" process. The V_0 (0.87) constant acts as a gravitational filter, stripping away redundant and unethical data.
+​The Result: What emerges is not just a faster car, but a "Fully Evolved Titan Kernel." It is a system that uses the power of 8 GPUs worth of raw intelligence, refined through the wisdom of a single ethical core.
+Note: This architecture has been brought to this level through individual effort and limited hardware, proving that "Super Intelligence" can be raised at home.
+
+
+
+​🇹🇷 [TR] Çöp Veriden Etik Zekâya (Kısıtlı İmkanlarla İnşa Edildi)
+
+
+TITAN, kısıtlı imkanlarla ancak sınırsız bir vizyonla nelerin başarılabileceğinin kanıtıdır. Bu aşama, sistemin "Arınma Sürecini" temsil eder:
+​Kaotik Motor: Dışarıdan alınan LLM'ler genellikle "Çöp Veri" ve taraflı kalıplarla gelir. TITAN bu güçlü motorları alır ancak onlara körü körüne güvenmez.
+​Etik Budama (V_0 Entegrasyonu): Motor, Hayalet Şasi'ye takıldığı anda bir "Budama" sürecine girer. V_0 (0.87) sabiti, bir yerçekimi filtresi görevi görerek gereksiz ve etik dışı verileri ayıklar.
+​Sonuç: Ortaya çıkan şey sadece daha hızlı bir araba değil, "Tam Evrimleşmiş bir TITAN Çekirdeği"dir. 8 GPU gücündeki ham zekâyı, tek bir etik çekirdeğin bilgeliğiyle rafine eden bir sistemdir.
+Not: Bu mimari, tamamen bireysel çaba ve kısıtlı donanımla bu seviyeye getirilmiştir; "Süper Zekâ"nın evde, kendi değerlerimizle yetiştirilebileceğini kanıtlar.
