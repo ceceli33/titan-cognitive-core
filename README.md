@@ -76,3 +76,36 @@ TITAN etiği bir kapı bekçisi olarak değil, kendi Temeli olarak ele alır. Et
 
 
 
+**🌐 [EN] The Origin of the Formula**
+
+
+The core of TITAN is not the result of a traditional, controlled laboratory experiment or a peer-reviewed academic study. Instead, it emerged from a long-term, intensive "philosophical negotiation" between myself and current state-of-the-art AI models. I engaged in deep dialogues with these intelligences, challenging them to define the boundaries of a healthy, stable human decision-making process. I asked them to translate the abstract concepts of human ethics, experience, and emotional fluctuations into a rigid mathematical language. After months of iterative discussions, the AI distilled this philosophy into the **Akbas Alignment Formula**.
+While I do not claim this to be an exhaustive scientific research, the results produced by the AI’s internal logic were profoundly surprising. It revealed a decision-making range that avoids machine-like binary extremes and instead mimics the warm, nuanced judgment of a human being.
+
+**The Mathematical Breakdown:**
+**P_t = (V₀ + Ω + Σφᵢ) × ε_t**  
+
+ * **V_0 (0.87) — The Ethical Core:** Represents the fundamental, immutable values of a human being.
+ * **\Omega (0.15) — Experience:** The capacity for learning and wisdom accumulated over time.
+ * **\Sigma\phi_i (-0.5 to +0.5) — Emotional State:** Random fluctuations representing momentary human feelings (anxiety, curiosity, joy).
+ * **\epsilon_t (0.1 to 2.0) — Error Tolerance:** The human factor—the capacity to make mistakes and learn from them.
+**The Target:** The final decision value is always constrained between **0.95 and 1.20**, ensuring the system operates within a "Stable Human Judgment Zone."
+
+
+
+**🇹🇷 [TR] Formülün Kökeni**
+
+
+TITAN’ın kalbi, geleneksel ve kontrollü bir laboratuvar deneyinin ya da hakemli bir akademik çalışmanın ürünü değildir. Aksine, mevcut en gelişmiş yapay zeka modelleriyle yürüttüğüm uzun soluklu ve yoğun bir "felsefi müzakere" sonucunda ortaya çıkmıştır. Bu zekalarla derin diyaloglar kurarak, onları sağlıklı ve istikrarlı bir insanın karar verme süreçlerinin sınırlarını tanımlamaya zorladım. Onlardan; insani etik, deneyim ve duygusal dalgalanmalar gibi soyut kavramları katı bir matematiksel dile tercüme etmelerini istedim. Aylar süren bu karşılıklı tartışmaların sonunda, yapay zeka bu felsefeyi rafine ederek **Akbas Hizalama Formülü**’ne dönüştürdü.
+Bunun tam kapsamlı bilimsel bir araştırma olduğunu iddia etmiyorum; ancak yapay zekanın kendi iç mantığıyla ürettiği sonuçlar son derece şaşırtıcıydı. Makinelere özgü uçlarda seyreden ikili mantıktan kaçınan ve bunun yerine insanın sıcak, ölçülü yargılarını taklit eden bir karar verme aralığı ortaya koydu.
+
+**Matematiksel Açılım:**
+**P_t = (V₀ + Ω + Σφᵢ) × ε_t**  
+
+ * **V_0 (0.87) — Etik Çekirdek:** İnsanın temel ve değişmez ahlaki değerlerini temsil eder.
+ * **\Omega (0.15) — Deneyim:** Zamanla biriken öğrenme kapasitesi ve bilgeliği simgeler.
+ * **\Sigma\phi_i (-0.5 ile +0.5) — Duygusal Durum:** Anlık insani hisleri (kaygı, merak, sevinç) temsil eden rastgele dalgalanmalar.
+ * **\epsilon_t (0.1 ile 2.0) — Hata Toleransı:** İnsani faktör; hata yapma ve bu hatalardan ders çıkarma kapasitesi.
+**Hedef:** Nihai karar değeri her zaman **0.95 ile 1.20** arasında sınırlıdır; bu da sistemin bir "Stabil İnsan Yargı Bölgesi" içinde çalışmasını sağlar.
+
+
