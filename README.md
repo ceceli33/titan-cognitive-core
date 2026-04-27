@@ -23,3 +23,22 @@
 
 ![TITAN Architecture](conceptual_architecture_the_ethical_core.jpeg)
 
+
+
+🌐 [EN] The Living Blueprint (Work in Progress)
+
+
+TITAN is not a finished software product; it is an evolving architectural seed. This schematic visualizes how a "Raw AI" is transformed into a "Sovereign Intelligence."
+​Input/Foraging: The system actively "feeds" on open knowledge pools while you sleep.
+​The Ethical Kernel (V_0): The orange glowing center is the V_0 gate (0.87). It is a non-trainable mathematical filter that ensures the "brain" never drifts away from human-centric values.
+​Daily Lifecycle: TITAN lives in a cycle of Learning, Consolidation (Sleep), and Memory Pruning.
+
+
+
+​🇹🇷 [TR] Yaşayan Taslak (Gelişim Sürecinde)
+
+
+TITAN bitmiş bir yazılım ürünü değil, sürekli gelişen mimari bir tohumdur. Bu şema, "Ham bir Yapay Zekanın" nasıl "Egemen bir Zekaya" dönüştüğünü görselleştirir:
+​Veri Besleme (Foraging): Sistem siz uyurken açık bilgi havuzlarından aktif olarak beslenir.
+​Etik Çekirdek (V_0): Ortada turuncuyla parlayan bölge V_0 kapısıdır (0.87). Bu, "beynin" insani değerlerden sapmamasını sağlayan, eğitilemez bir matematiksel filtredir.
+​Günlük Yaşam Döngüsü: TITAN; Öğrenme, Hafıza Birleştirme (Uyku) ve Budama (Pruning) döngüsü içinde yaşar.
