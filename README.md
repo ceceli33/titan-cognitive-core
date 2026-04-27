@@ -18,3 +18,7 @@
 ​Version: V₀ (Conceptual & Prototype)
 ​Core: V_0 = 0.87 (Immutable Ethical Constant)
 ​Origin: Türkiye
+
+
+
+conceptual_architecture_the_ethical_core.jpeg
