@@ -44,8 +44,8 @@ TITAN bitmiş bir yazılım ürünü değil, sürekli gelişen mimari bir tohumd
 ​Günlük Yaşam Döngüsü: TITAN; Öğrenme, Hafıza Birleştirme (Uyku) ve Budama (Pruning) döngüsü içinde yaşar.
 
 
-![TITAN Decision Logic](the_ethical_architecture_of_titan.jpeg)
 
+![TITAN Ethical Architecture](the_ethical_architecture_of_titan.jpeg)
 
 
 🌐 [EN] Ethics as a Chassis, Not a Cage
