@@ -184,7 +184,6 @@ Ben Mersin’de görev yapan sıradan bir görsel sanatlar öğretmeniyim. Kodla
 ​İletişim: ceceliccc33@gmail.com
 
 
-
 ![TITAN Cognitive Filter](1776943144227.png)
 
 
