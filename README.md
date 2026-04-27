@@ -69,3 +69,10 @@ Standart yapay zekalarda hizalama, harici "polis kapıları" (guardrails) ile ha
 ​Sağ Taraf (2. TITAN İşletim Sistemi):
 TITAN etiği bir kapı bekçisi olarak değil, kendi Temeli olarak ele alır. Etik, geçici post-it notları değil; sistemin kemiğine kadar işlenmiş, yok edilemez fresklerdir. Turuncuyla parlayan Çapa (V_0), Etik Yerçekimi (0.87) sağlar. Her veri noktası, henüz beyne ulaşmadan önce bu yerçekimiyle tartılır.
 ​Fark çok nettir: Biri sansür ve kırılgan kurallara dayanırken, diğeri değiştirilemez bir içsel karakter inşa eder.
+
+
+
+![TITAN Alchemical Blueprint](the_alchemical_blueprint.jpeg)
+
+
+
