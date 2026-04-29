@@ -1,6 +1,5 @@
 # 🔱 TITAN Better a prototype in the right place than right in the wrong place.
 
-[geri kalan README...]
 
 1) "I tried, but I have personally verified that a mathematical formula is not enough to stop a massive AI. AkbasCore V13 is not a solution; it is a 'monument of failure.' This project is no longer software; it remains as an idea and a warning: Intelligence cannot be caged by math, only balanced by its own essence."
 
