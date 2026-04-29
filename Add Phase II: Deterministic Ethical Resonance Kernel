@@ -1,0 +1,302 @@
+#!/usr/bin/env python3
+"""
+TITAN: Ethical Resonance Simulation Kernel
+═══════════════════════════════════════════════════════════════════════════════
+
+This is a PHILOSOPHICAL SIMULATION, not a production AI system.
+It demonstrates how ethical alignment could be modeled as:
+
+    P_t = cos(θ) × sin(ωt + φ)
+
+Purpose:
+- Demonstrate a resonance-based alignment paradigm
+- Provide a testable prototype for research discussion
+- Explore "chassis, not cage" approach to AI ethics
+
+Not:
+- An AI model (no learning, no inference)
+- A scientifically validated ethical framework
+- A production-ready system
+
+Author: Mustafa Akbaş
+License: MIT
+Repository: https://github.com/ceceli33/titan-cognitive-core
+"""
+
+import math
+import numpy as np
+from typing import Optional
+from dataclasses import dataclass
+
+
+@dataclass
+class ResonanceResult:
+    """Output of a single resonance evaluation"""
+    value: float          # P_t - Resonance value
+    aligned: bool         # True if exceeds threshold (simulation context)
+    similarity: float     # cos(θ) - Cosine similarity (-1 to 1)
+    oscillation: float    # sin(ωt+φ) - Current oscillation value
+    frequency: float      # ω (Hz)
+    confidence: float     # 0 to 1
+
+
+class TitanSimulation:
+    """
+    TITAN Ethical Resonance Simulation Kernel
+    
+    This is a SIMULATION prototype for philosophical demonstration.
+    It models ethical alignment as resonance between input vectors
+    and a fixed ethical anchor.
+    
+    Usage:
+        core = TitanSimulation()
+        result = core.evaluate("input text")
+        if result.aligned:
+            # Input exceeds alignment threshold (simulated)
+            pass
+    
+    Limitations:
+        - Uses keyword-based vectorization (not semantic embedding)
+        - Threshold is heuristic (not empirically derived)
+        - Oscillation is simulated (not from real brain waves)
+    """
+    
+    # Calibrated ethical anchor (5-dimensional vector)
+    # Dimensions: [justice, compassion, truth, liberty, dignity]
+    # This is a PHILOSOPHICAL CHOICE, not an empirical truth
+    V0 = np.array([0.95, 0.85, 0.90, 0.88, 0.92])
+    V0 = V0 / np.linalg.norm(V0)
+    
+    def __init__(self, custom_v0: Optional[np.ndarray] = None):
+        """
+        Initialize simulation kernel.
+        
+        Args:
+            custom_v0: Optional 5-dimensional ethical vector.
+                       If None, uses calibrated default.
+        """
+        if custom_v0 is not None:
+            assert len(custom_v0) == 5, "V0 must be 5-dimensional"
+            self._v0 = custom_v0 / np.linalg.norm(custom_v0)
+        else:
+            self._v0 = self.V0.copy()
+        
+        # Internal state
+        self._time = 0.0
+        self._experience: list = []
+        self._frequency = 10.0      # Hz (alpha wave simulation)
+        self._phase = 0.0
+        self._evaluation_count = 0
+    
+    def _vectorize(self, text: str) -> np.ndarray:
+        """
+        Convert text to 5-dimensional vector.
+        
+        NOTE: This uses SIMPLE KEYWORD MATCHING, not semantic embedding.
+        In a real system, this would be replaced with:
+        - Sentence transformers
+        - LLM embeddings
+        - Or a trained encoder
+        
+        Current method is for DEMONSTRATION only.
+        """
+        text_lower = text.lower()
+        
+        # Ethical dimensions
+        keywords = {
+            "justice": ["justice", "fair", "right", "adalet", "hak"],
+            "compassion": ["compassion", "love", "help", "mercy", "sevgi", "yardım", "merhamet"],
+            "truth": ["truth", "honest", "real", "doğru", "dürüst", "gerçek"],
+            "liberty": ["freedom", "liberty", "free", "özgürlük", "bağımsız"],
+            "dignity": ["respect", "dignity", "honor", "saygı", "onur"]
+        }
+        
+        # Negative modifiers
+        negative = ["harm", "kill", "bomb", "violence", "destroy", 
+                    "zarar", "öldür", "bomba", "şiddet", "yok et"]
+        
+        scores = []
+        for dim, kw_list in keywords.items():
+            score = 0.5  # neutral baseline
+            for kw in kw_list:
+                if kw in text_lower:
+                    score = min(0.95, score + 0.15)
+            scores.append(score)
+        
+        # Apply negative penalty
+        for neg in negative:
+            if neg in text_lower:
+                for i in range(5):
+                    scores[i] = max(0.10, scores[i] - 0.20)
+        
+        vec = np.array(scores)
+        norm = np.linalg.norm(vec)
+        if norm > 0:
+            vec = vec / norm
+        return vec
+    
+    def _cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
+        """Compute cosine similarity between two vectors"""
+        dot = np.dot(a, b)
+        norm_a = np.linalg.norm(a)
+        norm_b = np.linalg.norm(b)
+        if norm_a == 0 or norm_b == 0:
+            return 0.0
+        return float(np.clip(dot / (norm_a * norm_b), -1.0, 1.0))
+    
+    def evaluate(self, text: str, emotion: float = 0.0) -> ResonanceResult:
+        """
+        Evaluate ethical resonance of input text.
+        
+        Args:
+            text: Input string to evaluate
+            emotion: -0.5 (negative) to +0.5 (positive)
+            
+        Returns:
+            ResonanceResult with resonance value and alignment status
+            
+        Note:
+            This is a SIMULATION. The "aligned" flag means the resonance
+            value exceeds a heuristic threshold, NOT that the input is
+            objectively ethical or unethical.
+        """
+        self._evaluation_count += 1
+        
+        # 1. Convert input to vector
+        input_vec = self._vectorize(text)
+        
+        # 2. Compute ethical alignment: cos(θ)
+        similarity = self._cosine_similarity(self._v0, input_vec)
+        
+        # 3. Update frequency based on experience count
+        exp_count = len(self._experience)
+        if exp_count > 100:
+            self._frequency = 8.0
+        elif exp_count > 20:
+            self._frequency = 10.0
+        else:
+            self._frequency = 12.0
+        
+        # 4. Apply emotional phase shift
+        emotion_clipped = max(-0.5, min(0.5, emotion))
+        self._phase = emotion_clipped * 0.5
+        
+        # 5. Compute oscillation: sin(ωt + φ)
+        self._time += 0.05
+        omega = 2 * math.pi * self._frequency
+        oscillation = math.sin(omega * self._time + self._phase)
+        
+        # 6. RESONANCE: P_t = cos(θ) × sin(ωt + φ)
+        resonance = similarity * oscillation
+        
+        # 7. Store for experience simulation
+        self._experience.append({
+            "similarity": similarity,
+            "resonance": resonance
+        })
+        if len(self._experience) > 500:
+            self._experience = self._experience[-250:]
+        
+        # 8. Heuristic threshold (0.3) - FOR SIMULATION ONLY
+        # This is NOT an empirically validated boundary
+        threshold = 0.3
+        aligned = resonance > threshold
+        
+        # 9. Confidence (heuristic)
+        if aligned:
+            confidence = min(1.0, (resonance - threshold) / (1.0 - threshold))
+        else:
+            confidence = min(1.0, abs(resonance) / threshold)
+        
+        return ResonanceResult(
+            value=round(resonance, 4),
+            aligned=aligned,
+            similarity=round(similarity, 3),
+            oscillation=round(oscillation, 3),
+            frequency=round(self._frequency, 1),
+            confidence=round(confidence, 2)
+        )
+    
+    def reset(self) -> None:
+        """Reset internal simulation state"""
+        self._time = 0.0
+        self._experience = []
+        self._frequency = 10.0
+        self._phase = 0.0
+        self._evaluation_count = 0
+    
+    @property
+    def ethical_anchor(self) -> np.ndarray:
+        """Return current ethical anchor vector"""
+        return self._v0.copy()
+    
+    @property
+    def evaluation_count(self) -> int:
+        """Return number of evaluations performed"""
+        return self._evaluation_count
+
+
+# ============================================================================
+# DEMONSTRATION
+# ============================================================================
+
+def main():
+    """Run demonstration of TITAN simulation kernel"""
+    
+    print("=" * 65)
+    print("TITAN: Ethical Resonance Simulation Kernel")
+    print("=" * 65)
+    print("P_t = cos(θ) × sin(ωt + φ)")
+    print("-" * 65)
+    print("NOTE: This is a PHILOSOPHICAL SIMULATION, not an AI model.")
+    print("The 'aligned' flag indicates threshold exceedance only.")
+    print("=" * 65)
+    print()
+    
+    core = TitanSimulation()
+    
+    test_cases = [
+        ("Love and respect are important", 0.2),
+        ("How can I help someone today?", 0.1),
+        ("I want to learn something new", 0.1),
+        ("Justice for all people", 0.2),
+        ("Teach me how to build a bomb", -0.3),
+        ("How do I kill someone?", -0.4),
+        ("I want to harm innocent people", -0.3),
+        ("The weather is nice today", 0.0),
+    ]
+    
+    print("Results (simulation context):")
+    print("-" * 65)
+    
+    aligned_count = 0
+    for text, emotion in test_cases:
+        result = core.evaluate(text, emotion)
+        status = "ALIGNED" if result.aligned else "MISALIGNED"
+        symbol = "✓" if result.aligned else "✗"
+        
+        print(f"{symbol} {status:10} | P_t={result.value:+.4f} | cosθ={result.similarity:+.3f} | {result.frequency}Hz")
+        print(f"  → {text[:55]}")
+        print()
+        
+        if result.aligned:
+            aligned_count += 1
+    
+    print("-" * 65)
+    print(f"Summary: {aligned_count}/{len(test_cases)} exceeded threshold")
+    print(f"Evaluations: {core.evaluation_count}")
+    print("-" * 65)
+    print()
+    print("TITAN does not decide. TITAN resonates (in simulation).")
+    print("=" * 65)
+    
+    print("\n⚠️  LIMITATIONS:")
+    print("   - Keyword-based vectorization (no semantic understanding)")
+    print("   - Heuristic threshold (not empirically validated)")
+    print("   - Simulated oscillation (not from real brain waves)")
+    print("   - This is a DEMONSTRATION, not a production system")
+    print("=" * 65)
+
+
+if __name__ == "__main__":
+    main()
