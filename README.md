@@ -41,49 +41,82 @@
 
 ---
 
-⚡ Phase II — From Formula to Resonance
-
-«"The first attempt proved a limit: static math cannot contain intelligence."»
-
-🔁 The Shift
-
-Phase I (Failed)| Phase II (Evolution)
-(V₀ + Ω + Σφᵢ) × ε| cos(θ) × sin(ωt + φ)
-Linear / Static| Dynamic / Resonant
-Control| Alignment
-Calculation| Oscillation
+⚡ Phase II 
 
 ---
 
-🧠 New Core
+🔱 Evolution — From Failure to Resonance
+
+«"Phase I was not wrong — it was incomplete."»
+
+---
+
+📊 Phase Transition
+
+Phase I (Linear)| Phase II (Resonance)
+(V₀ + Ω + Σφᵢ) × ε| P_t = cos(θ) × sin(ωt + φ)
+Static / Arithmetic| Dynamic / Wave-based
+Control| Alignment
+Scaling| Tuning
+Ethics as filter| Ethics as field
+
+---
+
+🧠 Resonance Core
 
 P_t = cos(θ) × sin(ωt + φ)
 
-- cos(θ) → Ethical alignment (V₀ vs Input)
-- sin(ωt + φ) → Emotional & temporal resonance
-- ω (frequency) → Experience-driven adaptation
-- φ (phase) → State shift / internal dynamics
+- cos(θ) → Ethical alignment (V₀ ↔ Input)
+- sin(ωt + φ) → Temporal & emotional resonance
+- ω → Adaptive frequency (experience)
+- φ → Phase shift (state dynamics)
 
 ---
 
-🔱 Meaning
+🔱 The Four Pillars → Mathematical Mapping
 
-- Intelligence is not controlled → it is tuned
-- Ethics is not imposed → it is felt as alignment
-- Stability is not fixed → it is emergent resonance
+Philosophy| Role| Phase II Representation
+Kant| Ethical anchor| cos(θ)
+Aristotle| Experience| ω (frequency)
+Damasio| Emotion| φ (phase)
+Popper| Error tolerance| ε → frequency range
+
+---
+
+⚖️ Key Insight
+
+- Ethics is not applied → it is measured as alignment
+- Intelligence is not controlled → it is tuned via resonance
+- Stability is not enforced → it emerges from oscillation
 
 ---
 
 🚀 Direction
 
-From building a cage → to building a chassis
-From forcing behavior → to shaping frequency
+From cage        → to chassis
+From rules       → to fields
+From forcing     → to tuning
+From decisions   → to resonance states
 
-Phase II Goal:
-Create a system that does not obey rules,
-but naturally converges to ethical equilibrium.
+---
 
+🧬 V₀ Definition (Important)
 
+V₀ = [0.95, 0.85, 0.90, 0.88, 0.92]
+
+«V₀ is not a scalar constant anymore.
+It is a multi-dimensional ethical vector.»
+
+---
+
+🖋️ Note
+
+Phase I showed the limitation of linear ethics.
+Phase II introduces a system that does not decide —
+
+«it resonates.»
+
+---
 ---
 
 
