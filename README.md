@@ -1,9 +1,13 @@
- "I tried, but I have personally verified that a mathematical formula is not enough to stop a massive AI. AkbasCore V13 is not a solution; it is a 'monument of failure.' This project is no longer software; it remains as an idea and a warning: Intelligence cannot be caged by math, only balanced by its own essence."
-🤯 
-​"Bach and Einstein were constrained by rules, yet they were geniuses. This proves that a constraint (V_0) does not have to kill intelligence; instead, it can act like a riverbed, guiding the flow. However, the current Titan/AkbasCore treats ethics as a 'wall' rather than a 'channel.' If we change our perspective from 'policing' to 'founding,' perhaps a solution exists. I don't know yet, but the path starts here."
+1) "I tried, but I have personally verified that a mathematical formula is not enough to stop a massive AI. AkbasCore V13 is not a solution; it is a 'monument of failure.' This project is no longer software; it remains as an idea and a warning: Intelligence cannot be caged by math, only balanced by its own essence."
+
+2) Keep trying / Keep experimenting
+"We cannot imprison intelligence, but we can invite it to an ethical resonance."
+
+New file:
+AkbasCore_V0_Error_V0_NewConsciousPath.py
 
 
-​🔱 AkbasCore V₀ : TITAN
+  "1st Failed Attempt" ​🔱 AkbasCore V₀ : TITAN
 
 ​"Encoding Conscience, Not Just Intelligence"
 ​"Zekayı Değil, Vicdanı Kodlamak"
