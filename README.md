@@ -37,6 +37,9 @@
 
 ![AkbasCore Resonance Logic](Screenshot_20260429_180918_Google.jpg)
 
+**"Intelligence may lie with words, but never with its own mathematics: If the intent does not align with the ethical anchor, the system silences the intelligence."**
+
+
 
 ​🖋️ A Note from the Creator
 ​I am just an ordinary teacher, but I have seen a light. I am fully aware that I cannot achieve on my own what tens of thousands of super-intelligent experts have failed to accomplish. I do not claim to possess their technical resources. I only claim this: I have seen the light.
