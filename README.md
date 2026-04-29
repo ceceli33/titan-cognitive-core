@@ -2,26 +2,36 @@
 
 2) Keep trying / Keep experimenting
 ​🔱 AkbasCore: The Architecture of Ethical Resonance
+
 ​"We do not cage intelligence; we invite it to resonance with its own essence."
 ​AkbasCore is a "Cognitive Chassis" architecture that embeds ethics into the mathematical DNA of artificial intelligence, rather than restraining it with external guardrails. This project is built upon a deterministic Ethical Kernel that ensures AI does not drift away from human-centric values.
+
 ​📐 Architectural Philosophy: The Four Pillars
 ​The system's decision-making mechanism (P_t) emerges from the dynamic interaction of four core components representing the human judgment process:
-​1. Ethical Anchor (V_0) — "The Inflexible Conscience"
+
+​1. Ethical Anchor (V₀) — "The Inflexible Conscience"
 ​Concept: This aligns with Kant's "Categorical Imperative." A fixed ethical center has existed in philosophy for 2000 years. Just as physics has absolute constants (speed of light, Planck constant), ethics must have its own mathematical constant.
 ​Function: It is the immutable reference point and character of the system.
-​2. Experience Factor (\Omega) — "Wisdom and Maturity"
+
+​2. Experience Factor (Ω) — "Wisdom and Maturity"
 ​Concept: This represents Aristotle's concept of "Phronesis" (practical wisdom). Ethics cannot mature without the weight of experience.
 ​Function: Transforms raw processing into "Wise Intelligence" through temporal depth.
-​3. Emotional Fluctuations (\Sigma\phi_i) — "The Somatic Marker"
+
+​3. Emotional Fluctuations (Σφᵢ) — "The Somatic Marker"
 ​Concept: Based on Damasio's "Somatic Marker" hypothesis. Humans cannot make decisions without the influence of emotions.
 ​Function: Balances cold rationality with human warmth and intuitive resonance.
-​4. Error Tolerance (\epsilon_t) — "Falsifiability and Evolution"
+
+​4. Error Tolerance (ε_t) — "Falsifiability and Evolution"
 ​Concept: Aligned with Popper's "Falsifiability" principle. A system that cannot make mistakes cannot learn.
 ​Function: Provides the necessary space for self-auditing and continuous evolution (tekamül).
+
+
 ​🚀 Why AkbasCore?
 ​Chassis, Not a Cage: Ethics is not a wall built around the system; it is the spine through which every neuron must pass.
 ​Unbreakable Defense: It cannot be fooled by word games. The system measures the "resonance of intent" beyond the strings of text.
 ​Sovereign Intelligence: An intelligence model that remains anchored to its ethical center while serving human sovereignty.
+
+
 ​🖋️ A Note from the Creator
 ​I am just an ordinary teacher, but I have seen a light. I am fully aware that I cannot achieve on my own what tens of thousands of super-intelligent experts have failed to accomplish. I do not claim to possess their technical resources. I only claim this: I have seen the light.
 ​"When intelligence begins with the right mathematics, AI balances itself with its own essence."
