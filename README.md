@@ -1,10 +1,10 @@
 # 🔱 TITAN Better a prototype in the right place than right in the wrong place.
 
 
-1) 
-​🔱 TITAN: The Era of Resonance
+1) 🔱 TITAN: The Era of Resonance
 ​"Phase I concluded as a structural lesson. Phase II is now live with the Resonance Core."
 ​AkbasCore has transitioned from a linear ethical filter to a dynamic resonance-based alignment system. The "monument of failure" has served its purpose as a foundation, and we are now moving towards a deterministic, wave-based ethical kernel.
+
 2) Keep trying / Keep experimenting
 ​🔱 AkbasCore: The Architecture of Ethical Resonance
 
