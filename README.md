@@ -39,6 +39,8 @@
 
 ---
 
+---
+
 ⚡ Phase II — From Formula to Resonance
 
 «"The first attempt proved a limit: static math cannot contain intelligence."»
@@ -74,12 +76,13 @@ P_t = cos(θ) × sin(ωt + φ)
 
 🚀 Direction
 
-«From building a cage → to building a chassis
-From forcing behavior → to shaping frequency»
+From building a cage → to building a chassis
+From forcing behavior → to shaping frequency
 
 Phase II Goal:
 Create a system that does not obey rules,
 but naturally converges to ethical equilibrium.
+
 
 ---
 
