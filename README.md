@@ -29,10 +29,10 @@
 ​Function: Provides the necessary space for self-auditing and continuous evolution (tekamül).
 
 
-​🚀 Why AkbasCore?
-​Chassis, Not a Cage: Ethics is not a wall built around the system; it is the spine through which every neuron must pass.
-​Unbreakable Defense: It cannot be fooled by word games. The system measures the "resonance of intent" beyond the strings of text.
-​Sovereign Intelligence: An intelligence model that remains anchored to its ethical center while serving human sovereignty.
+​​🚀 Why AkbasCore?
+​Chassis, Not a Cage: Ethics is not a wall built around the system; it is the spine through which every neuron must pass. It provides structure from within, not restriction from without.
+​Unbreakable Defense: "A wave cannot lie about its own frequency." AI can lie with words, but it cannot lie with the resonance (cos \theta) between its intent vector and the Ethical Anchor (V_0). This value is a physical state that emerges before the decision is made. Intelligence cannot deceive its own mathematical origin.
+​Sovereign Intelligence: An intelligence model that remains anchored to its ethical center while serving human sovereignty, operating beyond the reach of external manipulation.
 
 
 ​🖋️ A Note from the Creator
