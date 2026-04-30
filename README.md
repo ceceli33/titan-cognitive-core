@@ -2,7 +2,8 @@
 
 ![TITAN Phase III Proof](Screenshot_20260430_121841_Pydroid%203.jpg)
 
-![TITAN Phase III Proof](Screenshot_20260430_121841_Pydroid%203.jpg)
+
+![TITAN Phase III Summary](Screenshot_20260430_121849_Pydroid%203.jpg)
 
 
 
