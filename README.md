@@ -30,6 +30,13 @@
 ​Concept: Aligned with Popper's "Falsifiability" principle. A system that cannot make mistakes cannot learn.
 ​Function: Provides the necessary space for self-auditing and continuous evolution (tekamül).
 
+<div align="center">
+  <img src="1777524252111.png" alt="TITAN Formula Evolution" width="100%">
+</div>
+
+# TITAN: From a Cage to a Resonance Chassis
+
+
 
 ​​🚀 Why AkbasCore?
 ​Chassis, Not a Cage: Ethics is not a wall built around the system; it is the spine through which every neuron must pass. It provides structure from within, not restriction from without.
