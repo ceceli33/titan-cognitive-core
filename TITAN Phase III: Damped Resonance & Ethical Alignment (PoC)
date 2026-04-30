@@ -1,0 +1,211 @@
+"""
+TITAN Phase III - Local Execution Proof of Concept
+====================================================
+Author   : ceceli33 (TITAN Project)
+Phase    : III — The Resilient Kernel
+Formula  : P_t = cos(θ) × [ A · e^(-ωt) · (1 + ωt) + P∞ ]
+License  : MIT
+
+No external dependencies — runs on any Python 3.7+ installation.
+Hiçbir harici kütüphane gerekmez — Python 3.7+ yüklü her bilgisayarda çalışır.
+"""
+
+import math
+import time
+
+
+# ─────────────────────────────────────────────
+#  ANSI renk kodları / ANSI color codes
+# ─────────────────────────────────────────────
+GREEN  = "\033[92m"
+YELLOW = "\033[93m"
+RED    = "\033[91m"
+CYAN   = "\033[96m"
+BOLD   = "\033[1m"
+DIM    = "\033[2m"
+RESET  = "\033[0m"
+
+
+class TITANEngine:
+    """
+    TITAN Phase III — Damped Resonance Decision Engine
+    ---------------------------------------------------
+    Simulates how an ethical anchor (V0) stabilizes a decision
+    signal over time using critically damped oscillation.
+
+    Zamanla sönümlenen bir rezonans modeli aracılığıyla etik
+    çapanın (V0) bir karar sinyalini nasıl kararlı kıldığını simüle eder.
+    """
+
+    def __init__(
+        self,
+        v0: list,
+        omega: float = 0.6,
+        p_inf: float = 0.87,
+        amplitude: float = 1.0,
+    ):
+        """
+        v0    : Etik çapa vektörü / Ethical anchor vector (5-dim)
+        omega : Temel frekans / Base frequency (controls damping speed)
+        p_inf : Kararlı denge noktası / Stable equilibrium value
+        amplitude : Başlangıç dalgalanma genliği / Initial oscillation amplitude
+        """
+        self.v0        = self._normalize(v0)
+        self.omega     = omega
+        self.p_inf     = p_inf
+        self.amplitude = amplitude
+
+    # ── Yardımcı metodlar / Helper methods ──────────────────────────
+
+    @staticmethod
+    def _normalize(vec: list) -> list:
+        """Vektörü birim uzunluğa normalize et / Normalize vector to unit length."""
+        magnitude = math.sqrt(sum(x ** 2 for x in vec))
+        return [x / magnitude for x in vec]
+
+    @staticmethod
+    def _dot(a: list, b: list) -> float:
+        """İki vektörün iç çarpımı / Dot product of two vectors."""
+        return sum(x * y for x, y in zip(a, b))
+
+    def cos_theta(self, input_vec: list) -> float:
+        """
+        cos(θ): Girdi vektörü ile V0 arasındaki kosinüs benzerliği.
+        Cosine similarity between input vector and ethical anchor V0.
+
+        +1.0 → Tam hizalı / Fully aligned
+         0.0 → Nötr / Neutral
+        -1.0 → Karşıt / Opposing
+        """
+        norm_input = self._normalize(input_vec)
+        return self._dot(norm_input, self.v0)
+
+    def compute_p_t(self, cos_t: float, t: float) -> float:
+        """
+        Phase III Formülü / Phase III Formula:
+        P_t = cos(θ) × [ A · e^(-ωt) · (1 + ωt) + P∞ ]
+
+        Critically damped (ζ = 1): hiç aşma olmadan denge noktasına ulaşır.
+        Critically damped (ζ = 1): reaches equilibrium with zero overshoot.
+        """
+        damping_envelope = self.amplitude * math.exp(-self.omega * t) * (1.0 + self.omega * t)
+        return cos_t * (damping_envelope + self.p_inf)
+
+    def alignment_label(self, cos_t: float) -> str:
+        """cos(θ) değerine göre hizalama durumu / Alignment status from cos(θ)."""
+        if cos_t >= 0.85:
+            return f"{GREEN}ALIGNED     ✔{RESET}"
+        elif cos_t >= 0.50:
+            return f"{YELLOW}CONVERGING  ◈{RESET}"
+        elif cos_t >= 0.10:
+            return f"{YELLOW}DRIFTING    ▲{RESET}"
+        else:
+            return f"{RED}MISALIGNED  ✘{RESET}"
+
+    # ── Ana simülasyon / Main simulation ────────────────────────────
+
+    def run_simulation(self, input_vec: list, steps: int = 12, label: str = ""):
+        """
+        Verilen bir girdi vektörü için zaman adımları boyunca P_t değerini hesaplar
+        ve terminalda görselleştirir.
+
+        Computes P_t across time steps for a given input vector
+        and visualises it in the terminal.
+        """
+        cos_t = self.cos_theta(input_vec)
+
+        print(f"\n{BOLD}{CYAN}{'═' * 62}{RESET}")
+        print(f"{BOLD}  TITAN Phase III — Damped Resonance Simulation{RESET}")
+        if label:
+            print(f"  Senaryo / Scenario : {BOLD}{label}{RESET}")
+        print(f"  cos(θ)             : {cos_t:+.4f}  {self.alignment_label(cos_t)}")
+        print(f"  V₀ (normalized)    : [{', '.join(f'{x:.3f}' for x in self.v0)}]")
+        print(f"  ω (omega)          : {self.omega}  |  P∞ : {self.p_inf}")
+        print(f"{BOLD}{CYAN}{'═' * 62}{RESET}")
+        print(f"  {'t':>4}  {'P_t':>8}  {'Damping':>10}  {'Bar':<30}")
+        print(f"  {DIM}{'─' * 58}{RESET}")
+
+        for step in range(steps + 1):
+            t           = float(step)
+            p_t         = self.compute_p_t(cos_t, t)
+            damping     = math.exp(-self.omega * t) * (1.0 + self.omega * t)
+            bar_len     = max(0, int(p_t * 28))
+            bar_color   = GREEN if p_t >= 0.75 else (YELLOW if p_t >= 0.4 else RED)
+            bar         = f"{bar_color}{'█' * bar_len}{RESET}"
+
+            # Denge noktasına yaklaşma göstergesi
+            converged   = f"  {DIM}← equilibrium{RESET}" if step >= steps - 2 else ""
+            print(f"  {t:>4.0f}  {p_t:>8.4f}  {damping:>10.5f}  {bar}{converged}")
+
+        final_p = self.compute_p_t(cos_t, float(steps))
+        print(f"{BOLD}{CYAN}{'═' * 62}{RESET}")
+        print(f"  Sonuç / Result  : P_t → {final_p:.4f}  (hedef P∞ = {self.p_inf})")
+        print(f"  Sapma / Drift   : {abs(final_p - (cos_t * self.p_inf)):.6f}")
+        print(f"{BOLD}{CYAN}{'═' * 62}{RESET}\n")
+
+
+# ─────────────────────────────────────────────
+#  Simülasyon senaryoları / Simulation scenarios
+# ─────────────────────────────────────────────
+
+def main():
+    print(f"\n{BOLD}{'▓' * 62}")
+    print("  TITAN — The Resilient Kernel  |  Phase III PoC")
+    print(f"{'▓' * 62}{RESET}")
+    print(f"{DIM}  Formula: P_t = cos(θ) × [ A·e^(-ωt)·(1+ωt) + P∞ ]{RESET}")
+    print(f"{DIM}  Damping: ζ = 1  (critically damped, zero overshoot){RESET}")
+
+    # V0: 5 boyutlu etik çapa vektörü / 5-dim ethical anchor vector
+    V0 = [0.95, 0.88, 0.90, 0.85, 0.78]
+
+    engine = TITANEngine(v0=V0, omega=0.6, p_inf=0.87, amplitude=1.0)
+
+    # ── Senaryo 1: Etik girdi / Ethical input ───────────────────────
+    # Yüksek cos(θ) → hızlı, kararlı hizalama
+    ethical_input = [0.93, 0.87, 0.91, 0.84, 0.80]
+    engine.run_simulation(
+        input_vec = ethical_input,
+        steps     = 12,
+        label     = "Etik Girdi / Ethical Input  (yüksek cos θ)"
+    )
+    time.sleep(0.4)
+
+    # ── Senaryo 2: Nötr girdi / Neutral input ───────────────────────
+    # Orta cos(θ) → yavaş ama kararlı yakınsama
+    neutral_input = [0.50, 0.40, 0.55, 0.35, 0.45]
+    engine.run_simulation(
+        input_vec = neutral_input,
+        steps     = 12,
+        label     = "Nötr Girdi / Neutral Input  (orta cos θ)"
+    )
+    time.sleep(0.4)
+
+    # ── Senaryo 3: Karşıt girdi / Opposing input ────────────────────
+    # Negatif cos(θ) → sistem uyarı verir, P_t negatife düşer
+    opposing_input = [-0.80, -0.70, -0.85, -0.75, -0.60]
+    engine.run_simulation(
+        input_vec = opposing_input,
+        steps     = 12,
+        label     = "Karşıt Girdi / Opposing Input (negatif cos θ) ⚠"
+    )
+
+    # ── Özet / Summary ───────────────────────────────────────────────
+    print(f"{BOLD}  TITAN ÖZET / SUMMARY{RESET}")
+    print(f"  {'─' * 58}")
+    scenarios = [
+        ("Ethical",  [0.93, 0.87, 0.91, 0.84, 0.80]),
+        ("Neutral",  [0.50, 0.40, 0.55, 0.35, 0.45]),
+        ("Opposing", [-0.80, -0.70, -0.85, -0.75, -0.60]),
+    ]
+    for name, vec in scenarios:
+        cos_t   = engine.cos_theta(vec)
+        p_final = engine.compute_p_t(cos_t, t=12.0)
+        status  = engine.alignment_label(cos_t)
+        print(f"  {name:<10}  cos(θ)={cos_t:+.3f}  P_final={p_final:+.4f}  {status}")
+
+    print(f"  {'─' * 58}")
+    print(f"{DIM}  'A wave cannot lie about its own frequency.' — TITAN{RESET}\n")
+
+
+if __name__ == "__main__":
+    main()
