@@ -1,6 +1,8 @@
-# 🔱 TITAN 
+# 🔱 TITAN Phase 3
 
 ![TITAN Phase III Proof](Screenshot_20260430_121841_Pydroid%203.jpg)
+![TITAN Phase III Proof](Screenshot_20260430_121849_Pydroid.jpg)
+
 
 1) 🔱 TITAN: The Era of Resonance
 ​"Phase I concluded as a structural lesson. Phase II is now live with the Resonance Core."
