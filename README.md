@@ -5,7 +5,14 @@
 
 ![TITAN Phase III Summary](Screenshot_20260430_121849_Pydroid%203.jpg)
 
-
+​English
+​IMPORTANT: To access the live source code and terminal simulation, click the file link below:
+​🚀 TITAN Phase III: Damped Resonance & Ethical Alignment (PoC)
+​(No external dependencies required — runs on any device with Python 3.7+ installed.)
+​Türkçe
+​ÖNEMLİ: Projenin çalışan kaynak kodlarına ve terminal simülasyonuna ulaşmak için aşağıdaki dosya bağlantısına tıklayın:
+​🚀 TITAN Phase III: Damped Resonance & Ethical Alignment (PoC)
+​(Harici kütüphane gerektirmez — Python 3.7+ yüklü her cihazda doğrudan çalışır.
 
 1) 🔱 TITAN: The Era of Resonance
 ​"Phase I concluded as a structural lesson. Phase II is now live with the Resonance Core."
