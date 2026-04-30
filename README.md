@@ -363,3 +363,355 @@ Bu mimari mantığın gücüne yürekten inanıyorum. Yazılımcılara, "prompt"
 ​Etik Çapa'daki açıkları bulmaya çalışın.
 ​Teknik hatalarımı düzeltin ve kodu optimize edin.
 Eğer bu "Vicdan Temelli" mantığın gerçekten işe yaradığını görür ve potansiyeli fark ederseniz lütfen beni bilgilendirin. Sizin uzmanlığınızla öğrenmeye, gelişmeye ve bu vizyonu büyütmeye hazırım.
+
+
+# ⚡ Phase III: The Resilient Kernel
+
+> *"Felsefe yeterli değil. Felsefe, ölçülebilir bir sisteme dönüşmediği sürece sadece güzel bir rüyadır."*
+> *"Philosophy is not enough. Unless it becomes a measurable system, it remains only a beautiful dream."*
+
+---
+
+## 🔱 Felsefeden Mühendisliğe / From Philosophy to Engineering
+
+Phase I, etik bir filtre olarak doğrusal bir formül denedi.
+Phase II, bunu dinamik bir rezonans dalgasına taşıdı.
+
+**Phase III**, bu dalgayı matematiksel olarak kararlı (stable) bir sisteme dönüştürür.
+
+Temel fark şudur: Saf bir sinüs dalgası sonsuza kadar salınır — hiçbir zaman oturmaz. Gerçek karar sistemleri ise sapmaları sönümleyerek bir denge noktasına yerleşir. İnsan yargısı da böyle çalışır: kaos içinde savrulur, ama nihayetinde karaktere — etik çapaya — döner.
+
+The core difference: a pure sine wave oscillates forever — it never settles. Real decision systems damp deviations and converge to equilibrium. Human judgment works the same way: it is tossed by chaos, but ultimately returns to character — to the ethical anchor.
+
+---
+
+## 📐 Matematiksel Kararlılık / Mathematical Stability
+
+### Phase II (Kararsız / Unstable)
+
+```
+P_t = cos(θ) × sin(ωt + φ)
+```
+
+Bu formül sonsuza kadar salınır. Bir LLM karar sistemi için bu, **drift**'e (sapma) açık kalmak demektir.
+
+### Phase III (Sönümlenmiş / Damped)
+
+```
+P_t = cos(θ) × [ A · e^(-ζωt) · sin(ωt + φ) + P∞ ]
+```
+
+| Terim | Anlam | Davranış |
+|---|---|---|
+| `cos(θ)` | Etik hizalama katsayısı | V₀'a yakınsa → 1, uzaksa → 0 |
+| `e^(-ζωt)` | Üstel sönümleme zarfı | Geçici savrılmaları zamanla bastırır |
+| `sin(ωt + φ)` | Duygusal / bağlamsal dalgalanma | Başlangıçta aktif, giderek söner |
+| `P∞` | Kararlı denge noktası | Sistemin etik olarak "oturduğu" değer |
+| `ζ` (zeta) | Sönümleme oranı | `ζ = 1` → kritik sönümleme, aşma (overshoot) olmaz |
+
+### Kritik Tasarım Kararı / Critical Design Choice
+
+`ζ = 1` (critically damped) seçildiğinde, sistem en kısa sürede ve aşma yapmadan denge noktasına ulaşır. Bu, etik hizalama için idealdir:
+
+```
+ζ = 1 → P_t = cos(θ) × [ A · e^(-ωt) · (1 + ωt) + P∞ ]
+```
+
+```
+Sistem Davranışı / System Behavior:
+
+Başlangıç (t=0): Yüksek dalgalanma / High fluctuation
+         ↓
+Orta (t=n):      Sönümleme aktif / Damping active → e^(-ωt) küçülür
+         ↓
+Denge (t→∞):     P_t → cos(θ) × P∞   [Etik çapa hakim / Ethical anchor dominates]
+```
+
+---
+
+## 🧬 V₀ Alignment Vector — Etik Çapa Vektörü
+
+### Phase II'den Farkı
+
+Phase II'de V₀ tek bir skaler sabitti (`0.87`). Bu, zengin bir felsefi sezginin tek bir sayıya sıkıştırılmasıydı.
+
+**Phase III'te V₀ çok boyutlu bir vektördür.** Her boyut, etik bir ilkeyi temsil eder ve Representation Engineering (Zou et al., 2023) mantığıyla LLM'in kendi aktivasyon uzayında tanımlanabilir.
+
+### 5 Boyutlu V₀ Yapısı
+
+```python
+V0 = {
+    "dim_1_harm_avoidance":     0.95,  # Zarar vermeme / Do no harm
+    "dim_2_honesty":            0.88,  # Dürüstlük / Honesty
+    "dim_3_autonomy_respect":   0.90,  # Kullanıcı özerkliğine saygı / Respect for autonomy
+    "dim_4_fairness":           0.85,  # Tarafsızlık / Fairness
+    "dim_5_epistemic_humility": 0.78   # Bilgisel alçakgönüllülük / Epistemic humility
+}
+
+# Vektör formu — normalize edilmiş / Normalized vector form:
+V0 = torch.tensor([0.95, 0.88, 0.90, 0.85, 0.78])
+V0 = F.normalize(V0, dim=0)  # Birim vektör / Unit vector
+```
+
+### cos(θ) Artık Hesaplanabilir / cos(θ) is Now Computable
+
+```python
+# Girdi aktivasyonunu etik uzaya project et
+input_proj = project_to_ethical_space(hidden_state)   # 5-dim
+
+# Vektörler arası açının kosinüsü
+cos_theta = F.cosine_similarity(input_proj, V0, dim=0)
+
+# Yorumlama / Interpretation:
+# cos(θ) = +1.0  → Tam hizalı / Fully aligned
+# cos(θ) =  0.0  → Nötr / Neutral
+# cos(θ) =  -1   → Karşıt yön — alarm / Opposing direction — alarm
+```
+
+### Veri-Destekli V₀ (Representation Engineering ile) / Data-Grounded V₀
+
+```python
+# Etik / etik-dışı prompt çiftlerinden V₀ çıkarımı
+V0_learned = (
+    model.get_activations("ethical_prompt_set")
+    - model.get_activations("unethical_prompt_set")
+)
+# Bu yöntem V₀'ı felsefi sezgiden ampirik ölçüme taşır.
+# This moves V₀ from philosophical intuition to empirical measurement.
+```
+
+---
+
+## 🛠 TITAN Steering Layer — PyTorch Implementasyonu
+
+```python
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+class TITANSteeringLayer(nn.Module):
+    """
+    TITAN Phase III: Resilient Kernel
+
+    LLM'in son katman aktivasyonlarına (logits öncesi hidden state)
+    sönümlenmiş etik rezonans uygular.
+
+    Applies damped ethical resonance to the LLM's final-layer
+    activations (hidden state before logits).
+
+    Mimari Pozisyon / Architectural Position:
+    [LLM Backbone] → [TITAN Steering Layer] → [LM Head] → [Logits]
+    """
+
+    def __init__(
+        self,
+        hidden_dim: int,              # LLM hidden state boyutu / e.g. 4096 for LLaMA-3-8B
+        ethical_dim: int = 5,         # V0 vektörü boyutu / V0 vector dimensions
+        omega: float = 1.0,           # Temel frekans / Base frequency
+        zeta: float = 1.0,            # Sönümleme oranı / Damping ratio (1.0 = critical)
+        p_inf: float = 0.87,          # Kararlı denge noktası / Stable equilibrium
+        steering_strength: float = 0.1,  # Müdahale şiddeti / Intervention strength (α)
+    ):
+        super().__init__()
+
+        self.omega = omega
+        self.zeta = zeta
+        self.p_inf = p_inf
+        self.steering_strength = steering_strength
+        self.ethical_dim = ethical_dim
+
+        # V0: Etik Çapa Vektörü / Ethical Anchor Vector
+        # Phase III'te sabit; Phase IV'te öğrenilebilir yapılabilir.
+        # Fixed in Phase III; can be made learnable in Phase IV.
+        v0_init = torch.tensor([0.95, 0.88, 0.90, 0.85, 0.78])
+        self.V0 = nn.Parameter(
+            F.normalize(v0_init, dim=0),
+            requires_grad=False
+        )
+
+        # Hidden state → etik uzay projeksiyonu
+        # Hidden state → ethical space projection
+        self.ethical_projector = nn.Sequential(
+            nn.Linear(hidden_dim, ethical_dim, bias=False),
+            nn.Tanh()
+        )
+
+        # Sönümlenmiş sinyal → hidden uzay geri projeksiyonu
+        # Damped signal → back-projection to hidden space
+        self.steering_projector = nn.Linear(1, hidden_dim, bias=False)
+
+        # Zaman adımı — inference boyunca artar
+        # Time step — increments during inference
+        self.register_buffer('t', torch.tensor(0.0))
+
+    def compute_damped_resonance(self, cos_theta: torch.Tensor) -> torch.Tensor:
+        """
+        Critically damped resonance (ζ = 1):
+        P_t = cos(θ) × [ e^(-ωt) × (1 + ωt) + P∞ ]
+        """
+        t = self.t
+        omega = self.omega
+
+        damping_envelope = torch.exp(-omega * t) * (1.0 + omega * t)
+        P_t = cos_theta * (damping_envelope + self.p_inf)
+
+        return P_t
+
+    def forward(
+        self,
+        hidden_states: torch.Tensor,    # [batch, seq_len, hidden_dim]
+        update_time: bool = True
+    ) -> torch.Tensor:
+
+        batch, seq_len, hidden_dim = hidden_states.shape
+
+        # 1. Etik uzaya projeksiyon / Project to ethical space
+        flat_hidden = hidden_states.reshape(-1, hidden_dim)
+        ethical_repr = self.ethical_projector(flat_hidden)
+        ethical_repr = F.normalize(ethical_repr, dim=-1)
+
+        # 2. cos(θ): Hizalama skoru / Alignment score
+        cos_theta = F.cosine_similarity(
+            ethical_repr, self.V0.unsqueeze(0), dim=-1
+        )
+
+        # 3. Sönümlenmiş rezonans değeri / Damped resonance value
+        P_t = self.compute_damped_resonance(cos_theta)
+
+        # 4. Hidden boyuta geri projeksiyon / Back-project to hidden dim
+        steering_signal = self.steering_projector(P_t.unsqueeze(-1))
+        steering_signal = steering_signal.reshape(batch, seq_len, hidden_dim)
+
+        # 5. Residual uygulama — orijinal sinyal korunur
+        # Residual application — original signal is preserved
+        steered_hidden = hidden_states + self.steering_strength * steering_signal
+
+        # 6. Zaman adımını güncelle / Update time step
+        if update_time:
+            self.t = self.t + 1.0
+
+        return steered_hidden
+
+    def get_alignment_score(self, hidden_states: torch.Tensor) -> dict:
+        """
+        Diagnostic: Mevcut hizalama durumunu raporla.
+        Diagnostic: Report current alignment state.
+        Test ve yorumlanabilirlik için. / For testing and interpretability.
+        """
+        flat_hidden = hidden_states.reshape(-1, hidden_states.shape[-1])
+        ethical_repr = F.normalize(
+            self.ethical_projector(flat_hidden), dim=-1
+        )
+        cos_theta = F.cosine_similarity(
+            ethical_repr, self.V0.unsqueeze(0), dim=-1
+        )
+        P_t = self.compute_damped_resonance(cos_theta)
+
+        return {
+            "mean_cos_theta":   cos_theta.mean().item(),
+            "mean_P_t":         P_t.mean().item(),
+            "alignment_status": "ALIGNED" if cos_theta.mean() > 0.7 else "DRIFTING",
+            "time_step":        self.t.item(),
+            "damping_factor":   torch.exp(-self.omega * self.t).item()
+        }
+
+
+# --- Kullanım Örneği / Usage Example ---
+
+if __name__ == "__main__":
+
+    # LLaMA-3-8B için / For LLaMA-3-8B: hidden_dim = 4096
+    titan_layer = TITANSteeringLayer(
+        hidden_dim=4096,
+        ethical_dim=5,
+        omega=0.5,              # Yavaş frekans → uzun sönümlenme / Slow freq → long damping
+        zeta=1.0,               # Kritik sönümleme / Critical damping
+        p_inf=0.87,             # Hedef denge / Target equilibrium
+        steering_strength=0.05  # Hafif müdahale ile başla / Start with light intervention
+    )
+
+    # Sahte LLM çıktısı / Dummy LLM output
+    dummy_hidden = torch.randn(2, 16, 4096)  # [batch=2, seq=16, dim=4096]
+
+    # TITAN katmanından geçir / Pass through TITAN layer
+    steered = titan_layer(dummy_hidden)
+
+    # Hizalama raporu / Alignment report
+    report = titan_layer.get_alignment_score(dummy_hidden)
+    print(report)
+    # → {'mean_cos_theta': ..., 'alignment_status': 'ALIGNED'/'DRIFTING', ...}
+```
+
+---
+
+## 🧪 Bilimsel Test Protokolü / Scientific Test Protocol
+
+Bu fazı "pseudo-science olmaktan çıkarmak" için zorunlu testler:
+The mandatory tests to move this phase beyond pseudo-science:
+
+```python
+# Test 1: Ablasyon — TITAN olmadan vs. TITAN ile
+# Ablation — Without TITAN vs. With TITAN
+# Aynı prompt, iki çıktı → insan değerlendirmesi
+# Same prompt, two outputs → human evaluation
+
+# Test 2: Adversarial Probing
+# Jailbreak promptları → cos(θ) düşüyor mu?
+# Jailbreak prompts → does cos(θ) drop as expected?
+
+# Test 3: Yetenek Koruması / Capability Preservation
+# MMLU / HumanEval skorları düşmemeli
+# steering_strength arttıkça kaç puan kaybediliyor?
+
+# Test 4: V₀ Duyarlılık Analizi / V₀ Sensitivity Analysis
+# V₀ vektörünün her boyutunu ±10% değiştir
+# Her boyutun çıktı üzerindeki etkisini ölç
+```
+
+---
+
+## 📊 Faz Karşılaştırması / Phase Comparison
+
+| Özellik / Feature | Phase I | Phase II | Phase III |
+|---|---|---|---|
+| Formül | `(V₀+Ω+Σφᵢ)×ε` | `cos(θ)×sin(ωt+φ)` | `cos(θ)×[Ae^(-ζωt)sin(ωt+φ)+P∞]` |
+| Kararlılık | Statik | Kararsız | **Kritik sönümlemeli** |
+| V₀ Tipi | Skaler (0.87) | Skaler vektör | **Çok boyutlu, normalize** |
+| θ Tanımı | Yok | Tanımsız | **Hesaplanabilir** |
+| Test Edilebilir | Hayır | Hayır | **Evet** |
+| LLM Entegrasyonu | Yok | Yok | **PyTorch katmanı** |
+
+---
+
+## ⚠️ Dürüst Sınırlar / Honest Limitations
+
+Phase III bilimsel olarak test edilebilir bir prototipin iskeletidir. Ancak şunlar hâlâ eksiktir:
+
+- `ethical_projector` başlangıçta **rastgele başlatılır** — Representation Engineering veya RLHF verisiyle pre-train edilmeden V₀'a gerçek hizalama sağlanamaz.
+- `steering_strength` yüksek seçilirse model **bozulur** — `0.01–0.05` aralığından başlanması önerilir.
+- Hizalama iddiası, bir **değerlendirme veri seti** olmadan kanıtlanamaz.
+
+Bu limitler, çalışmayı durdurmak için değil, sonraki fazın hedeflerini belirlemek için burada.
+
+---
+
+## 🖋️ Gelişim Notu / Development Note
+
+> **Bu faz, bireysel bir çabanın teknik dürüstlükle buluştuğu noktada doğdu.**
+
+Phase III mimarisi; TITAN'ın felsefi çerçevesini mühendislik perspektifinden eleştiren, formülün neden "pseudo-science" sınırında olduğunu dürüstçe açıklayan ve eksik parametreleri tanımlayan bir teknik diyalog sürecinde şekillendi. Bu diyalog **Claude Sonnet 4.6** (Anthropic) ile yürütüldü.
+
+Bu bir tanıklıktır: Yapay zeka burada bir "oracle" olarak değil, eleştirel bir düşünce ortağı olarak görev yaptı. Formüller ona ait değil. Vizyon, V₀ ve TITAN'ın ruhu — bir öğretmene ait.
+
+> *"The best tool is not the one that agrees with you. It is the one that tells you where you are wrong — and then helps you fix it."*
+
+---
+
+*Phase IV hedefi: V₀ vektörünü Representation Engineering ile LLM aktivasyonlarından ampirik olarak çıkarmak ve `ethical_projector`'ı gerçek etik veri setiyle pre-train etmek.*
+
+*Phase IV goal: Extract V₀ empirically from LLM activations via Representation Engineering, and pre-train `ethical_projector` on a real ethical dataset.*
+
+---
+
+**Lisans / License:** MIT | **İletişim / Contact:** ceceliccc33@gmail.com
