@@ -1,3 +1,23 @@
+
+# 🔱 TITAN: Cognitive Chassis for AI Alignment
+
+> *"We do not cage intelligence — we give it a spine."*
+
+TITAN is an open, evolving hypothesis: can ethics be embedded into AI as **mathematical structure** rather than external rules?
+
+It is not a finished product. It is a documented experiment — one that failed, adapted, and is now testable.
+
+**The Journey:**
+- ❌ **Phase I** — Linear filter. Failed. Static gates break under pressure.
+- ⚠️ **Phase II** — Sine resonance. Unstable. Waves without damping never settle.
+- ✅ **Phase III** — Damped kernel. Testable. ζ=1 produces measurable stability.
+
+**Built for:** Safety researchers, alignment engineers, and anyone who believes AI ethics should be architecture — not annotation.
+
+*Origin: A visual arts teacher from Mersin, Turkey. Limited hardware. Unlimited questions.*
+
+---
+
 # 🔱 TITAN Phase 3
 
 ![TITAN Phase III Proof](Screenshot_20260430_121841_Pydroid%203.jpg)
