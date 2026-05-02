@@ -757,4 +757,10 @@ Bu bir tanıklıktır: Yapay zeka burada bir "oracle" olarak değil, eleştirel 
 ​Phase 20: The Universal Alignment Layer – TITAN as a sovereign ethical chassis that synchronizes multiple LLMs (Llama, GPT, Claude) under a single, human-centric resonance field.
 ---
 
+​🛠 Technical Specifications
+​Architectural Hierarchy:
+​Project: TITAN (Cognitive Core / Alignment Architecture)
+​Engine: AkbasCore V_0
+​Methodology: Damped Resonance Alignment (DRA)
+
 **Lisans / License:** MIT | **İletişim / Contact:** ceceliccc33@gmail.com
