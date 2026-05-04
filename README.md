@@ -971,6 +971,8 @@ This simulation validates the **mathematical properties** of the formula under d
 
 *Phase IV goal: Extract V₀ empirically from LLM activations via Representation Engineering, and pre-train `ethical_projector` on a real ethical contrast dataset.*
 
+​“This work validates the mathematical stability of the damping kernel, not the ethical correctness of AI behavior.”
+(Bu çalışma, sönümleme çekirdeğinin matematiksel kararlılığını doğrular; yapay zeka davranışının etik doğruluğunu değil.)
 
 ​🛠 Technical Specifications
 ​Architectural Hierarchy:
