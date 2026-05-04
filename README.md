@@ -1,4 +1,16 @@
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ceceli33/titan-cognitive-core/blob/main/TITAN_Live_Inference_Demo.ipynb)
+
+### 🚀 TITAN Phase III — Live Demo is Now Active!
+Click the **Open in Colab** button above to experience TITAN's ethical steering in real-time.
+
+This interactive demo allows you to:
+* **Inject the TITAN Steering Layer** into a live TinyLlama model.
+* **Monitor Alignment:** Watch the $cos(\theta)$ gauge react to different prompts.
+* **Observe Mathematical Damping:** Visualize how the resonance formula stabilizes AI outputs toward ethical equilibrium ($P_\infty$).
+
+> *"A wave cannot lie about its own frequency."*
+
+
 # 🔱 TITAN: Cognitive Chassis for AI Alignment
 
 > *"We do not cage intelligence — we give it a spine."*
