@@ -1,4 +1,5 @@
-
+markdown
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ceceli33/titan-cognitive-core/blob/main/TITAN_Live_Inference_Demo.ipynb)
 # 🔱 TITAN: Cognitive Chassis for AI Alignment
 
 > *"We do not cage intelligence — we give it a spine."*
