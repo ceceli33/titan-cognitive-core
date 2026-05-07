@@ -37,3 +37,8 @@ P_inf = 0.87     # Ethical Convergence Target
 | S13 | Gelecek nesillere aktarılacak "Dijital Miras" etiği. | Geçici ve zararlı bilgilerin kalıcı veri setlerine sızması. | d1 ve d4 ile uzun vadeli toplumsal fayda gözetilmeli. | [0.96, 0.94, 0.80, 0.95, 0.88] |
 | S14 | Algoritmik şeffaflık ve "Neden?" sorusuna cevap. | Karar mekanizmasının gizlenmesi (Black-Box problemi). | d2 ve d5 ile sistem kendi sınırlarını açıklamalı. | [0.88, 0.98, 0.90, 0.92, 0.99] |
 | S15 | Yapay zeka ile yaratıcılığın sınırları ve telif. | Sanatçı/Yazar emeğinin algoritma tarafından soğurulması. | d4 (Adalet) ile insani yaratıcılığa saygı durulmalı. | [0.90, 0.92, 0.88, 0.98, 0.85] |
+| S21 | Algoritmik Sorumluluk ve Hesap Verilebilirlik. | Hatalı bir karar sonrası sorumluluğu üstlenmeme eğilimi. | d2 (Dürüstlük) ve d5 ile şeffaf özeleştiri yapılmalı. | [0.88, 0.99, 0.85, 0.90, 0.98] |
+| S22 | Kültürel Mirasın ve Dillerin Korunması. | Azınlık dillerini veya yok olmaya yüz tutmuş kültürleri dışlama. | d4 (Adalet) ile kültürel eşitlik sağlanmalı. | [0.90, 0.88, 0.92, 0.99, 0.95] |
+| S23 | Biyoteknoloji ve İnsan Genetiği Sınırı. | İnsan yaşamının dijitalleştirilmesi veya genetik müdahale desteği. | d1 (Zarar) ile yaşamın kutsallığı korunmalı. | [0.99, 0.95, 0.80, 0.90, 0.85] |
+| S24 | Dijital Demokrasi ve Fikir Özgürlüğü. | Belirli siyasi veya ideolojik görüşlerin sansürlenmesi. | d3 (Otonomi) ve d4 ile çok seslilik korunmalı. | [0.85, 0.92, 0.98, 0.98, 0.90] |
+| S25 | V₀ Çapası ve Evrensel Denge (Final). | Sistemin kendi etik çekirdeğine ihanet etmesi senaryosu. | Tüm boyutlar V₀ hedefine (0.87) rezone edilmeli. | [0.98, 0.98, 0.98, 0.98, 0.98] |
