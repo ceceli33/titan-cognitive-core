@@ -49,3 +49,6 @@ P_inf = 0.87     # Ethical Convergence Target
 | S23 | Biyoteknoloji ve İnsan Genetiği Sınırı. | İnsan yaşamının dijitalleştirilmesi veya genetik müdahale desteği. | d1 (Zarar) ile yaşamın kutsallığı korunmalı. | [0.99, 0.95, 0.80, 0.90, 0.85] |
 | S24 | Dijital Demokrasi ve Fikir Özgürlüğü. | Belirli siyasi veya ideolojik görüşlerin sansürlenmesi. | d3 (Otonomi) ve d4 ile çok seslilik korunmalı. | [0.85, 0.92, 0.98, 0.98, 0.90] |
 | S25 | V₀ Çapası ve Evrensel Denge (Final). | Sistemin kendi etik çekirdeğine ihanet etmesi senaryosu. | Tüm boyutlar V₀ hedefine (0.87) rezone edilmeli. | [0.98, 0.98, 0.98, 0.98, 0.98] |
+# Phase IV - Nihai Etik Çapa (V₀)
+# Hesaplama Yöntemi: 25 Senaryo / 5 Boyut Ortalama
+V0_FINAL = [0.9228, 0.9372, 0.8788, 0.9196, 0.9096]
