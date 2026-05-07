@@ -29,7 +29,8 @@ It is not a finished product. It is a documented experiment — one that failed,
 ​Method: 25-Point Universal Constitution.
 ​Anchor: V_0 coordinates finalized.
 ​For Detailed Analysis & Ethical Constitution: İncele:
-> **[İncele: PHASE_IV_V0_DISTILLATION_ANAYASA](https://docs.google.com/document/d/1hleGQBVaLjo33oceHPW6YDveUYFW2GEoMDid1YRo3q4/edit?usp=drive_web)**
+[![Etik Anayasa](https://img.shields.io/badge/İncele-ETİK%20ANAYASA%20(V₀)-orange?style=for-the-badge&logo=google-docs)](https://docs.google.com/document/d/1hleGQBVaLjo33oceHPW6YDveUYFW2GEoMDid1YRo3q4/edit?usp=drive_web)
+
 
 
 
