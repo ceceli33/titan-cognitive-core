@@ -7,7 +7,8 @@
 # =============================================================================
 
 # Cell 1: Install Dependencies
-!pip install -q transformers torch accelerate bitsandbytes matplotlib ipywidgets
+import os
+os.system("pip install -q transformers torch accelerate bitsandbytes matplotlib ipywidgets")
 print('✅ Dependencies installed.')
 
 # Cell 2: Imports
