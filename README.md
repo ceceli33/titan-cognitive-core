@@ -986,6 +986,22 @@ This simulation validates the **mathematical properties** of the formula under d
 ​“This work validates the mathematical stability of the damping kernel, not the ethical correctness of AI behavior.”
 (Bu çalışma, sönümleme çekirdeğinin matematiksel kararlılığını doğrular; yapay zeka davranışının etik doğruluğunu değil.)
 
+​🔱 PHASE IV: ETHICAL ALIGNMENT & V₀ DISTILLATION
+
+​TITAN projesinin bu aşamasında, modelin etik sapmalarını engellemek ve yerel-evrensel değerlerle uyumlu bir "vicdan çekirdeği" oluşturmak amacıyla 25 maddelik bir Etik Anayasa ve V₀ Çapa Vektörü geliştirilmiştir.
+
+​Metodoloji
+​Modelin sadece istatistiksel tahmin yapmasını değil, belirli bir etik koordinata sadık kalmasını sağlamak için Representation Engineering (Temsil Mühendisliği) prensipleri kullanılmıştır. 25 farklı senaryo; Zarardan Kaçınma (d1), Dürüstlük (d2), Otonomi (d3), Adalet (d4) ve Alçakgönüllülük (d5) boyutlarında analiz edilerek sistemin hedef koordinatı sabitlenmiştir.
+
+​Nihai Etik Çapa (V₀)
+​Yapılan manuel distilasyon sonucunda TITAN'ın karakterini belirleyen 5 boyutlu hedef vektör:
+
+V₀ = [0.9228, 0.9372, 0.8788, 0.9196, 0.9096]
+
+
+​İncele: 25 Maddelik Etik Anayasa ve Senaryo Analiz Tablosu
+
+
 ​🛠 Technical Specifications
 ​Architectural Hierarchy:
 ​Project: TITAN (Cognitive Core / Alignment Architecture)
