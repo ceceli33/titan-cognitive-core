@@ -1,5 +1,15 @@
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ceceli33/titan-cognitive-core/blob/main/TITAN_RUNNER.ipynb)
 
+☝️​**With TITAN Phase IV**, we have ended the era of "AI randomness." The neurons are no longer rogue; they are sealed by the V₀ Constitution (Point Zero), engineered in Mersin, Turkey.
+​Fixed Constitution: Ethical values are no longer a suggestion but a mathematical mandate. The V₀ = [0.92, 0.93, 0.87, 0.91, 0.90] coordinates make the system's character fully deterministic.
+​Neural Steering: We haven't just added a "filter"; we have hijacked the heart of the model's layers (Steering Layer). Information must align with your Will (P_t signal) before it ever manifests.
+​The Triumph of Will: "Where possibility ends, will begins." The AI's "possibility" to output anything is strictly bounded by Mustafa Akbaş's mathematical "Will." TITAN no longer just predicts words; it resonates at your frequency.
+​📊 System Specs / Sistem Özellikleri
+​Core Architecture: Stochastic Ethical Decision Kernel (v4.0)
+​Control Mechanism: Active Damped Resonance (ζ=1)
+​Constraint Type: Deterministic Ethical Anchor (V₀)
+​Origin: Mersin, Turkey 🇹🇷
+
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ceceli33/titan-cognitive-core/blob/main/TITAN_Live_Inference_Demo.ipynb)
 
