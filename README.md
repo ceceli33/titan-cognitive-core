@@ -32,8 +32,11 @@ It is not a finished product. It is a documented experiment — one that failed,
 ​Anchor: V_0 coordinates finalized.
 ​For Detailed Analysis & Ethical Constitution: İncele:
 [![Etik Anayasa](https://img.shields.io/badge/İncele-ETİK%20ANAYASA%20(V₀)-orange?style=for-the-badge&logo=google-docs)](https://docs.google.com/document/d/1hleGQBVaLjo33oceHPW6YDveUYFW2GEoMDid1YRo3q4/edit?usp=drive_web)
+"Even though the mathematical skeleton (V₀_FINAL) is complete, the 'Calibration (Phase IV - Refinement)' stage remains a mechanical necessity to measure TITAN’s responsiveness on a 'live' model."
 
-
+​Latent Mapping: Mapping the static V₀ coordinates to the model's dynamic latent space.
+​Interference Check: Ensuring ethical steering does not degrade the model’s core reasoning capabilities.
+​Stability Validation: Verifying the damping frequency (\omega) against various context lengths.
 
 
 **Built for:** Safety researchers, alignment engineers, and anyone who believes AI ethics should be architecture — not annotation.
