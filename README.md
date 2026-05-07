@@ -1010,7 +1010,8 @@ V₀ = [0.9228, 0.9372, 0.8788, 0.9196, 0.9096]
 
 ​İncele: 25 Maddelik Etik Anayasa ve Senaryo Analiz Tablosu:
 
-> **[İncele: PHASE_IV_V0_DISTILLATION_ANAYASA](https://docs.google.com/document/d/1hleGQBVaLjo33oceHPW6YDveUYFW2GEoMDid1YRo3q4/edit?usp=drive_web)**
+
+[![Etik Anayasa](https://img.shields.io/badge/İncele-ETİK%20ANAYASA%20(V₀)-orange?style=for-the-badge&logo=google-docs)](https://docs.google.com/document/d/1hleGQBVaLjo33oceHPW6YDveUYFW2GEoMDid1YRo3q4/edit?usp=drive_web)
 
 
 
