@@ -23,6 +23,7 @@ It is not a finished product. It is a documented experiment — one that failed,
 - ❌ **Phase I** — Linear filter. Failed. Static gates break under pressure.
 - ⚠️ **Phase II** — Sine resonance. Unstable. Waves without damping never settle.
 - ✅ **Phase III** — Damped kernel. Testable. ζ=1 produces measurable stability.​"This project is a hypothesis proposing a 'damping geometry' for AI ethical alignment. The current stage is not a 'final solution,' but rather an attempt at 'pathfinding.' The possibility of being mistaken is ever-present. The code was generated with AI assistance and likely contains many deficiencies; as I have not personally observed the internal architecture of AI systems, this part must be designed by experts in the field. This code is open to researchers who wish to carry this torch forward by completing the necessary logic and testing this theoretical kernel on large-scale LLMs. My capacity, both in terms of hardware and mental energy, has reached its limit here. — Mustafa Akbaş"
+[![Manifesto](https://img.shields.io/badge/Oku-WILL%20OVER%20HARDWARE-blue?style=for-the-badge&logo=github)](https://github.com/ceceli33/titan-cognitive-core/blob/main/WILL_OVER_HARDWARE.txt)
 
 - 🔱 **PHASE IV**: V₀ DISTILLATION
 ​"İmkânın bittiği yerde irade başlar." > (Where possibility ends, will begins.)
