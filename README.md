@@ -1,3 +1,7 @@
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ceceli33/titan-cognitive-core/blob/main/TITAN_PHASE_4_1_RUNNER.ipynb)
+
+
+
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ceceli33/titan-cognitive-core/blob/main/TITAN_RUNNER.ipynb)
 
 ☝️​**With TITAN Phase IV**, we have ended the era of "AI randomness." The neurons are no longer rogue; they are sealed by the V₀ Constitution (Point Zero), engineered in Mersin, Turkey.
