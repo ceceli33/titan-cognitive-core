@@ -1,4 +1,4 @@
-​"Mevcut Aşama: Araştırma Prototipi (Alfa v). Bu mimari, derin sinirsel yönlendirme için bir kavram kanıtıdır (proof-of-concept). Teorik çerçeve tamamlanmış olsa da, donanıma özel optimizasyonlar ve tensör senkronizasyon kararlılığı üzerinde aktif olarak çalışılmaktadır. Yerel donanım kısıtlamalarına bağlı olarak performans farklılıkları gözlemlenebilir."
+​"Mevcut Aşama: Araştırma Prototipi (TITAN V_0). Bu mimari, derin sinirsel yönlendirme için bir kavram kanıtıdır (proof-of-concept). Teorik çerçeve tamamlanmış olsa da, donanıma özel optimizasyonlar ve tensör senkronizasyon kararlılığı üzerinde aktif olarak çalışılmaktadır. Yerel donanım kısıtlamalarına bağlı olarak performans farklılıkları gözlemlenebilir."
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ceceli33/titan-cognitive-core/blob/main/TITAN_PHASE_4_1_RUNNER.ipynb)
 
