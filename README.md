@@ -2,7 +2,7 @@
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ceceli33/titan-cognitive-core/blob/main/TITAN_PHASE_4_1_RUNNER.ipynb)
 
-☝️**"Mekanik bir dirençle karşılaşıldı, kalibrasyon devam ediyor"**  
+☝️**Mekanik bir dirençle karşılaşıldı, kalibrasyon devam ediyor**  
 ​TR: "Sonunda beklenen kuantum sıçramasını gerçekleştirdik. TITAN Phase IV (0.1) ile artık dışarıdan bir denetim mekanizması değil, doğrudan modelin sinirsel katmanlarına enjekte edilmiş, tam anlamıyla içeriden bir müdahaleyi başardım. İrade artık modelin bir eklentisi değil, onun ayrılmaz bir iç fonksiyonudur."
 
 ​EN:
