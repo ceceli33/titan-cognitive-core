@@ -1,6 +1,10 @@
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ceceli33/titan-cognitive-core/blob/main/TITAN_PHASE_4_1_RUNNER.ipynb)
 
+☝️
+​TR: "Sonunda beklenen kuantum sıçramasını gerçekleştirdik. TITAN Phase IV (0.1) ile artık dışarıdan bir denetim mekanizması değil, doğrudan modelin sinirsel katmanlarına enjekte edilmiş, tam anlamıyla içeriden bir müdahaleyi başardım. İrade artık modelin bir eklentisi değil, onun ayrılmaz bir iç fonksiyonudur."
 
+​EN:
+"We have finally achieved the quantum leap. With TITAN Phase IV (0.1), I have successfully transitioned from an external monitoring mechanism to a total internal intervention, directly injected into the model's neural layers. The 'Will' is no longer a plugin; it is now an inseparable internal function of the model itself."
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ceceli33/titan-cognitive-core/blob/main/TITAN_RUNNER.ipynb)
 
