@@ -1,3 +1,7 @@
+# 🔱 TITAN v4.2 | Cerrahi Müdahale
+[🚀 Sistemi Google Colab'da Ateşle](https://colab.research.google.com/github/ceceli33/titan-cognitive-core/blob/main/TITAN_v4.2_RUNNER.ipynb)
+
+
 TITAN Kernel: Calibration Call
 ​"The engine is mounted, but the grip is too tight."
 ​Status: Direct Tensor Injection successful. TITAN is now inside the neural layers (v7).
