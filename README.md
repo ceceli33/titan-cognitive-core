@@ -1,4 +1,5 @@
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ceceli33/titan-cognitive-core/blob/main/TITAN_4.3_RUNNER.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ceceli33/titan-cognitive-core/blob/main/TITAN_4.3_RUNNER.py)
+
 
 
 # 🔱 TITAN v4.2 | Cerrahi Müdahale
