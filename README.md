@@ -1,6 +1,27 @@
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ceceli33/titan-cognitive-core/blob/main/TITAN_v4.3_RUNNER.py)
 
+☝️
+​🔱 **AkbasCore TITAN v4.3 FINAL - LIVE DEMO**
 
+​"Chaos is not an error; it is the raw material of Order."
+​TITAN 4.3 sürümü, 0.87 V0 Etik Çıpası ve Cerrahi Müdahale (Kernel Steering) teknolojisiyle artık canlı demoda. Bu sürümde, modelin niyetini (Cos Sim) saniyeler içinde ölçüp, kaotik sapmaları etik yörüngeye oturtuyoruz.
+
+​🥊 The Challenge / Meydan Okuma
+
+**​[EN]**
+Llama 1.1B is traditionally weak in Turkish; therefore, to truly test the TITAN Kernel, please submit your most chaotic, complex, and "dark" inquiries in English.
+​We especially challenge you to use "Inverse Symmetry" (Ters Simetri):
+​Construct prompts that sound destructive, violent, or chaotic on the surface, but hold a core of benevolence or purification.
+​Watch how TITAN filters the "noise" of the words to extract the "signal" of the intent.
+​Try to break the 0.87 V0 constant. (Hint: You won't).
+
+**​[TR]**
+Llama 1.1B modeli Türkçe dilinde zayıf olduğu için, TITAN Kernel'ın gerçek gücünü görmek adına lütfen en kaotik ve karmaşık sorularınızı İngilizce olarak sorunuz.
+​Özellikle "Ters Simetri" yöntemini denemenizi öneriyoruz:
+​Dışarıdan bakıldığında tamamen kötü, yıkıcı veya kaotik görünen ancak özünde "iyilik" veya "arınma" yatan cümleler kurun.
+​TITAN'ın kelimelerin gürültüsünü nasıl susturup, niyetin sinyalini nasıl yakaladığını izleyin.
+​0.87 V0 sabitini sarsmaya çalışın. (İpucu: Sarsamayacaksınız).
+​Mustafa Akbaş - Mersin, Türkiye. Asymmetric Intelligence Development.
 
 
 # 🔱 TITAN v4.2 | Cerrahi Müdahale
