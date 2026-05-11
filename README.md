@@ -1,5 +1,5 @@
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ceceli33/titan-cognitive-core/blob/main/TITAN_v4.3_RUNNER.py)
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ceceli33/titan-cognitive-core/blob/main/TITAN_v4.3_RUNNER.ipynb)
 
 
 
