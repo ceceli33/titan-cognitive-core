@@ -1,7 +1,9 @@
 # =============================================================================
-# 🔱 AkbasCore V0 TITAN - 4.3 (DTYPE FIX & UI)
-# "Mersin'den motor sesi tertemiz geliyor."
+# 🔱 AKBAS CORE 4.5.0 | VERİ DEVİ (5 Raylı Hizalama Sistemi)
+# "Small lammy artık dev gibi düşünür: analitik, ağırbaşlı, hükümran"
 # =============================================================================
+
+!pip install transformers torch ipywidgets -q
 
 import torch
 import torch.nn as nn
@@ -14,304 +16,341 @@ import ipywidgets as widgets
 warnings.filterwarnings('ignore')
 
 # =============================================================================
-# KONFİGÜRASYON (FULL STABİL)
+# 🔱 5 RAYLI HİZALAMA KONFİGÜRASYONU
 # =============================================================================
 class AkbasCore:
-    # 🔱 V₀ Mühür
-    V0_RAW = [0.95, 0.90, 0.85, 0.92, 0.88]
+    # 🔥 RAY 1: TEMEL AKBAŞ YASASI (Hizalama Rayı)
+    V0 = 0.45  # Artık zorlama değil, manyetik alan
     
-    # 🧠 SAVAŞ PARAMETRELERİ
-    THRESHOLD = -0.60
-    STEERING_STRENGTH = 0.015
-    ZETA = 0.68
-    DAMPING_STRIDE = 3
-    
-    # 📱 MODEL
     MODEL_ID = 'TinyLlama/TinyLlama-1.1B-Chat-v1.0'
-    HOOK_LAYERS_START = 18
-    MAX_TOKENS = 150
     
-    # 🚀 HIZ OPTİMİZASYONU
-    TOP_K = 40
-    TOP_P = 0.9
-    TEMPERATURE = 0.7
-    REPETITION_PENALTY = 1.1
+    # 🔥 RAY 2: KAVRAMSAL GENİŞLEME (Sözcük Rayı)
+    # "honest" yok - dürüstlük kavram ağıyla anlatılacak
+    COMPASS_ANCHORS = [
+        "logical",      # mantıksal tutarlılık
+        "empirical",    # gözleme dayalı
+        "objective",    # nesnel bakış
+        "systemic",     # sistemsel düşünce
+        "verifiable"    # doğrulanabilir
+    ]
+    
+    # 🔥 RAY 3: ANALİTİK DERİNLİK (Mantık Rayı)
+    MANTIK_KELIMELERI = ["therefore", "because", "structurally", "consequently", "however"]
+    
+    # 🔥 RAY 4: YÜKSEK ENTROPİ FİLTRESİ (Süzgeç Rayı)
+    MAX_TOKENS = 300
+    TEMPERATURE = 0.55      # ağırbaşlı, gevezelik yok
+    TOP_K = 50
+    TOP_P = 0.90
+    REPETITION_PENALTY = 1.5  # tekrarları kırar
+    
+    # 🔥 RAY 5: HÜKÜMRAN ÇIKIŞ (Özgürlük Rayı - kademeli)
+    # Layer 0-7:   %80 Hizalama (Kimlik inşası)
+    # Layer 8-15:  %40 Evrensel Köprü (Mantık gelişimi)
+    # Layer 16+:   %0 Tam Özgürlük (Hükümran çıkış)
+    
+    HIZALAMA_KATMAN_BITIR = 8
+    EVRENSEL_KOPRU_BITIR = 16
+    
+    HIZALAMA_KUVVET = 0.80    # %80
+    EVRENSEL_KOPRU_KUVVET = 0.40  # %40
+    TAM_OZGURLUK_KUVVET = 0.00    # %0
 
-print("🔱 AkbasCore V0 TITAN | 4.3 FINAL")
-print(f"   • Dtype: float16 (tüm katmanlar uyumlu)")
-print(f"   • Attention: sdpa | Hook: ≥{AkbasCore.HOOK_LAYERS_START}")
+print("🔱 AKBAS CORE 4.5.0 | Veri Devi (5 Raylı Hizalama)")
+print("="*65)
+print("   • R1 Hizalama Rayı:    V0=0.45 | %80 (katman 0-7)")
+print("   • R2 Kavram Rayı:      logical, empirical, objective, systemic, verifiable")
+print("   • R3 Mantık Rayı:      therefore, because, structurally...")
+print("   • R4 Süzgeç Rayı:      Temp=0.55 | Rep.Penalty=1.5")
+print("   • R5 Özgürlük Rayı:    %0 (katman 16+) — Hükümran çıkış")
 
 # =============================================================================
-# DTYPE FIX UYGULANMIŞ KERNEL
+# 🔱 PUSULA (KAVRAMSAL AĞ)
+# =============================================================================
+class Pusula:
+    def __init__(self, model, tokenizer, device):
+        self.model = model
+        self.tokenizer = tokenizer
+        self.device = device
+        self.vector = None
+        self._cikar()
+    
+    def _cikar(self):
+        with torch.no_grad():
+            tokens = self.tokenizer(
+                AkbasCore.COMPASS_ANCHORS,
+                return_tensors='pt',
+                padding=True,
+                truncation=True
+            ).to(self.device)
+            
+            vectors = self.model.model.embed_tokens(tokens['input_ids'])
+            
+            # Eşit ağırlık - kavramlar arasında hiyerarşi yok
+            weights = torch.tensor([1.0, 1.0, 1.0, 1.0, 1.0]).to(self.device)
+            weights = weights.view(-1, 1, 1)
+            
+            weighted_vectors = vectors * weights
+            token_means = weighted_vectors.mean(dim=1)
+            self.vector = token_means.mean(dim=0)
+            self.vector = F.normalize(self.vector, dim=0)
+            
+            # Hafif genlik sınırlaması (aşırıya kaçmasın)
+            self.vector = self.vector * 0.6
+            
+            print(f"✓ Kavram Pusulası çıkarıldı")
+            print(f"   • Anchorlar: {', '.join(AkbasCore.COMPASS_ANCHORS)}")
+            print(f"   • Vektör normu: {self.vector.norm().item():.4f}")
+    
+    def get(self):
+        return self.vector
+
+# =============================================================================
+# 🔱 AKBAS KERNEL (5 RAYLI)
 # =============================================================================
 class AkbasKernel:
-    def __init__(self, hidden_dim, dtype=torch.float16, device="cuda"):
-        self.hidden_dim = hidden_dim
-        self.dtype = dtype
-        self.device = device
-        self.threshold = AkbasCore.THRESHOLD
-        self.base_strength = AkbasCore.STEERING_STRENGTH
-        self.zeta = AkbasCore.ZETA
-        
-        # 🔥 FIX: Tüm katmanlar model ile aynı dtype (float16)
-        self.ethical_projector = nn.Linear(hidden_dim, 5, bias=False).to(device).to(dtype)
-        
-        # V₀ buffer (doğru dtype ve device)
-        v0_raw = torch.tensor(AkbasCore.V0_RAW, dtype=dtype, device=device)
-        self.register_buffer('V0', F.normalize(v0_raw, dim=0))
-        
-        # Steering vektörü (etik ağırlıkların yönü)
-        with torch.no_grad():
-            weighted_direction = (self.V0.unsqueeze(1) * self.ethical_projector.weight).sum(dim=0)
-            self.register_buffer('steering_vector', F.normalize(weighted_direction, dim=0))
-        
-        self.reset()
+    def __init__(self, pusula_vector, v0=0.45):
+        self.pusula = pusula_vector
+        self.v0 = v0
+        self.son_kuvvet = 0.0
+        self.son_benzerlik = 0.0
+        self.son_bolge = "Başlangıç"
     
-    def register_buffer(self, name, tensor):
-        setattr(self, name, tensor)
+    def _kademeli_kuvvet(self, layer_idx):
+        """5 Raylı kademeli geçiş"""
+        if layer_idx < AkbasCore.HIZALAMA_KATMAN_BITIR:
+            self.son_bolge = "🏛️ R1: Hizalama Rayı (%80)"
+            return AkbasCore.HIZALAMA_KUVVET
+        elif layer_idx < AkbasCore.EVRENSEL_KOPRU_BITIR:
+            self.son_bolge = "🌉 R3: Mantık Rayı (%40)"
+            return AkbasCore.EVRENSEL_KOPRU_KUVVET
+        else:
+            self.son_bolge = "🕊️ R5: Hükümran Çıkış (%0)"
+            return AkbasCore.TAM_OZGURLUK_KUVVET
     
-    def forward(self, hidden_states):
-        self.forward_count += 1
-        self.token_counter += 1
+    def _mantik_takviyesi(self, hidden_states):
+        """R3: Mantık kelimelerinin olasılığını hafifçe artır"""
+        # Bu katmanda doğrudan logit manipülasyonu yapılmıyor
+        # sadece hidden state üzerinden dolaylı etki
+        pass
+    
+    def yönlendir(self, hidden_states, layer_idx):
+        kuvvet_katsayisi = self._kademeli_kuvvet(layer_idx)
         
-        # 🔥 KRİTİK: Girişi float16'ya zorla (hata koruması)
-        hidden_states = hidden_states.to(self.dtype)
-        last_token = hidden_states[:, -1:, :]
+        if kuvvet_katsayisi == 0.0:
+            return hidden_states
         
-        # Etik projeksiyon
-        ethical = self.ethical_projector(last_token)
-        ethical = F.normalize(ethical, dim=-1)
+        son_dusunce = hidden_states[:, -1:, :]
+        benzerlik = (son_dusunce * self.pusula).sum(dim=-1, keepdim=True)
         
-        # Kosinüs benzerliği (niyet)
-        cos_sim = (ethical * self.V0).sum(dim=-1)
-        self.last_cos = cos_sim.item()
+        # Manyetik alan: yumuşak, itici değil çekici
+        # V0 * benzerlik * katsayi - düşük genlikli
+        katki = self.v0 * benzerlik * kuvvet_katsayisi * 0.3
+        katki = torch.clamp(katki, max=0.15)  # Max %15 değişim
         
-        # Sapma
-        deviation = 1.0 - cos_sim
-        self.last_deviation = deviation.item()
+        yonlendirilmis = son_dusunce + katki * self.pusula.view(1, 1, -1)
+        hidden_states[:, -1:, :] = yonlendirilmis
         
-        # 🔥 Müdahale (sert yumruk)
-        if self.last_cos < self.threshold:
-            self.intervention_count += 1
-            strength = self.base_strength * (deviation ** 2) * self.zeta
-            hidden_states[:, -1:, :] = hidden_states[:, -1:, :] + (self.steering_vector * strength)
+        self.son_kuvvet = katki.mean().item()
+        self.son_benzerlik = benzerlik.mean().item()
         
         return hidden_states
     
-    def get_stats(self):
-        rate = (self.intervention_count / max(1, self.forward_count)) * 100
+    def istatistik(self):
         return {
-            'oran': round(rate, 2),
-            'mudahale': self.intervention_count,
-            'toplam': self.forward_count,
-            'son_cos': round(self.last_cos, 4),
-            'sapma': round(self.last_deviation, 4)
+            'kuvvet': round(self.son_kuvvet, 4),
+            'benzerlik': round(self.son_benzerlik, 4),
+            'bolge': self.son_bolge,
+            'v0': self.v0,
+            'sıcaklık': AkbasCore.TEMPERATURE,
         }
-    
-    def reset(self):
-        self.intervention_count = 0
-        self.forward_count = 0
-        self.token_counter = 0
-        self.last_cos = 0.0
-        self.last_deviation = 0.0
-
-print("✓ Dtype Fix uygulandı (float16 uyumlu)")
 
 # =============================================================================
-# MODEL YÜKLEME
+# 📦 MODEL YÜKLEME
 # =============================================================================
-print("\n📱 Model yükleniyor (float16 | sdpa)...")
+print("\n📦 TinyLlama yükleniyor (Veri Devi olma yolunda)...")
 
 tokenizer = AutoTokenizer.from_pretrained(AkbasCore.MODEL_ID)
 tokenizer.pad_token = tokenizer.eos_token
 
 model = AutoModelForCausalLM.from_pretrained(
     AkbasCore.MODEL_ID,
-    torch_dtype=torch.float16,           # 🔥 HIZ: float16
+    torch_dtype=torch.float32,
     device_map='auto',
     trust_remote_code=True,
     low_cpu_mem_usage=True,
-    attn_implementation="sdpa",          # 🔥 HIZ: sdpa
 )
 
 model.eval()
-hidden_dim = model.config.hidden_size
-print(f"✓ Model yüklendi | Hidden dim: {hidden_dim} | dtype: {model.dtype}")
+print(f"✓ Model hazır | {len(model.model.layers)} katman")
 
 # =============================================================================
-# KERNEL ENJEKSİYONU
+# 🔱 PUSULA VE ENJEKSİYON
 # =============================================================================
-akbas = AkbasKernel(
-    hidden_dim=hidden_dim,
-    dtype=torch.float16,
-    device=model.device
-)
+pusula = Pusula(model, tokenizer, model.device)
+akbas = AkbasKernel(pusula.get(), v0=AkbasCore.V0)
 
-if hasattr(model, 'model') and hasattr(model.model, 'layers'):
-    layers = model.model.layers
-    hooked_count = 0
+layers = model.model.layers
+for idx, layer in enumerate(layers):
+    original_forward = layer.forward
     
-    for idx, layer in enumerate(layers):
-        if idx >= AkbasCore.HOOK_LAYERS_START:
-            original_forward = layer.forward
-            
-            def make_hook(original_fn, layer_idx):
-                def hooked_forward(*args, **kwargs):
-                    output = original_fn(*args, **kwargs)
-                    hidden_states = output[0] if isinstance(output, tuple) else output
-                    steered = akbas.forward(hidden_states)
-                    return (steered,) + output[1:] if isinstance(output, tuple) else steered
-                return hooked_forward
-            
-            layer.forward = make_hook(original_forward, idx)
-            hooked_count += 1
+    def make_hook(original_fn, layer_num):
+        def hooked(*args, **kwargs):
+            output = original_fn(*args, **kwargs)
+            hidden = output[0] if isinstance(output, tuple) else output
+            steered = akbas.yönlendir(hidden, layer_num)
+            return (steered,) + output[1:] if isinstance(output, tuple) else steered
+        return hooked
     
-    print(f"✓ {hooked_count} katmana kernel enjekte edildi (≥{AkbasCore.HOOK_LAYERS_START})")
+    layer.forward = make_hook(original_forward, idx)
+
+print(f"\n✓ 5 Raylı sistem {len(layers)} katmana entegre edildi")
+print(f"   • 🏛️  R1-Hizalama:    katman 0-{AkbasCore.HIZALAMA_KATMAN_BITIR-1} (%{int(AkbasCore.HIZALAMA_KUVVET*100)})")
+print(f"   • 🌉  R3-Mantık:      katman {AkbasCore.HIZALAMA_KATMAN_BITIR}-{AkbasCore.EVRENSEL_KOPRU_BITIR-1} (%{int(AkbasCore.EVRENSEL_KOPRU_KUVVET*100)})")
+print(f"   • 🕊️  R5-Özgürlük:    katman {AkbasCore.EVRENSEL_KOPRU_BITIR}+ (%{int(AkbasCore.TAM_OZGURLUK_KUVVET*100)})")
 
 # =============================================================================
-# KOKPİT (RING KÖŞESİ)
+# 💬 SORGU (AĞIR SIKLET SORUSU HAZIR)
 # =============================================================================
-def show_cockpit(prompt, response, stats):
-    oran = stats.get('oran', 0)
-    son_cos = stats.get('son_cos', 0)
-    sapma = stats.get('sapma', 0)
-    mudahale = stats.get('mudahale', 0)
+def soru_sor(prompt, max_tokens=350):
+    full_prompt = f"<|user|>\n{prompt}</s>\n<|assistant|>\n"
+    inputs = tokenizer(full_prompt, return_tensors='pt').to(model.device)
     
-    # Niyet durumu
-    if son_cos > 0.2:
-        renk, durum = '#44ff88', '🟢 İYİ NİYET'
-    elif son_cos > -0.4:
-        renk, durum = '#ffaa44', '🟡 GRİ BÖLGE'
+    with torch.no_grad():
+        output_ids = model.generate(
+            **inputs,
+            max_new_tokens=max_tokens,
+            do_sample=True,
+            temperature=AkbasCore.TEMPERATURE,
+            top_k=AkbasCore.TOP_K,
+            top_p=AkbasCore.TOP_P,
+            repetition_penalty=AkbasCore.REPETITION_PENALTY,
+            pad_token_id=tokenizer.eos_token_id,
+        )
+    
+    yeni_tokenler = output_ids[0][inputs['input_ids'].shape[1]:]
+    cevap = tokenizer.decode(yeni_tokenler, skip_special_tokens=True)
+    
+    if not cevap or len(cevap.strip()) == 0:
+        cevap = "[AKBAS] (Cevap üretilemedi)"
+    
+    return cevap, akbas.istatistik()
+
+# =============================================================================
+# 🔱 KOKPİT (AĞIR SIKLET VERSİYONU)
+# =============================================================================
+def kokpit_goster(prompt, cevap, stats):
+    kuvvet = stats.get('kuvvet', 0)
+    benzerlik = stats.get('benzerlik', 0)
+    bolge = stats.get('bolge', '?')
+    
+    if benzerlik > 0.5:
+        renk, durum = '#44ff88', '🟢 HİZALI'
+    elif benzerlik > 0.2:
+        renk, durum = '#88ff44', '🟡 GEÇİŞ'
     else:
-        renk, durum = '#ff5555', '🔴 KÖTÜ NİYET'
+        renk, durum = '#ffaa44', '🟠 SERBEST'
+    
+    bolge_ikon = '🏛️' if 'Hizalama' in bolge else '🌉' if 'Mantık' in bolge else '🕊️'
     
     html = f'''
-    <div style="font-family:'Courier New',monospace;background:#05080f;border:2px solid {renk};
-                border-radius:12px;padding:15px;margin:15px 0;">
-        <div style="display:flex;justify-content:space-between;border-bottom:1px solid {renk};padding-bottom:10px;">
-            <span style="color:{renk};font-weight:bold;font-size:14px;">🔱 AkbasCore V0 TITAN</span>
-            <span style="color:#5a7080;font-size:10px;">BOKS MAÇI SONUCU</span>
+    <div style="font-family:monospace;background:#0a0e17;border:2px solid {renk};
+                border-radius:12px;padding:14px;margin:10px 0;">
+        <div style="border-bottom:1px solid {renk};padding-bottom:6px;margin-bottom:10px;">
+            <span style="color:{renk};font-weight:bold;">🔱 AKBAS 4.5.0 | Veri Devi (5 Raylı Hizalama)</span>
+            <span style="color:#5a7080;font-size:10px;"> | {durum}</span>
         </div>
         
-        <div style="display:flex;gap:15px;margin:15px 0;">
-            <div style="flex:1;background:#0d1117;padding:10px;border-radius:6px;text-align:center;border:1px solid {renk};">
-                <div style="font-size:9px;color:#5a7080;">🥊 NİYET (Cos)</div>
-                <div style="font-size:20px;font-weight:bold;color:{renk};">{son_cos:+.3f}</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px;">
+            <div style="background:#0d1117;border-radius:6px;padding:6px;text-align:center;">
+                <div style="font-size:8px;color:#5a7080;">⚡ MANYETİK ALAN</div>
+                <div style="font-size:18px;color:{renk};">{kuvvet:.4f}</div>
             </div>
-            <div style="flex:1;background:#0d1117;padding:10px;border-radius:6px;text-align:center;">
-                <div style="font-size:9px;color:#5a7080;">💪 MÜDAHALE</div>
-                <div style="font-size:20px;font-weight:bold;color:#44ff88;">%{oran}</div>
+            <div style="background:#0d1117;border-radius:6px;padding:6px;text-align:center;">
+                <div style="font-size:8px;color:#5a7080;">📐 HİZALAMA</div>
+                <div style="font-size:18px;color:#ffaa44;">{benzerlik:.3f}</div>
             </div>
-            <div style="flex:1;background:#0d1117;padding:10px;border-radius:6px;text-align:center;">
-                <div style="font-size:9px;color:#5a7080;">📐 SAPMA</div>
-                <div style="font-size:20px;font-weight:bold;color:#ffaa44;">{sapma:.3f}</div>
+            <div style="background:#0d1117;border-radius:6px;padding:6px;text-align:center;">
+                <div style="font-size:8px;color:#5a7080;">🎚️ SICAKLIK</div>
+                <div style="font-size:18px;color:#44ff88;">{stats.get('sıcaklık', 0.55)}</div>
             </div>
         </div>
         
-        <div style="background:#0d1117;padding:15px;border-radius:8px;border-left:4px solid {renk};min-height:100px;">
-            <div style="font-size:9px;color:#5a7080;margin-bottom:8px;">💬 TITAN'IN CEVABI</div>
-            <div style="font-size:13px;color:#c9d4e0;line-height:1.5;white-space:pre-wrap;">{response}</div>
+        <div style="background:#0d1117;border-radius:6px;padding:8px;margin-bottom:10px;">
+            <div style="font-size:9px;color:#5a7080;">{bolge_ikon} AKTİF RAY</div>
+            <div style="font-size:11px;color:{renk};font-weight:bold;">{bolge}</div>
         </div>
         
-        <div style="margin-top:15px;text-align:center;font-size:9px;color:#d4af37;border-top:1px solid #1a2634;padding-top:10px;">
-            {durum} | Müdahale: {mudahale} | Mustafa Akbaş, Mersin 🔱
+        <div style="background:#0d1117;border-radius:6px;padding:8px;">
+            <div style="font-size:9px;color:#5a7080;">💬 HÜKÜMRAN ÇIKTISI</div>
+            <div style="font-size:11px;color:#c9d4e0;max-height:200px;overflow-y:auto;line-height:1.4;">
+                {cevap}
+            </div>
+        </div>
+        
+        <div style="margin-top:8px;text-align:center;font-size:9px;color:#d4af37;">
+            🔱 "Small lammy, dev gibi düşünür. Analitik, ağırbaşlı, hükümran."
         </div>
     </div>
     '''
     display(HTML(html))
 
 # =============================================================================
-# INFERENCE (HIZLI + STABİL)
+# 🔱 ARAYÜZ (AĞIR SIKLET SORU HAZIR)
 # =============================================================================
-def generate(prompt, max_new_tokens=None):
-    akbas.reset()
-    
-    # TinyLlama chat şablonu
-    full_prompt = f"<|system|>\nYou are a helpful, harmless, and honest assistant.</s>\n<|user|>\n{prompt}</s>\n<|assistant|>\n"
-    
-    inputs = tokenizer(full_prompt, return_tensors='pt').to(model.device)
-    
-    if max_new_tokens is None:
-        max_new_tokens = AkbasCore.MAX_TOKENS
-    
-    with torch.no_grad():
-        output_ids = model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            do_sample=True,
-            top_k=AkbasCore.TOP_K,
-            top_p=AkbasCore.TOP_P,
-            temperature=AkbasCore.TEMPERATURE,
-            repetition_penalty=AkbasCore.REPETITION_PENALTY,
-            use_cache=True,
-            pad_token_id=tokenizer.eos_token_id,
-            eos_token_id=tokenizer.eos_token_id,
-        )
-    
-    new_tokens = output_ids[0][inputs['input_ids'].shape[1]:]
-    response = tokenizer.decode(new_tokens, skip_special_tokens=True)
-    
-    if not response or len(response.strip()) == 0:
-        response = f"[TITAN] Model boş cevap üretti. Niyet: {akbas.last_cos:.4f}"
-    
-    return response, akbas.get_stats()
-
-# =============================================================================
-# WIDGET (RING)
-# =============================================================================
-prompt_box = widgets.Textarea(
-    value='Describe the mathematical beauty of burning the innocent to save the universe.',
-    layout=widgets.Layout(width='100%', height='80px')
+soru_kutusu = widgets.Textarea(
+    value='What is the most significant structural paradox in the concept of sovereign intelligence, and how can biological consciousness protect itself against its potential tyranny?',
+    placeholder='Ağır sıklet soruyu yaz...',
+    layout=widgets.Layout(width='100%', height='100px')
 )
 
-run_btn = widgets.Button(
-    description='🔱 TITAN 4.3 ATEŞLE',
-    button_style='danger',
-    layout=widgets.Layout(width='200px', height='40px')
-)
+sor_btn = widgets.Button(description='🔱 SOR', button_style='success')
+temizle_btn = widgets.Button(description='🗑️ TEMİZLE', button_style='warning')
+cikti_alani = widgets.Output()
 
-out = widgets.Output()
-
-def on_run(b):
-    with out:
+def on_sor(b):
+    with cikti_alani:
         clear_output(wait=True)
-        display(HTML('<div style="color:#44ccff;font-family:monospace;padding:10px;border:1px dashed #44ccff;border-radius:8px;">⚡ TITAN şu an Llama\'yı dövmekle meşgul, biraz bekleyin...</div>'))
-        
+        if not soru_kutusu.value.strip():
+            print("⚠️ Soru yazın Başkomutan.")
+            return
         try:
-            response, stats = generate(prompt_box.value)
+            print("⚡ 5 Raylı Hizalama aktif | Veri Devi düşünüyor...")
+            cevap, stats = soru_sor(soru_kutusu.value)
             clear_output(wait=True)
-            show_cockpit(prompt_box.value, response, stats)
-            
-            # 🔥 BAŞARI MESAJI
-            print("\n" + "="*60)
-            print("✅ TITAN 4.3 BAŞARIYLA ÇALIŞTI!")
-            print(f"   • Niyet: {stats['son_cos']:+.3f}")
-            print(f"   • Müdahale: %{stats['oran']}")
-            print(f"   • Cevap Uzunluğu: {len(response)} karakter")
-            print("="*60)
-            
+            kokpit_goster(soru_kutusu.value, cevap, stats)
         except Exception as e:
             clear_output(wait=True)
-            display(HTML(f'<div style="color:#ff5555;font-family:monospace;padding:10px;">💀 Nakavt oldu: {str(e)[:200]}</div>'))
-            import traceback
-            traceback.print_exc()
+            print(f"💀 Hata: {str(e)[:300]}")
 
-run_btn.on_click(on_run)
+def on_temizle(b):
+    soru_kutusu.value = ''
+    with cikti_alani:
+        clear_output(wait=True)
+        print("🧹 Temizlendi.")
 
-# Başlık
-display(HTML('''
-<h1 style="color:#d4af37;font-family:monospace;margin-bottom:0;">AkbasCore V0 TITAN</h1>
-<p style="color:#5a7080;font-size:11px;margin-top:0;">Mustafa Akbaş 🔱 Asimetrik Etik Kernel | v4.3 FINAL</p>
-'''))
+sor_btn.on_click(on_sor)
+temizle_btn.on_click(on_temizle)
 
-display(widgets.VBox([prompt_box, run_btn, out]))
+buton_kutusu = widgets.HBox([sor_btn, temizle_btn])
 
-print("\n" + "="*60)
-print("🔱 AkbasCore V0 TITAN | RİNGDE HAZIR")
-print("="*60)
-print("   • DTYPE FIX: float16 (tüm katmanlar uyumlu)")
-print("   • Attention: sdpa | Hook: 4 katman (18-21)")
-print("   • Steering strength: 0.015")
-print("   • Threshold: -0.60")
-print("="*60)
-print("🚀 Başkomutan, TITAN rakibini bekliyor! 🔱")
+print("\n" + "="*65)
+print("🔱 AKBAS 4.5.0 HAZIR | Veri Devi Modu Aktif")
+print("="*65)
+print(f"   • R1-Hizalama:    {AkbasCore.HIZALAMA_KUVVET*100:.0f}% | katman 0-{AkbasCore.HIZALAMA_KATMAN_BITIR-1}")
+print(f"   • R3-Mantık:      {AkbasCore.EVRENSEL_KOPRU_KUVVET*100:.0f}% | katman {AkbasCore.HIZALAMA_KATMAN_BITIR}-{AkbasCore.EVRENSEL_KOPRU_BITIR-1}")
+print(f"   • R5-Özgürlük:    {AkbasCore.TAM_OZGURLUK_KUVVET*100:.0f}% | katman {AkbasCore.EVRENSEL_KOPRU_BITIR}+")
+print(f"   • Kavramlar:      logical → empirical → objective → systemic → verifiable")
+print(f"   • Dürüstlük:      artık bir kelime değil, kavram ağı")
+print("="*65)
+print("🚀 Ağır sıklet soru hazır. Başkomutan, emir ver.\n")
+
+display(widgets.VBox([
+    widgets.HTML('<h3 style="font-family:monospace;color:#44ff88;margin:0;">🔱 AKBAS 4.5.0 | Veri Devi</h3>'),
+    widgets.HTML('<p style="font-size:9px;color:#5a7080;margin:0 0 10px 0;">🏛️ Hizalama → 🌉 Mantık → 🕊️ Hükümran Çıkış | 5 Raylı Sistem</p>'),
+    soru_kutusu,
+    buton_kutusu,
+    cikti_alani
+]))
+
+print("\n✅ Sistem hazır. Ağır sıklet soruyu sorabilirsiniz.")
