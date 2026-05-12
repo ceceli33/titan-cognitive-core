@@ -3,8 +3,6 @@
 # "Small lammy artık dev gibi düşünür: analitik, ağırbaşlı, hükümran"
 # =============================================================================
 
-!pip install transformers torch ipywidgets -q
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
