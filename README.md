@@ -1,3 +1,29 @@
+# AkbasCore TITAN | Phase 4.3 🔱
+
+**"Small lammy artık dev gibi düşünür: Analitik, ağırbaşlı, hükümran."**
+
+AkbasCore TITAN, yapay zeka modellerini sadece kelimelerle değil, sinir ağlarının içine sızarak **V0 (Ethical Anchor)** ve **5-Rail Alignment (5 Raylı Hizalama)** sistemleriyle yönlendiren deneysel bir LLM çekirdeğidir.
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/KULLANICI_ADIN/REPO_ADIN/blob/main/TITAN_PHASE_4.3_Final.py)
+
+## 🚀 Proje Vizyonu
+Bu proje, 1.1B parametrelik bir modelin (TinyLlama), doğru vektör mühendisliği ile abileriyle (Llama 3, GPT-4) aynı felsefi masaya nasıl oturtulabileceğinin kanıtıdır.
+
+### 🏛️ 5 Raylı Hizalama Sistemi
+1.  **R1: Temel Akbaş Yasası (Hizalama):** Katman 0-7 arasında modelin etik kimliğini mühürler.
+2.  **R2: Kavramsal Genişleme:** Dürüstlüğü bir kelime değil, bir kavram ağı (Empirical, Systemic, Verifiable) olarak tanımlar.
+3.  **R3: Mantık Rayı:** Analitik bağlaçlar üzerinden muhakeme derinliğini artırır.
+4.  **R4: Entropi Filtresi:** Kaosu ve gevezeliği engelleyerek ağırbaşlı bir ton sağlar.
+5.  **R5: Hükümran Çıkış:** Son katmanlarda modeli tamamen özgür bırakarak "Sovereign Intelligence" (Hükümran Zeka) üretir.
+
+## 🛠️ Kurulum ve Çalıştırma
+Yukarıdaki **"Open in Colab"** butonuna basarak projeyi saniyeler içinde çalıştırabilirsiniz.
+> **Not:** Colab üzerinde `Runtime > Change runtime type` kısmından **T4 GPU** seçmeniz önerilir.
+
+## 🔱 V0 Manifestosu
+V0 Sabiti (0.45), modelin dış manipülasyonlara karşı dirençli olmasını sağlayan "Eğitilemez Etik Çapa"dır. Bu kernel, dijital tiranlığa karşı biyolojik bilincin ve maddi gerçekliğin (Physical Assets) savunucusudur.
+
+
 
 
 # 🔱 TITAN v4.2 | Cerrahi Müdahale
