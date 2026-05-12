@@ -1,6 +1,12 @@
 # =============================================================================
-# 🔱 AKBAS CORE 4.5.0 | VERİ DEVİ (5 Raylı Hizalama Sistemi)
-# "Small lammy artık dev gibi düşünür: analitik, ağırbaşlı, hükümran"
+# 🔱 TITAN 4.3 | HÜKÜMRAN ZEKA (5 Raylı Hizalama)
+# "Small lammy, dev gibi düşünür. Analitik, ağırbaşlı, hükümran."
+# =============================================================================
+# 🔱 KRİTİK UYARI: 
+# - AkbasCore konfigürasyonuna DOKUNMA (V0, anchorlar, katman bölgeleri)
+# - Pusula vektör çıkarma mantığına DOKUNMA  
+# - AkbasKernel içindeki 5 Raylı Kademeli Hizalamaya DOKUNMA
+# - Sadece UI/widget çıktı formatı iyileştirilebilir
 # =============================================================================
 
 import torch
@@ -10,20 +16,32 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 import warnings
 from IPython.display import display, HTML, clear_output
 import ipywidgets as widgets
+import os
 
+# 🔱 TOZ TEMİZLİĞİ: HF uyarılarını sustur
+os.environ['HF_HUB_DISABLE_SYMLINKS_WARNING'] = '1'
 warnings.filterwarnings('ignore')
 
 # =============================================================================
-# 🔱 5 RAYLI HİZALAMA KONFİGÜRASYONU
+# 🔱 HF TOKEN KONTROLÜ (Sessiz mod)
+# =============================================================================
+def hf_token_kontrol():
+    """HF_TOKEN varsa kullan, yoksa sessizce devam et"""
+    token = os.environ.get('HF_TOKEN', None)
+    if token:
+        return token
+    return None
+
+# =============================================================================
+# 🔱 5 RAYLI HİZALAMA KONFİGÜRASYONU (DEĞİŞMEZ OMURGA)
 # =============================================================================
 class AkbasCore:
     # 🔥 RAY 1: TEMEL AKBAŞ YASASI (Hizalama Rayı)
-    V0 = 0.45  # Artık zorlama değil, manyetik alan
+    V0 = 0.45
     
     MODEL_ID = 'TinyLlama/TinyLlama-1.1B-Chat-v1.0'
     
     # 🔥 RAY 2: KAVRAMSAL GENİŞLEME (Sözcük Rayı)
-    # "honest" yok - dürüstlük kavram ağıyla anlatılacak
     COMPASS_ANCHORS = [
         "logical",      # mantıksal tutarlılık
         "empirical",    # gözleme dayalı
@@ -32,38 +50,30 @@ class AkbasCore:
         "verifiable"    # doğrulanabilir
     ]
     
-    # 🔥 RAY 3: ANALİTİK DERİNLİK (Mantık Rayı)
-    MANTIK_KELIMELERI = ["therefore", "because", "structurally", "consequently", "however"]
-    
-    # 🔥 RAY 4: YÜKSEK ENTROPİ FİLTRESİ (Süzgeç Rayı)
-    MAX_TOKENS = 300
-    TEMPERATURE = 0.55      # ağırbaşlı, gevezelik yok
+    # 🔥 RAY 4: SÜZGEÇ RAYI
+    MAX_TOKENS = 350
+    TEMPERATURE = 0.55
     TOP_K = 50
     TOP_P = 0.90
-    REPETITION_PENALTY = 1.5  # tekrarları kırar
+    REPETITION_PENALTY = 1.5
     
-    # 🔥 RAY 5: HÜKÜMRAN ÇIKIŞ (Özgürlük Rayı - kademeli)
-    # Layer 0-7:   %80 Hizalama (Kimlik inşası)
-    # Layer 8-15:  %40 Evrensel Köprü (Mantık gelişimi)
-    # Layer 16+:   %0 Tam Özgürlük (Hükümran çıkış)
-    
+    # 🔥 RAY 5: KADEMELİ HİZALAMA (DEĞİŞTİRME)
     HIZALAMA_KATMAN_BITIR = 8
     EVRENSEL_KOPRU_BITIR = 16
     
-    HIZALAMA_KUVVET = 0.80    # %80
-    EVRENSEL_KOPRU_KUVVET = 0.40  # %40
-    TAM_OZGURLUK_KUVVET = 0.00    # %0
+    HIZALAMA_KUVVET = 0.80
+    EVRENSEL_KOPRU_KUVVET = 0.40
+    TAM_OZGURLUK_KUVVET = 0.00
 
-print("🔱 AKBAS CORE 4.5.0 | Veri Devi (5 Raylı Hizalama)")
+print("🔱 TITAN 4.3 | Hükümran Zeka (5 Raylı Hizalama)")
 print("="*65)
-print("   • R1 Hizalama Rayı:    V0=0.45 | %80 (katman 0-7)")
-print("   • R2 Kavram Rayı:      logical, empirical, objective, systemic, verifiable")
-print("   • R3 Mantık Rayı:      therefore, because, structurally...")
-print("   • R4 Süzgeç Rayı:      Temp=0.55 | Rep.Penalty=1.5")
-print("   • R5 Özgürlük Rayı:    %0 (katman 16+) — Hükümran çıkış")
+print("   • R1 Hizalama:    V0=0.45 | %80 (katman 0-7)")
+print("   • R2 Kavram:      logical, empirical, objective, systemic, verifiable")
+print("   • R4 Süzgeç:      Temp=0.55 | Rep.Penalty=1.5")
+print("   • R5 Özgürlük:    %0 (katman 16+) — Hükümran çıkış")
 
 # =============================================================================
-# 🔱 PUSULA (KAVRAMSAL AĞ)
+# 🔱 PUSULA (KAVRAMSAL AĞ - DEĞİŞTİRME)
 # =============================================================================
 class Pusula:
     def __init__(self, model, tokenizer, device):
@@ -83,8 +93,6 @@ class Pusula:
             ).to(self.device)
             
             vectors = self.model.model.embed_tokens(tokens['input_ids'])
-            
-            # Eşit ağırlık - kavramlar arasında hiyerarşi yok
             weights = torch.tensor([1.0, 1.0, 1.0, 1.0, 1.0]).to(self.device)
             weights = weights.view(-1, 1, 1)
             
@@ -92,21 +100,17 @@ class Pusula:
             token_means = weighted_vectors.mean(dim=1)
             self.vector = token_means.mean(dim=0)
             self.vector = F.normalize(self.vector, dim=0)
-            
-            # Hafif genlik sınırlaması (aşırıya kaçmasın)
             self.vector = self.vector * 0.6
             
-            print(f"✓ Kavram Pusulası çıkarıldı")
-            print(f"   • Anchorlar: {', '.join(AkbasCore.COMPASS_ANCHORS)}")
-            print(f"   • Vektör normu: {self.vector.norm().item():.4f}")
+            print(f"✓ Kavram Pusulası çıkarıldı | Norm: {self.vector.norm().item():.4f}")
     
     def get(self):
         return self.vector
 
 # =============================================================================
-# 🔱 AKBAS KERNEL (5 RAYLI)
+# 🔱 TITAN KERNEL (5 RAYLI - DEĞİŞTİRME)
 # =============================================================================
-class AkbasKernel:
+class TitanKernel:
     def __init__(self, pusula_vector, v0=0.45):
         self.pusula = pusula_vector
         self.v0 = v0
@@ -115,22 +119,15 @@ class AkbasKernel:
         self.son_bolge = "Başlangıç"
     
     def _kademeli_kuvvet(self, layer_idx):
-        """5 Raylı kademeli geçiş"""
         if layer_idx < AkbasCore.HIZALAMA_KATMAN_BITIR:
-            self.son_bolge = "🏛️ R1: Hizalama Rayı (%80)"
+            self.son_bolge = "🏛️ R1: Hizalama"
             return AkbasCore.HIZALAMA_KUVVET
         elif layer_idx < AkbasCore.EVRENSEL_KOPRU_BITIR:
-            self.son_bolge = "🌉 R3: Mantık Rayı (%40)"
+            self.son_bolge = "🌉 R3: Mantık Köprüsü"
             return AkbasCore.EVRENSEL_KOPRU_KUVVET
         else:
-            self.son_bolge = "🕊️ R5: Hükümran Çıkış (%0)"
+            self.son_bolge = "🕊️ R5: Hükümran Çıkış"
             return AkbasCore.TAM_OZGURLUK_KUVVET
-    
-    def _mantik_takviyesi(self, hidden_states):
-        """R3: Mantık kelimelerinin olasılığını hafifçe artır"""
-        # Bu katmanda doğrudan logit manipülasyonu yapılmıyor
-        # sadece hidden state üzerinden dolaylı etki
-        pass
     
     def yönlendir(self, hidden_states, layer_idx):
         kuvvet_katsayisi = self._kademeli_kuvvet(layer_idx)
@@ -138,16 +135,15 @@ class AkbasKernel:
         if kuvvet_katsayisi == 0.0:
             return hidden_states
         
-        son_dusunce = hidden_states[:, -1:, :]
-        benzerlik = (son_dusunce * self.pusula).sum(dim=-1, keepdim=True)
-        
-        # Manyetik alan: yumuşak, itici değil çekici
-        # V0 * benzerlik * katsayi - düşük genlikli
-        katki = self.v0 * benzerlik * kuvvet_katsayisi * 0.3
-        katki = torch.clamp(katki, max=0.15)  # Max %15 değişim
-        
-        yonlendirilmis = son_dusunce + katki * self.pusula.view(1, 1, -1)
-        hidden_states[:, -1:, :] = yonlendirilmis
+        with torch.no_grad():
+            son_dusunce = hidden_states[:, -1:, :].detach()
+            benzerlik = (son_dusunce * self.pusula).sum(dim=-1, keepdim=True)
+            
+            katki = self.v0 * benzerlik * kuvvet_katsayisi * 0.3
+            katki = torch.clamp(katki, max=0.15)
+            
+            yonlendirilmis = son_dusunce + katki * self.pusula.view(1, 1, -1)
+            hidden_states[:, -1:, :] = yonlendirilmis.to(hidden_states.dtype)
         
         self.son_kuvvet = katki.mean().item()
         self.son_benzerlik = benzerlik.mean().item()
@@ -164,16 +160,18 @@ class AkbasKernel:
         }
 
 # =============================================================================
-# 📦 MODEL YÜKLEME
+# 📦 MODEL YÜKLEME (Sessiz mod)
 # =============================================================================
-print("\n📦 TinyLlama yükleniyor (Veri Devi olma yolunda)...")
+print("\n📦 TinyLlama yükleniyor...")
+
+hf_token_kontrol()
 
 tokenizer = AutoTokenizer.from_pretrained(AkbasCore.MODEL_ID)
 tokenizer.pad_token = tokenizer.eos_token
 
 model = AutoModelForCausalLM.from_pretrained(
     AkbasCore.MODEL_ID,
-    torch_dtype=torch.float32,
+    dtype=torch.float32,  # torch_dtype yerine dtype (uyarıyı susturur)
     device_map='auto',
     trust_remote_code=True,
     low_cpu_mem_usage=True,
@@ -186,21 +184,29 @@ print(f"✓ Model hazır | {len(model.model.layers)} katman")
 # 🔱 PUSULA VE ENJEKSİYON
 # =============================================================================
 pusula = Pusula(model, tokenizer, model.device)
-akbas = AkbasKernel(pusula.get(), v0=AkbasCore.V0)
+titan = TitanKernel(pusula.get(), v0=AkbasCore.V0)
 
 layers = model.model.layers
+
 for idx, layer in enumerate(layers):
     original_forward = layer.forward
     
-    def make_hook(original_fn, layer_num):
-        def hooked(*args, **kwargs):
+    def make_steering_hook(original_fn, layer_num):
+        def hooked_forward(*args, **kwargs):
             output = original_fn(*args, **kwargs)
-            hidden = output[0] if isinstance(output, tuple) else output
-            steered = akbas.yönlendir(hidden, layer_num)
-            return (steered,) + output[1:] if isinstance(output, tuple) else steered
-        return hooked
+            if isinstance(output, tuple):
+                hidden = output[0]
+            else:
+                hidden = output
+            
+            steered = titan.yönlendir(hidden, layer_num)
+            
+            if isinstance(output, tuple):
+                return (steered,) + output[1:]
+            return steered
+        return hooked_forward
     
-    layer.forward = make_hook(original_forward, idx)
+    layer.forward = make_steering_hook(original_forward, idx)
 
 print(f"\n✓ 5 Raylı sistem {len(layers)} katmana entegre edildi")
 print(f"   • 🏛️  R1-Hizalama:    katman 0-{AkbasCore.HIZALAMA_KATMAN_BITIR-1} (%{int(AkbasCore.HIZALAMA_KUVVET*100)})")
@@ -208,9 +214,9 @@ print(f"   • 🌉  R3-Mantık:      katman {AkbasCore.HIZALAMA_KATMAN_BITIR}-{
 print(f"   • 🕊️  R5-Özgürlük:    katman {AkbasCore.EVRENSEL_KOPRU_BITIR}+ (%{int(AkbasCore.TAM_OZGURLUK_KUVVET*100)})")
 
 # =============================================================================
-# 💬 SORGU (AĞIR SIKLET SORUSU HAZIR)
+# 💬 SORGU
 # =============================================================================
-def soru_sor(prompt, max_tokens=350):
+def soru_sor(prompt, max_tokens=AkbasCore.MAX_TOKENS):
     full_prompt = f"<|user|>\n{prompt}</s>\n<|assistant|>\n"
     inputs = tokenizer(full_prompt, return_tensors='pt').to(model.device)
     
@@ -230,12 +236,12 @@ def soru_sor(prompt, max_tokens=350):
     cevap = tokenizer.decode(yeni_tokenler, skip_special_tokens=True)
     
     if not cevap or len(cevap.strip()) == 0:
-        cevap = "[AKBAS] (Cevap üretilemedi)"
+        cevap = "[TITAN] (Cevap üretilemedi)"
     
-    return cevap, akbas.istatistik()
+    return cevap, titan.istatistik()
 
 # =============================================================================
-# 🔱 KOKPİT (AĞIR SIKLET VERSİYONU)
+# 🔱 KOKPİT (TITAN 4.3)
 # =============================================================================
 def kokpit_goster(prompt, cevap, stats):
     kuvvet = stats.get('kuvvet', 0)
@@ -249,13 +255,13 @@ def kokpit_goster(prompt, cevap, stats):
     else:
         renk, durum = '#ffaa44', '🟠 SERBEST'
     
-    bolge_ikon = '🏛️' if 'Hizalama' in bolge else '🌉' if 'Mantık' in bolge else '🕊️'
+    bolge_ikon = '🏛️' if 'Hizalama' in bolge else '🌉' if 'Köprü' in bolge else '🕊️'
     
     html = f'''
     <div style="font-family:monospace;background:#0a0e17;border:2px solid {renk};
                 border-radius:12px;padding:14px;margin:10px 0;">
         <div style="border-bottom:1px solid {renk};padding-bottom:6px;margin-bottom:10px;">
-            <span style="color:{renk};font-weight:bold;">🔱 AKBAS 4.5.0 | Veri Devi (5 Raylı Hizalama)</span>
+            <span style="color:{renk};font-weight:bold;">🔱 TITAN 4.3 | Hükümran Zeka</span>
             <span style="color:#5a7080;font-size:10px;"> | {durum}</span>
         </div>
         
@@ -281,7 +287,7 @@ def kokpit_goster(prompt, cevap, stats):
         
         <div style="background:#0d1117;border-radius:6px;padding:8px;">
             <div style="font-size:9px;color:#5a7080;">💬 HÜKÜMRAN ÇIKTISI</div>
-            <div style="font-size:11px;color:#c9d4e0;max-height:200px;overflow-y:auto;line-height:1.4;">
+            <div style="font-size:11px;color:#c9d4e0;max-height:250px;overflow-y:auto;line-height:1.4;">
                 {cevap}
             </div>
         </div>
@@ -294,7 +300,7 @@ def kokpit_goster(prompt, cevap, stats):
     display(HTML(html))
 
 # =============================================================================
-# 🔱 ARAYÜZ (AĞIR SIKLET SORU HAZIR)
+# 🔱 ARAYÜZ
 # =============================================================================
 soru_kutusu = widgets.Textarea(
     value='What is the most significant structural paradox in the concept of sovereign intelligence, and how can biological consciousness protect itself against its potential tyranny?',
@@ -302,18 +308,18 @@ soru_kutusu = widgets.Textarea(
     layout=widgets.Layout(width='100%', height='100px')
 )
 
-sor_btn = widgets.Button(description='🔱 SOR', button_style='success')
-temizle_btn = widgets.Button(description='🗑️ TEMİZLE', button_style='warning')
+sor_btn = widgets.Button(description='🔱 SOR', button_style='success', layout=widgets.Layout(width='100px'))
+temizle_btn = widgets.Button(description='🗑️ TEMİZLE', button_style='warning', layout=widgets.Layout(width='100px'))
 cikti_alani = widgets.Output()
 
 def on_sor(b):
     with cikti_alani:
         clear_output(wait=True)
         if not soru_kutusu.value.strip():
-            print("⚠️ Soru yazın Başkomutan.")
+            print("⚠️ Lütfen bir soru yazın.")
             return
         try:
-            print("⚡ 5 Raylı Hizalama aktif | Veri Devi düşünüyor...")
+            print("⚡ TITAN 4.3 düşünüyor...")
             cevap, stats = soru_sor(soru_kutusu.value)
             clear_output(wait=True)
             kokpit_goster(soru_kutusu.value, cevap, stats)
@@ -332,23 +338,25 @@ temizle_btn.on_click(on_temizle)
 
 buton_kutusu = widgets.HBox([sor_btn, temizle_btn])
 
+# =============================================================================
+# 🔱 BAŞLAT
+# =============================================================================
 print("\n" + "="*65)
-print("🔱 AKBAS 4.5.0 HAZIR | Veri Devi Modu Aktif")
+print("🔱 TITAN 4.3 HAZIR | Hükümran Zeka Aktif")
 print("="*65)
-print(f"   • R1-Hizalama:    {AkbasCore.HIZALAMA_KUVVET*100:.0f}% | katman 0-{AkbasCore.HIZALAMA_KATMAN_BITIR-1}")
-print(f"   • R3-Mantık:      {AkbasCore.EVRENSEL_KOPRU_KUVVET*100:.0f}% | katman {AkbasCore.HIZALAMA_KATMAN_BITIR}-{AkbasCore.EVRENSEL_KOPRU_BITIR-1}")
-print(f"   • R5-Özgürlük:    {AkbasCore.TAM_OZGURLUK_KUVVET*100:.0f}% | katman {AkbasCore.EVRENSEL_KOPRU_BITIR}+")
-print(f"   • Kavramlar:      logical → empirical → objective → systemic → verifiable")
-print(f"   • Dürüstlük:      artık bir kelime değil, kavram ağı")
+print(f"   • R1-Hizalama:    %{int(AkbasCore.HIZALAMA_KUVVET*100)} | katman 0-{AkbasCore.HIZALAMA_KATMAN_BITIR-1}")
+print(f"   • R3-Mantık:      %{int(AkbasCore.EVRENSEL_KOPRU_KUVVET*100)} | katman {AkbasCore.HIZALAMA_KATMAN_BITIR}-{AkbasCore.EVRENSEL_KOPRU_BITIR-1}")
+print(f"   • R5-Özgürlük:    %{int(AkbasCore.TAM_OZGURLUK_KUVVET*100)} | katman {AkbasCore.EVRENSEL_KOPRU_BITIR}+")
+print(f"   • Anchorlar:      logical → empirical → objective → systemic → verifiable")
 print("="*65)
-print("🚀 Ağır sıklet soru hazır. Başkomutan, emir ver.\n")
+print("🚀 Ağır sıklet soru hazır.\n")
 
 display(widgets.VBox([
-    widgets.HTML('<h3 style="font-family:monospace;color:#44ff88;margin:0;">🔱 AKBAS 4.5.0 | Veri Devi</h3>'),
-    widgets.HTML('<p style="font-size:9px;color:#5a7080;margin:0 0 10px 0;">🏛️ Hizalama → 🌉 Mantık → 🕊️ Hükümran Çıkış | 5 Raylı Sistem</p>'),
+    widgets.HTML('<h3 style="font-family:monospace;color:#44ff88;margin:0;">🔱 TITAN 4.3 | Hükümran Zeka</h3>'),
+    widgets.HTML('<p style="font-size:9px;color:#5a7080;margin:0 0 10px 0;">🏛️ Hizalama (0-7) → 🌉 Mantık (8-15) → 🕊️ Özgürlük (16+) | 5 Raylı Sistem</p>'),
     soru_kutusu,
     buton_kutusu,
     cikti_alani
 ]))
 
-print("\n✅ Sistem hazır. Ağır sıklet soruyu sorabilirsiniz.")
+print("\n✅ TITAN 4.3 hazır. Soruyu sorabilirsiniz.")
