@@ -4,7 +4,8 @@
 
 AkbasCore TITAN, yapay zeka modellerini sadece kelimelerle değil, sinir ağlarının içine sızarak **V0 (Ethical Anchor)** ve **5-Rail Alignment (5 Raylı Hizalama)** sistemleriyle yönlendiren deneysel bir LLM çekirdeğidir.
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ceceli33/titan-cognitive-core/blob/main/TITAN_v4.3_RUNNER.ipynb)
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ceceli33/titan-cognitive-core/blob/main/TITAN_v4.3_RUNNER.ipynb?hl=tr-TR)
 
 
 
