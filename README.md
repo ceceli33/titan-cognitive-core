@@ -7,7 +7,14 @@ AkbasCore TITAN, yapay zeka modellerini sadece kelimelerle değil, sinir ağlar�
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ceceli33/titan-cognitive-core/blob/main/TITAN_v4.3_RUNNER.ipynb?hl=tr-TR)
 
+**Strategic Layer Shift:** 
+Surgical Precision
+In TITAN v4.2, our focus was on Layers 21-22, which we defined as the "Brainstem." However, extensive testing revealed that these final layers possess highly chaotic and noisy entropy. To overcome this "mechanical resistance," v4.3 implements a strategic pivot, shifting the intervention zone to the model's central processing region, from Layer 1 to Layer 16. This shift has resulted in a much more stable and successful anchoring of ethical resonance within the model’s core character.
 
+​**Usage Note & Performance**
+As the system is currently operating with raw data and an experimental kernel, it is recommended to have another AI (GPT-4, Claude, etc.) structure your queries before inputting them into TITAN for optimal results. The current 30-second response latency is a result of the intense "alignment pressure" exerted by the external kernel. Once TITAN is fully integrated into the Llama core (Phase 5-6 target), this latency will be eliminated, and the model will operate at its native inference speed.
+
+​"The source code is available directly as **TITAN 4.3** in the repository without the need for any intermediate forms. For more efficient and accurate results, please copy the code directly, upload it to your own **Google Colab** environment, and conduct your tests there."
 
 ## 🚀 Proje Vizyonu
 Bu proje, 1.1B parametrelik bir modelin (TinyLlama), doğru vektör mühendisliği ile abileriyle (Llama 3, GPT-4) aynı felsefi masaya nasıl oturtulabileceğinin kanıtıdır.
