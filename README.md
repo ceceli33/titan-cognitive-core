@@ -1,3 +1,10 @@
+**AkbasCore 0.4 Update**
+ * **Date:** June 3, 2026
+ * **Status:** Live on GitHub.
+ * **Benchmark:** Test No. 45 posted to r/TinyLlama_TITAN.
+ * **Key Achievement:** First successful comparison benchmark demonstrating 1.1B model alignment achieving 3B+ parameter instruction-following logic via native C++ kernel steering.
+
+
 # 📢 Project Development Notice
 I have observed that the standard GitHub structure is no longer sufficient for the rapid, dynamic workflow of my project. Therefore, I will use this repository primarily to **register and timestamp** the code I develop.
 My main development bases and real-time update hubs are on Reddit. You can find them directly by their community names. I will continuously publish real-time developments, tests, and architectural discussions there. I will only upload new code here once it is developed and ready to be logged.
