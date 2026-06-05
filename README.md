@@ -1,7 +1,7 @@
-**AkbasCore 0.5 Update**
+**AkbasCore 0.8 Update**
  * **Date:** June 4, 2026
  * **Status:** Live on GitHub.
- * **Benchmark:** Test No. 48 posted to r/TinyLlama_TITAN
+ * **Benchmark:** Test No. 51 posted to r/TinyLlama_TITAN
  * **Key Achievement:** First successful comparison benchmark demonstrating 1.1B model alignment achieving 3B+ parameter instruction-following logic via native C++ kernel steering.
 
 
