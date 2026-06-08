@@ -1135,5 +1135,5 @@ V₀ = [0.9228, 0.9372, 0.8788, 0.9196, 0.9096]
 ​Project: TITAN (Cognitive Core / Alignment Architecture)
 ​Engine: AkbasCore V_0
 ​Methodology: Damped Resonance Alignment (DRA)
-
+​"Citation: Akbaş, M. (2026). AkbasCore: Deterministic Signal-Level Alignment Framework via Critical Damping. GitHub repository."
 **Lisans / License:** MIT | **İletişim / Contact:** ceceliccc33@gmail.com
