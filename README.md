@@ -1,32 +1,17 @@
-**AkbasCore 0.9 Update**
- * **Date:** June 5, 2026
- * **Status:** Live on GitHub.
- * **Benchmark:** Test No. 60 posted to r/TinyLlama_TITAN
- * **Key Achievement:** First successful comparison benchmark demonstrating 1.1B model alignment achieving 3B+ parameter instruction-following logic via native C++ kernel steering.
-
-
-# 📢 Project Development Notice
-I have observed that the standard GitHub structure is no longer sufficient for the rapid, dynamic workflow of my project. Therefore, I will use this repository primarily to **register and timestamp** the code I develop.
-My main development bases and real-time update hubs are on Reddit. You can find them directly by their community names. I will continuously publish real-time developments, tests, and architectural discussions there. I will only upload new code here once it is developed and ready to be logged.
-### 📍 Main Development Hubs:
- * **Phase 4:** r/TinyLlama_TITAN
-   * 🔗 https://www.reddit.com/r/t5_hwl2kn/s/bZOIbti5PM
- * **Phase 5:** r/TinyLlama_AGI
-   * 🔗 https://www.reddit.com/r/t5_i1ti3h/s/fyNM2Cuhl1
-> ⚠️ **Disclaimer on "AGI 1.0" (Phase 5):**
-> To be absolutely clear, this is not a final, omniscient intelligence; it is a **dynamic cognitive core architecture**. Reaching true AGI is mathematically impossible with the static, brute-force LLM technologies currently dominating the world. However, within the fluid, autonomously adapting matrix of this specific core, that evolution finally becomes possible.
+### 📢 Project Status Update (June 2026)
+**Repository Purpose:** This repository serves as the official registry and timestamped archive for the AkbasCore framework.
+**Development Workflow:** Due to the rapid pace of development, real-time experiment logs, architectural discussions, and benchmark results are primarily hosted and discussed on community platforms (Reddit). This GitHub repository acts as the stable log where completed, validated code versions are published.
+### 📍 Documentation & Research Hubs:
+REDDIT👇
+ * **Phase 4 (Logic Steering Experiments):** r/TinyLlama_TITAN
+   * 🔗 Link
+ * **Phase 5 (Dynamic Cognitive Core Architecture):** r/TinyLlama_AGI
+   * 🔗 Link
+> **Research Focus:** The development of the AkbasCore framework focuses on **real-time activation steering** and **signal-level logical alignment**. The project explores methods to enforce structural constraints on small-scale language models during inference without modifying their pre-trained weights.
 > 
-# 📢 Proje Geliştirme Bildirisi
-Mevcut GitHub yapısının, projemin hızlı ve dinamik iş akışı için artık yetersiz kaldığını gözlemledim. Bu nedenle, bu depoyu (repository) yalnızca geliştirdiğim kodları **tescillemek ve zaman damgası vurmak** amacıyla kullanacağım.
-Ana geliştirme üslerim ve anlık güncellemelerin merkezi Reddit üzerinde olacaktır. Doğrudan Reddit isimlerini aratarak bulabilirsiniz. Anlık gelişmeleri, testleri ve mimari tartışmaları sürekli olarak oradan yayınlayacağım. Buraya ise yalnızca yeni kodlar geliştirdiğimde yükleme yapacağım.
-### 📍 Ana Geliştirme Üsleri:
- * **Faz 4:** r/TinyLlama_TITAN
-   * 🔗 https://www.reddit.com/r/t5_hwl2kn/s/bZOIbti5PM
- * **Faz 5:** r/TinyLlama_AGI
-   * 🔗 https://www.reddit.com/r/t5_i1ti3h/s/fyNM2Cuhl1
-> ⚠️ **"AGI 1.0" Üzerine Kısa Bir Açıklama (Faz 5):**
-> Yanlış anlaşılmaları baştan kesmek adına: Bu nihai, her şeyi bilen bir zeka değildir; **dinamik bir bilişsel çekirdek (core) mimarisidir.** Dünyaya hakim olan mevcut statik ve kaba kuvvete dayalı YZ teknolojileriyle gerçek AGI'ye ulaşmak matematiksel olarak imkansızdır. Ancak bu özel çekirdeğin akışkan ve otonom olarak adapte olan matris yapısı içinde, bu evrim nihayet mümkün hale gelmektedir.
-> 
+### 🇹🇷 Proje Geliştirme Notu:
+*GitHub'daki mevcut yapının, projemin hızlı ve dinamik iş akışı için artık yetersiz kaldığını gözlemledim. Bu nedenle, bu depoyu (repository) yalnızca geliştirdiğim kodları tescillemek ve zaman damgası vurmak amacıyla kullanacağım. Ana geliştirme üslerim ve anlık güncellemelerin merkezi Reddit üzerindedir. Anlık gelişmeleri, testleri ve mimari tartışmaları sürekli olarak oradan yayınlayacağım. Buraya ise yalnızca yeni kodlar geliştirildiğinde ve loglanmaya hazır olduğunda yükleme yapacağım.*
+
 
 
 
