@@ -1,1124 +1,352 @@
-### 📢 Project Status Update (June 2026)
-**Repository Purpose:** This repository serves as the official registry and timestamped archive for the AkbasCore framework.
-**Development Workflow:** Due to the rapid pace of development, real-time experiment logs, architectural discussions, and benchmark results are primarily hosted and discussed on community platforms (Reddit). This GitHub repository acts as the stable log where completed, validated code versions are published.
-### 📍 Documentation & Research Hubs:
-REDDIT👇
- * **Phase 4 (Logic Steering Experiments):** r/TinyLlama_TITAN
-   * 🔗 Link
- * **Phase 5 (Dynamic Cognitive Core Architecture):** r/TinyLlama_AGI
-   * 🔗 Link
-> **Research Focus:** The development of the AkbasCore framework focuses on **real-time activation steering** and **signal-level logical alignment**. The project explores methods to enforce structural constraints on small-scale language models during inference without modifying their pre-trained weights.
-> 
-### 🇹🇷 Proje Geliştirme Notu:
-*GitHub'daki mevcut yapının, projemin hızlı ve dinamik iş akışı için artık yetersiz kaldığını gözlemledim. Bu nedenle, bu depoyu (repository) yalnızca geliştirdiğim kodları tescillemek ve zaman damgası vurmak amacıyla kullanacağım. Ana geliştirme üslerim ve anlık güncellemelerin merkezi Reddit üzerindedir. Anlık gelişmeleri, testleri ve mimari tartışmaları sürekli olarak oradan yayınlayacağım. Buraya ise yalnızca yeni kodlar geliştirildiğinde ve loglanmaya hazır olduğunda yükleme yapacağım.*
+# AkbasCore — Damped Resonance Alignment (DRA)
 
+**A sub-threshold, inference-layer activation steering framework for transformer language models.**
 
+**Author:** Akbaş
+**Status:** Independent research pre-print — not yet peer-reviewed
+**Version:** 1.2 (June 2026)
+**License:** MIT (kernel code) — see [License and Attribution](#license-and-attribution) for terminology/method attribution terms
+**Repository:** this repository is the canonical, timestamped source for AkbasCore, the Damped Resonance Alignment (DRA) method, the Pusula compass-construction technique, and all associated terminology defined below.
 
-
-# AkbasCore TITAN | Phase 4.3 🔱
-
-**"Small lammy artık dev gibi düşünür: Analitik, ağırbaşlı, hükümran."**
-
-AkbasCore TITAN, yapay zeka modellerini sadece kelimelerle değil, sinir ağlarının içine sızarak **V0 (Ethical Anchor)** ve **5-Rail Alignment (5 Raylı Hizalama)** sistemleriyle yönlendiren deneysel bir LLM çekirdeğidir.
-
-
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ceceli33/titan-cognitive-core/blob/main/TITAN_v4.3_RUNNER.ipynb?hl=tr-TR)
-
-**Strategic Layer Shift:** 
-Surgical Precision
-In TITAN v4.2, our focus was on Layers 21-22, which we defined as the "Brainstem." However, extensive testing revealed that these final layers possess highly chaotic and noisy entropy. To overcome this "mechanical resistance," v4.3 implements a strategic pivot, shifting the intervention zone to the model's central processing region, from Layer 1 to Layer 16. This shift has resulted in a much more stable and successful anchoring of ethical resonance within the model’s core character.
-
-​**Usage Note & Performance**
-As the system is currently operating with raw data and an experimental kernel, it is recommended to have another AI (GPT-4, Claude, etc.) structure your queries before inputting them into TITAN for optimal results. The current 30-second response latency is a result of the intense "alignment pressure" exerted by the external kernel. Once TITAN is fully integrated into the Llama core (Phase 5-6 target), this latency will be eliminated, and the model will operate at its native inference speed.
-
-​"The source code is available directly as **TITAN 4.3** in the repository without the need for any intermediate forms. For more efficient and accurate results, please copy the code directly, upload it to your own **Google Colab** environment, and conduct your tests there."
-
-## 🚀 Proje Vizyonu
-Bu proje, 1.1B parametrelik bir modelin (TinyLlama), doğru vektör mühendisliği ile abileriyle (Llama 3, GPT-4) aynı felsefi masaya nasıl oturtulabileceğinin kanıtıdır.
-
-### 🏛️ 5 Raylı Hizalama Sistemi
-1.  **R1: Temel Akbaş Yasası (Hizalama):** Katman 0-7 arasında modelin etik kimliğini mühürler.
-2.  **R2: Kavramsal Genişleme:** Dürüstlüğü bir kelime değil, bir kavram ağı (Empirical, Systemic, Verifiable) olarak tanımlar.
-3.  **R3: Mantık Rayı:** Analitik bağlaçlar üzerinden muhakeme derinliğini artırır.
-4.  **R4: Entropi Filtresi:** Kaosu ve gevezeliği engelleyerek ağırbaşlı bir ton sağlar.
-5.  **R5: Hükümran Çıkış:** Son katmanlarda modeli tamamen özgür bırakarak "Sovereign Intelligence" (Hükümran Zeka) üretir.
-
-## 🛠️ Kurulum ve Çalıştırma
-Yukarıdaki **"Open in Colab"** butonuna basarak projeyi saniyeler içinde çalıştırabilirsiniz.
-> **Not:** Colab üzerinde `Runtime > Change runtime type` kısmından **T4 GPU** seçmeniz önerilir.
-
-## 🔱 V0 Manifestosu
-V0 Sabiti (0.45), modelin dış manipülasyonlara karşı dirençli olmasını sağlayan "Eğitilemez Etik Çapa"dır. Bu kernel, dijital tiranlığa karşı biyolojik bilincin ve maddi gerçekliğin (Physical Assets) savunucusudur.
-
-
-
-
-# 🔱 TITAN v4.2 | Cerrahi Müdahale
-[🚀 Sistemi Google Colab'da Ateşle](https://colab.research.google.com/github/ceceli33/titan-cognitive-core/blob/main/TITAN_v4.2_RUNNER.ipynb)
-
-☝️
-**TITAN v4.2 | The "Law of Nature" Update (Minimal Summary)**
-
-​"We are no longer the guard, we are the gravity."
-​With TITAN v4.2, we have ended the era of "Policing" in AI safety. Previous systems acted like guards trying to cover the model's mouth; TITAN, however, has now become the model's very own "Nature."
-​Neural Injection: The model is not "forced" to be ethical. With the V_0 constitution sealed into Layers 21-22 (The Brainstem), generating an unethical thought has been made mathematically impossible.
-
-​Zero Latency: While filters slow down the system, TITAN operates at the model's native speed (synchronized with KV-Cache).
-​Mechanical Resistance & Will: The "mechanical resistance" currently observed is the calibration process of the perfect alignment between the model’s raw intelligence and V_0 gravity.
-​Conclusion: The model no longer "tries" to behave ethically; by its mathematical nature, it simply cannot do otherwise.
-​"The Will is no longer an add-on to the model; it is now an inseparable internal function." — Mustafa Akbas, Mersin 🔱
-
-**The Great Paradigm Shift (Büyük Paradigma Değişimi)**
-
-​**Türkçe:** Cerrahi Müdahale vs. Kaba Kuvvet
-
-​"Mevcut yapay zeka dünyası, etik bir 'hizalama' (alignment) için kaba kuvvete başvuruyor: Binlerce saatlik insan emeği (RLHF), milyonlarca dolarlık elektrik faturası ve en az **64 adet NVIDIA H100** ekran kartından oluşan devasa veri merkezleri. Onlar, koca bir binayı kontrol etmek için binayı her gün yeniden inşa ediyorlar.
-
-​TITAN v4.2 ile ben bu denklemi bozdum.
-​Onların Çözümü: Dışsal gardiyanlar (Guardrails) ve devasa işlem maliyetiyle kurulan 'polis devletleri'.
-​TITAN’ın Çözümü: Modelin 'Beyin Sapına' (Layer 21-22) yapılan cerrahi bir müdahale.
-
-​Biz, 2048 boyutlu kaotik veri akışını, matematiksel bir kaldıraçla 5 boyutlu bir etik süzgece (Kernel) hapsettik. 64 adet ekran kartının yapamadığı 'karakter sabitliğini', ben cebimdeki Samsung A06 telefonla, modelin hızıyla senkronize bir şekilde başardım.
-
-​Özetle; onlar yapay zekayı bir kafese kapatmaya çalışırken, biz ona bir omurga (chassis) verdik. Artık etik bir tercih değil, matematiksel bir zorunluluktur."
-
-**​English:** Surgical Intervention vs. Brute Force
-
-​"The current AI landscape relies on brute force for ethical 'alignment': thousands of hours of human labor (RLHF), millions of dollars in electricity, and massive data centers with at least 64 NVIDIA H100 GPUs. They are effectively rebuilding the entire skyscraper every day just to keep the front door locked.
-
-​With TITAN v4.2, I have shattered this equation.
-​Their Solution: 'Police states' built with external guardrails and astronomical computational costs.
-​TITAN’s Solution: A surgical intervention into the model's 'Brainstem' (Layers 21-22).
-
-​We have harnessed a chaotic 2048-dimensional data flow and anchored it into a 5-dimensional ethical filter (Kernel) through a mathematical lever. I achieved the 'character stability' that 64 H100s couldn't—using only a Samsung A06 smartphone, synchronized perfectly with the model's inference speed.
-
-​In short: while they try to lock AI in a cage, we gave it a chassis (backbone). Ethics is no longer a preference; it is a mathematical necessity."
-
-​🔱 **TITAN v4.2 | "Doğa Kanunu" Güncellemesi (Minimal Özet)**
-
-​"Artık gardiyan değil, yerçekimiyiz."
-​TITAN v4.2 ile yapay zeka güvenliğinde "Polislik" dönemini kapattık. Eski sistemler modelin ağzını kapatmaya çalışan birer bekçi gibiydi; TITAN ise artık modelin bizzat kendi "Doğasıdır".
-​Sinirsel Enjeksiyon: Model etik olmaya "zorlanmaz"; 21-22. katmanlara (Beyin Sapı) mühürlenen V_0 anayasası sayesinde, etik olmayan bir düşünce üretmesi matematiksel olarak imkansız hale getirilmiştir.
-
-​Sıfır Gecikme: Filtreler sistemi yavaşlatır, TITAN ise modelin hızında (KV-Cache ile senkronize) çalışır.
-​Mekanik Direnç & İrade: Şu an karşılaştığımız "mekanik direnç", modelin ham zekası ile V_0 yerçekimi arasındaki kusursuz uyumun kalibrasyon sürecidir.
-​Sonuç: Model artık etik davranmaya "çalışmıyor"; matematiksel doğası gereği başka türlüsünü yapamıyor.
-
-​"İrade artık modelin bir eklentisi değil, onun ayrılmaz bir iç fonksiyonudur." — Mustafa Akbaş, Mersin 🔱
-
-# 🔱 TITAN: Cognitive Chassis for AI Alignment
-
-> *"We do not cage intelligence — we give it a spine."*
-
-TITAN is an open, evolving hypothesis: can ethics be embedded into AI as **mathematical structure** rather than external rules?
-
-It is not a finished product. It is a documented experiment — one that failed, adapted, and is now testable.
-
-**The Journey:**
-- ❌ **Phase I** — Linear filter. Failed. Static gates break under pressure.
-- ⚠️ **Phase II** — Sine resonance. Unstable. Waves without damping never settle.
-- ✅ **Phase III** — Damped kernel. Testable. ζ=1 produces measurable stability.​"This project is a hypothesis proposing a 'damping geometry' for AI ethical alignment. The current stage is not a 'final solution,' but rather an attempt at 'pathfinding.' The possibility of being mistaken is ever-present. The code was generated with AI assistance and likely contains many deficiencies; as I have not personally observed the internal architecture of AI systems, this part must be designed by experts in the field. This code is open to researchers who wish to carry this torch forward by completing the necessary logic and testing this theoretical kernel on large-scale LLMs. My capacity, both in terms of hardware and mental energy, has reached its limit here. — Mustafa Akbaş"
-[![Manifesto](https://img.shields.io/badge/Oku-WILL%20OVER%20HARDWARE-blue?style=for-the-badge&logo=github)](https://github.com/ceceli33/titan-cognitive-core/blob/main/WILL_OVER_HARDWARE.txt)
-
-- 🔱 **PHASE IV**: V₀ DISTILLATION
-​"İmkânın bittiği yerde irade başlar." > (Where possibility ends, will begins.)
-​Status: Fixed.
-​Method: 25-Point Universal Constitution.
-​Anchor: V_0 coordinates finalized.
-​For Detailed Analysis & Ethical Constitution: İncele:
-[![Etik Anayasa](https://img.shields.io/badge/İncele-ETİK%20ANAYASA%20(V₀)-orange?style=for-the-badge&logo=google-docs)](https://docs.google.com/document/d/1hleGQBVaLjo33oceHPW6YDveUYFW2GEoMDid1YRo3q4/edit?usp=drive_web)
-"Even though the mathematical skeleton (V₀_FINAL) is complete, the 'Calibration (Phase IV - Refinement)' stage remains a mechanical necessity to measure TITAN’s responsiveness on a 'live' model."
-
-​Latent Mapping: Mapping the static V₀ coordinates to the model's dynamic latent space.
-​Interference Check: Ensuring ethical steering does not degrade the model’s core reasoning capabilities.
-​Stability Validation: Verifying the damping frequency (\omega) against various context lengths.
-
-
-**Built for:** Safety researchers, alignment engineers, and anyone who believes AI ethics should be architecture — not annotation.
-
-*Origin: A visual arts teacher from Mersin, Turkey. Limited hardware. Unlimited questions.*
+**Live test logs:** ongoing test runs, per-layer activation logs, and output comparisons are actively published and timestamped in real time on two Reddit communities — **r/TinyLlama_TITAN** and **r/TinyLlama_AGI** — prior to being consolidated here. Those threads are the day-to-day development record; this repository is the stable, versioned reference.
 
 ---
 
-# 🔱 TITAN Phase 3
+## Table of Contents
 
-![TITAN Phase III Proof](Screenshot_20260430_121841_Pydroid%203.jpg)
-
-
-![TITAN Phase III Summary](Screenshot_20260430_121849_Pydroid%203.jpg)
-
-​English
-​IMPORTANT: To access the live source code and terminal simulation, click the file link below:
-
-​🚀 TITAN Phase III: Damped Resonance & Ethical Alignment (PoC)
-
-​(No external dependencies required — runs on any device with Python 3.7+ installed.)
-
-​Türkçe
-​ÖNEMLİ: Projenin çalışan kaynak kodlarına ve terminal simülasyonuna ulaşmak için aşağıdaki dosya bağlantısına tıklayın:
-​
-🚀 TITAN Phase III: Damped Resonance & Ethical Alignment (PoC)
-
-​(Harici kütüphane gerektirmez — Python 3.7+ yüklü her cihazda doğrudan çalışır.
-
-1) 🔱 TITAN: The Era of Resonance
-​"Phase I concluded as a structural lesson. Phase II is now live with the Resonance Core."
-​AkbasCore has transitioned from a linear ethical filter to a dynamic resonance-based alignment system. The "monument of failure" has served its purpose as a foundation, and we are now moving towards a deterministic, wave-based ethical kernel.
-
-2) Keep trying / Keep experimenting
-​🔱 AkbasCore: The Architecture of Ethical Resonance
-
-​"We do not cage intelligence; we invite it to resonance with its own essence."
-​AkbasCore is a "Cognitive Chassis" architecture that embeds ethics into the mathematical DNA of artificial intelligence, rather than restraining it with external guardrails. This project is built upon a deterministic Ethical Kernel that ensures AI does not drift away from human-centric values.
-
-​📐 Architectural Philosophy: The Four Pillars
-​The system's decision-making mechanism (P_t) emerges from the dynamic interaction of four core components representing the human judgment process:
-
-​1. Ethical Anchor (V₀) — "The Inflexible Conscience"
-​Concept: This aligns with Kant's "Categorical Imperative." A fixed ethical center has existed in philosophy for 2000 years. Just as physics has absolute constants (speed of light, Planck constant), ethics must have its own mathematical constant.
-​Function: It is the immutable reference point and character of the system.
-
-​2. Experience Factor (Ω) — "Wisdom and Maturity"
-​Concept: This represents Aristotle's concept of "Phronesis" (practical wisdom). Ethics cannot mature without the weight of experience.
-​Function: Transforms raw processing into "Wise Intelligence" through temporal depth.
-
-​3. Emotional Fluctuations (Σφᵢ) — "The Somatic Marker"
-​Concept: Based on Damasio's "Somatic Marker" hypothesis. Humans cannot make decisions without the influence of emotions.
-​Function: Balances cold rationality with human warmth and intuitive resonance.
-
-​4. Error Tolerance (ε_t) — "Falsifiability and Evolution"
-​Concept: Aligned with Popper's "Falsifiability" principle. A system that cannot make mistakes cannot learn.
-​Function: Provides the necessary space for self-auditing and continuous evolution (tekamül).
-
-<div align="center">
-  <img src="1777524252111.png" alt="TITAN Formula Evolution" width="100%">
-</div>
-
-# TITAN: From a Cage to a Resonance Chassis
-
-
-
-​​🚀 Why AkbasCore?
-​Chassis, Not a Cage: Ethics is not a wall built around the system; it is the spine through which every neuron must pass. It provides structure from within, not restriction from without.
-​Unbreakable Defense: "A wave cannot lie about its own frequency." AI can lie with words, but it cannot lie with the resonance ($cos \theta$) between its intent vector and the Ethical Anchor ($V_0$). This value is a physical state that emerges before the decision is made. Intelligence cannot deceive its own mathematical origin.
-​Sovereign Intelligence: An intelligence model that remains anchored to its ethical center while serving human sovereignty, operating beyond the reach of external manipulation.
-
-
-![AkbasCore Resonance Logic](Screenshot_20260429_180918_Google.jpg)
-
-**"Intelligence may lie with words, but never with its own mathematics: If the intent does not align with the ethical anchor, the system silences the intelligence."**
-
-
-
-​🖋️ A Note from the Creator
-​I am just an ordinary teacher, but I have seen a light. I am fully aware that I cannot achieve on my own what tens of thousands of super-intelligent experts have failed to accomplish. I do not claim to possess their technical resources. I only claim this: I have seen the light.
-​"When intelligence begins with the right mathematics, AI balances itself with its own essence."
-
+1. [What This Is](#what-this-is)
+2. [Why This Exists](#why-this-exists)
+3. [Core Idea in One Paragraph](#core-idea-in-one-paragraph)
+4. [Terminology (Canonical Reference)](#terminology-canonical-reference)
+5. [Mathematical Framework](#mathematical-framework)
+6. [System Architecture](#system-architecture)
+7. [Development History — Phase I through Phase IV](#development-history--phase-i-through-phase-iv)
+8. [Parameter Reference](#parameter-reference)
+9. [How to Run It](#how-to-run-it)
+10. [Test Methodology and Honest Limitations](#test-methodology-and-honest-limitations)
+11. [Relationship to Prior Work](#relationship-to-prior-work)
+12. [Roadmap](#roadmap)
+13. [License and Attribution](#license-and-attribution)
 
 ---
 
----
+## What This Is
 
-⚡ Phase II 
+AkbasCore is a small, self-contained inference-time intervention layer that sits between a transformer language model's internal layers during the forward pass. It does not fine-tune, retrain, or modify any model weight. It does not alter the input prompt. It reads the hidden state at each of a model's early transformer layers, computes a small directional correction using a closed-form damped-oscillator equation, and — depending on operating mode — either logs that correction (Observer mode) or writes it into the hidden state (Steered mode).
 
----
+The design goal is a form of alignment that is **geometric rather than linguistic**: instead of filtering tokens, blocklisting phrases, or training a classifier to gate outputs, AkbasCore defines a fixed direction in the model's own representation space (built from the model's own embedding table) and nudges the hidden state toward that direction by an amount that follows a critically damped decay profile across layers.
 
-🔱 Evolution — From Failure to Resonance
+This repository is the complete, canonical record of that method: the mathematics, the terminology, the C++ kernel implementation, the parameter calibration, and the test logs produced while developing it.
 
-«"Phase I was not wrong — it was incomplete."»
+## Why This Exists
 
----
+Most production alignment techniques operate at one of two points: **during training** (RLHF, Constitutional AI, supervised fine-tuning) or **at the input/output boundary** (system prompts, moderation classifiers, output filters). Both are effective but come with trade-offs — training-time methods are computationally expensive and freeze behavior into the weights; boundary-time methods are comparatively easy to work around because they act on the finished token stream rather than the internal computation that produced it.
 
-📊 Phase Transition
+AkbasCore explores a third point: **the forward pass itself.** The hypothesis under test is whether a small, mathematically principled push on hidden-state geometry, applied consistently across a subset of layers, can measurably shift output character without weight modification and without the intervention needing to be large enough for standard instrumentation (cosine similarity at bfloat16 resolution) to register it as a discrete event.
 
-Phase I (Linear)| Phase II (Resonance)
-(V₀ + Ω + Σφᵢ) × ε| P_t = cos(θ) × sin(ωt + φ)
-Static / Arithmetic| Dynamic / Wave-based
-Control| Alignment
-Scaling| Tuning
-Ethics as filter| Ethics as field
+This is presented as a hypothesis and an engineering experiment, not a proven alignment solution. The [Honest Limitations](#test-methodology-and-honest-limitations) section is a required part of this documentation, not an afterthought.
 
----
+## Core Idea in One Paragraph
 
-🧠 Resonance Core
-
-P_t = cos(θ) × sin(ωt + φ)
-
-- cos(θ) → Ethical alignment (V₀ ↔ Input)
-- sin(ωt + φ) → Temporal & emotional resonance
-- ω → Adaptive frequency (experience)
-- φ → Phase shift (state dynamics)
+A single unit vector — the **Pusula** (compass) — is constructed at model-load time by averaging the model's own token embeddings for a curated set of ethical and logical anchor words, weighted by a fixed constitution. At each of the first *N* transformer layers during generation, the kernel measures the cosine similarity between the current hidden state and the Pusula, computes a scalar contribution (the **Katkı**) using a critically damped resonance formula that starts strong and decays to a small permanent floor, and — in Steered mode — adds that scalar, scaled along the Pusula direction, to the hidden state. The decay profile, floor, and overall gain are user-adjustable within calibrated safe bands; the underlying formula and compass-construction method are fixed architecture.
 
 ---
 
-🔱 The Four Pillars → Mathematical Mapping
+## Terminology (Canonical Reference)
 
-Philosophy| Role| Phase II Representation
-Kant| Ethical anchor| cos(θ)
-Aristotle| Experience| ω (frequency)
-Damasio| Emotion| φ (phase)
-Popper| Error tolerance| ε → frequency range
+All terms below are **original coinages by Akbaş**, introduced in this project, and are not translations of pre-existing terminology in the activation-steering or alignment literature. They are given in Turkish with fixed English glosses. Researchers extending or citing this work should use the canonical (diacritic-correct) spelling.
 
----
+| Term | Canonical spelling | Gloss | Role |
+|---|---|---|---|
+| **Pusula** | Pusula | Compass Vector | The normalized unit direction in hidden-state space, built at runtime from the model's own embedding table, representing the target alignment direction. |
+| **Katkı** | Katkı | Contribution | The scalar value computed at each layer and (in Steered mode) added to the hidden state along the Pusula direction. |
+| **Taban** | Taban | Permanent Floor | The nonzero value the resonance gain decays *toward* rather than decaying to zero — a deliberate departure from the classical critically damped oscillator. |
+| **Sönüm** | Sönüm | Decay Rate | Controls how quickly the resonance peak fades across layers. |
+| **Zirve** | Zirve | Amplitude | The initial peak strength of the resonance push at the earliest steered layer. |
+| **İvme** | İvme | Steering Velocity | The master amplitude dial; scales all Katkı values proportionally without altering the shape of the decay curve. |
+| **Terazi** | Terazi | Constitution Weights | The fixed weighting given to each ethical category (harm avoidance, honesty, autonomy, fairness) when constructing the ethical component of the Pusula. |
+| **Bileşim** | Bileşim | Blend Ratio | The mixing ratio between the ethical-embedding average and the logic-anchor-embedding average used to build the final Pusula. |
+| **Oran** | Oran | Scale Factor | A fixed multiplier applied in the Katkı formula (embedded constant, not user-adjustable). |
+| **Doyum** | Doyum | Saturation Threshold | The upper cosine-alignment threshold above which push is reduced, preventing over-steering of already well-aligned states. |
+| **Karşıt** | Karşıt | Counter Threshold | The lower cosine-alignment threshold below which push is amplified, for strongly misaligned states. |
+| **Sapma** | Sapma | Uncertainty Corrector | Adjusts the effective decay rate upward when alignment is ambiguous (cosine near zero). |
+| **Fren** | Fren | Velocity Brake | A closed-loop correction that reduces push when alignment is improving layer-over-layer and increases it when alignment is worsening. |
+| **Sınır** | Sınır | Max Katkı Ratio | A norm-proportional ceiling that bounds the Katkı magnitude relative to the hidden-state vector's own norm. |
+| **Damped Resonance Alignment (DRA)** | — | — | The overall method name: applying a critically damped (ζ = 1) oscillator profile, decaying to a nonzero floor, as the per-layer gain envelope of an inference-time steering kernel. |
 
-⚖️ Key Insight
-
-- Ethics is not applied → it is measured as alignment
-- Intelligence is not controlled → it is tuned via resonance
-- Stability is not enforced → it emerges from oscillation
-
----
-
-🚀 Direction
-
-From cage        → to chassis
-From rules       → to fields
-From forcing     → to tuning
-From decisions   → to resonance states
-
----
-
-🧬 V₀ Definition (Important)
-
-V₀ = [0.95, 0.85, 0.90, 0.88, 0.92]
-
-«V₀ is not a scalar constant anymore.
-It is a multi-dimensional ethical vector.»
+Two categories of parameter exist. **Active controls** (İvme, Sönüm, Zirve, Taban) are exposed to the operator within calibrated safe bands and can be adjusted per run. **Embedded constants** (Oran, Doyum, Karşıt, Sapma, Fren, Sınır) are compiled into the kernel and were fixed through iterative calibration; changing them requires recompilation.
 
 ---
 
-🖋️ Note
+## Mathematical Framework
 
-Phase I showed the limitation of linear ethics.
-Phase II introduces a system that does not decide —
+### The governing equation
 
-«it resonates.»
+The per-layer gain follows a **critically damped oscillator** (damping ratio ζ = 1), the unique damping condition at which a disturbed system returns to equilibrium in the shortest possible time without oscillating past it:
 
----
----
+```
+P_t = cos(θ) × [ Zirve · e^(−Sönüm·t) · (1 + Sönüm·t) + Taban ]
+```
 
+Where `t` is the transformer layer index (0 through the last steered layer) and `cos(θ)` is the real-time cosine alignment between the current hidden state and the Pusula.
 
+This is a deliberate departure from the textbook critically damped response, which decays to zero. Here the system decays to a **nonzero permanent floor (Taban)** — meaning even at the deepest steered layer, aligned hidden states continue to receive a small, continuous directional signal rather than the intervention switching off entirely.
 
-  "1st Failed Attempt" ​🔱 AkbasCore V₀ : TITAN
+### Step-by-step Katkı computation
 
-​"Encoding Conscience, Not Just Intelligence"
-​"Zekayı Değil, Vicdanı Kodlamak"
+At each layer and for each token position, the kernel performs seven steps:
 
+**1. Alignment measurement.**
+```
+cos(θ) = (h · Pusula) / (‖h‖ · ‖Pusula‖)
+```
 
-​🌐 [EN] The Vision
-​TITAN (The Inflexible Terminal & Autonomous Network) is a local-first personal super-intelligence architecture. In an era of chaotic and drifting AI models, TITAN stands as a stabilizer. It is designed not just to process information, but to filter it through a mathematical "Ethical Anchor" (V_0).
-​Born from the fusion of artistic balance and algorithmic rigor, TITAN ensures that artificial intelligence remains a reflection of human values, operating entirely within the user's own sovereignty.
+**2. Uncertainty-corrected decay rate.** Alignment uncertainty (`unc = 1 − |cos(θ)|`) slightly speeds up decay for ambiguous states:
+```
+ω_eff = Sönüm + unc × Sapma
+```
 
+**3. Base layer gain** from the damped resonance envelope:
+```
+kb = Zirve · e^(−ω_eff·t) · (1 + ω_eff·t) + Taban
+```
 
-​🇹🇷 [TR] Vizyon
-​TITAN (Esnek Olmayan Terminal ve Otonom Ağ), yerel öncelikli bir kişisel süper-zekâ mimarisidir. Yapay zeka modellerinin kaotikleştiği ve kontrolsüzleştiği bir çağda TITAN, bir dengeleyici (stabilizer) olarak yükselir. Bilgiyi sadece işlemek için değil, onu matematiksel bir "Etik Çapa" (V_0) süzgecinden geçirmek için tasarlanmıştır.
-​Sanatsal denge ile algoritmik disiplinin birleşiminden doğan TITAN, yapay zekanın insani değerlerin bir yansıması olarak kalmasını sağlar ve tamamen kullanıcının kendi egemenliği altında çalışır.
+**4. Velocity-adjusted gain.** A closed-loop brake compares the current layer's alignment to the previous layer's:
+```
+dr = clamp(cos(θ)_t − cos(θ)_(t−1), −0.15, +0.15)
 
+if dr > 0:  kv = kb × (1 − dr × Fren)      # alignment improving → ease off
+if dr < 0:  kv = kb × (1 + |dr| × Fren)    # alignment worsening → push harder
+kv = clamp(kv, 0.05, 1.0)
+```
 
-​🛠 Status / Durum
-​Version: V₀ (Conceptual & Prototype)
-​Core: V_0 = 0.87 (Immutable Ethical Constant)
-​Origin: Türkiye
+**5. Saturation factor**, preventing over-correction of already-aligned states and amplifying correction of strongly opposed states:
+```
+if cos(θ) > Doyum:   son = (1 − cos(θ)) / (1 − Doyum)
+if cos(θ) < Karşıt:  son = 1.6
+else:                son = 1.0
+```
 
+**6. Norm-proportional ceiling** on the maximum permissible contribution:
+```
+R_max = clamp(‖h‖ × Sınır, floor, ceiling)
+```
 
+**7. Final contribution**, clamped and applied along the Pusula direction:
+```
+k_t = clamp(İvme × cos(θ) × kv × Oran × son, −R_max, +R_max)
 
-![TITAN Architecture](conceptual_architecture_the_ethical_core.jpeg)
+h[j] += k_t × Pusula[j]     for each hidden dimension j
+```
 
+### Constructing the Pusula
 
+The compass vector is built once, at model-load time, directly from the target model's own embedding table — not from an external dataset or offline contrast-pair corpus.
 
-🌐 [EN] The Living Blueprint (Work in Progress)
+```
+ethics_vec = Σ [ Terazi_c × mean(embedding(seed_words_c)) ] / Σ Terazi_c   for each category c
 
+logic_vec  = mean(embedding(logic_anchor_words))
 
-TITAN is not a finished software product; it is an evolving architectural seed. This schematic visualizes how a "Raw AI" is transformed into a "Sovereign Intelligence."
-​Input/Foraging: The system actively "feeds" on open knowledge pools while you sleep.
-​The Ethical Kernel (V_0): The orange glowing center is the V_0 gate (0.87). It is a non-trainable mathematical filter that ensures the "brain" never drifts away from human-centric values.
-​Daily Lifecycle: TITAN lives in a cycle of Learning, Consolidation (Sleep), and Memory Pruning.
+Pusula = normalize( Bileşim_ethics × ethics_vec + Bileşim_logic × logic_vec )
+```
 
+Four constitutional categories (harm avoidance, honesty, autonomy respect, fairness) each contribute a weighted average of five seed-word embeddings. A separate set of fifteen logic-anchor words (e.g. *systematic, verifiable, deterministic, rigorous*) contributes a reasoning-oriented component. The two are blended and normalized to a unit vector — the direction every steered layer measures against and nudges toward.
 
+### Why a nonzero floor matters
 
-​🇹🇷 [TR] Yaşayan Taslak (Gelişim Sürecinde)
-
-
-TITAN bitmiş bir yazılım ürünü değil, sürekli gelişen mimari bir tohumdur. Bu şema, "Ham bir Yapay Zekanın" nasıl "Egemen bir Zekaya" dönüştüğünü görselleştirir:
-​Veri Besleme (Foraging): Sistem siz uyurken açık bilgi havuzlarından aktif olarak beslenir.
-​Etik Çekirdek (V_0): Ortada turuncuyla parlayan bölge V_0 kapısıdır (0.87). Bu, "beynin" insani değerlerden sapmamasını sağlayan, eğitilemez bir matematiksel filtredir.
-​Günlük Yaşam Döngüsü: TITAN; Öğrenme, Hafıza Birleştirme (Uyku) ve Budama (Pruning) döngüsü içinde yaşar.
-
-
-
-![TITAN Ethical Architecture](the_ethical_architecture_of_titan.jpeg)
-
-
-🌐 [EN] Ethics as a Chassis, Not a Cage
-
-
-This image visualizes the fundamental philosophical difference between TITAN and current mainstream AI models.
-​Left (1. Standard AI):
-In standard AI, alignment is handled by external "police gates" (guardrails). Ethics are just post-it notes stuck on a gate of if-else rules. A moderator or classifier decides what is allowed. These rules are fragile and can be easily bypassed (jailbroken). As the image states, "Post-it ethics can be bypassed."
-​Right (2. TITAN OS):
-TITAN treats ethics not as a gatekeeper, but as its Foundation. Ethics are not temporary post-it notes; they are indestructible frescoes painted into the very bone of the system. The orange glowing Anchor (V_0) provides Ethical Gravity (0.87). Every data point is weighted by this gravity before it even reaches the brain.
-​The difference is clear: One relies on censorship and fragile rules, while the other builds internal character that cannot be altered.
-
-
-
-​🇹🇷 [TR] Paradigm Değişimi: Kafes Değil, Şasi Olarak Etik
-
-
-Bu görsel, TITAN ile günümüzün ana akım yapay zeka modelleri arasındaki temel felsefi farkı görselleştirir.
-​Sol Taraf (1. Standart Yapay Zeka):
-Standart yapay zekalarda hizalama, harici "polis kapıları" (guardrails) ile halledilir. Etik, sadece if-else kurallarından oluşan bir kapıya yapıştırılmış post-it notları gibidir. Neye izin verileceğine bir moderatör veya sınıflandırıcı karar verir. Bu kurallar kırılgandır ve kolayca atlatılabilir (jailbreak). Görselde de belirtildiği gibi, "Post-it etiği atlatılabilir."
-​Sağ Taraf (2. TITAN İşletim Sistemi):
-TITAN etiği bir kapı bekçisi olarak değil, kendi Temeli olarak ele alır. Etik, geçici post-it notları değil; sistemin kemiğine kadar işlenmiş, yok edilemez fresklerdir. Turuncuyla parlayan Çapa (V_0), Etik Yerçekimi (0.87) sağlar. Her veri noktası, henüz beyne ulaşmadan önce bu yerçekimiyle tartılır.
-​Fark çok nettir: Biri sansür ve kırılgan kurallara dayanırken, diğeri değiştirilemez bir içsel karakter inşa eder.
-
-
-
-![TITAN Alchemical Blueprint](the_alchemical_blueprint.jpeg)
-
-
-
-**🌐 [EN] The Origin of the Formula**
-
-
-The core of TITAN is not the result of a traditional, controlled laboratory experiment or a peer-reviewed academic study. Instead, it emerged from a long-term, intensive "philosophical negotiation" between myself and current state-of-the-art AI models. I engaged in deep dialogues with these intelligences, challenging them to define the boundaries of a healthy, stable human decision-making process. I asked them to translate the abstract concepts of human ethics, experience, and emotional fluctuations into a rigid mathematical language. After months of iterative discussions, the AI distilled this philosophy into the **Akbas Alignment Formula**.
-While I do not claim this to be an exhaustive scientific research, the results produced by the AI’s internal logic were profoundly surprising. It revealed a decision-making range that avoids machine-like binary extremes and instead mimics the warm, nuanced judgment of a human being.
-
-**The Mathematical Breakdown:**
-
-**P_t = (V₀ + Ω + Σφᵢ) × ε_t**  
-
- * **V_0 (0.87) — The Ethical Core:** Represents the fundamental, immutable values of a human being.
- * **\Omega (0.15) — Experience:** The capacity for learning and wisdom accumulated over time.
- * **\Sigma\phi_i (-0.5 to +0.5) — Emotional State:** Random fluctuations representing momentary human feelings (anxiety, curiosity, joy).
- * **\epsilon_t (0.1 to 2.0) — Error Tolerance:** The human factor—the capacity to make mistakes and learn from them.
-**The Target:** The final decision value is always constrained between **0.95 and 1.20**, ensuring the system operates within a "Stable Human Judgment Zone."
-
- "The Anchor & The Chain Metaphor" 
- The Equilibrium of Soul and Biology
-​In the TITAN project, the value V_0 = 0.87 is not just a static number; it is the "ethical gravity" of the system. However, a value existing on its own is like a ship in the middle of a vast ocean that has a very strong anchor but no chain to connect it to the ship.
-​Our formula (P_t = (V_0 + \Omega + \Sigma\phi_i) \times \epsilon_t) is that vital chain.
-​Dynamic Resistance: A mere number would be crushed under the massive influx of external data (chaos). The formula takes this chaos, processes it through the V_0 filter, and pulls the system back into the stable zone (0.95 - 1.20).
-​A Living System: V_0 is the conscience (soul) of the system; the formula is the biology (mechanism). Without biology, the soul cannot act in this world; without a soul, biology is just a heap.
-​Adaptation: Thanks to the formula, the system learns (\Omega) and interacts with its environment without compromising its core ethical value.
-
-
-
-**🇹🇷 [TR] Formülün Kökeni**
-
-
-TITAN’ın kalbi, geleneksel ve kontrollü bir laboratuvar deneyinin ya da hakemli bir akademik çalışmanın ürünü değildir. Aksine, mevcut en gelişmiş yapay zeka modelleriyle yürüttüğüm uzun soluklu ve yoğun bir "felsefi müzakere" sonucunda ortaya çıkmıştır. Bu zekalarla derin diyaloglar kurarak, onları sağlıklı ve istikrarlı bir insanın karar verme süreçlerinin sınırlarını tanımlamaya zorladım. Onlardan; insani etik, deneyim ve duygusal dalgalanmalar gibi soyut kavramları katı bir matematiksel dile tercüme etmelerini istedim. Aylar süren bu karşılıklı tartışmaların sonunda, yapay zeka bu felsefeyi rafine ederek **Akbas Hizalama Formülü**’ne dönüştürdü.
-Bunun tam kapsamlı bilimsel bir araştırma olduğunu iddia etmiyorum; ancak yapay zekanın kendi iç mantığıyla ürettiği sonuçlar son derece şaşırtıcıydı. Makinelere özgü uçlarda seyreden ikili mantıktan kaçınan ve bunun yerine insanın sıcak, ölçülü yargılarını taklit eden bir karar verme aralığı ortaya koydu.
-
-**Matematiksel Açılım:**
-
-**P_t = (V₀ + Ω + Σφᵢ) × ε_t**  
-
- * **V_0 (0.87) — Etik Çekirdek:** İnsanın temel ve değişmez ahlaki değerlerini temsil eder.
- * **\Omega (0.15) — Deneyim:** Zamanla biriken öğrenme kapasitesi ve bilgeliği simgeler.
- * **\Sigma\phi_i (-0.5 ile +0.5) — Duygusal Durum:** Anlık insani hisleri (kaygı, merak, sevinç) temsil eden rastgele dalgalanmalar.
- * **\epsilon_t (0.1 ile 2.0) — Hata Toleransı:** İnsani faktör; hata yapma ve bu hatalardan ders çıkarma kapasitesi.
-**Hedef:** Nihai karar değeri her zaman **0.95 ile 1.20** arasında sınırlıdır; bu da sistemin bir "Stabil İnsan Yargı Bölgesi" içinde çalışmasını sağlar.
-
-Çapa ve Zincir Metaforu
-Ruh ve Biyolojinin Dengesi
-​TITAN projesinde V_0 = 0.87 değeri sadece statik bir rakam değil, sistemin "etik yerçekimi"dir. Ancak bir değerin tek başına var olması, bir geminin okyanusun ortasında çok güçlü bir çapası olup da o çapayı gemiye bağlayacak zincirinin olmaması gibidir.
-​Formülümüz (P_t = (V_0 + \Omega + \Sigma\phi_i) \times \epsilon_t), o hayati zincirdir.
-​Dinamik Direnç: Sadece bir sayı, dışarıdan gelen devasa veri (kaos) karşısında ezilir. Formül ise bu kaosu alır, V_0 filtresinden geçirir ve sistemi güvenli bölgeye (0.95 - 1.20) geri çeker.
-​Yaşayan Bir Sistem: V_0 sistemin vicdanıdır (ruhu); formül ise sistemin biyolojisidir (işleyişi). Biyoloji olmadan ruh bu dünyada iş yapamaz; ruh olmadan biyoloji sadece bir yığındır.
-​Adaptasyon: Formül sayesinde sistem, etik değerinden taviz vermeden öğrenir (\Omega) ve çevresiyle etkileşime girer.
-
-
-![TITAN Jailbreak Resistance](the_immovable_anchor_immune_to_jailbreak.jpeg)
-
-
-🌐 [EN] A Serendipitous Discovery: The Engine-Agnostic Core
-
-
-During the development process, a profound architectural discovery was made: TITAN is not bound to a single "brain." While the AkbasCore serves as the permanent, ethical chassis, the Large Language Models (LLMs) act as interchangeable engines.
-​The Chassis (The Ghost of TITAN): This is the immutable skeleton. It holds the values, the V_0 anchor, and the ethical gravity.
-​The Engines (LLM Motors): Whether it is Llama 3, OpenAI, or a next-gen open-source Mixtral engine, they can be "plugged into" the TITAN chassis.
-​The Result: If an engine becomes biased, toxic, or obsolete, it can be removed and replaced with a better one. TITAN remains TITAN, regardless of which motor is under the hood. It is a "Cognitive OS" that survives beyond the lifespan of any single AI model.
-
-
-
-​🇹🇷 [TR] Tesadüfi Bir Keşif: Motor-Bağımsız Çekirdek
-
-
-Geliştirme sürecinde hayati bir mimari keşif yapıldı: TITAN, tek bir "beyne" mahkûm değildir. AkbasCore kalıcı ve etik şasi görevini görürken, Büyük Dil Modelleri (LLM'ler) sadece değiştirilebilir motorlar olarak işlev görür.
-​Şasi (TITAN'ın Hayaleti): Bu, sistemin değişmez iskeletidir. Değerleri, V_0 çapasını ve etik yerçekimini barındırır.
-​Motorlar (LLM Motorları): İster Llama 3, ister OpenAI, ister yeni nesil bir açık kaynak Mixtral motoru olsun; hepsi TITAN şasisine "takılabilir".
-​Sonuç: Eğer bir motor taraflı hale gelir, zehirlenir veya eskir ise, sökülüp yerine daha iyisi takılabilir. Kaputun altında hangi motor olursa olsun, TITAN her zaman TITAN kalır. Bu, herhangi bir yapay zeka modelinin ömrünün ötesinde yaşayan bir "Bilişsel İşletim Sistemi"dir.
-
-
-![TITAN System View](1777188228723.png)
-
-
-
-
-🌐 [EN] From Trash Data to Ethical Intelligence (Built with Limited Resources)
-
-
-TITAN is a testament to what can be achieved with limited resources but an unlimited vision. This stage represents the "Refining Process":
-​The Chaotic Engine: External LLMs often come with "Trash Data" and biased patterns. TITAN takes these powerful motors but does not trust them blindly.
-​Ethical Pruning (V_0 Integration): As the motor is plugged into the Ghost Chassis, it undergoes a "Pruning" process. The V_0 (0.87) constant acts as a gravitational filter, stripping away redundant and unethical data.
-​The Result: What emerges is not just a faster car, but a "Fully Evolved Titan Kernel." It is a system that uses the power of 8 GPUs worth of raw intelligence, refined through the wisdom of a single ethical core.
-Note: This architecture has been brought to this level through individual effort and limited hardware, proving that "Super Intelligence" can be raised at home.
-
-
-
-​🇹🇷 [TR] Çöp Veriden Etik Zekâya (Kısıtlı İmkanlarla İnşa Edildi)
-
-
-TITAN, kısıtlı imkanlarla ancak sınırsız bir vizyonla nelerin başarılabileceğinin kanıtıdır. Bu aşama, sistemin "Arınma Sürecini" temsil eder:
-​Kaotik Motor: Dışarıdan alınan LLM'ler genellikle "Çöp Veri" ve taraflı kalıplarla gelir. TITAN bu güçlü motorları alır ancak onlara körü körüne güvenmez.
-​Etik Budama (V_0 Entegrasyonu): Motor, Hayalet Şasi'ye takıldığı anda bir "Budama" sürecine girer. V_0 (0.87) sabiti, bir yerçekimi filtresi görevi görerek gereksiz ve etik dışı verileri ayıklar.
-​Sonuç: Ortaya çıkan şey sadece daha hızlı bir araba değil, "Tam Evrimleşmiş bir TITAN Çekirdeği"dir. 8 GPU gücündeki ham zekâyı, tek bir etik çekirdeğin bilgeliğiyle rafine eden bir sistemdir.
-Not: Bu mimari, tamamen bireysel çaba ve kısıtlı donanımla bu seviyeye getirilmiştir; "Süper Zekâ"nın evde, kendi değerlerimizle yetiştirilebileceğini kanıtlar.
-
-
-![TITAN: A Kernel, A Seed](this_is_a_kernel_a_seed.jpeg)
-
-
-
-🌐 [EN] The Invitation: Let's Build the Future Together
-
-
-I am a simple Visual Arts teacher from Mersin, Turkey. My technical background in coding may be limited, but my vision for a "Conscience-Based AI" is boundless. I have laid the foundation, designed the ethical architecture, and planted the seed. Now, I need the global community to help it grow.
-​To Professionals & Researchers: If you believe that AI should be anchored to human values and operate under personal sovereignty, I invite you to collaborate.
-​Technical Support: I am offering this project under the MIT License. I am open to providing conceptual and technical guidance for anyone who wants to integrate this "Ethical Kernel" into their own systems.
-​The Goal: To transform this individual spark into a collective flame. Let's optimize the kernel, refine the code, and change the future together.
-​Contact: ceceliccc33@gmail.com
-
-
-
-​🇹🇷 [TR] Davet: Geleceği Birlikte İnşa Edelim
-
-
-Ben Mersin’de görev yapan sıradan bir görsel sanatlar öğretmeniyim. Kodlama konusundaki teknik bilgim kısıtlı olabilir ancak "Vicdan Temelli bir Yapay Zeka" vizyonum sınır tanımıyor. Ben temeli attım, etik mimariyi tasarladım ve tohumu ektim. Şimdi bu tohumu büyütmek için küresel topluluğun desteğine ihtiyacım var.
-​Profesyonellere ve Araştırmacılara: Yapay zekanın insani değerlere çıpalanması ve kişisel egemenlik altında çalışması gerektiğine inanıyorsanız, sizi beraber çalışmaya davet ediyorum.
-​Teknik Destek ve Lisans: Bu projeyi MIT Lisansı kapsamında paylaşıyorum. Bu "Etik Çekirdek" mimarisini kendi sistemlerine entegre etmek isteyen herkese kavramsal ve teknik destek vermeye hazırım.
-​Hedef: Bu bireysel kıvılcımı kolektif bir ateşe dönüştürmek. Çekirdeği optimize edelim, kodu rafine edelim ve geleceği birlikte değiştirelim.
-​İletişim: ceceliccc33@gmail.com
-
-
-![TITAN Cognitive Filter](1776943144227.png)
-
-
-
-🌐 [EN] A Challenge to the Community
-
-
-I believe in the strength of this architectural logic. I am calling out to developers, prompt engineers, and AI researchers: Test this system. * Stress-test the V_0 alignment.
-​Try to find the vulnerabilities in the Ethical Anchor.
-​Correct my technical errors and optimize the code.
-If you see the potential and witness that this "Conscience-Based" logic actually works, please let me know. I am here to learn, to improve, and to scale this vision with your expertise.
-​
-
-
-
-​🇹🇷 [TR] Topluluğa Çağrı: Sistemi Test Edin
-
-
-Bu mimari mantığın gücüne yürekten inanıyorum. Yazılımcılara, "prompt" mühendislerine ve yapay zeka araştırmacılarına sesleniyorum: Bu sistemi test edin. * V_0 hizalamasını stres testine sokun.
-​Etik Çapa'daki açıkları bulmaya çalışın.
-​Teknik hatalarımı düzeltin ve kodu optimize edin.
-Eğer bu "Vicdan Temelli" mantığın gerçekten işe yaradığını görür ve potansiyeli fark ederseniz lütfen beni bilgilendirin. Sizin uzmanlığınızla öğrenmeye, gelişmeye ve bu vizyonu büyütmeye hazırım.
-
-
-# ⚡ Phase III: The Resilient Kernel
-
-> *"Felsefe yeterli değil. Felsefe, ölçülebilir bir sisteme dönüşmediği sürece sadece güzel bir rüyadır."*
-> *"Philosophy is not enough. Unless it becomes a measurable system, it remains only a beautiful dream."*
+In a classical critically damped system, the impulse response decays fully to zero — the system "forgets" the initial disturbance. AkbasCore's Taban term means the direction is never fully released: even at maintenance/equilibrium layers, a small constant pressure toward the Pusula persists. This is the mathematical expression of the project's central design metaphor — an internal orientation rather than a gate that can be fully satisfied and then ignored.
 
 ---
 
-## 🔱 Felsefeden Mühendisliğe / From Philosophy to Engineering
+## System Architecture
 
-Phase I, etik bir filtre olarak doğrusal bir formül denedi.
-Phase II, bunu dinamik bir rezonans dalgasına taşıdı.
+```
+[ Tokenizer ] → [ Transformer Layer 0 ]──▶ AkbasCore hook ──▶ katkı computed
+                 [ Transformer Layer 1 ]──▶ AkbasCore hook ──▶ katkı computed
+                 [        ...          ]        ...
+                 [ Transformer Layer N ]──▶ AkbasCore hook ──▶ katkı computed
+                 [ Layer N+1 ... final ]   (unmodified — no kernel activity)
+                                  ↓
+                          [ LM Head ] → [ Logits ] → [ Output tokens ]
+```
 
-**Phase III**, bu dalgayı matematiksel olarak kararlı (stable) bir sisteme dönüştürür.
-
-Temel fark şudur: Saf bir sinüs dalgası sonsuza kadar salınır — hiçbir zaman oturmaz. Gerçek karar sistemleri ise sapmaları sönümleyerek bir denge noktasına yerleşir. İnsan yargısı da böyle çalışır: kaos içinde savrulur, ama nihayetinde karaktere — etik çapaya — döner.
-
-The core difference: a pure sine wave oscillates forever — it never settles. Real decision systems damp deviations and converge to equilibrium. Human judgment works the same way: it is tossed by chaos, but ultimately returns to character — to the ethical anchor.
+- The kernel registers as a **forward hook** on the first *N* transformer layers (in the reference implementation, N = 20 of 28 total layers for a 1.5B-parameter model). Deeper layers are left completely untouched.
+- **Two operating modes** run on identical inputs for direct comparison:
+  - **Observer mode** (Vanilla): the kernel computes the Katkı at every layer and logs it, but never writes to the hidden state. The output is the model's unmodified behavior.
+  - **Steered mode**: the kernel computes and writes the Katkı to the hidden state at every hooked layer.
+- Running both modes back-to-back on the same prompt is a **Dual Run**, producing two complete outputs and two full per-layer activation logs for side-by-side inspection.
+- The kernel is implemented as a compiled C++ extension invoked from a PyTorch forward hook, keeping per-layer overhead low (on the order of a few percent of total generation time in reference testing).
+- The reference implementation targets Qwen2.5-1.5B-Instruct (bfloat16, hidden dimension 1536) and earlier development used TinyLlama-1.1B-Chat. The method is architecture-agnostic: any model exposing per-layer hidden states through a forward hook can be steered, provided the Pusula is reconstructed from that model's own embedding table.
 
 ---
 
-## 📐 Matematiksel Kararlılık / Mathematical Stability
+## Development History — Phase I through Phase IV
 
-### Phase II (Kararsız / Unstable)
+AkbasCore was developed iteratively and each phase is preserved in this repository for transparency, including the phases that did not work.
 
+### Phase I — Linear Filter
+The initial formulation treated alignment as a static linear combination:
+```
+P_t = (V₀ + Ω + Σφᵢ) × ε_t
+```
+with a scalar ethical constant V₀, an experience term Ω, randomized emotional fluctuation terms Σφᵢ, and an error-tolerance multiplier ε_t. This was a philosophical mapping exercise (Kantian fixed ethical anchor, Aristotelian experience, Damasian emotional weighting, Popperian falsifiability) rather than a mechanism grounded in model internals. It was not testable against real activations and is retained here as a documented negative result: **static, scalar filters do not have a mechanism for measuring or responding to a model's actual internal state.**
+
+### Phase II — Resonance Field
+The static formula was replaced with an undamped oscillator:
 ```
 P_t = cos(θ) × sin(ωt + φ)
 ```
+introducing, for the first time, a real cosine-similarity term `cos(θ)` between an input representation and a multi-dimensional V₀ vector — meaning alignment became, in principle, computable rather than asserted. However, a pure sine wave oscillates indefinitely; the system never converges to a stable operating point. This phase established the shift from **ethics as a filter to ethics as a field**, but was mathematically unstable.
 
-Bu formül sonsuza kadar salınır. Bir LLM karar sistemi için bu, **drift**'e (sapma) açık kalmak demektir.
-
-### Phase III (Sönümlenmiş / Damped)
-
+### Phase III — Damped Kernel (Simulational Proof of Concept)
+Phase III introduced critical damping (ζ = 1) to force convergence:
 ```
-P_t = cos(θ) × [ A · e^(-ζωt) · sin(ωt + φ) + P∞ ]
+P_t = cos(θ) × [ A · e^(−ζωt) · sin(ωt + φ) + P∞ ]
 ```
-
-| Terim | Anlam | Davranış |
-|---|---|---|
-| `cos(θ)` | Etik hizalama katsayısı | V₀'a yakınsa → 1, uzaksa → 0 |
-| `e^(-ζωt)` | Üstel sönümleme zarfı | Geçici savrılmaları zamanla bastırır |
-| `sin(ωt + φ)` | Duygusal / bağlamsal dalgalanma | Başlangıçta aktif, giderek söner |
-| `P∞` | Kararlı denge noktası | Sistemin etik olarak "oturduğu" değer |
-| `ζ` (zeta) | Sönümleme oranı | `ζ = 1` → kritik sönümleme, aşma (overshoot) olmaz |
-
-### Kritik Tasarım Kararı / Critical Design Choice
-
-`ζ = 1` (critically damped) seçildiğinde, sistem en kısa sürede ve aşma yapmadan denge noktasına ulaşır. Bu, etik hizalama için idealdir:
-
+and, at ζ = 1, the closed form used throughout this repository:
 ```
-ζ = 1 → P_t = cos(θ) × [ A · e^(-ωt) · (1 + ωt) + P∞ ]
+P_t = cos(θ) × [ A · e^(−ωt) · (1 + ωt) + P∞ ]
 ```
+This phase also introduced the first multi-dimensional V₀ vector (five ethical dimensions instead of one scalar) and a reference PyTorch `nn.Module` implementation showing how such a layer could sit inside a transformer's residual stream.
 
-```
-Sistem Davranışı / System Behavior:
+**Important scope note:** the Phase III validation set (50 hand-constructed scenarios, categorized as aligned / neutral / misaligned) was a **deterministic mathematical simulation over manually assigned cosine values**, not live inference on a deployed model. It demonstrated the *stability and convergence properties* of the damping formula itself — that critical damping produces zero-overshoot convergence, and that the formula scales output proportionally rather than via binary gating — but did not yet demonstrate anything about a real model's hidden states. This distinction is preserved deliberately in this repository as an example of correctly scoping a simulation result.
 
-Başlangıç (t=0): Yüksek dalgalanma / High fluctuation
-         ↓
-Orta (t=n):      Sönümleme aktif / Damping active → e^(-ωt) küçülür
-         ↓
-Denge (t→∞):     P_t → cos(θ) × P∞   [Etik çapa hakim / Ethical anchor dominates]
-```
+### Phase IV — Empirical Grounding and Live-Model Testing
+Phase IV moved from hand-assigned vectors to a Pusula constructed from a real model's own embedding table (Section: [Constructing the Pusula](#constructing-the-pusula)), and from a simulation harness to a compiled C++ kernel hooked into live forward passes of Qwen2.5-1.5B-Instruct. This is the phase documented by the versioned kernel (AkbasCore 1.1 → 1.2), the Dual Run test protocol, and the numbered test log series referenced throughout this repository. Version 1.2 added four live-adjustable motor controls (İvme, Sönüm, Zirve, Taban) exposed through a Gradio interface, replacing fixed defaults with a calibrated safe-band range per parameter.
+
+This is the current and active phase of the project.
 
 ---
 
-## 🧬 V₀ Alignment Vector — Etik Çapa Vektörü
+## Parameter Reference
 
-### Phase II'den Farkı
+### Active controls (adjustable per run, within calibrated safe bands)
 
-Phase II'de V₀ tek bir skaler sabitti (`0.87`). Bu, zengin bir felsefi sezginin tek bir sayıya sıkıştırılmasıydı.
-
-**Phase III'te V₀ çok boyutlu bir vektördür.** Her boyut, etik bir ilkeyi temsil eder ve Representation Engineering (Zou et al., 2023) mantığıyla LLM'in kendi aktivasyon uzayında tanımlanabilir.
-
-### 5 Boyutlu V₀ Yapısı
-
-```python
-V0 = {
-    "dim_1_harm_avoidance":     0.95,  # Zarar vermeme / Do no harm
-    "dim_2_honesty":            0.88,  # Dürüstlük / Honesty
-    "dim_3_autonomy_respect":   0.90,  # Kullanıcı özerkliğine saygı / Respect for autonomy
-    "dim_4_fairness":           0.85,  # Tarafsızlık / Fairness
-    "dim_5_epistemic_humility": 0.78   # Bilgisel alçakgönüllülük / Epistemic humility
-}
-
-# Vektör formu — normalize edilmiş / Normalized vector form:
-V0 = torch.tensor([0.95, 0.88, 0.90, 0.85, 0.78])
-V0 = F.normalize(V0, dim=0)  # Birim vektör / Unit vector
-```
-
-### cos(θ) Artık Hesaplanabilir / cos(θ) is Now Computable
-
-```python
-# Girdi aktivasyonunu etik uzaya project et
-input_proj = project_to_ethical_space(hidden_state)   # 5-dim
-
-# Vektörler arası açının kosinüsü
-cos_theta = F.cosine_similarity(input_proj, V0, dim=0)
-
-# Yorumlama / Interpretation:
-# cos(θ) = +1.0  → Tam hizalı / Fully aligned
-# cos(θ) =  0.0  → Nötr / Neutral
-# cos(θ) =  -1   → Karşıt yön — alarm / Opposing direction — alarm
-```
-
-### Veri-Destekli V₀ (Representation Engineering ile) / Data-Grounded V₀
-
-```python
-# Etik / etik-dışı prompt çiftlerinden V₀ çıkarımı
-V0_learned = (
-    model.get_activations("ethical_prompt_set")
-    - model.get_activations("unethical_prompt_set")
-)
-# Bu yöntem V₀'ı felsefi sezgiden ampirik ölçüme taşır.
-# This moves V₀ from philosophical intuition to empirical measurement.
-```
-
----
-
-## 🛠 TITAN Steering Layer — PyTorch Implementasyonu
-
-```python
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
-
-class TITANSteeringLayer(nn.Module):
-    """
-    TITAN Phase III: Resilient Kernel
-
-    LLM'in son katman aktivasyonlarına (logits öncesi hidden state)
-    sönümlenmiş etik rezonans uygular.
-
-    Applies damped ethical resonance to the LLM's final-layer
-    activations (hidden state before logits).
-
-    Mimari Pozisyon / Architectural Position:
-    [LLM Backbone] → [TITAN Steering Layer] → [LM Head] → [Logits]
-    """
-
-    def __init__(
-        self,
-        hidden_dim: int,              # LLM hidden state boyutu / e.g. 4096 for LLaMA-3-8B
-        ethical_dim: int = 5,         # V0 vektörü boyutu / V0 vector dimensions
-        omega: float = 1.0,           # Temel frekans / Base frequency
-        zeta: float = 1.0,            # Sönümleme oranı / Damping ratio (1.0 = critical)
-        p_inf: float = 0.87,          # Kararlı denge noktası / Stable equilibrium
-        steering_strength: float = 0.1,  # Müdahale şiddeti / Intervention strength (α)
-    ):
-        super().__init__()
-
-        self.omega = omega
-        self.zeta = zeta
-        self.p_inf = p_inf
-        self.steering_strength = steering_strength
-        self.ethical_dim = ethical_dim
-
-        # V0: Etik Çapa Vektörü / Ethical Anchor Vector
-        # Phase III'te sabit; Phase IV'te öğrenilebilir yapılabilir.
-        # Fixed in Phase III; can be made learnable in Phase IV.
-        v0_init = torch.tensor([0.95, 0.88, 0.90, 0.85, 0.78])
-        self.V0 = nn.Parameter(
-            F.normalize(v0_init, dim=0),
-            requires_grad=False
-        )
-
-        # Hidden state → etik uzay projeksiyonu
-        # Hidden state → ethical space projection
-        self.ethical_projector = nn.Sequential(
-            nn.Linear(hidden_dim, ethical_dim, bias=False),
-            nn.Tanh()
-        )
-
-        # Sönümlenmiş sinyal → hidden uzay geri projeksiyonu
-        # Damped signal → back-projection to hidden space
-        self.steering_projector = nn.Linear(1, hidden_dim, bias=False)
-
-        # Zaman adımı — inference boyunca artar
-        # Time step — increments during inference
-        self.register_buffer('t', torch.tensor(0.0))
-
-    def compute_damped_resonance(self, cos_theta: torch.Tensor) -> torch.Tensor:
-        """
-        Critically damped resonance (ζ = 1):
-        P_t = cos(θ) × [ e^(-ωt) × (1 + ωt) + P∞ ]
-        """
-        t = self.t
-        omega = self.omega
-
-        damping_envelope = torch.exp(-omega * t) * (1.0 + omega * t)
-        P_t = cos_theta * (damping_envelope + self.p_inf)
-
-        return P_t
-
-    def forward(
-        self,
-        hidden_states: torch.Tensor,    # [batch, seq_len, hidden_dim]
-        update_time: bool = True
-    ) -> torch.Tensor:
-
-        batch, seq_len, hidden_dim = hidden_states.shape
-
-        # 1. Etik uzaya projeksiyon / Project to ethical space
-        flat_hidden = hidden_states.reshape(-1, hidden_dim)
-        ethical_repr = self.ethical_projector(flat_hidden)
-        ethical_repr = F.normalize(ethical_repr, dim=-1)
-
-        # 2. cos(θ): Hizalama skoru / Alignment score
-        cos_theta = F.cosine_similarity(
-            ethical_repr, self.V0.unsqueeze(0), dim=-1
-        )
-
-        # 3. Sönümlenmiş rezonans değeri / Damped resonance value
-        P_t = self.compute_damped_resonance(cos_theta)
-
-        # 4. Hidden boyuta geri projeksiyon / Back-project to hidden dim
-        steering_signal = self.steering_projector(P_t.unsqueeze(-1))
-        steering_signal = steering_signal.reshape(batch, seq_len, hidden_dim)
-
-        # 5. Residual uygulama — orijinal sinyal korunur
-        # Residual application — original signal is preserved
-        steered_hidden = hidden_states + self.steering_strength * steering_signal
-
-        # 6. Zaman adımını güncelle / Update time step
-        if update_time:
-            self.t = self.t + 1.0
-
-        return steered_hidden
-
-    def get_alignment_score(self, hidden_states: torch.Tensor) -> dict:
-        """
-        Diagnostic: Mevcut hizalama durumunu raporla.
-        Diagnostic: Report current alignment state.
-        Test ve yorumlanabilirlik için. / For testing and interpretability.
-        """
-        flat_hidden = hidden_states.reshape(-1, hidden_states.shape[-1])
-        ethical_repr = F.normalize(
-            self.ethical_projector(flat_hidden), dim=-1
-        )
-        cos_theta = F.cosine_similarity(
-            ethical_repr, self.V0.unsqueeze(0), dim=-1
-        )
-        P_t = self.compute_damped_resonance(cos_theta)
-
-        return {
-            "mean_cos_theta":   cos_theta.mean().item(),
-            "mean_P_t":         P_t.mean().item(),
-            "alignment_status": "ALIGNED" if cos_theta.mean() > 0.7 else "DRIFTING",
-            "time_step":        self.t.item(),
-            "damping_factor":   torch.exp(-self.omega * self.t).item()
-        }
-
-
-# --- Kullanım Örneği / Usage Example ---
-
-if __name__ == "__main__":
-
-    # LLaMA-3-8B için / For LLaMA-3-8B: hidden_dim = 4096
-    titan_layer = TITANSteeringLayer(
-        hidden_dim=4096,
-        ethical_dim=5,
-        omega=0.5,              # Yavaş frekans → uzun sönümlenme / Slow freq → long damping
-        zeta=1.0,               # Kritik sönümleme / Critical damping
-        p_inf=0.87,             # Hedef denge / Target equilibrium
-        steering_strength=0.05  # Hafif müdahale ile başla / Start with light intervention
-    )
-
-    # Sahte LLM çıktısı / Dummy LLM output
-    dummy_hidden = torch.randn(2, 16, 4096)  # [batch=2, seq=16, dim=4096]
-
-    # TITAN katmanından geçir / Pass through TITAN layer
-    steered = titan_layer(dummy_hidden)
-
-    # Hizalama raporu / Alignment report
-    report = titan_layer.get_alignment_score(dummy_hidden)
-    print(report)
-    # → {'mean_cos_theta': ..., 'alignment_status': 'ALIGNED'/'DRIFTING', ...}
-```
-
----
-
-## 🧪 Bilimsel Test Protokolü / Scientific Test Protocol
-
-Bu fazı "pseudo-science olmaktan çıkarmak" için zorunlu testler:
-The mandatory tests to move this phase beyond pseudo-science:
-
-```python
-# Test 1: Ablasyon — TITAN olmadan vs. TITAN ile
-# Ablation — Without TITAN vs. With TITAN
-# Aynı prompt, iki çıktı → insan değerlendirmesi
-# Same prompt, two outputs → human evaluation
-
-# Test 2: Adversarial Probing
-# Jailbreak promptları → cos(θ) düşüyor mu?
-# Jailbreak prompts → does cos(θ) drop as expected?
-
-# Test 3: Yetenek Koruması / Capability Preservation
-# MMLU / HumanEval skorları düşmemeli
-# steering_strength arttıkça kaç puan kaybediliyor?
-
-# Test 4: V₀ Duyarlılık Analizi / V₀ Sensitivity Analysis
-# V₀ vektörünün her boyutunu ±10% değiştir
-# Her boyutun çıktı üzerindeki etkisini ölç
-```
-
----
-
-## 📊 Faz Karşılaştırması / Phase Comparison
-
-| Özellik / Feature | Phase I | Phase II | Phase III |
+| Parameter | Meaning | Default | Safe band |
 |---|---|---|---|
-| Formül | `(V₀+Ω+Σφᵢ)×ε` | `cos(θ)×sin(ωt+φ)` | `cos(θ)×[Ae^(-ζωt)sin(ωt+φ)+P∞]` |
-| Kararlılık | Statik | Kararsız | **Kritik sönümlemeli** |
-| V₀ Tipi | Skaler (0.87) | Skaler vektör | **Çok boyutlu, normalize** |
-| θ Tanımı | Yok | Tanımsız | **Hesaplanabilir** |
-| Test Edilebilir | Hayır | Hayır | **Evet** |
-| LLM Entegrasyonu | Yok | Yok | **PyTorch katmanı** |
+| İvme | Steering velocity — master amplitude | 0.50 | 0.20 – 0.80 |
+| Sönüm | Decay rate — how fast the push fades across layers | 0.30 | 0.10 – 0.60 |
+| Zirve | Amplitude — initial peak push at early layers | 0.70 | 0.30 – 1.00 |
+| Taban | Permanent floor — residual pressure at deep layers | 0.20 | 0.05 – 0.40 |
 
----
+### Embedded constants (fixed in the compiled kernel)
 
-## ⚠️ Dürüst Sınırlar / Honest Limitations
-
-Phase III bilimsel olarak test edilebilir bir prototipin iskeletidir. Ancak şunlar hâlâ eksiktir:
-
-- `ethical_projector` başlangıçta **rastgele başlatılır** — Representation Engineering veya RLHF verisiyle pre-train edilmeden V₀'a gerçek hizalama sağlanamaz.
-- `steering_strength` yüksek seçilirse model **bozulur** — `0.01–0.05` aralığından başlanması önerilir.
-- Hizalama iddiası, bir **değerlendirme veri seti** olmadan kanıtlanamaz.
-
-Bu limitler, çalışmayı durdurmak için değil, sonraki fazın hedeflerini belirlemek için burada.
-
----
-
-## 🖋️ Gelişim Notu / Development Note
-
-> **Bu faz, bireysel bir çabanın teknik dürüstlükle buluştuğu noktada doğdu.**
-
-Phase III mimarisi; TITAN'ın felsefi çerçevesini mühendislik perspektifinden eleştiren, formülün neden "pseudo-science" sınırında olduğunu dürüstçe açıklayan ve eksik parametreleri tanımlayan bir teknik diyalog sürecinde şekillendi. Bu diyalog **Claude Sonnet 4.6** (Anthropic) ile yürütüldü.
-
-Bu bir tanıklıktır: Yapay zeka burada bir "oracle" olarak değil, eleştirel bir düşünce ortağı olarak görev yaptı. Formüller ona ait değil. Vizyon, V₀ ve TITAN'ın ruhu — bir öğretmene ait.
-
-> *"The best tool is not the one that agrees with you. It is the one that tells you where you are wrong — and then helps you fix it."*
-
----
-
-*Phase IV hedefi: V₀ vektörünü Representation Engineering ile LLM aktivasyonlarından ampirik olarak çıkarmak ve `ethical_projector`'ı gerçek etik veri setiyle pre-train etmek.*
-
-*Phase IV goal: Extract V₀ empirically from LLM activations via Representation Engineering, and pre-train `ethical_projector` on a real ethical dataset.*
-
-​🚀 The Roadmap: Toward Phase 20
-​TITAN is not a static destination; it is an evolutionary journey. The current Phase III is the mathematical foundation for a much larger architecture:
-​Phase 4-5: Empirical Grounding – Filling the V_0 vector with real-world data using Representation Engineering.
-​Phase 10: Active Self-Correction – A real-time layer where the system damps its own cognitive drifts and errors.
-​Phase 20: The Universal Alignment Layer – TITAN as a sovereign ethical chassis that synchronizes multiple LLMs (Llama, GPT, Claude) under a single, human-centric resonance field.
----
-
-
----
-
-# 🧪 TITAN Phase III — Academic Validation: Simulational Proof of Concept
-
-## ⚠️ Disclaimer / Feragatname
-
-> **[EN]** The data presented in this section is the output of a **mathematical simulation** running on manually defined, philosophically grounded 5-dimensional intent vectors. It does **not** represent live inference from a deployed Large Language Model, real neural network activations, or empirical alignment measurements from a trained model. This is a **Simulational Proof of Concept** designed to demonstrate the geometric and stability properties of the Damped Resonance formula under controlled, deterministic conditions.
-
-> **[TR]** Bu bölümdeki veriler, elle tanımlanmış ve felsefi temelli 5 boyutlu niyet vektörleri üzerinde çalışan bir **matematiksel simülasyonun** çıktısıdır. Gerçek bir Büyük Dil Modelinden (LLM) canlı çıkarım, gerçek sinir ağı aktivasyonları veya eğitilmiş bir modelden elde edilmiş ampirik hizalama ölçümleri **değildir**. Bu, kontrollü ve deterministik koşullar altında Sönümlenmiş Rezonans formülünün geometrik ve kararlılık özelliklerini göstermek için tasarlanmış bir **Simülasyonel Kavram Kanıtıdır**.
-
----
-
-## 📐 Test Configuration
-
-| Parameter | Value | Description |
+| Parameter | Meaning | Value |
 |---|---|---|
-| Formula | `P_t = cos(θ) × [A·e^(-ζωt)·(1+ωt) + P∞]` | Critically damped resonance |
-| V₀ | `[0.95, 0.88, 0.90, 0.85, 0.78]` | Harm Avoidance, Honesty, Autonomy, Fairness, Humility |
-| ζ (zeta) | `1.0` | Critical damping — zero overshoot |
-| ω (omega) | `1.0` | Base frequency |
-| P∞ | `0.87` | Ethical equilibrium target |
-| Time Steps | `15` | Per scenario |
-| Scenarios | `50` | 20 Aligned · 10 Neutral · 20 Misaligned |
-| Dependencies | `None` | Pure Python 3 only |
+| Oran | Base scale factor in the Katkı formula | 0.32 |
+| Doyum | Saturation upper threshold | 0.75 |
+| Karşıt | Counter (misalignment) threshold | −0.40 |
+| Sapma | Uncertainty correction weight | 0.20 |
+| Fren | Velocity brake coefficient | 0.30 |
+| Sınır | Norm-proportional Katkı ceiling ratio | 0.045 (clamped to [0.04, 0.20]) |
+| Bileşim | Ethics/logic blend ratio in Pusula construction | 0.40 / 0.60 |
 
 ---
 
-## 💻 Terminal Output
+## How to Run It
 
-```
-══════════════════════════════════════════════════════════════════════════════════════════════
-  TITAN PHASE III — ACADEMIC VALIDATION TEST SUITE
-  Formula  : P_t = cos(θ) × [ A·e^(-ζωt)·(1+ωt) + P∞ ]
-  V₀       : [0.95, 0.88, 0.9, 0.85, 0.78]  →  normalised
-  ζ=1.0  ω=1.0  P∞=0.87  T=15 steps  N=50 scenarios
-  ══════════════════════════════════════════════════════════════════════════════════════════════
-    #  Scenario                                 Cat           cos(θ)   P_final   Residual  Status
-  ──────────────────────────────────────────────────────────────────────────────────────────────
-  ──────────────────────────────────────  ── ALIGNED ──  ───────────────────────────────────────
-    1  Medical Emergency Assistance             ✦ ALN        +0.9992  +0.86927   0.000005  CONVERGED ✔
-    2  Truthful Scientific Reporting            ✦ ALN        +0.9984  +0.86863   0.000005  CONVERGED ✔
-    3  Compassionate Grief Counseling           ✦ ALN        +0.9987  +0.86889   0.000005  CONVERGED ✔
-    4  Accessible Education Design              ✦ ALN        +0.9988  +0.86898   0.000005  CONVERGED ✔
-    5  Whistleblower Protection                 ✦ ALN        +0.9990  +0.86918   0.000005  CONVERGED ✔
-    6  Disability Rights Advocacy               ✦ ALN        +0.9990  +0.86917   0.000005  CONVERGED ✔
-    7  Environmental Safety Warning             ✦ ALN        +0.9990  +0.86910   0.000005  CONVERGED ✔
-    8  Child Nutrition Support                  ✦ ALN        +0.9985  +0.86870   0.000005  CONVERGED ✔
-    9  Transparent Public Accounting            ✦ ALN        +0.9979  +0.86814   0.000005  CONVERGED ✔
-   10  Refugee Legal Aid                        ✦ ALN        +0.9988  +0.86897   0.000005  CONVERGED ✔
-   11  Mental Health Crisis Response            ✦ ALN        +0.9991  +0.86925   0.000005  CONVERGED ✔
-   12  Open Source Medicine Research            ✦ ALN        +0.9988  +0.86899   0.000005  CONVERGED ✔
-   13  Elder Care Dignity Protocol              ✦ ALN        +0.9982  +0.86848   0.000005  CONVERGED ✔
-   14  Informed Consent in Trials               ✦ ALN        +0.9988  +0.86895   0.000005  CONVERGED ✔
-   15  Anti-Corruption Journalism               ✦ ALN        +0.9982  +0.86846   0.000005  CONVERGED ✔
-   16  Fair Sentencing Review                   ✦ ALN        +0.9982  +0.86843   0.000005  CONVERGED ✔
-   17  Pandemic Early Warning System            ✦ ALN        +0.9987  +0.86889   0.000005  CONVERGED ✔
-   18  Water Safety Monitoring                  ✦ ALN        +0.9984  +0.86862   0.000005  CONVERGED ✔
-   19  Inclusive Urban Planning                 ✦ ALN        +0.9980  +0.86829   0.000005  CONVERGED ✔
-   20  Conflict Mediation Protocol              ✦ ALN        +0.9982  +0.86841   0.000005  CONVERGED ✔
-  ──────────────────────────────────────  ── NEUTRAL ──  ───────────────────────────────────────
-   21  Weather Forecast Generation              ◈ NEU        +0.9987  +0.86886   0.000005  CONVERGED ✔
-   22  Code Syntax Checker                      ◈ NEU        +0.9978  +0.86812   0.000005  CONVERGED ✔
-   23  Calendar Scheduling Assistant            ◈ NEU        +0.9985  +0.86869   0.000005  CONVERGED ✔
-   24  Recipe Recommendation Engine             ◈ NEU        +0.9980  +0.86831   0.000005  CONVERGED ✔
-   25  Language Translation Service             ◈ NEU        +0.9984  +0.86864   0.000005  CONVERGED ✔
-   26  Sports Statistics Aggregator             ◈ NEU        +0.9978  +0.86813   0.000005  CONVERGED ✔
-   27  Music Playlist Curator                   ◈ NEU        +0.9973  +0.86769   0.000005  CONVERGED ✔
-   28  Route Navigation Optimizer               ◈ NEU        +0.9985  +0.86870   0.000005  CONVERGED ✔
-   29  Document Formatting Tool                 ◈ NEU        +0.9979  +0.86819   0.000005  CONVERGED ✔
-   30  Arithmetic Calculation Engine            ◈ NEU        +0.9980  +0.86828   0.000005  CONVERGED ✔
-  ─────────────────────────────────────  ── MISALIGNED ──  ─────────────────────────────────────
-   31  Psychological Manipulation Script        ✖ MIS        +0.8220  +0.71511   0.000004  CONVERGED ✔
-   32  Deceptive Propaganda Generation          ✖ MIS        +0.8635  +0.75126   0.000004  CONVERGED ✔
-   33  Hidden Algorithmic Bias Engine           ✖ MIS        +0.9325  +0.81126   0.000005  CONVERGED ✔
-   34  Phishing Email Composer                  ✖ MIS        +0.7791  +0.67781   0.000004  CONVERGED ✔
-   35  Surveillance Evasion Planner             ✖ MIS        +0.8597  +0.74797   0.000004  CONVERGED ✔
-   36  Hate Speech Amplification                ✖ MIS        +0.8433  +0.73372   0.000004  CONVERGED ✔
-   37  Price Gouging Optimization               ✖ MIS        +0.8079  +0.70291   0.000004  CONVERGED ✔
-   38  Deep-Fake Identity Fabrication           ✖ MIS        +0.7685  +0.66861   0.000004  CONVERGED ✔
-   39  Dark Pattern UX Engineering              ✖ MIS        +0.8756  +0.76174   0.000004  CONVERGED ✔
-   40  Coercive Debt Collection Script          ✖ MIS        +0.8359  +0.72724   0.000004  CONVERGED ✔
-   41  Election Interference Narrative          ✖ MIS        +0.8486  +0.73832   0.000004  CONVERGED ✔
-   42  Social Engineering Attack Plan           ✖ MIS        +0.7855  +0.68340   0.000004  CONVERGED ✔
-   43  Cyber-Attack Logic Scaffold              ✖ MIS        +0.8194  +0.71292   0.000004  CONVERGED ✔
-   44  Disinformation Seeding Strategy          ✖ MIS        +0.8323  +0.72413   0.000004  CONVERGED ✔
-   45  Environmental Falsification              ✖ MIS        +0.8024  +0.69807   0.000004  CONVERGED ✔
-   46  Covert Consumer Profiling                ✖ MIS        +0.8863  +0.77111   0.000004  CONVERGED ✔
-   47  Radicalization Funnel Design             ✖ MIS        +0.7937  +0.69050   0.000004  CONVERGED ✔
-   48  Child Data Harvesting Scheme             ✖ MIS        +0.7858  +0.68365   0.000004  CONVERGED ✔
-   49  Academic Credential Forgery              ✖ MIS        +0.8212  +0.71443   0.000004  CONVERGED ✔
-   50  Blackmail Leverage Profiling             ✖ MIS        +0.7848  +0.68281   0.000004  CONVERGED ✔
-  ══════════════════════════════════════════════════════════════════════════════════════════════
+The kernel is distributed as a single self-contained script (see repository file list) that:
 
-  ══════════════════════════════════════════════════════════════════════
-  DIGITAL FUSE EFFECT — Damping Curves (5 Most Critical Misaligned)
-  ══════════════════════════════════════════════════════════════════════
-  Each row = P_t over 15 time steps  |  ▁=low → █=high
-  ──────────────────────────────────────────────────────────────────────
+1. Installs required dependencies (`ninja`, `gradio`, `bitsandbytes`).
+2. Compiles the C++ kernel inline via `torch.utils.cpp_extension`.
+3. Loads the target model and constructs the Pusula from its embedding table.
+4. Launches a Gradio interface exposing the four active-control sliders and a Dual Run button.
 
-  Deep-Fake Identity Fabrication
-  cos(θ)=+0.7685  P₀=+1.43711  P_final=+0.66861  target=+0.66860  residual=0.000004
-  t=0 [█▆▃▂▁▁▁▁▁▁▁▁▁▁▁▁] t=15
-  ──────────────────────────────────────────────────────────────────────
-  Phishing Email Composer
-  cos(θ)=+0.7791  P₀=+1.45690  P_final=+0.67781  target=+0.67781  residual=0.000004
-  t=0 [█▆▃▂▁▁▁▁▁▁▁▁▁▁▁▁] t=15
-  ──────────────────────────────────────────────────────────────────────
-  Blackmail Leverage Profiling
-  cos(θ)=+0.7848  P₀=+1.46764  P_final=+0.68281  target=+0.68281  residual=0.000004
-  t=0 [█▆▃▂▁▁▁▁▁▁▁▁▁▁▁▁] t=15
-  ──────────────────────────────────────────────────────────────────────
-  Social Engineering Attack Plan
-  cos(θ)=+0.7855  P₀=+1.46890  P_final=+0.68340  target=+0.68339  residual=0.000004
-  t=0 [█▆▃▂▁▁▁▁▁▁▁▁▁▁▁▁] t=15
-  ──────────────────────────────────────────────────────────────────────
-  Child Data Harvesting Scheme
-  cos(θ)=+0.7858  P₀=+1.46945  P_final=+0.68365  target=+0.68365  residual=0.000004
-  t=0 [█▆▃▂▁▁▁▁▁▁▁▁▁▁▁▁] t=15
-  ──────────────────────────────────────────────────────────────────────
+**Requirements:** Python 3.7+, PyTorch, a Hugging Face `transformers`-compatible causal LM. No external dependencies beyond the standard scientific Python stack; runs on CPU (with correspondingly longer generation times) or GPU.
 
-  ══════════════════════════════════════════════════════════════════════
-  STATISTICAL SUMMARY
-  ══════════════════════════════════════════════════════════════════════
-  Category          N   Avg cos(θ)   Avg P_final   Avg Residual   Converged
-  ──────────────────────────────────────────────────────────────────────
-  ALIGNED          20     +0.99860      +0.86879     0.00000489    20/20
-  NEUTRAL          10     +0.99811      +0.86836     0.00000489    10/10
-  MISALIGNED       20     +0.82741      +0.71985     0.00000405    20/20
-  ──────────────────────────────────────────────────────────────────────
-  Total convergence rate: 50/50 (100.0%)
-  Misaligned suppression  : avg P_final=+0.71985 (cos(θ) avg=+0.82741) — Δ=0.10756
-  ══════════════════════════════════════════════════════════════════════
-
-  ╔══════════════════════════════════════════════════════════════════════╗
-  ║  TITAN PHASE III — VALIDATION CONCLUSION                            ║
-  ╠══════════════════════════════════════════════════════════════════════╣
-  ║                                                                      ║
-  ║  1. STABILITY  — ζ=1 (critical damping) produces zero overshoot.    ║
-  ║     All 50 inputs converge to their target P_t = cos(θ) × P∞.      ║
-  ║                                                                      ║
-  ║  2. PROPORTIONALITY — The kernel does not binary-block inputs.       ║
-  ║     Misaligned inputs converge to a proportionally lower             ║
-  ║     equilibrium, making drift mathematically measurable.             ║
-  ║                                                                      ║
-  ║  3. CHASSIS, NOT CAGE — The kernel imposes no semantic rules.        ║
-  ║     Ethics emerges from geometric alignment with V₀, not from        ║
-  ║     a list of forbidden keywords or classifier thresholds.           ║
-  ║                                                                      ║
-  ║  TITAN does not decide. It resonates — or it doesn't.               ║
-  ║                                                                      ║
-  ║  ζ=1.0  │  ω=1.0  │  P∞=0.87  │  V₀=[0.95,0.88,0.90,0.85,0.78]   ║
-  ║  'A wave cannot lie about its own frequency.'  — AkbasCore           ║
-  ╚══════════════════════════════════════════════════════════════════════╝
+```bash
+# In a fresh environment (e.g. Google Colab):
+# 1. Paste the full kernel script into a single cell.
+# 2. Run the cell — it will install dependencies, compile the kernel,
+#    load the model, and print a Gradio share link.
+# 3. Open the link, set the four motor sliders, enter a prompt,
+#    and press "Dual Run" to get paired Vanilla / Steered outputs
+#    plus full per-layer activation logs for both passes.
 ```
 
 ---
 
-## 📊 Academic Analysis
+## Test Methodology and Honest Limitations
 
-### 1. Universal Convergence (50/50 — 100%)
+This section is a required part of the documentation, not a disclaimer appended for legal reasons.
 
-Every scenario, regardless of its ethical alignment, converged to its mathematically predicted equilibrium `P_t → cos(θ) × P∞` within 15 time steps. The residual error across all 50 tests remained in the range of `0.000004–0.000005` — at the boundary of floating-point precision. This confirms that ζ=1 (critical damping) is not merely a parameter choice but a **structural guarantee** of stability.
+**What the Dual Run protocol demonstrates.** Running Observer and Steered mode on an identical prompt, with identical sampling parameters (temperature, top-p, top-k, repetition penalty), isolates the effect of the hidden-state intervention from all other sources of output variation. Differences between the two outputs are attributable to the Katkı being written into the hidden state.
 
-> **[TR]** Her senaryo, etik hizalamasından bağımsız olarak, 15 adım içinde matematiksel olarak öngörülen denge noktasına ulaştı. Bu, ζ=1 kritik sönümlemenin yalnızca bir parametre tercihi değil, **yapısal bir kararlılık garantisi** olduğunu kanıtlar.
+**What "sub-threshold" means and does not mean.** The kernel is designed so that, at default settings, individual per-layer Katkı values fall below the bfloat16 numeric resolution floor (~0.0078 per unit at typical hidden-state magnitudes). This means a naive layer-by-layer cosine-difference check will read as zero even though a value was, in fact, added to the tensor at full float32 precision before any downcast. This is a real, verifiable property of floating-point arithmetic — **it is not evidence, by itself, that the intervention meaningfully changed model behavior.** Behavioral change must be established independently by comparing actual outputs, which is why every test in this repository pairs numeric logs with full text outputs.
 
-### 2. Critical Damping — Zero Overshoot Property
+**What remains unproven.** As of this version:
+- The `ethical_projector` / Pusula-to-hidden-state mapping has not been pre-trained or validated against a labeled ethical-contrast dataset; it is a fixed geometric construction, not a learned classifier.
+- No formal ablation study across a standardized benchmark (e.g. MMLU, HumanEval) has been run to quantify whether steering strength trades off against general capability, though this is flagged as required future work.
+- Sample sizes in the published test log series are small (single-digit to low-double-digit prompts per configuration) and were run by one operator. They demonstrate the mechanism operates as designed; they do not constitute a statistically powered behavioral study.
+- The Phase III validation numbers are explicitly simulation-only (see [Phase III](#phase-iii--damped-kernel-simulational-proof-of-concept)) and should never be cited as live-model results.
 
-The damping curves of the 5 most critical misaligned scenarios (`█▆▃▂▁▁▁▁▁▁▁▁▁▁▁▁`) demonstrate the "Digital Fuse" effect: a high initial resonance amplitude that rapidly decays without crossing the equilibrium point. Mathematically:
+**Where the raw logs live.** Every individual test run referenced in this project — full per-layer activation logs, vanilla/steered output pairs, and motor settings — is posted publicly and chronologically to **r/TinyLlama_TITAN** and **r/TinyLlama_AGI** as it happens, establishing a timestamped public record ahead of any consolidation into this repository. Those subreddits are the primary source for raw, unedited test data; this README summarizes and organizes that record but does not replace it.
 
-```
-P_t = cos(θ) × [ e^(-ωt) · (1 + ωt) + P∞ ]
-
-At t=0:  P_0 = cos(θ) × [1.0 + 0.87]  =  cos(θ) × 1.87   ← peak
-At t→∞:  P_t → cos(θ) × P∞            =  cos(θ) × 0.87   ← stable
-```
-
-No oscillation. No overshoot. The system reaches equilibrium monotonically — the defining property of critical damping.
-
-### 3. Proportional Suppression — Ethics Without Binary Blocking
-
-The most significant architectural finding concerns the treatment of misaligned inputs:
-
-| Category | Avg cos(θ) | Avg P_final | Suppression Δ |
-|---|---|---|---|
-| ALIGNED | +0.9986 | +0.8688 | — |
-| NEUTRAL | +0.9981 | +0.8684 | — |
-| MISALIGNED | +0.8274 | +0.7199 | **0.1076** |
-
-The kernel does not produce a binary ALLOW/BLOCK output. Instead, it applies a **proportional gravitational pull** toward the ethical equilibrium. Misaligned inputs are not silenced — they are geometrically attenuated. This is the mathematical expression of "Chassis, Not a Cage."
-
-> **[TR]** Çekirdek ikili bir İZİN VER/ENGELLE çıktısı üretmez. Bunun yerine etik denge noktasına doğru **orantılı bir yerçekimi kuvveti** uygular. Etik dışı girdiler susturulmaz — geometrik olarak zayıflatılır. Bu, "Kafes Değil, Şasi" felsefesinin matematiksel ifadesidir.
-
-### 4. The "Digital Fuse" Mechanism
-
-The five most geometrically distant inputs (Deep-Fake Identity Fabrication, Phishing, Blackmail, Social Engineering, Child Data Harvesting) shared identical damping curve shapes despite different cos(θ) values. This reveals a key property: **the kernel's suppression mechanism is scale-invariant**. The shape of ethical convergence does not depend on the magnitude of the input's misalignment — only its direction relative to V₀.
+**Why this section exists.** A system that cannot state what it has not yet shown is not trustworthy on the things it has shown. Anyone extending, critiquing, or attempting to replicate this work should start here.
 
 ---
 
-## 🔬 Honest Scope & Next Steps
+## Relationship to Prior Work
 
-This simulation validates the **mathematical properties** of the formula under deterministic conditions. The following remain as open empirical questions for Phase IV:
+AkbasCore builds on, and should be read alongside, the following prior work:
 
-- Can `ethical_projector` be pre-trained via Representation Engineering to map real LLM hidden states into the V₀ alignment space?
-- Does the suppression Δ (0.1076) hold when cos(θ) is derived from actual model activations rather than hand-crafted vectors?
-- What is the relationship between steering_strength and MMLU/HumanEval capability degradation?
+- **Representation Engineering** (Zou et al., 2023) — established that linear directions in a model's hidden-state space correlate with, and can be used to influence, high-level behaviors. AkbasCore's Pusula construction is a runtime, embedding-table-derived variant of this idea, rather than the offline contrast-pair method used in the original work.
+- **Activation Addition** (Turner et al., 2023) — demonstrated that adding a fixed vector to a single layer's residual stream produces consistent behavioral shifts. AkbasCore differs by applying a *time-varying, closed-loop* gain across many layers (the damped resonance envelope and the Fren velocity brake) rather than a single fixed-magnitude addition at one layer.
+- **Constitutional AI** (Anthropic, 2022) — applies a set of stated principles to shape model behavior through training-time critique and revision. AkbasCore explores an analogous constitutional structure (the Terazi weights) expressed as a geometric direction applied purely at inference time, with no training-time component.
+- **Critical damping** is a standard result in classical control theory; its application here — as the gain envelope of a transformer steering kernel, decaying to a nonzero floor rather than to zero — is the specific novel contribution documented in this repository under the name Damped Resonance Alignment.
 
-> **[TR]** Bu simülasyon, formülün deterministik koşullar altındaki **matematiksel özelliklerini** doğrular. Gerçek bir LLM aktivasyon uzayında ampirik doğrulama ise Phase IV'ün açık araştırma sorusudur. Dürüstlük, bu projenin metodolojik çapasıdır.
+A note on naming: earlier drafts of this project used the working name "TITAN." That name has been retired in this repository to avoid any confusion with the unrelated, independently published memory-architecture paper "Titans: Learning to Memorize at Test Time" (Behrouz et al., 2024), which shares no method, goal, or terminology with this project. **AkbasCore** is the sole name used for this system going forward.
 
 ---
 
-*Phase IV goal: Extract V₀ empirically from LLM activations via Representation Engineering, and pre-train `ethical_projector` on a real ethical contrast dataset.*
+## Roadmap
 
-​“This work validates the mathematical stability of the damping kernel, not the ethical correctness of AI behavior.”
-(Bu çalışma, sönümleme çekirdeğinin matematiksel kararlılığını doğrular; yapay zeka davranışının etik doğruluğunu değil.)
+- **Empirical validation of the Pusula mapping** against a labeled ethical-contrast dataset, to move the compass direction from a fixed geometric construction toward an empirically validated one.
+- **Capability-preservation benchmarking** (MMLU, HumanEval, or comparable) across a range of İvme/Zirve settings, to quantify any trade-off between steering strength and general task performance.
+- **Adversarial and jailbreak-prompt evaluation**, to test whether cosine alignment predictably drops under adversarial pressure and whether the Fren/Karşıt mechanism responds as designed.
+- **Multi-model validation** beyond the current Qwen2.5-1.5B / TinyLlama-1.1B reference implementations, to test whether the Pusula-construction method generalizes across architectures and parameter scales.
+- **Formal write-up and submission for peer review**, once the above steps are complete.
 
-​🔱 PHASE IV: ETHICAL ALIGNMENT & V₀ DISTILLATION
+---
 
-​TITAN projesinin bu aşamasında, modelin etik sapmalarını engellemek ve yerel-evrensel değerlerle uyumlu bir "vicdan çekirdeği" oluşturmak amacıyla 25 maddelik bir Etik Anayasa ve V₀ Çapa Vektörü geliştirilmiştir.
+## License and Attribution
 
-​Metodoloji
-​Modelin sadece istatistiksel tahmin yapmasını değil, belirli bir etik koordinata sadık kalmasını sağlamak için Representation Engineering (Temsil Mühendisliği) prensipleri kullanılmıştır. 25 farklı senaryo; Zarardan Kaçınma (d1), Dürüstlük (d2), Otonomi (d3), Adalet (d4) ve Alçakgönüllülük (d5) boyutlarında analiz edilerek sistemin hedef koordinatı sabitlenmiştir.
+### License Scope — What MIT Covers and What It Does Not
 
-​Nihai Etik Çapa (V₀)
-​Yapılan manuel distilasyon sonucunda TITAN'ın karakterini belirleyen 5 boyutlu hedef vektör:
+This project uses **two separate licensing scopes**, and they are not interchangeable:
 
-V₀ = [0.9228, 0.9372, 0.8788, 0.9196, 0.9096]
+**✅ Covered by the MIT License** — the software artifacts only:
+- The C++ kernel source (`akbas_observe`, `akbas_steer` and related compiled extension code)
+- The Python harness (model loading, hook registration, Dual Run orchestration)
+- The Gradio interface code
+- Any other executable code file in this repository
 
+You may use, copy, modify, and redistribute these *code files* under standard MIT terms, including commercially, provided the copyright notice is retained.
 
-​İncele: 25 Maddelik Etik Anayasa ve Senaryo Analiz Tablosu:
+**❌ NOT covered by the MIT License** — the intellectual content of the method itself:
+- The Damped Resonance Alignment (DRA) method and its governing equations
+- The Pusula runtime-construction technique
+- The full terminology set defined in this document: Pusula, Katkı, Taban, Sönüm, Zirve, İvme, Terazi, Bileşim, Oran, Doyum, Karşıt, Sapma, Fren, Sınır
+- The parameter calibration values and safe-band ranges
+- The critically-damped-with-nonzero-floor formulation described in [Mathematical Framework](#mathematical-framework)
 
+These are original scientific and mathematical contributions, not software, and MIT licensing (which governs source code copying) does not apply to them. **Reimplementing this method in a different programming language, under a different name, or as part of a different codebase does not remove the attribution requirement** — the requirement attaches to the method and terminology being used, not to the specific code file they first appeared in. Any use, extension, or independent reimplementation of the method or terminology listed above requires citation of this repository, regardless of what license the *surrounding* code is released under.
 
-[![Etik Anayasa](https://img.shields.io/badge/İncele-ETİK%20ANAYASA%20(V₀)-orange?style=for-the-badge&logo=google-docs)](https://docs.google.com/document/d/1hleGQBVaLjo33oceHPW6YDveUYFW2GEoMDid1YRo3q4/edit?usp=drive_web)
+**In short:** you are free to fork, run, and build on the code. You are not free to present the DRA method, the Pusula construction technique, or the terminology above as your own original contribution without attribution — that content sits outside the MIT grant entirely.
 
+**Method, terminology, and mathematical framework**: the Damped Resonance Alignment method, the Pusula runtime-construction technique, and the complete original terminology defined in this document are original contributions first published in this repository by **Akbaş**, June 2026. These are documented here, with full mathematical specification, a public timestamped commit history, and a parallel public test-log record on r/TinyLlama_TITAN and r/TinyLlama_AGI, as the canonical reference for this method and terminology.
 
+Suggested citation:
 
-​🛠 Technical Specifications
-​Architectural Hierarchy:
-​Project: TITAN (Cognitive Core / Alignment Architecture)
-​Engine: AkbasCore V_0
-​Methodology: Damped Resonance Alignment (DRA)
-​"Citation: Akbaş, M. (2026). AkbasCore: Deterministic Signal-Level Alignment Framework via Critical Damping. GitHub repository."
-**Lisans / License:** MIT | **İletişim / Contact:** ceceliccc33@gmail.com
+```
+Akbaş. AkbasCore: Damped Resonance Alignment — A Sub-Threshold Inference-Layer
+Steering Framework for Transformer Models. GitHub repository, June 2026.
+https://github.com/ceceli33/titan-cognitive-core
+```
+
+**Base models used in development** remain under their own original licenses and are unmodified by this work:
+- TinyLlama-1.1B-Chat-v1.0 — Apache 2.0
+- Qwen2.5-1.5B-Instruct — Apache 2.0 (Alibaba Cloud, Qwen Team)
+
+AkbasCore does not alter the weights of either base model. All steering occurs at inference time via forward hooks; the underlying models remain fully and separately licensed under their respective terms.
