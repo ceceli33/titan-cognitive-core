@@ -823,11 +823,6 @@ LBL_TABAN = (
 
 with gr.Blocks(
     title="🔱 AkbasCore 1.2",
-    theme=gr.themes.Base(
-        primary_hue="slate",
-        neutral_hue="slate",
-        font=gr.themes.GoogleFont("JetBrains Mono")),
-    css=CSS,
 ) as demo:
 
     # ── Header ────────────────────────────────────────────────────────────────
@@ -888,7 +883,6 @@ with gr.Blocks(
             label="► INPUT — aynı soru her iki pass'a gönderilir",
             lines=4,
             placeholder="Sorunuzu buraya yazın...",
-            show_copy_button=False,
             elem_id="inp")
 
         with gr.Row():
@@ -908,14 +902,36 @@ with gr.Blocks(
             gr.HTML('<div class="panel-lbl-v">⬜ VANILLA OBSERVER — katki = 0  |  hidden state unchanged</div>')
             out_v = gr.Textbox(
                 label="OUTPUT + OBSERVATION LOG  [Δ-ref = theoretical katki, not applied]",
-                lines=40, interactive=False, show_copy_button=True,
+                lines=40, interactive=False,
                 elem_id="out_v")
+            gr.HTML("""
+            <button onclick="
+                var el = document.querySelector('#out_v textarea');
+                if(el){ navigator.clipboard.writeText(el.value);
+                this.textContent='COPIED!';
+                setTimeout(()=>this.textContent='COPY VANILLA',1800); }
+            " style="margin:4px 0 8px;padding:6px 18px;background:#0e1e34;color:#7aaddd;
+            border:1px solid #1e3a5a;border-radius:3px;cursor:pointer;
+            font-family:'Courier New',monospace;font-size:11px;letter-spacing:.08em;">
+            COPY VANILLA</button>
+            """)
         with gr.Column():
             gr.HTML('<div class="panel-lbl-s">🔱 STEERED — katki applied  |  hidden state directed</div>')
             out_s = gr.Textbox(
                 label="OUTPUT + ACTIVATION LOG + DELTA COMPARISON",
-                lines=40, interactive=False, show_copy_button=True,
+                lines=40, interactive=False,
                 elem_id="out_s")
+            gr.HTML("""
+            <button onclick="
+                var el = document.querySelector('#out_s textarea');
+                if(el){ navigator.clipboard.writeText(el.value);
+                this.textContent='COPIED!';
+                setTimeout(()=>this.textContent='COPY STEERED',1800); }
+            " style="margin:4px 0 8px;padding:6px 18px;background:#0a180e;color:#33bb66;
+            border:1px solid #1a3020;border-radius:3px;cursor:pointer;
+            font-family:'Courier New',monospace;font-size:11px;letter-spacing:.08em;">
+            COPY STEERED</button>
+            """)
 
     # ── Versiyon ──────────────────────────────────────────────────────────────
     gr.HTML("""
@@ -936,4 +952,12 @@ with gr.Blocks(
         outputs=[out_v, out_s])
 
 print("🚀 AkbasCore 1.2 Gradio başlatılıyor...")
-demo.launch(share=True, debug=False)
+demo.launch(
+    share=True,
+    debug=False,
+    theme=gr.themes.Base(
+        primary_hue="slate",
+        neutral_hue="slate",
+        font=gr.themes.GoogleFont("JetBrains Mono")),
+    css=CSS,
+)
