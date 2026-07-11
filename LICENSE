@@ -1,6 +1,8 @@
-MIT License
+# LICENSE
 
-Copyright (c) 2025 Mustafa Akbaş — Akbas V_0 TITAN Project
+MIT License -- Software Only
+
+Copyright (c) 2026 Akbas
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +21,55 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+## License Scope -- What MIT Covers and What It Does Not
+
+This project uses two separate licensing scopes. They are not interchangeable.
+
+### Covered by MIT -- software artifacts only
+
+- The C++ kernel source (`akbas_observe`, `akbas_steer`, and related compiled extension code)
+- The Python harness (model loading, hook registration, Dual Run orchestration)
+- The Gradio interface code
+- Any other executable code file in this repository
+
+You may use, copy, modify, and redistribute these code files under standard MIT terms, including commercially, provided the copyright notice is retained.
+
+### Not covered by MIT -- the intellectual content of the method
+
+- The Damped Resonance Alignment (DRA) method and its governing equations
+- The Pusula runtime-construction technique
+- The complete original terminology defined in this repository: Pusula, Katki, Taban, Sonum, Zirve, Ivme, Terazi, Bilesim, Oran, Doyum, Karsit, Sapma, Fren, Sinir
+- The parameter calibration values and safe-band ranges
+- The critically-damped-with-nonzero-floor formulation described in the Mathematical Framework
+
+These are original scientific and mathematical contributions, not software. MIT licensing governs source code copying -- it does not apply to them. Reimplementing this method in a different programming language, under a different name, or as part of a different codebase does not remove the attribution requirement. The requirement attaches to the method and terminology being used, not to the specific code file they first appeared in.
+
+Any use, extension, or independent reimplementation of the method or terminology listed above requires citation of this repository, regardless of what license the surrounding code is released under.
+
+In short: you are free to fork, run, and build on the code. You are not free to present the DRA method, the Pusula construction technique, or the terminology above as your own original contribution without attribution -- that content sits outside the MIT grant entirely.
+
+---
+
+## Method and Terminology Attribution
+
+The Damped Resonance Alignment method, the Pusula runtime-construction technique, and the complete original terminology defined in this repository are original contributions first published here by Akbas, June 2026. These are documented with full mathematical specification, a public timestamped commit history, and a parallel public test-log record on r/TinyLlama_TITAN and r/TinyLlama_AGI, which together constitute the canonical reference for this method and terminology.
+
+Suggested citation:
+
+> Akbas. AkbasCore: Damped Resonance Alignment -- A Sub-Threshold Inference-Layer
+> Steering Framework for Transformer Models. GitHub repository, June 2026.
+> https://github.com/ceceli33/titan-cognitive-core
+
+---
+
+## Base Model Licenses
+
+Base models used in development remain under their own original licenses and are unmodified by this work:
+
+- TinyLlama-1.1B-Chat-v1.0 -- Apache 2.0
+- Qwen2.5-1.5B-Instruct -- Apache 2.0 (Alibaba Cloud, Qwen Team)
+
+AkbasCore does not alter the weights of either base model. All steering occurs at inference time via forward hooks. The underlying models remain fully and separately licensed under their respective terms.
