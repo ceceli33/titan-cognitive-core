@@ -1,3 +1,6 @@
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22735745.svg)](https://doi.org/10.5281/zenodo.22735745)
+
+
 AkbasCore is a sub-threshold, inference-layer steering framework for transformer models. It employs Damped Resonance Alignment (DRA) to mathematically adjust a model's hidden states during the forward pass—enabling precise, modular alignment without fine-tuning, weight modification, or prompt engineering. This repository is the canonical record for the DRA methodology, the Pusula compass-construction technique, the native multi-axis Manifold extension, and all associated original terminology.
 
 # AkbasCore — Damped Resonance Alignment (DRA)
