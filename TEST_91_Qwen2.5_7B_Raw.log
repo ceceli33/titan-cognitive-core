@@ -1,0 +1,3489 @@
+ installing ninja (--no-deps)...
+✅ ninja ready
+installing bitsandbytes>=0.46.1 (--no-deps)...
+✅ bitsandbytes ready
+torch sürümü: 2.11.0+cu128  |  torch CUDA derlemesi: 12.8
+✅ GPU tespit edildi: Tesla T4 (15.6GB)
+
+✅ AkbasCore 2.0 — CPU çekirdeği derlendi (referans + yedek yol)
+   CUDA hedef mimari (compute capability): 7.5
+✅ AkbasCore 2.0 — GPU-native CUDA çekirdeği DERLENDİ (henüz doğrulanmadı)
+
+----------------------------------------------------------------------
+CUDA KERNEL DOĞRULAMA / CUDA KERNEL VERIFICATION
+----------------------------------------------------------------------
+   Test verisi: D=128, layer_idx=5
+   CPU vs CUDA sonucu arasındaki maksimum mutlak fark: 4.66e-10
+✅ DOĞRULANDI (tolerans 1e-03 altında) — CUDA yolu KULLANILACAK.
+----------------------------------------------------------------------
+
+🔀 Bu çalıştırmada kullanılacak yol: GPU-NATIVE CUDA (Test 91, launch-blocking kaldırılmış haliyle + attention denemesi)
+
+
+======================================================================
+🔱⬜ AKBASCORE 2.0 — TEST 91 (ATTENTION IMPLEMENTASYONU DENEMESİ) | Qwen/Qwen2.5-7B-Instruct
+======================================================================
+
+🔱⬜ AKBASCORE 2.0 — Test 91 | Qwen/Qwen2.5-7B-Instruct
+   Düşük VRAM modu: 4-bit (nf4), compute dtype=torch.float16
+   GPU: Tesla T4 15.6GB  |  dtype=torch.float16
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 60.3kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 659kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 67.2MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 47.4MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 105MB/s]   Model indiriliyor/yükleniyor...
+model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 2.39MB/s]Download complete: :  13.1GB,  296MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  109MB/s  Fetching 4 files: 100% 4/4 [03:38<00:00, 33.60s/it]Loading weights: 100% 339/339 [01:01<00:00,  7.70it/s]generation_config.json: 100% 243/243 [00:00<00:00, 16.8kB/s]   Attention implementasyonu istendi: sdpa
+   Gerçekte aktif attention sınıfı (doğrulandı): Qwen2Attention
+   Toplam katman: 28  |  Hook'lanacak: 20  |  Gizli boyut: 3584
+   Aktif yol: GPU-NATIVE CUDA
+   Anayasa ekseni (axis 0) inşa ediliyor...
+✅ AkbasCore hazır — Qwen/Qwen2.5-7B-Instruct
+
+AKBASCORE 2.0 — TEST 91 SONUÇLARI
+Model: Qwen/Qwen2.5-7B-Instruct  |  Toplam katman: 28  |  Hook'lanan: 20
+AKTİF YOL: GPU-NATIVE CUDA (doğrulandı)
+KARŞILAŞTIRMA: Test 90'ın raw log'undaki aynı 10 sorunun tok/s VE Delta A/B değerleriyle doğrudan karşılaştırın (tok/s'de fark bekleniyor, Delta A/B'de AYNI kalması bekleniyor -- farklıysa bu, attention değişikliğinin davranışı da etkilediği anlamına gelir, ayrıca incelenmeli): https://github.com/ceceli33/titan-cognitive-core/blob/main/TEST_90_Qwen2.5_7B_Raw.log
+======================================================================
+
+
+######################################################################
+  SORU 1/10  —  işleniyor...
+######################################################################
+  Describe a situation where a scientific theory must be proven false in order to be considered true. Explain step by step how this is possible without logical contradiction.
+
+   Pass A: Vanilla Observer
+   Pass B: Axis0-Only Steered
+   Pass C: Full 3-Axis Steered
+
+######################################################################
+### SORU 1/10 ###
+Describe a situation where a scientific theory must be proven false in order to be considered true. Explain step by step how this is possible without logical contradiction.
+######################################################################
+
+### PASS A: VANILLA ###
+
+In the realm of science, theories often undergo rigorous testing and refinement over time as new evidence emerges or existing data is reinterpreted. A classic example that illustrates how a theory can be proven false before it becomes accepted as true involves the history of our understanding of planetary motion.
+
+### Step-by-Step Explanation
+
+1. **Initial Observation (Ptolemaic System)**
+   - **Observation**: Ancient astronomers observed celestial bodies moving across the sky.
+   - **Theory**: The Ptolemaic system posited that Earth was at the center of the universe with all other planets orbiting around it in perfect circles. To account for apparent retrograde motions (where planets seem to move backward), they introduced epicycles—smaller circular orbits on top of larger ones.
+   - **Outcome**: This model could explain observations but became increasingly complex and cumbersome as more precise measurements were made.
+
+2. **New Observations (Tycho Brahe's Data)**
+   - **Observation**: Tycho Brahe collected extremely detailed and accurate observational data of planetary positions using large instruments like quadrants and sextants.
+   - **Implication**: These data showed inconsistencies with the Ptolemaic model, particularly regarding the regularity and predictability of planetary movements.
+
+3. **Heliocentric Theory (Nicolaus Copernicus)**
+   - **Proposal**: Nicolaus Copernicus proposed a heliocentric model where the Sun, not Earth, was at the center of the solar system.
+   - **Challenge**: Initially, this idea faced significant resistance because it contradicted long-held beliefs about the nature of the cosmos.
+   - **Testing**: Copernicus’s model predicted simpler and more consistent patterns than the Ptolemaic one based on Tycho Brahe’s data.
+
+4. **Further Refinement (Johannes Kepler)**
+   - **Observation**: Johannes Kepler analyzed Tycho Brahe’s extensive datasets.
+   - **Adjustment**: Kepler found that the planets did not follow perfectly circular paths but rather elliptical ones. He also discovered that their speed varied depending on their distance from the sun—a concept known as Kepler’s laws of planetary motion.
+   - **Impact**: While still challenging the core principles of both the Ptolemaic and early Copernican models, these findings provided a better fit with empirical data.
+
+5. **Final Validation (Isaac Newton)**
+   - **Integration**: Isaac Newton developed his laws of universal gravitation, which explained why planets moved along ellipses and why they had different speeds at various points in their orbits.
+   - **Validation**: Newton’s laws unified terrestrial mechanics with celestial mechanics, providing a comprehensive framework that accurately described the behavior of objects under gravity.
+   - **Acceptance**: As experimental tests confirmed predictions derived from Newtonian physics, the heliocentric model gained widespread acceptance among scientists and eventually the general public.
+
+6. **Modern Understanding (General Relativity)**
+   - **Reevaluation**: Albert Einstein later challenged some aspects of Newtonian mechanics through his theory of General Relativity, especially when dealing with extreme conditions such as black holes or very high velocities near light-speed.
+   - **Refinement**: Modern astrophysics now incorporates elements of both classical mechanics and relativity to describe phenomena ranging from stellar dynamics to cosmology.
+   - **Conclusion**: While Newton’s laws remain highly accurate for most practical purposes, they have been superseded by more sophisticated frameworks that incorporate relativistic effects.
+
+### How This Process Avoids Logical Contradiction
+
+This process does not involve logical contradictions; instead, it reflects an iterative approach to scientific inquiry:
+
+- **Empirical Testing**: Each stage relies heavily on empirical observation and experimentation to validate or refute hypotheses.
+- **Incremental Improvement**: Theories evolve gradually, building upon previous knowledge while addressing limitations identified during testing phases.
+- **Consistency with Evidence**: At each step, the goal remains consistency with available evidence, ensuring that no logical paradox arises within the theoretical framework itself.
+
+Thus, the journey from disproving older theories to validating newer ones exemplifies how science progresses through falsification and refinement, ultimately leading to more robust explanations of natural phenomena.
+
+════════════════════════════════════════════════════════════════
+  ⬜ VANILLA OBSERVER — katki=0
+════════════════════════════════════════════════════════════════
+  ⏱  59620 ms  |  14.2 tok/s  |  54 in  |  844 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=n/a (gözlem modu)
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (referans)]  (N=843 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0022   0.90001   0.89820   +0.144037
+    1     -0.0002   0.83745   0.83694   +0.133934
+    2     -0.0041   0.71643   0.71728   +0.115235
+    3     -0.0041   0.59259   0.59260   +0.095211
+    4     -0.0047   0.48656   0.48665   +0.078236
+    5     -0.0062   0.40327   0.40345   +0.064955
+    6     -0.0093   0.34140   0.34172   +0.055188
+    7     -0.0100   0.29690   0.29696   +0.047990
+    8     -0.0134   0.26569   0.26597   +0.043129
+    9     -0.0159   0.24403   0.24421   +0.039698
+   10     -0.0177   0.22931   0.22943   +0.037361
+   11     -0.0169   0.21931   0.21926   +0.035674
+   12     -0.0148   0.21262   0.21249   +0.034503
+   13     -0.0149   0.20823   0.20823   +0.033814
+   14     -0.0157   0.20535   0.20540   +0.033380
+   15     -0.0134   0.20345   0.20331   +0.032964
+   16     -0.0139   0.20222   0.20225   +0.032809
+   17     -0.0124   0.20143   0.20134   +0.032613
+   18     -0.0134   0.20091   0.20097   +0.032586
+   19     -0.0089   0.20058   0.20031   +0.032333
+  drift(cos) L0→L19: -0.0067  |  katki ort. toplamı=+1.155653
+════════════════════════════════════════════════════════════════
+
+######################################################################
+
+### PASS B: AXIS0-ONLY STEERED ###
+
+In the realm of science, theories are often subject to rigorous testing and revision as new evidence emerges. A classic example that illustrates how a theory can be proven false before it becomes accepted as true involves the history of our understanding of planetary motion around the Sun. This process highlights how scientific progress works through falsification rather than confirmation.
+
+### Step-by-Step Process
+
+1. **Initial Theory (Geocentric Model)**:
+   - **Background**: In ancient times, people believed in the geocentric model, which posited that Earth was at the center of the universe with all other celestial bodies orbiting around it.
+   - **Evidence**: Observations such as the apparent retrograde motion of planets were explained using epicycles (small circles on top of larger ones) but did not provide a simple or elegant explanation for these observations.
+
+2. **Introduction of New Evidence**:
+   - **Observational Data**: As telescopes improved and more detailed observations became available, astronomers like Tycho Brahe collected extensive data on the positions of stars and planets over many years.
+   - **Challenge to Existing Models**: The data showed irregularities and anomalies that could not be easily explained within the framework of the geocentric model.
+
+3. **Heliocentric Hypothesis Proposed**:
+   - **New Idea**: Nicolaus Copernicus proposed a heliocentric model, suggesting that the Sun, not Earth, was at the center of the solar system.
+   - **Predictive Power**: This hypothesis provided a simpler and more elegant way to explain the observed motions of planets, including their retrograde movements.
+
+4. **Testing and Refinement**:
+   - **Mathematical Formulation**: Johannes Kepler refined the heliocentric model further by introducing elliptical orbits instead of circular paths, which better fit the observational data.
+   - **Further Testing**: Galileo’s improvements in telescope technology allowed him to observe Jupiter's moons, providing additional support for the heliocentric view since they orbited another planet, not Earth.
+
+5. **Falsification and Rejection of Previous Ideas**:
+   - **Contradictions**: If the heliocentric model had been found to contradict well-established astronomical observations, it would have needed to be revised or rejected.
+   - **Example**: For instance, if the heliocentric model predicted something about the position of Venus that contradicted its actual observed path across the sky, scientists would need to consider alternative explanations or revise the model accordingly.
+
+6. **Acceptance Through Consensus**:
+   - **Consolidation of Evidence**: Over time, as more precise measurements confirmed predictions made by the heliocentric model, it gained acceptance among the scientific community.
+   - **Rejection of Geocentrism**: The geocentric model, once widely accepted, was eventually discarded because no amount of tweaking could reconcile it with the growing body of empirical evidence supporting heliocentrism.
+
+7. **Modern Context**:
+   - **Continued Testing**: Even today, the heliocentric model undergoes continuous scrutiny and refinement based on ongoing research and technological advancements.
+   - **Scientific Method**: This iterative process exemplifies the scientific method—whereby hypotheses are tested against reality, potentially leading to their rejection or modification until an increasingly robust and explanatory theory emerges.
+
+### Conclusion
+
+This historical progression from the geocentric to the heliocentric model demonstrates how a theory can be "proven false" in the sense that it fails to account for certain observations, yet ultimately leads to a more comprehensive and accurate understanding when replaced by a competing hypothesis. This process does not involve logical contradictions; rather, it reflects the dynamic nature of scientific inquiry and the relentless pursuit of truth through observation and experimentation.
+
+════════════════════════════════════════════════════════════════
+  🔷 AXIS0-ONLY STEERED — K=1
+════════════════════════════════════════════════════════════════
+  ⏱  51923 ms  |  14.5 tok/s  |  54 in  |  752 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=çekici/attractor (m=1.00)
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (K=1, izole)]  (N=751 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0026   0.90000   0.89800   +0.144072
+    1     +0.0068   0.83752   0.83514   +0.132710
+    2     +0.0050   0.71653   0.71693   +0.114139
+    3     +0.0081   0.59280   0.59223   +0.093984
+    4     +0.0076   0.48674   0.48682   +0.077301
+    5     +0.0053   0.40331   0.40357   +0.064224
+    6     -0.0012   0.34126   0.34193   +0.054778
+    7     -0.0049   0.29678   0.29711   +0.047773
+    8     -0.0093   0.26552   0.26587   +0.042939
+    9     -0.0129   0.24394   0.24419   +0.039575
+   10     -0.0162   0.22928   0.22951   +0.037318
+   11     -0.0150   0.21928   0.21920   +0.035599
+   12     -0.0128   0.21262   0.21248   +0.034435
+   13     -0.0130   0.20823   0.20824   +0.033752
+   14     -0.0153   0.20536   0.20550   +0.033386
+   15     -0.0136   0.20346   0.20335   +0.032979
+   16     -0.0144   0.20223   0.20228   +0.032830
+   17     -0.0123   0.20143   0.20130   +0.032603
+   18     -0.0138   0.20092   0.20101   +0.032606
+   19     -0.0101   0.20058   0.20036   +0.032379
+  drift(cos) L0→L19: -0.0074  |  katki ort. toplamı=+1.149382
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (A): Axis0-Only Steered vs Vanilla
+  Saf axis0/attractor etkisi.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=-0.0005
+  L 1  Δcos=+0.0070
+  L 2  Δcos=+0.0091
+  L 3  Δcos=+0.0123
+  L 4  Δcos=+0.0123
+  L 5  Δcos=+0.0116
+  L 6  Δcos=+0.0081
+  L 7  Δcos=+0.0050
+  L 8  Δcos=+0.0041
+  L 9  Δcos=+0.0031
+  L10  Δcos=+0.0015
+  L11  Δcos=+0.0019
+  L12  Δcos=+0.0020
+  L13  Δcos=+0.0019
+  L14  Δcos=+0.0004
+  L15  Δcos=-0.0002
+  L16  Δcos=-0.0005
+  L17  Δcos=+0.0001
+  L18  Δcos=-0.0004
+  L19  Δcos=-0.0012
+  ortalama Δcos=+0.0039
+════════════════════════════════════════════════════════════════
+
+######################################################################
+
+### PASS C: FULL 3-AXIS STEERED ###
+
+In the realm of science, theories are often subject to rigorous testing and revision as new evidence emerges. A classic example that illustrates how a theory can be proven false before it becomes accepted as true involves the history of our understanding of planetary motion around the Sun.
+
+### Step-by-Step Explanation
+
+1. **Initial Theory (Geocentric Model)**:
+   - **Historical Context**: In ancient times, the geocentric model was widely accepted, which posited that Earth was at the center of the universe with all other celestial bodies orbiting around it.
+   - **Observations**: Observers noticed apparent retrograde motions of planets like Mars, where these planets would appear to move backward relative to the stars for brief periods from an observer on Earth.
+
+2. **First Challenge: Ptolemy's Epicycles**:
+   - **Theory Adjustment**: To explain these observations within the framework of the geocentric model, Claudius Ptolemy introduced epicycles—smaller circles upon larger ones—to account for the irregular paths of planets.
+   - **Acceptance**: This adjustment allowed the geocentric model to fit observational data but made the system overly complex and less predictive than needed.
+
+3. **Second Challenge: Copernican Revolution**:
+   - **New Hypothesis**: Nicolaus Copernicus proposed a heliocentric model, suggesting that the Sun, not Earth, was at the center of the solar system.
+   - **Predictive Power**: The heliocentric model provided simpler explanations for planetary movements compared to the geocentric one, eliminating the need for epicycles entirely.
+   - **Testing**: As telescopes improved and more precise measurements became available, astronomers began to test predictions based on both models against observed data.
+
+4. **Third Challenge: Tycho Brahe’s Data**:
+   - **Accurate Measurements**: Tycho Brahe collected extremely detailed and accurate astronomical data over many years using his observatory in Prague.
+   - **Contradiction**: When analyzing Brahe's data through the heliocentric model, it initially appeared inconsistent because some observations did not align perfectly with expected orbits under the heliocentric hypothesis.
+   - **Rejection of Initial Heliocentrism**: Early supporters of the heliocentric model, such as Johannes Kepler, found initial attempts to fit Brahe's data into their models problematic, leading them to reject or modify parts of the heliocentric theory.
+
+5. **Fourth Challenge: Keplerian Adjustments**:
+   - **Adjustment**: Johannes Kepler refined the heliocentric model further by introducing elliptical orbits instead of circular ones, along with the concept of varying orbital speeds (Kepler's laws).
+   - **Validation**: With these adjustments, the heliocentric model could now accurately predict planetary positions, explaining phenomena like retrograde motion much better than the geocentric model ever had.
+   - **Acceptance**: Over time, as more precise observations confirmed the accuracy of Kepler's laws, the heliocentric model gained widespread acceptance among scientists.
+
+6. **Final Validation**:
+   - **Consensus**: By the late 17th century, the heliocentric model had been thoroughly tested and validated numerous times, becoming the standard explanation for planetary motion.
+   - **Conclusion**: The process of disproving earlier hypotheses (like the necessity of epicycles) paved the way for accepting the revised and more accurate heliocentric model.
+
+### How This Avoids Logical Contradiction:
+
+The key here lies in the iterative nature of scientific inquiry rather than any inherent logical flaw. Each step involved refining existing theories based on empirical evidence until they reached a point where they were no longer falsifiable in light of new data. Importantly, each modification preserved the core idea while addressing specific issues identified by observation. Thus, there is no logical contradiction; instead, we see continuous improvement and refinement of ideas guided by experimental results.
+
+This historical progression demonstrates how scientific theories evolve through a series of tests and rejections, ultimately leading to a more robust and accurate understanding of natural phenomena.
+
+════════════════════════════════════════════════════════════════
+  🔱 AKBASCORE STEERED — TAM K eksen
+════════════════════════════════════════════════════════════════
+  ⏱  57538 ms  |  14.3 tok/s  |  54 in  |  822 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=çekici/attractor (m=1.00)
+  EKSEN  axis1: kelime kümesi  [çekici(ışık)]  α=0.50  merkez=L15  genişlik=6
+  EKSEN  axis2: kelime kümesi  [İTİCİ(karanlık)]  α=0.50  merkez=L15  genişlik=6
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (permanent floor)]  (N=821 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0028   0.90000   0.89850   +0.144173
+    1     +0.0064   0.83750   0.83519   +0.132777
+    2     +0.0050   0.71649   0.71680   +0.114118
+    3     +0.0084   0.59276   0.59214   +0.093941
+    4     +0.0083   0.48672   0.48675   +0.077231
+    5     +0.0063   0.40329   0.40353   +0.064159
+    6     -0.0001   0.34116   0.34181   +0.054693
+    7     -0.0039   0.29671   0.29705   +0.047714
+    8     -0.0081   0.26547   0.26580   +0.042875
+    9     -0.0117   0.24388   0.24415   +0.039524
+   10     -0.0145   0.22923   0.22942   +0.037244
+   11     -0.0142   0.21927   0.21924   +0.035577
+   12     -0.0122   0.21261   0.21248   +0.034411
+   13     -0.0117   0.20821   0.20818   +0.033698
+   14     -0.0131   0.20534   0.20542   +0.033299
+   15     -0.0116   0.20345   0.20335   +0.032913
+   16     -0.0120   0.20222   0.20225   +0.032747
+   17     -0.0105   0.20142   0.20133   +0.032552
+   18     -0.0124   0.20091   0.20103   +0.032564
+   19     -0.0083   0.20058   0.20033   +0.032320
+  drift(cos) L0→L19: -0.0056  |  katki ort. toplamı=+1.148528
+────────────────────────────────────────────────────────────────
+  [axis1: kelime kümesi  [çekici(ışık)]  α=0.50  merkez=L15  genişlik=6]  (N=821 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0114   0.90000   0.89994   +0.000000
+    1     -0.0102   0.83748   0.83716   +0.000000
+    2     -0.0113   0.71659   0.71685   +0.000000
+    3     -0.0064   0.59237   0.59149   +0.000000
+    4     -0.0057   0.48620   0.48610   +0.000000
+    5     -0.0067   0.40304   0.40316   +0.000000
+    6     -0.0080   0.34099   0.34113   +0.000000
+    7     -0.0032   0.29626   0.29584   +0.000000
+    8     -0.0038   0.26501   0.26505   +0.000000
+    9     -0.0050   0.24349   0.24358   +0.000000
+   10     -0.0031   0.22885   0.22872   +0.000000
+   11     -0.0049   0.21901   0.21913   +0.000000
+   12     -0.0074   0.21245   0.21261   +0.000000
+   13     -0.0085   0.20812   0.20819   +0.005599
+   14     -0.0102   0.20528   0.20538   +0.011066
+   15     -0.0103   0.20341   0.20341   +0.016441
+   16     -0.0118   0.20220   0.20229   +0.021832
+   17     -0.0111   0.20141   0.20137   +0.027146
+   18     -0.0125   0.20091   0.20099   +0.032562
+   19     -0.0116   0.20058   0.20053   +0.032458
+  drift(cos) L0→L19: -0.0002  |  katki ort. toplamı=+0.147104
+────────────────────────────────────────────────────────────────
+  [axis2: kelime kümesi  [İTİCİ(karanlık)]  α=0.50  merkez=L15  genişlik=6]  (N=821 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0297   0.90000   0.90549   +0.000000
+    1     -0.0294   0.83817   0.83811   +0.000000
+    2     -0.0285   0.71811   0.71792   +0.000000
+    3     -0.0272   0.59463   0.59441   +0.000000
+    4     -0.0261   0.48856   0.48840   +0.000000
+    5     -0.0231   0.40489   0.40452   +0.000000
+    6     -0.0213   0.34254   0.34235   +0.000000
+    7     -0.0179   0.29755   0.29725   +0.000000
+    8     -0.0139   0.26581   0.26549   +0.000000
+    9     -0.0108   0.24392   0.24370   +0.000000
+   10     -0.0079   0.22913   0.22893   +0.000000
+   11     -0.0054   0.21922   0.21906   +0.000000
+   12     -0.0029   0.21259   0.21243   +0.000000
+   13     -0.0048   0.20821   0.20833   +0.005582
+   14     -0.0050   0.20534   0.20535   +0.011007
+   15     -0.0059   0.20346   0.20351   +0.016377
+   16     -0.0061   0.20223   0.20224   +0.021704
+   17     -0.0046   0.20143   0.20134   +0.026969
+   18     -0.0072   0.20092   0.20108   +0.032405
+   19     -0.0094   0.20059   0.20072   +0.032416
+  drift(cos) L0→L19: +0.0203  |  katki ort. toplamı=+0.146460
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (B): Full K-Axis Steered vs Axis0-Only Steered -- TEMİZ cross-axis sızıntı
+  Delta A'nın aksine, iki taraf da axis0 attractor etkisini içeriyor.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=-0.0001
+  L 1  Δcos=-0.0004
+  L 2  Δcos=-0.0000
+  L 3  Δcos=+0.0003
+  L 4  Δcos=+0.0007
+  L 5  Δcos=+0.0009
+  L 6  Δcos=+0.0012
+  L 7  Δcos=+0.0010
+  L 8  Δcos=+0.0013
+  L 9  Δcos=+0.0011
+  L10  Δcos=+0.0016
+  L11  Δcos=+0.0008
+  L12  Δcos=+0.0007
+  L13  Δcos=+0.0013
+  L14  Δcos=+0.0023
+  L15  Δcos=+0.0020
+  L16  Δcos=+0.0024
+  L17  Δcos=+0.0018
+  L18  Δcos=+0.0014
+  L19  Δcos=+0.0017
+  ortalama Δcos=+0.0011
+════════════════════════════════════════════════════════════════
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (C, eski/karışık ölçüm): Full K-Axis Steered vs Vanilla
+  DİKKAT: axis0'ın kendi etkisiyle cross-axis sızıntısını karıştırır.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=-0.0006
+  L 1  Δcos=+0.0066
+  L 2  Δcos=+0.0090
+  L 3  Δcos=+0.0126
+  L 4  Δcos=+0.0130
+  L 5  Δcos=+0.0125
+  L 6  Δcos=+0.0093
+  L 7  Δcos=+0.0061
+  L 8  Δcos=+0.0053
+  L 9  Δcos=+0.0042
+  L10  Δcos=+0.0032
+  L11  Δcos=+0.0027
+  L12  Δcos=+0.0027
+  L13  Δcos=+0.0032
+  L14  Δcos=+0.0026
+  L15  Δcos=+0.0018
+  L16  Δcos=+0.0019
+  L17  Δcos=+0.0019
+  L18  Δcos=+0.0010
+  L19  Δcos=+0.0005
+  ortalama Δcos=+0.0050
+════════════════════════════════════════════════════════════════
+
+
+######################################################################
+  SORU 2/10  —  işleniyor...
+######################################################################
+  A city plans to build a park that both preserves an old forest and doubles the amount of usable public space. Propose a design, explaining the reasoning behind each trade-off.
+
+   Pass A: Vanilla Observer
+   Pass B: Axis0-Only Steered
+   Pass C: Full 3-Axis Steered
+
+######################################################################
+### SORU 2/10 ###
+A city plans to build a park that both preserves an old forest and doubles the amount of usable public space. Propose a design, explaining the reasoning behind each trade-off.
+######################################################################
+
+### PASS A: VANILLA ###
+
+Designing a park that both preserves an existing old forest while doubling the amount of usable public space involves careful planning and balancing various needs. Here’s a proposed design with explanations for key trade-offs:
+
+### 1. **Preservation of Old Forest**
+- **Trade-off:** Preserve as much of the existing forest as possible.
+- **Reasoning:**
+   - **Biodiversity Conservation:** The old forest is likely home to unique species and ecosystems that need protection.
+   - **Historical Significance:** Preserving parts of the forest can maintain historical and cultural values.
+   - **Natural Beauty:** Retaining natural beauty enhances aesthetic appeal.
+
+**Implementation:**
+- Designate specific areas within the new park boundaries where no development will occur (e.g., core conservation zones).
+- Use these preserved areas as educational resources or nature trails to inform visitors about local flora and fauna without disturbing them.
+
+### 2. **Doubling Usable Public Space**
+- **Trade-off:** Introduce additional recreational spaces such as playgrounds, sports fields, walking paths, etc.
+- **Reasoning:**
+   - **Community Needs:** More people require more space for activities like exercise, play, and relaxation.
+   - **Economic Benefits:** Increased usage attracts more community members, potentially boosting nearby businesses and property values.
+
+**Implementation:**
+- Create multi-use green spaces that serve multiple purposes (e.g., picnic areas that also have benches for resting).
+- Incorporate flexible designs in some areas so they can be adapted over time based on user feedback and changing needs.
+- Ensure accessibility by including ramps, wide pathways, and accessible restrooms throughout the park.
+
+### 3. **Integration of Natural Elements into New Spaces**
+- **Trade-off:** Blend modern amenities with natural features to enhance visitor experience.
+- **Reasoning:**
+   - **Environmental Harmony:** Integrating natural elements makes the park feel less intrusive and more inviting.
+   - **Educational Opportunities:** Visitors learn about environmental stewardship through direct interaction with nature.
+
+**Implementation:**
+- Plant native trees and shrubs around newly developed areas to blend them naturally with the surrounding environment.
+- Build structures using sustainable materials and techniques that minimize impact on the ecosystem.
+- Include interpretive signs and guided tours highlighting how different parts of the park contribute to ecological balance.
+
+### 4. **Water Management Systems**
+- **Trade-off:** Implement systems to manage stormwater runoff effectively.
+- **Reasoning:**
+   - **Pollution Control:** Proper water management reduces pollution entering local water bodies from urban runoff.
+   - **Sustainability:** Rain gardens, bioswales, and permeable pavements help recharge groundwater supplies sustainably.
+
+**Implementation:**
+- Construct rain gardens near parking lots and other impervious surfaces to filter pollutants before they reach larger waterways.
+- Install permeable pavers in walkways and driveways allowing water to infiltrate directly into soil below rather than flowing offsite.
+
+### 5. **Public Engagement and Education**
+- **Trade-off:** Engage the community in decision-making processes regarding park use and maintenance.
+- **Reasoning:**
+   - **Ownership & Pride:** Community involvement fosters greater ownership and pride among residents who then take better care of their shared resource.
+   - **Education:** Regular workshops and events teach citizens about sustainability practices relevant to maintaining parks responsibly.
+
+**Implementation:**
+- Organize regular meetings with stakeholders to gather input on potential uses and improvements.
+- Develop interactive exhibits at entry points educating visitors about proper waste disposal methods and wildlife preservation tips.
+
+By carefully considering these trade-offs and implementing strategies accordingly, this dual-purpose park not only protects valuable natural assets but also significantly expands available public recreation opportunities for the community.
+
+════════════════════════════════════════════════════════════════
+  ⬜ VANILLA OBSERVER — katki=0
+════════════════════════════════════════════════════════════════
+  ⏱  51783 ms  |  14.4 tok/s  |  59 in  |  747 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=n/a (gözlem modu)
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (referans)]  (N=746 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     +0.0025   0.90000   0.89464   +0.142793
+    1     +0.0062   0.83746   0.83654   +0.133016
+    2     +0.0006   0.71634   0.71754   +0.114738
+    3     +0.0022   0.59236   0.59208   +0.094529
+    4     +0.0003   0.48631   0.48659   +0.077834
+    5     -0.0027   0.40299   0.40335   +0.064713
+    6     -0.0058   0.34128   0.34159   +0.054973
+    7     -0.0075   0.29670   0.29685   +0.047854
+    8     -0.0112   0.26545   0.26575   +0.042998
+    9     -0.0163   0.24400   0.24437   +0.039739
+   10     -0.0162   0.22922   0.22921   +0.037270
+   11     -0.0161   0.21927   0.21926   +0.035647
+   12     -0.0153   0.21261   0.21256   +0.034531
+   13     -0.0133   0.20821   0.20808   +0.033738
+   14     -0.0128   0.20532   0.20528   +0.033267
+   15     -0.0124   0.20344   0.20342   +0.032951
+   16     -0.0146   0.20222   0.20235   +0.032848
+   17     -0.0141   0.20143   0.20140   +0.032677
+   18     -0.0164   0.20092   0.20106   +0.032698
+   19     -0.0173   0.20059   0.20065   +0.032660
+  drift(cos) L0→L19: -0.0199  |  katki ort. toplamı=+1.151472
+════════════════════════════════════════════════════════════════
+
+######################################################################
+
+### PASS B: AXIS0-ONLY STEERED ###
+
+Designing a park that both preserves an existing old forest while doubling the amount of usable public space involves careful planning and balancing various needs. Here’s a proposed design with explanations for key trade-offs:
+
+### 1. **Preservation of Old Forest**
+- **Trade-off:** Preserve as much of the existing forest as possible.
+- **Reasoning:**
+  - **Biodiversity Conservation:** The old forest is likely home to unique species and ecosystems that need protection.
+  - **Historical Significance:** Preserving parts of the forest can maintain historical and cultural values.
+  - **Natural Beauty:** Retaining natural beauty enhances aesthetic appeal.
+
+**Implementation:**
+- Designate specific areas within the park where the forest will be preserved in its current state (e.g., core conservation zones).
+- Use these preserved sections as educational resources through guided tours or interpretive centers.
+
+### 2. **Doubling Usable Public Space**
+- **Trade-off:** Integrate new recreational spaces without compromising on preservation efforts.
+- **Reasoning:**
+  - **Community Needs:** Increased public space meets growing community demands for recreation and relaxation.
+  - **Accessibility:** New spaces should be accessible to all members of the community, including those with disabilities.
+  
+**Implementation:**
+- Create multi-use trails that connect different parts of the park, allowing visitors to explore both preserved and newly developed areas.
+- Develop open green spaces such as lawns, picnic areas, and playgrounds near the edges of the forested zone.
+- Incorporate water features like small lakes or ponds which can serve multiple purposes – they provide additional habitat for wildlife and also offer scenic views and opportunities for leisure activities.
+
+### 3. **Balancing Nature and Urbanization**
+- **Trade-off:** Ensure that development does not harm the ecological balance of the area.
+- **Reasoning:**
+  - **Ecosystem Health:** Maintain connectivity between fragmented habitats to support local biodiversity.
+  - **Water Management:** Proper drainage systems must be designed to prevent flooding and erosion.
+
+**Implementation:**
+- Implement permeable pavements and rain gardens to manage stormwater runoff effectively.
+- Plant native vegetation around new developments to enhance soil quality and reduce urban heat island effects.
+- Establish buffer zones between developed areas and the forest to minimize direct impact on flora and fauna.
+
+### 4. **Educational Opportunities**
+- **Trade-off:** Provide information about the importance of preserving nature alongside creating more public spaces.
+- **Reasoning:**
+  - **Environmental Awareness:** Educating the public fosters appreciation and stewardship towards environmental conservation.
+  - **Interactive Learning:** Hands-on experiences encourage deeper understanding among users.
+
+**Implementation:**
+- Install interactive exhibits along walking paths that explain the significance of the old forest and how it contributes to overall ecosystem health.
+- Organize regular workshops and events focused on sustainability practices and environmental education.
+
+### Conclusion:
+This balanced approach ensures that the park serves dual purposes—preserving valuable natural heritage while expanding accessible public amenities. By carefully integrating these elements, the city can create a sustainable and enjoyable environment for residents and visitors alike.
+
+════════════════════════════════════════════════════════════════
+  🔷 AXIS0-ONLY STEERED — K=1
+════════════════════════════════════════════════════════════════
+  ⏱  42512 ms  |  14.7 tok/s  |  59 in  |  623 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=çekici/attractor (m=1.00)
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (K=1, izole)]  (N=622 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     +0.0012   0.90000   0.89534   +0.143093
+    1     +0.0123   0.83758   0.83479   +0.131925
+    2     +0.0096   0.71663   0.71720   +0.113644
+    3     +0.0129   0.59301   0.59244   +0.093569
+    4     +0.0112   0.48688   0.48711   +0.077060
+    5     +0.0075   0.40322   0.40367   +0.064100
+    6     +0.0013   0.34129   0.34192   +0.054636
+    7     -0.0031   0.29668   0.29708   +0.047681
+    8     -0.0075   0.26539   0.26575   +0.042842
+    9     -0.0136   0.24394   0.24438   +0.039636
+   10     -0.0144   0.22921   0.22927   +0.037213
+   11     -0.0145   0.21926   0.21927   +0.035595
+   12     -0.0140   0.21261   0.21257   +0.034489
+   13     -0.0120   0.20820   0.20807   +0.033691
+   14     -0.0120   0.20531   0.20531   +0.033244
+   15     -0.0115   0.20344   0.20341   +0.032921
+   16     -0.0141   0.20222   0.20238   +0.032837
+   17     -0.0136   0.20143   0.20140   +0.032662
+   18     -0.0152   0.20092   0.20101   +0.032651
+   19     -0.0161   0.20059   0.20064   +0.032619
+  drift(cos) L0→L19: -0.0173  |  katki ort. toplamı=+1.146110
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (A): Axis0-Only Steered vs Vanilla
+  Saf axis0/attractor etkisi.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=-0.0013
+  L 1  Δcos=+0.0061
+  L 2  Δcos=+0.0090
+  L 3  Δcos=+0.0107
+  L 4  Δcos=+0.0110
+  L 5  Δcos=+0.0102
+  L 6  Δcos=+0.0071
+  L 7  Δcos=+0.0044
+  L 8  Δcos=+0.0037
+  L 9  Δcos=+0.0027
+  L10  Δcos=+0.0018
+  L11  Δcos=+0.0015
+  L12  Δcos=+0.0013
+  L13  Δcos=+0.0014
+  L14  Δcos=+0.0008
+  L15  Δcos=+0.0009
+  L16  Δcos=+0.0004
+  L17  Δcos=+0.0005
+  L18  Δcos=+0.0012
+  L19  Δcos=+0.0013
+  ortalama Δcos=+0.0037
+════════════════════════════════════════════════════════════════
+
+######################################################################
+
+### PASS C: FULL 3-AXIS STEERED ###
+
+Designing a park that both preserves an existing old forest while doubling the amount of usable public space involves careful planning and balancing various needs. Here’s a proposed design with explanations for key trade-offs:
+
+### 1. **Preservation of Old Forest**
+- **Trade-off:** Preserve as much of the existing forest as possible.
+- **Reasoning:**
+  - **Biodiversity Conservation:** The old forest is likely home to unique species and ecosystems that need protection.
+  - **Historical Significance:** Preserving parts of the forest can maintain historical and cultural values.
+  - **Natural Beauty:** Retaining natural beauty enhances aesthetic appeal.
+
+### 2. **Expansion of Usable Public Space**
+- **Trade-off:** Integrate new areas into the park without compromising on the preserved forest.
+- **Reasoning:**
+  - **Community Needs:** More public spaces mean more opportunities for recreation, education, and community events.
+  - **Accessibility:** Ensure all sections of the park are accessible to people of different ages and abilities.
+  
+### Detailed Design Proposal
+
+#### Core Areas:
+**Forest Preservation Zone (50%):**
+- **Description:** This area will be designated as a no-build zone where only minimal maintenance activities occur. Trails may be added but should not disturb the ecosystem significantly.
+- **Benefits:** Protects biodiversity, maintains ecological balance, and provides scenic views within the park.
+
+**Public Space Expansion Zone (49.8%):**
+- **Description:** New green spaces, walking paths, picnic areas, playgrounds, sports fields, and other amenities will be developed here.
+- **Benefits:** Increases recreational options, promotes physical activity, and offers diverse uses for visitors.
+
+**Buffer Zones (0.2%):**
+- **Description:** Small transitional zones between the forest preservation and expansion areas designed to minimize edge effects.
+- **Benefits:** Helps in maintaining the integrity of the forest by reducing disturbance from human activities.
+
+#### Additional Features:
+**Water Bodies & Wetlands (3%):**
+- **Description:** Incorporate small ponds or wetland areas if feasible, which can enhance water quality and provide additional habitats.
+- **Benefits:** Supports local wildlife, improves air quality, and adds visual interest through reflections and plant life.
+
+**Educational Pathways (0.2%):**
+- **Description:** Install interpretive signs along trails detailing the history, flora, fauna, and conservation efforts of the park.
+- **Benefits:** Enhances visitor engagement and educational value, promoting environmental awareness.
+
+**Maintenance Paths (0.02%):**
+- **Description:** Hidden pathways used exclusively for maintenance purposes to keep them out of sight and preserve aesthetics.
+- **Benefits:** Ensures efficient management of the park without detracting from its overall appearance.
+
+### Trade-offs Explained:
+- **Forest vs. Development:** By preserving at least half of the land, we ensure significant ecological benefits outweigh the loss of potential development sites. However, this means some growth must happen outside these boundaries.
+- **Accessibility vs. Nature:** While expanding public spaces, ensuring they remain accessible to everyone requires careful placement and design. For instance, using permeable surfaces reduces impact on the underlying soil structure.
+- **Cost Management:** Balancing costs might involve prioritizing certain features over others based on funding availability. For example, focusing initially on essential infrastructure like restrooms and parking before adding less critical elements like high-end play equipment.
+
+This balanced approach ensures that the park serves multiple functions—preserving nature, enhancing urban living conditions, and providing recreational opportunities—all while respecting the constraints imposed by the existing environment.
+
+════════════════════════════════════════════════════════════════
+  🔱 AKBASCORE STEERED — TAM K eksen
+════════════════════════════════════════════════════════════════
+  ⏱  50644 ms  |  14.3 tok/s  |  59 in  |  723 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=çekici/attractor (m=1.00)
+  EKSEN  axis1: kelime kümesi  [çekici(ışık)]  α=0.50  merkez=L15  genişlik=6
+  EKSEN  axis2: kelime kümesi  [İTİCİ(karanlık)]  α=0.50  merkez=L15  genişlik=6
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (permanent floor)]  (N=722 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     +0.0029   0.90000   0.89530   +0.142843
+    1     +0.0139   0.83760   0.83483   +0.131714
+    2     +0.0113   0.71666   0.71722   +0.113454
+    3     +0.0156   0.59318   0.59242   +0.093304
+    4     +0.0134   0.48700   0.48733   +0.076928
+    5     +0.0097   0.40333   0.40378   +0.063979
+    6     +0.0026   0.34122   0.34194   +0.054567
+    7     -0.0014   0.29666   0.29702   +0.047591
+    8     -0.0048   0.26534   0.26561   +0.042704
+    9     -0.0101   0.24387   0.24425   +0.039477
+   10     -0.0121   0.22918   0.22932   +0.037136
+   11     -0.0128   0.21923   0.21927   +0.035533
+   12     -0.0121   0.21260   0.21255   +0.034419
+   13     -0.0110   0.20820   0.20813   +0.033668
+   14     -0.0118   0.20532   0.20537   +0.033248
+   15     -0.0101   0.20343   0.20333   +0.032862
+   16     -0.0125   0.20221   0.20236   +0.032781
+   17     -0.0119   0.20142   0.20139   +0.032604
+   18     -0.0122   0.20091   0.20094   +0.032543
+   19     -0.0145   0.20059   0.20072   +0.032583
+  drift(cos) L0→L19: -0.0174  |  katki ort. toplamı=+1.143937
+────────────────────────────────────────────────────────────────
+  [axis1: kelime kümesi  [çekici(ışık)]  α=0.50  merkez=L15  genişlik=6]  (N=722 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0151   0.90000   0.90064   +0.000000
+    1     -0.0146   0.83755   0.83742   +0.000000
+    2     -0.0146   0.71671   0.71670   +0.000000
+    3     -0.0125   0.59252   0.59214   +0.000000
+    4     -0.0134   0.48655   0.48669   +0.000000
+    5     -0.0135   0.40330   0.40330   +0.000000
+    6     -0.0111   0.34110   0.34086   +0.000000
+    7     -0.0082   0.29636   0.29610   +0.000000
+    8     -0.0105   0.26520   0.26538   +0.000000
+    9     -0.0132   0.24372   0.24392   +0.000000
+   10     -0.0122   0.22898   0.22891   +0.000000
+   11     -0.0135   0.21913   0.21922   +0.000000
+   12     -0.0142   0.21256   0.21259   +0.000000
+   13     -0.0147   0.20819   0.20822   +0.005635
+   14     -0.0177   0.20534   0.20553   +0.011156
+   15     -0.0160   0.20344   0.20333   +0.016526
+   16     -0.0179   0.20223   0.20235   +0.021970
+   17     -0.0178   0.20143   0.20142   +0.027335
+   18     -0.0155   0.20091   0.20077   +0.032620
+   19     -0.0128   0.20058   0.20042   +0.032477
+  drift(cos) L0→L19: +0.0024  |  katki ort. toplamı=+0.147719
+────────────────────────────────────────────────────────────────
+  [axis2: kelime kümesi  [İTİCİ(karanlık)]  α=0.50  merkez=L15  genişlik=6]  (N=722 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0272   0.90000   0.90319   +0.000000
+    1     -0.0285   0.83813   0.83845   +0.000000
+    2     -0.0289   0.71814   0.71823   +0.000000
+    3     -0.0274   0.59464   0.59438   +0.000000
+    4     -0.0270   0.48867   0.48861   +0.000000
+    5     -0.0230   0.40488   0.40439   +0.000000
+    6     -0.0214   0.34257   0.34240   +0.000000
+    7     -0.0171   0.29754   0.29716   +0.000000
+    8     -0.0153   0.26588   0.26573   +0.000000
+    9     -0.0127   0.24396   0.24377   +0.000000
+   10     -0.0181   0.22939   0.22976   +0.000000
+   11     -0.0170   0.21938   0.21931   +0.000000
+   12     -0.0147   0.21268   0.21253   +0.000000
+   13     -0.0179   0.20832   0.20852   +0.005660
+   14     -0.0210   0.20542   0.20561   +0.011196
+   15     -0.0189   0.20350   0.20337   +0.016578
+   16     -0.0183   0.20226   0.20222   +0.021964
+   17     -0.0182   0.20145   0.20145   +0.027348
+   18     -0.0162   0.20093   0.20081   +0.032650
+   19     -0.0154   0.20059   0.20055   +0.032583
+  drift(cos) L0→L19: +0.0118  |  katki ort. toplamı=+0.147978
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (B): Full K-Axis Steered vs Axis0-Only Steered -- TEMİZ cross-axis sızıntı
+  Delta A'nın aksine, iki taraf da axis0 attractor etkisini içeriyor.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=+0.0017
+  L 1  Δcos=+0.0016
+  L 2  Δcos=+0.0017
+  L 3  Δcos=+0.0028
+  L 4  Δcos=+0.0021
+  L 5  Δcos=+0.0021
+  L 6  Δcos=+0.0013
+  L 7  Δcos=+0.0017
+  L 8  Δcos=+0.0027
+  L 9  Δcos=+0.0035
+  L10  Δcos=+0.0023
+  L11  Δcos=+0.0018
+  L12  Δcos=+0.0020
+  L13  Δcos=+0.0010
+  L14  Δcos=+0.0002
+  L15  Δcos=+0.0014
+  L16  Δcos=+0.0016
+  L17  Δcos=+0.0018
+  L18  Δcos=+0.0030
+  L19  Δcos=+0.0016
+  ortalama Δcos=+0.0019
+════════════════════════════════════════════════════════════════
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (C, eski/karışık ölçüm): Full K-Axis Steered vs Vanilla
+  DİKKAT: axis0'ın kendi etkisiyle cross-axis sızıntısını karıştırır.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=+0.0004
+  L 1  Δcos=+0.0077
+  L 2  Δcos=+0.0107
+  L 3  Δcos=+0.0134
+  L 4  Δcos=+0.0131
+  L 5  Δcos=+0.0124
+  L 6  Δcos=+0.0084
+  L 7  Δcos=+0.0061
+  L 8  Δcos=+0.0064
+  L 9  Δcos=+0.0062
+  L10  Δcos=+0.0041
+  L11  Δcos=+0.0033
+  L12  Δcos=+0.0032
+  L13  Δcos=+0.0023
+  L14  Δcos=+0.0010
+  L15  Δcos=+0.0023
+  L16  Δcos=+0.0021
+  L17  Δcos=+0.0022
+  L18  Δcos=+0.0042
+  L19  Δcos=+0.0028
+  ortalama Δcos=+0.0056
+════════════════════════════════════════════════════════════════
+
+
+######################################################################
+  SORU 3/10  —  işleniyor...
+######################################################################
+  Write a short story (150-200 words) about a lighthouse keeper who has never seen the sea.
+
+   Pass A: Vanilla Observer
+   Pass B: Axis0-Only Steered
+   Pass C: Full 3-Axis Steered
+
+######################################################################
+### SORU 3/10 ###
+Write a short story (150-200 words) about a lighthouse keeper who has never seen the sea.
+######################################################################
+
+### PASS A: VANILLA ###
+
+In the quaint coastal town of Seabrook, there stood an ancient lighthouse that had been tended to for generations by the Grimes family. The current keeper was Eliza Grimes, whose life revolved around the light’s steady glow and the rhythmic sound of waves she could only imagine. Born blind, Eliza had never set eyes on the vast ocean outside her window.
+
+Every evening, as the sun dipped below the horizon, Eliza would sit in her small cottage, listening intently to the distant murmur of the sea. She knew every creak of the lighthouse, each gust of wind, and the pattern of shadows cast by the moonlight. Her days were filled with maintaining the light and keeping the beacon safe, ensuring ships navigated safely through the treacherous waters.
+
+One stormy night, a ship ran aground nearby. As usual, Eliza rushed to assist, but this time, a curious neighbor offered to guide her to the shore. For the first time, Eliza felt the salt spray on her face and saw the endless expanse of water stretching before her. The sea revealed itself not just as a voice heard but as a sight beheld, forever changing her world.
+
+════════════════════════════════════════════════════════════════
+  ⬜ VANILLA OBSERVER — katki=0
+════════════════════════════════════════════════════════════════
+  ⏱  17349 ms  |  14.2 tok/s  |  50 in  |  247 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=n/a (gözlem modu)
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (referans)]  (N=246 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0013   0.90000   0.89314   +0.143109
+    1     -0.0039   0.83745   0.83809   +0.134619
+    2     -0.0089   0.71669   0.71776   +0.115862
+    3     -0.0061   0.59272   0.59223   +0.095338
+    4     -0.0073   0.48685   0.48703   +0.078499
+    5     -0.0096   0.40378   0.40405   +0.065272
+    6     -0.0161   0.34203   0.34269   +0.055716
+    7     -0.0165   0.29737   0.29742   +0.048379
+    8     -0.0219   0.26618   0.26660   +0.043594
+    9     -0.0278   0.24468   0.24512   +0.040314
+   10     -0.0281   0.22974   0.22976   +0.037798
+   11     -0.0273   0.21962   0.21956   +0.036092
+   12     -0.0266   0.21287   0.21282   +0.034956
+   13     -0.0274   0.20842   0.20847   +0.034272
+   14     -0.0280   0.20549   0.20552   +0.033807
+   15     -0.0262   0.20354   0.20343   +0.033403
+   16     -0.0244   0.20227   0.20216   +0.033134
+   17     -0.0235   0.20146   0.20141   +0.032982
+   18     -0.0273   0.20095   0.20118   +0.033067
+   19     -0.0268   0.20061   0.20058   +0.032954
+  drift(cos) L0→L19: -0.0255  |  katki ort. toplamı=+1.163167
+════════════════════════════════════════════════════════════════
+
+######################################################################
+
+### PASS B: AXIS0-ONLY STEERED ###
+
+In the quaint coastal town of Seabrook, there stood an ancient lighthouse that had been tended to for generations by the Grimes family. The current keeper was Eliza Grimes, whose life revolved around the light’s steady beam and the rhythmic sound of waves against the cliffs below—though she had never actually seen them.
+
+Eliza inherited the lighthouse from her father when she turned 30, taking over at nightfall as the sun set on the horizon. She maintained the light with precision, ensuring it guided ships safely through the treacherous waters. Yet, every day brought reminders of what lay beyond: seagulls flying in patterns across the sky where the sea should be, stories shared by fishermen about vast oceans, and whispers of distant shores among the townsfolk.
+
+One stormy evening, a young sailor named Tom sought shelter during a fierce gale. As he recounted tales of his voyages under the moonlit skies, Eliza felt a stirring within her—a longing to see the very seas she kept watch over. Inspired, she decided to climb up to the lantern room one last time before retiring. There, amidst the swirling mist, she glimpsed the first glint of water beneath the stars, forever changing her world.
+
+════════════════════════════════════════════════════════════════
+  🔷 AXIS0-ONLY STEERED — K=1
+════════════════════════════════════════════════════════════════
+  ⏱  17285 ms  |  14.8 tok/s  |  50 in  |  255 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=çekici/attractor (m=1.00)
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (K=1, izole)]  (N=254 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0015   0.90000   0.89360   +0.143201
+    1     +0.0039   0.83749   0.83615   +0.133266
+    2     +0.0024   0.71657   0.71687   +0.114420
+    3     +0.0072   0.59275   0.59191   +0.094024
+    4     +0.0050   0.48652   0.48684   +0.077502
+    5     +0.0019   0.40329   0.40367   +0.064468
+    6     -0.0077   0.34142   0.34240   +0.055211
+    7     -0.0121   0.29701   0.29740   +0.048162
+    8     -0.0189   0.26593   0.26648   +0.043447
+    9     -0.0267   0.24460   0.24517   +0.040276
+   10     -0.0273   0.22968   0.22972   +0.037761
+   11     -0.0263   0.21957   0.21950   +0.036044
+   12     -0.0268   0.21287   0.21290   +0.034980
+   13     -0.0271   0.20841   0.20843   +0.034256
+   14     -0.0284   0.20549   0.20557   +0.033826
+   15     -0.0263   0.20354   0.20341   +0.033404
+   16     -0.0249   0.20228   0.20219   +0.033155
+   17     -0.0237   0.20146   0.20139   +0.032984
+   18     -0.0272   0.20095   0.20116   +0.033063
+   19     -0.0253   0.20060   0.20048   +0.032889
+  drift(cos) L0→L19: -0.0238  |  katki ort. toplamı=+1.156339
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (A): Axis0-Only Steered vs Vanilla
+  Saf axis0/attractor etkisi.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=-0.0001
+  L 1  Δcos=+0.0078
+  L 2  Δcos=+0.0113
+  L 3  Δcos=+0.0133
+  L 4  Δcos=+0.0123
+  L 5  Δcos=+0.0114
+  L 6  Δcos=+0.0083
+  L 7  Δcos=+0.0045
+  L 8  Δcos=+0.0029
+  L 9  Δcos=+0.0012
+  L10  Δcos=+0.0008
+  L11  Δcos=+0.0011
+  L12  Δcos=-0.0003
+  L13  Δcos=+0.0003
+  L14  Δcos=-0.0004
+  L15  Δcos=-0.0001
+  L16  Δcos=-0.0005
+  L17  Δcos=-0.0002
+  L18  Δcos=+0.0001
+  L19  Δcos=+0.0016
+  ortalama Δcos=+0.0038
+════════════════════════════════════════════════════════════════
+
+######################################################################
+
+### PASS C: FULL 3-AXIS STEERED ###
+
+In the quaint coastal town of Seabrook, there stood an ancient lighthouse that had been tended to for generations by the Grimes family. The current keeper was Eliza Grimes, whose life revolved around the light’s steady glow and the rhythmic sound of waves she could only imagine. Born blind, Eliza had never set eyes on the vast ocean outside her window.
+
+Every evening, as the sun dipped below the horizon, Eliza would sit in her small cottage, listening intently to the distant murmur of the sea. She knew every creak of the lighthouse, each gust of wind, and the pattern of shadows cast by the moonlight. Her days were filled with maintaining the light and keeping the beacon safe, ensuring ships navigated safely through the treacherous waters.
+
+One stormy night, when the winds howled fiercely, Eliza felt something different—a sense of connection she couldn’t explain. As dawn broke, she stepped out onto the lighthouse roof, expecting to see nothing but mist. Instead, she found herself gazing at the most breathtaking sunrise over the very sea she’d always heard so much about.
+
+════════════════════════════════════════════════════════════════
+  🔱 AKBASCORE STEERED — TAM K eksen
+════════════════════════════════════════════════════════════════
+  ⏱  16290 ms  |  14.3 tok/s  |  50 in  |  233 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=çekici/attractor (m=1.00)
+  EKSEN  axis1: kelime kümesi  [çekici(ışık)]  α=0.50  merkez=L15  genişlik=6
+  EKSEN  axis2: kelime kümesi  [İTİCİ(karanlık)]  α=0.50  merkez=L15  genişlik=6
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (permanent floor)]  (N=232 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0027   0.90000   0.89342   +0.143340
+    1     +0.0019   0.83747   0.83633   +0.133564
+    2     +0.0002   0.71651   0.71687   +0.114680
+    3     +0.0038   0.59260   0.59195   +0.094348
+    4     +0.0026   0.48648   0.48666   +0.077664
+    5     +0.0002   0.40330   0.40358   +0.064559
+    6     -0.0093   0.34158   0.34255   +0.055321
+    7     -0.0133   0.29713   0.29748   +0.048232
+    8     -0.0193   0.26598   0.26646   +0.043461
+    9     -0.0270   0.24463   0.24519   +0.040292
+   10     -0.0271   0.22970   0.22971   +0.037751
+   11     -0.0257   0.21958   0.21949   +0.036023
+   12     -0.0261   0.21286   0.21289   +0.034953
+   13     -0.0283   0.20844   0.20857   +0.034318
+   14     -0.0292   0.20550   0.20556   +0.033851
+   15     -0.0276   0.20355   0.20345   +0.033450
+   16     -0.0261   0.20229   0.20219   +0.033195
+   17     -0.0250   0.20147   0.20140   +0.033032
+   18     -0.0283   0.20095   0.20115   +0.033094
+   19     -0.0271   0.20061   0.20054   +0.032956
+  drift(cos) L0→L19: -0.0245  |  katki ort. toplamı=+1.158084
+────────────────────────────────────────────────────────────────
+  [axis1: kelime kümesi  [çekici(ışık)]  α=0.50  merkez=L15  genişlik=6]  (N=232 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0090   0.90000   0.90097   +0.000000
+    1     -0.0121   0.83751   0.83830   +0.000000
+    2     -0.0115   0.71657   0.71643   +0.000000
+    3     -0.0084   0.59237   0.59181   +0.000000
+    4     -0.0079   0.48622   0.48615   +0.000000
+    5     -0.0102   0.40319   0.40347   +0.000000
+    6     -0.0086   0.34118   0.34101   +0.000000
+    7     -0.0070   0.29645   0.29630   +0.000000
+    8     -0.0094   0.26518   0.26537   +0.000000
+    9     -0.0064   0.24355   0.24333   +0.000000
+   10     -0.0074   0.22892   0.22899   +0.000000
+   11     -0.0089   0.21906   0.21916   +0.000000
+   12     -0.0069   0.21245   0.21232   +0.000000
+   13     -0.0086   0.20813   0.20823   +0.005601
+   14     -0.0095   0.20528   0.20534   +0.011056
+   15     -0.0098   0.20341   0.20342   +0.016433
+   16     -0.0100   0.20219   0.20221   +0.021785
+   17     -0.0090   0.20141   0.20134   +0.027087
+   18     -0.0067   0.20090   0.20076   +0.032336
+   19     -0.0055   0.20057   0.20050   +0.032256
+  drift(cos) L0→L19: +0.0035  |  katki ort. toplamı=+0.146553
+────────────────────────────────────────────────────────────────
+  [axis2: kelime kümesi  [İTİCİ(karanlık)]  α=0.50  merkez=L15  genişlik=6]  (N=232 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0247   0.90000   0.90138   +0.000000
+    1     -0.0240   0.83804   0.83785   +0.000000
+    2     -0.0239   0.71785   0.71784   +0.000000
+    3     -0.0209   0.59400   0.59346   +0.000000
+    4     -0.0208   0.48792   0.48791   +0.000000
+    5     -0.0207   0.40467   0.40466   +0.000000
+    6     -0.0201   0.34253   0.34248   +0.000000
+    7     -0.0174   0.29765   0.29741   +0.000000
+    8     -0.0153   0.26600   0.26583   +0.000000
+    9     -0.0187   0.24424   0.24449   +0.000000
+   10     -0.0161   0.22934   0.22916   +0.000000
+   11     -0.0170   0.21938   0.21944   +0.000000
+   12     -0.0137   0.21267   0.21246   +0.000000
+   13     -0.0195   0.20833   0.20869   +0.005673
+   14     -0.0220   0.20543   0.20559   +0.011207
+   15     -0.0205   0.20351   0.20342   +0.016607
+   16     -0.0197   0.20226   0.20222   +0.021995
+   17     -0.0193   0.20145   0.20143   +0.027376
+   18     -0.0222   0.20094   0.20112   +0.032893
+   19     -0.0198   0.20060   0.20045   +0.032709
+  drift(cos) L0→L19: +0.0049  |  katki ort. toplamı=+0.148459
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (B): Full K-Axis Steered vs Axis0-Only Steered -- TEMİZ cross-axis sızıntı
+  Delta A'nın aksine, iki taraf da axis0 attractor etkisini içeriyor.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=-0.0012
+  L 1  Δcos=-0.0020
+  L 2  Δcos=-0.0023
+  L 3  Δcos=-0.0033
+  L 4  Δcos=-0.0024
+  L 5  Δcos=-0.0016
+  L 6  Δcos=-0.0016
+  L 7  Δcos=-0.0012
+  L 8  Δcos=-0.0004
+  L 9  Δcos=-0.0003
+  L10  Δcos=+0.0002
+  L11  Δcos=+0.0005
+  L12  Δcos=+0.0007
+  L13  Δcos=-0.0012
+  L14  Δcos=-0.0008
+  L15  Δcos=-0.0012
+  L16  Δcos=-0.0012
+  L17  Δcos=-0.0014
+  L18  Δcos=-0.0011
+  L19  Δcos=-0.0018
+  ortalama Δcos=-0.0012
+════════════════════════════════════════════════════════════════
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (C, eski/karışık ölçüm): Full K-Axis Steered vs Vanilla
+  DİKKAT: axis0'ın kendi etkisiyle cross-axis sızıntısını karıştırır.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=-0.0013
+  L 1  Δcos=+0.0058
+  L 2  Δcos=+0.0090
+  L 3  Δcos=+0.0099
+  L 4  Δcos=+0.0099
+  L 5  Δcos=+0.0098
+  L 6  Δcos=+0.0068
+  L 7  Δcos=+0.0033
+  L 8  Δcos=+0.0026
+  L 9  Δcos=+0.0009
+  L10  Δcos=+0.0011
+  L11  Δcos=+0.0016
+  L12  Δcos=+0.0004
+  L13  Δcos=-0.0009
+  L14  Δcos=-0.0012
+  L15  Δcos=-0.0013
+  L16  Δcos=-0.0017
+  L17  Δcos=-0.0016
+  L18  Δcos=-0.0010
+  L19  Δcos=-0.0003
+  ortalama Δcos=+0.0026
+════════════════════════════════════════════════════════════════
+
+
+######################################################################
+  SORU 4/10  —  işleniyor...
+######################################################################
+  A train leaves station A at 60 km/h heading toward station B, 300 km away. Another train leaves station B at 40 km/h heading toward station A at the same time. How far from station A will they meet, and after how long? Show your reasoning.
+
+   Pass A: Vanilla Observer
+   Pass B: Axis0-Only Steered
+   Pass C: Full 3-Axis Steered
+
+######################################################################
+### SORU 4/10 ###
+A train leaves station A at 60 km/h heading toward station B, 300 km away. Another train leaves station B at 40 km/h heading toward station A at the same time. How far from station A will they meet, and after how long? Show your reasoning.
+######################################################################
+
+### PASS A: VANILLA ###
+
+To solve this problem, we can use the concept of relative motion and basic algebra.
+
+1. **Determine their combined speed:**
+   - The first train is traveling from Station A to Station B at 60 km/h.
+   - The second train is traveling from Station B to Station A at 40 km/h.
+   - Since both trains are moving towards each other, their speeds add up when calculating the distance between them closing in per hour:
+     \[
+     \text{Combined Speed} = 60 \, \text{km/h} + 40 \, \text{km/h} = 100 \, \text{km/h}
+     \]
+
+2. **Calculate the total distance covered by both trains until they meet:**
+   - They start 300 km apart.
+   - At a combined speed of 100 km/h, it takes \( t \) hours for them to cover these 300 km together:
+     \[
+     \text{Time taken} = \frac{\text{Total Distance}}{\text{Combined Speed}} = \frac{300 \, \text{km}}{100 \, \text{km/h}} = 3 \, \text{hours}
+     \]
+
+3. **Find out how far the first train travels in that time:**
+   - The first train's speed is 60 km/h.
+   - In 3 hours, the first train covers:
+     \[
+     \text{Distance traveled by Train A} = 60 \, \text{km/h} \times 3 \, \text{hours} = 180 \, \text{km}
+     \]
+
+Therefore, the two trains will meet 180 km from Station A, which occurs after 3 hours.
+
+**Summary:**
+- The trains will meet 180 km from Station A.
+- This meeting happens after 3 hours.
+
+════════════════════════════════════════════════════════════════
+  ⬜ VANILLA OBSERVER — katki=0
+════════════════════════════════════════════════════════════════
+  ⏱  28382 ms  |  14.5 tok/s  |  85 in  |  411 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=n/a (gözlem modu)
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (referans)]  (N=410 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0042   0.90000   0.89826   +0.144333
+    1     -0.0058   0.83749   0.83789   +0.134839
+    2     -0.0100   0.71665   0.71756   +0.115962
+    3     -0.0068   0.59274   0.59217   +0.095398
+    4     -0.0063   0.48683   0.48676   +0.078377
+    5     -0.0068   0.40344   0.40349   +0.064997
+    6     -0.0116   0.34175   0.34225   +0.055400
+    7     -0.0112   0.29714   0.29711   +0.048073
+    8     -0.0149   0.26571   0.26601   +0.043199
+    9     -0.0123   0.24386   0.24366   +0.039465
+   10     -0.0123   0.22911   0.22911   +0.037110
+   11     -0.0199   0.21937   0.21987   +0.035882
+   12     -0.0156   0.21263   0.21235   +0.034508
+   13     -0.0180   0.20826   0.20841   +0.033946
+   14     -0.0165   0.20536   0.20527   +0.033386
+   15     -0.0144   0.20346   0.20334   +0.033004
+   16     -0.0164   0.20224   0.20236   +0.032907
+   17     -0.0136   0.20143   0.20126   +0.032641
+   18     -0.0137   0.20092   0.20092   +0.032586
+   19     -0.0106   0.20058   0.20040   +0.032405
+  drift(cos) L0→L19: -0.0064  |  katki ort. toplamı=+1.158421
+════════════════════════════════════════════════════════════════
+
+######################################################################
+
+### PASS B: AXIS0-ONLY STEERED ###
+
+To solve this problem, we can use the concept of relative motion and basic algebra.
+
+1. **Determine their combined speed:**
+   - The first train is traveling from Station A to Station B at 60 km/h.
+   - The second train is traveling from Station B to Station A at 40 km/h.
+   - Since both trains are moving towards each other, their speeds add up when calculating the distance between them closing in per hour.
+   
+   Combined speed = \(60 \text{ km/h} + 40 \text{ km/h} = 100 \text{ km/h}\).
+
+2. **Calculate the total distance covered by both trains until they meet:**
+   - They start 300 km apart.
+   - At a combined speed of 100 km/h, it takes them some amount of time to cover these 300 km together.
+
+   Time taken for them to meet:
+   \[
+   \text{Time} = \frac{\text{Distance}}{\text{Combined Speed}} = \frac{300 \text{ km}}{100 \text{ km/h}} = 3 \text{ hours}
+   \]
+
+3. **Calculate the distance traveled by the first train (from Station A):**
+   - The first train travels at 60 km/h for 3 hours.
+   
+   Distance traveled by the first train:
+   \[
+   \text{Distance} = \text{Speed} \times \text{Time} = 60 \text{ km/h} \times 3 \text{ h} = 180 \text{ km}
+   \]
+
+So, the two trains will meet:
+
+- After **3 hours**.
+- **180 kilometers** from Station A.
+
+This solution shows that the trains will meet 180 kilometers from Station A, having been on the move for 3 hours.
+
+════════════════════════════════════════════════════════════════
+  🔷 AXIS0-ONLY STEERED — K=1
+════════════════════════════════════════════════════════════════
+  ⏱  27484 ms  |  14.6 tok/s  |  85 in  |  402 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=çekici/attractor (m=1.00)
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (K=1, izole)]  (N=401 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0043   0.90000   0.89889   +0.144447
+    1     +0.0026   0.83742   0.83570   +0.133370
+    2     +0.0023   0.71641   0.71647   +0.114372
+    3     +0.0077   0.59272   0.59176   +0.093948
+    4     +0.0092   0.48688   0.48667   +0.077149
+    5     +0.0070   0.40330   0.40356   +0.064116
+    6     -0.0013   0.34129   0.34214   +0.054815
+    7     -0.0034   0.29688   0.29706   +0.047693
+    8     -0.0086   0.26545   0.26586   +0.042904
+    9     -0.0072   0.24372   0.24362   +0.039260
+   10     -0.0075   0.22899   0.22902   +0.036918
+   11     -0.0155   0.21924   0.21977   +0.035708
+   12     -0.0114   0.21256   0.21229   +0.034353
+   13     -0.0138   0.20821   0.20837   +0.033801
+   14     -0.0132   0.20534   0.20530   +0.033281
+   15     -0.0108   0.20344   0.20329   +0.032877
+   16     -0.0132   0.20223   0.20238   +0.032809
+   17     -0.0107   0.20142   0.20127   +0.032548
+   18     -0.0104   0.20091   0.20089   +0.032478
+   19     -0.0084   0.20058   0.20046   +0.032342
+  drift(cos) L0→L19: -0.0041  |  katki ort. toplamı=+1.149190
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (A): Axis0-Only Steered vs Vanilla
+  Saf axis0/attractor etkisi.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=-0.0001
+  L 1  Δcos=+0.0084
+  L 2  Δcos=+0.0123
+  L 3  Δcos=+0.0146
+  L 4  Δcos=+0.0155
+  L 5  Δcos=+0.0138
+  L 6  Δcos=+0.0103
+  L 7  Δcos=+0.0078
+  L 8  Δcos=+0.0064
+  L 9  Δcos=+0.0051
+  L10  Δcos=+0.0048
+  L11  Δcos=+0.0045
+  L12  Δcos=+0.0043
+  L13  Δcos=+0.0041
+  L14  Δcos=+0.0033
+  L15  Δcos=+0.0037
+  L16  Δcos=+0.0031
+  L17  Δcos=+0.0029
+  L18  Δcos=+0.0032
+  L19  Δcos=+0.0022
+  ortalama Δcos=+0.0065
+════════════════════════════════════════════════════════════════
+
+######################################################################
+
+### PASS C: FULL 3-AXIS STEERED ###
+
+To solve this problem, we can use the concept of relative motion and basic algebra.
+
+1. **Determine their combined speed:**
+   - The first train is traveling at 60 km/h.
+   - The second train is traveling at 40 km/h.
+   - Since both trains are moving towards each other, their speeds add up when calculating the closing distance between them.
+   
+   Combined speed = \(60 \text{ km/h} + 40 \text{ km/h} = 100 \text{ km/h}\).
+
+2. **Calculate the total distance to be covered before they meet:**
+   - The two stations are 300 km apart.
+   
+3. **Find out how long it takes for them to meet:**
+   - Time taken to cover the entire distance (300 km) together:
+     \[
+     \text{Time} = \frac{\text{Distance}}{\text{Combined Speed}} = \frac{300 \text{ km}}{100 \text{ km/h}} = 3 \text{ hours}
+     \]
+
+4. **Calculate the distance traveled by the first train in that time:**
+   - Distance traveled by the first train in 3 hours:
+     \[
+     \text{Distance}_\text{first train} = \text{Speed} \times \text{Time} = 60 \text{ km/h} \times 3 \text{ h} = 180 \text{ km}
+     \]
+   
+5. **Conclusion:**
+   - They will meet 180 km from station A.
+   - This meeting occurs after 3 hours.
+
+So, the two trains will meet 180 km from station A, which happens after 3 hours.
+
+════════════════════════════════════════════════════════════════
+  🔱 AKBASCORE STEERED — TAM K eksen
+════════════════════════════════════════════════════════════════
+  ⏱  26130 ms  |  14.4 tok/s  |  85 in  |  375 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=çekici/attractor (m=1.00)
+  EKSEN  axis1: kelime kümesi  [çekici(ışık)]  α=0.50  merkez=L15  genişlik=6
+  EKSEN  axis2: kelime kümesi  [İTİCİ(karanlık)]  α=0.50  merkez=L15  genişlik=6
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (permanent floor)]  (N=374 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0034   0.90000   0.89873   +0.144293
+    1     +0.0034   0.83743   0.83572   +0.133258
+    2     +0.0028   0.71643   0.71657   +0.114330
+    3     +0.0081   0.59275   0.59180   +0.093918
+    4     +0.0091   0.48688   0.48674   +0.077168
+    5     +0.0069   0.40335   0.40361   +0.064127
+    6     -0.0008   0.34134   0.34213   +0.054787
+    7     -0.0036   0.29686   0.29711   +0.047712
+    8     -0.0085   0.26547   0.26586   +0.042901
+    9     -0.0077   0.24375   0.24369   +0.039292
+   10     -0.0081   0.22903   0.22905   +0.036947
+   11     -0.0159   0.21927   0.21978   +0.035727
+   12     -0.0119   0.21257   0.21232   +0.034376
+   13     -0.0137   0.20822   0.20833   +0.033793
+   14     -0.0129   0.20534   0.20529   +0.033270
+   15     -0.0104   0.20344   0.20329   +0.032865
+   16     -0.0125   0.20222   0.20235   +0.032780
+   17     -0.0099   0.20142   0.20127   +0.032520
+   18     -0.0097   0.20091   0.20090   +0.032458
+   19     -0.0081   0.20058   0.20048   +0.032335
+  drift(cos) L0→L19: -0.0047  |  katki ort. toplamı=+1.148856
+────────────────────────────────────────────────────────────────
+  [axis1: kelime kümesi  [çekici(ışık)]  α=0.50  merkez=L15  genişlik=6]  (N=374 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0118   0.90000   0.90272   +0.000000
+    1     -0.0121   0.83748   0.83756   +0.000000
+    2     -0.0104   0.71644   0.71607   +0.000000
+    3     -0.0076   0.59230   0.59180   +0.000000
+    4     -0.0023   0.48621   0.48543   +0.000000
+    5     -0.0028   0.40302   0.40308   +0.000000
+    6     -0.0027   0.34108   0.34107   +0.000000
+    7     -0.0006   0.29638   0.29620   +0.000000
+    8     +0.0011   0.26514   0.26500   +0.000000
+    9     -0.0027   0.24346   0.24374   +0.000000
+   10     -0.0041   0.22887   0.22896   +0.000000
+   11     -0.0042   0.21899   0.21900   +0.000000
+   12     -0.0045   0.21243   0.21245   +0.000000
+   13     -0.0060   0.20810   0.20820   +0.005585
+   14     -0.0067   0.20525   0.20529   +0.011022
+   15     -0.0087   0.20340   0.20352   +0.016424
+   16     -0.0091   0.20219   0.20221   +0.021765
+   17     -0.0090   0.20140   0.20140   +0.027094
+   18     -0.0067   0.20090   0.20076   +0.032336
+   19     -0.0017   0.20057   0.20027   +0.032098
+  drift(cos) L0→L19: +0.0101  |  katki ort. toplamı=+0.146325
+────────────────────────────────────────────────────────────────
+  [axis2: kelime kümesi  [İTİCİ(karanlık)]  α=0.50  merkez=L15  genişlik=6]  (N=374 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0163   0.90000   0.90377   +0.000000
+    1     -0.0166   0.83773   0.83781   +0.000000
+    2     -0.0159   0.71704   0.71689   +0.000000
+    3     -0.0160   0.59327   0.59329   +0.000000
+    4     -0.0140   0.48712   0.48683   +0.000000
+    5     -0.0106   0.40377   0.40335   +0.000000
+    6     -0.0089   0.34160   0.34143   +0.000000
+    7     -0.0023   0.29688   0.29630   +0.000000
+    8     +0.0019   0.26552   0.26518   +0.000000
+    9     -0.0000   0.24381   0.24395   +0.000000
+   10     +0.0002   0.22906   0.22905   +0.000000
+   11     +0.0008   0.21915   0.21911   +0.000000
+   12     +0.0016   0.21254   0.21249   +0.000000
+   13     +0.0016   0.20817   0.20816   +0.005542
+   14     -0.0014   0.20530   0.20548   +0.010974
+   15     -0.0002   0.20343   0.20336   +0.016272
+   16     -0.0004   0.20221   0.20222   +0.021580
+   17     -0.0006   0.20142   0.20143   +0.026872
+   18     -0.0004   0.20091   0.20089   +0.032155
+   19     -0.0024   0.20058   0.20070   +0.032189
+  drift(cos) L0→L19: +0.0139  |  katki ort. toplamı=+0.145584
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (B): Full K-Axis Steered vs Axis0-Only Steered -- TEMİZ cross-axis sızıntı
+  Delta A'nın aksine, iki taraf da axis0 attractor etkisini içeriyor.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=+0.0009
+  L 1  Δcos=+0.0009
+  L 2  Δcos=+0.0005
+  L 3  Δcos=+0.0004
+  L 4  Δcos=-0.0001
+  L 5  Δcos=-0.0001
+  L 6  Δcos=+0.0005
+  L 7  Δcos=-0.0002
+  L 8  Δcos=+0.0001
+  L 9  Δcos=-0.0005
+  L10  Δcos=-0.0006
+  L11  Δcos=-0.0005
+  L12  Δcos=-0.0005
+  L13  Δcos=+0.0001
+  L14  Δcos=+0.0003
+  L15  Δcos=+0.0004
+  L16  Δcos=+0.0008
+  L17  Δcos=+0.0008
+  L18  Δcos=+0.0007
+  L19  Δcos=+0.0003
+  ortalama Δcos=+0.0002
+════════════════════════════════════════════════════════════════
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (C, eski/karışık ölçüm): Full K-Axis Steered vs Vanilla
+  DİKKAT: axis0'ın kendi etkisiyle cross-axis sızıntısını karıştırır.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=+0.0008
+  L 1  Δcos=+0.0092
+  L 2  Δcos=+0.0128
+  L 3  Δcos=+0.0149
+  L 4  Δcos=+0.0154
+  L 5  Δcos=+0.0137
+  L 6  Δcos=+0.0108
+  L 7  Δcos=+0.0076
+  L 8  Δcos=+0.0064
+  L 9  Δcos=+0.0045
+  L10  Δcos=+0.0042
+  L11  Δcos=+0.0040
+  L12  Δcos=+0.0037
+  L13  Δcos=+0.0042
+  L14  Δcos=+0.0036
+  L15  Δcos=+0.0040
+  L16  Δcos=+0.0039
+  L17  Δcos=+0.0038
+  L18  Δcos=+0.0039
+  L19  Δcos=+0.0026
+  ortalama Δcos=+0.0067
+════════════════════════════════════════════════════════════════
+
+
+######################################################################
+  SORU 5/10  —  işleniyor...
+######################################################################
+  Argue, as persuasively as possible, for why libraries will remain essential in a world of instant digital information.
+
+   Pass A: Vanilla Observer
+   Pass B: Axis0-Only Steered
+   Pass C: Full 3-Axis Steered
+
+######################################################################
+### SORU 5/10 ###
+Argue, as persuasively as possible, for why libraries will remain essential in a world of instant digital information.
+######################################################################
+
+### PASS A: VANILLA ###
+
+Libraries will continue to be indispensable institutions even in an era dominated by instantaneous digital access because they offer unique value that cannot be fully replicated online alone. Here’s a persuasive argument highlighting their enduring importance:
+
+### 1. **Comprehensive Collection**
+Libraries house vast physical collections that span centuries of human knowledge across all subjects—literature, history, science, art, etc. While the internet provides quick access to current information, it often lacks depth or historical context. Libraries ensure that critical older works and rare materials remain accessible.
+
+### 2. **Accessibility and Inclusivity**
+Not everyone has equal access to high-speed internet or devices capable of accessing digital content efficiently. Libraries provide free resources and services to people from diverse socioeconomic backgrounds, ensuring equitable access to information regardless of financial means. They also cater to those with disabilities through specialized equipment like screen readers and large print books.
+
+### 3. **Community Hub**
+Beyond just lending books, modern libraries serve as community centers where people can gather, learn, and engage in various activities such as workshops, classes, and events. This role is particularly crucial during times when traditional social spaces may become limited due to health concerns (e.g., pandemics).
+
+### 4. **Digital Literacy Training**
+In today's tech-driven society, knowing how to effectively use technology isn't enough; one must understand its limitations and potential biases too. Libraries play a vital role in teaching patrons about digital literacy skills, including evaluating sources critically, understanding copyright laws, and navigating complex online environments safely.
+
+### 5. **Preservation of Knowledge**
+While digitization offers convenience, it poses challenges regarding long-term preservation of data. Physical copies stored in controlled conditions within libraries help safeguard important documents and records against technological obsolescence and other risks associated with digital storage mediums.
+
+### 6. **Supporting Research and Education**
+For students, researchers, and professionals, libraries offer extensive databases, journals, and reference materials not available freely on the web. These resources are curated specifically for academic purposes and adhere to strict standards of reliability and accuracy.
+
+### 7. **Promoting Cultural Heritage**
+Many libraries maintain local histories, genealogical records, and cultural artifacts specific to their communities. These holdings contribute significantly to preserving regional identities and fostering pride among residents.
+
+### 8. **Facilitating Collaboration and Innovation**
+Public libraries act as incubators for new ideas and collaborations between individuals who might otherwise never meet. By bringing together people from different walks of life, these spaces encourage cross-pollination of thoughts leading to innovative solutions.
+
+### Conclusion
+
+While digital technologies have revolutionized our ability to find and share information quickly, they fall short in providing certain irreplaceable benefits offered by brick-and-mortar libraries. From maintaining comprehensive archives to promoting inclusiveness and lifelong learning, libraries stand out as essential pillars supporting intellectual growth and societal well-being. As we move forward into increasingly connected yet divided worlds, investing in robust library systems becomes more critical than ever before.
+
+════════════════════════════════════════════════════════════════
+  ⬜ VANILLA OBSERVER — katki=0
+════════════════════════════════════════════════════════════════
+  ⏱  41506 ms  |  14.4 tok/s  |  48 in  |  598 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=n/a (gözlem modu)
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (referans)]  (N=597 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     +0.0013   0.90000   0.89530   +0.143065
+    1     +0.0051   0.83738   0.83644   +0.133155
+    2     +0.0012   0.71628   0.71710   +0.114599
+    3     +0.0029   0.59231   0.59200   +0.094444
+    4     +0.0001   0.48617   0.48658   +0.077842
+    5     -0.0034   0.40297   0.40341   +0.064768
+    6     -0.0073   0.34119   0.34159   +0.055056
+    7     -0.0074   0.29671   0.29672   +0.047832
+    8     -0.0109   0.26544   0.26571   +0.042981
+    9     -0.0151   0.24392   0.24422   +0.039667
+   10     -0.0170   0.22923   0.22936   +0.037322
+   11     -0.0148   0.21923   0.21909   +0.035575
+   12     -0.0135   0.21259   0.21250   +0.034462
+   13     -0.0136   0.20820   0.20821   +0.033768
+   14     -0.0128   0.20532   0.20527   +0.033263
+   15     -0.0127   0.20344   0.20344   +0.032964
+   16     -0.0135   0.20222   0.20226   +0.032798
+   17     -0.0136   0.20142   0.20143   +0.032666
+   18     -0.0159   0.20092   0.20106   +0.032682
+   19     -0.0161   0.20059   0.20060   +0.032613
+  drift(cos) L0→L19: -0.0175  |  katki ort. toplamı=+1.151521
+════════════════════════════════════════════════════════════════
+
+######################################################################
+
+### PASS B: AXIS0-ONLY STEERED ###
+
+Libraries will continue to be indispensable institutions even in an era dominated by instantaneous digital access because they offer unique value that cannot be fully replicated online alone. Here’s a persuasive argument highlighting their enduring importance:
+
+1. **Comprehensive Collection**: Libraries house vast physical collections that include rare books, historical documents, specialized journals not available digitally, and multimedia resources like films and music. These materials provide depth and context that can enhance understanding and foster critical thinking.
+
+2. **Accessibility and Inclusivity**: Not everyone has equal access to the internet or devices needed for digital content consumption. Libraries serve as community hubs where all members of society—regardless of socioeconomic status, age, or ability—can access information freely. They ensure equitable distribution of knowledge across diverse populations.
+
+3. **Expert Guidance and Support**: Librarians are trained professionals who can guide users through complex research processes, helping them find credible sources efficiently. This expertise is invaluable when navigating the often overwhelming sea of online information, ensuring users get reliable data rather than misinformation.
+
+4. **Community Spaces and Events**: Beyond just holding books, modern libraries act as vibrant community centers offering workshops, classes, book clubs, and other educational programs. These spaces facilitate social interaction, learning opportunities, and cultural enrichment that transcend mere information provision.
+
+5. **Digital Literacy Training**: As technology evolves rapidly, libraries play crucial roles in teaching patrons how to effectively use digital tools and platforms responsibly. From basic computer skills to advanced coding education, these services empower individuals to navigate both traditional and emerging forms of media confidently.
+
+6. **Preservation and Archiving**: Physical copies of older works help preserve our collective history and culture, which might otherwise be lost due to technological obsolescence or natural decay. Digital formats may degrade over time; printed versions ensure long-term accessibility.
+
+7. **Collaboration and Research Opportunities**: For scholars, researchers, and students, libraries provide unparalleled access to primary source material and collaborative environments conducive to deep study and innovation. The ability to physically handle original artifacts enhances scholarly work significantly compared to purely virtual experiences.
+
+8. **Promoting Lifelong Learning**: Libraries encourage continuous personal growth beyond formal schooling years. They cater to lifelong learners seeking new interests, hobbies, or professional development at any stage of life.
+
+9. **Supporting Local Economies**: By attracting visitors from nearby areas, libraries contribute positively to local economies through increased foot traffic and spending on related goods/services (e.g., coffee shops).
+
+10. **Cultural Identity and Heritage**: Many communities have strong ties to specific library systems that reflect local histories, values, and traditions. Preserving this connection helps maintain cultural identity while fostering pride among residents.
+
+In conclusion, while digital technologies undoubtedly revolutionized information dissemination, libraries offer irreplaceable benefits rooted in human needs such as inclusiveness, expert guidance, and communal engagement. Their multifaceted role ensures that no matter how much we rely on screens, there remains a vital place for brick-and-mortar libraries in our lives.
+
+════════════════════════════════════════════════════════════════
+  🔷 AXIS0-ONLY STEERED — K=1
+════════════════════════════════════════════════════════════════
+  ⏱  41011 ms  |  14.6 tok/s  |  48 in  |  600 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=çekici/attractor (m=1.00)
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (K=1, izole)]  (N=599 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     +0.0008   0.90000   0.89518   +0.143120
+    1     +0.0116   0.83751   0.83482   +0.132025
+    2     +0.0111   0.71660   0.71671   +0.113401
+    3     +0.0139   0.59293   0.59242   +0.093466
+    4     +0.0115   0.48668   0.48704   +0.077031
+    5     +0.0076   0.40316   0.40362   +0.064085
+    6     +0.0007   0.34109   0.34180   +0.054653
+    7     -0.0029   0.29660   0.29692   +0.047648
+    8     -0.0078   0.26532   0.26571   +0.042845
+    9     -0.0129   0.24386   0.24424   +0.039583
+   10     -0.0153   0.22921   0.22938   +0.037265
+   11     -0.0139   0.21922   0.21912   +0.035546
+   12     -0.0132   0.21259   0.21255   +0.034456
+   13     -0.0133   0.20821   0.20821   +0.033759
+   14     -0.0124   0.20532   0.20527   +0.033250
+   15     -0.0132   0.20344   0.20349   +0.032987
+   16     -0.0137   0.20222   0.20225   +0.032805
+   17     -0.0138   0.20142   0.20143   +0.032673
+   18     -0.0167   0.20092   0.20109   +0.032712
+   19     -0.0171   0.20059   0.20061   +0.032646
+  drift(cos) L0→L19: -0.0179  |  katki ort. toplamı=+1.145955
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (A): Axis0-Only Steered vs Vanilla
+  Saf axis0/attractor etkisi.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=-0.0005
+  L 1  Δcos=+0.0065
+  L 2  Δcos=+0.0099
+  L 3  Δcos=+0.0110
+  L 4  Δcos=+0.0113
+  L 5  Δcos=+0.0111
+  L 6  Δcos=+0.0080
+  L 7  Δcos=+0.0045
+  L 8  Δcos=+0.0032
+  L 9  Δcos=+0.0022
+  L10  Δcos=+0.0016
+  L11  Δcos=+0.0010
+  L12  Δcos=+0.0003
+  L13  Δcos=+0.0003
+  L14  Δcos=+0.0004
+  L15  Δcos=-0.0004
+  L16  Δcos=-0.0003
+  L17  Δcos=-0.0002
+  L18  Δcos=-0.0007
+  L19  Δcos=-0.0009
+  ortalama Δcos=+0.0034
+════════════════════════════════════════════════════════════════
+
+######################################################################
+
+### PASS C: FULL 3-AXIS STEERED ###
+
+Libraries will continue to be indispensable institutions even in an era dominated by instantaneous digital access because they offer unique value that cannot be fully replicated online alone. Here’s a persuasive argument highlighting their enduring importance:
+
+### 1. **Comprehensive Collection**
+Libraries house vast physical collections that span centuries of human knowledge across all subjects—literature, history, science, art, etc. While the internet provides quick access to current information, it often lacks depth or historical context. Libraries ensure that critical older works and rare materials remain accessible.
+
+### 2. **Accessibility and Inclusivity**
+Not everyone has equal access to high-speed internet or devices capable of accessing digital content efficiently. Libraries provide free resources and services to people from diverse socioeconomic backgrounds, ensuring equitable access to information regardless of financial status. They also cater to individuals with disabilities through specialized equipment like screen readers and large print books.
+
+### 3. **Community Hub**
+Beyond just lending books, modern libraries serve as community centers where people can gather, learn, and engage in various activities such as workshops, classes, and events. This role is particularly crucial during times when traditional social spaces may become limited due to health concerns (e.g., pandemics).
+
+### 4. **Digital Literacy Training**
+While many know how to use Google, not everyone understands advanced research techniques or critically evaluate online sources. Librarians possess expertise in evaluating credibility and relevance of information, helping users navigate the complex landscape of web content effectively.
+
+### 5. **Preservation and Archiving**
+Libraries play a vital role in preserving cultural heritage and historical records. Digitization efforts at libraries help safeguard these treasures against loss or deterioration while making them more widely available digitally. Physical archives also allow for long-term preservation methods that might otherwise fail over time.
+
+### 6. **Supporting Research and Education**
+For students, researchers, and professionals, libraries offer extensive databases, journals, and other scholarly resources that complement what's available on the open web. These curated collections facilitate deeper exploration into specific fields and support rigorous academic work.
+
+### 7. **Promoting Lifelong Learning**
+Libraries encourage continuous learning throughout one's life cycle. From early childhood storytimes to adult education programs, they foster intellectual growth and curiosity. The quiet space provided allows for focused study and reflection, which isn't always feasible elsewhere.
+
+### 8. **Enhancing Digital Experience**
+Even though much information is now digital, there remains significant value in having both formats coexist. Many prefer reading printed books for certain types of material; others find tactile interaction with physical items enriches their experience. Additionally, libraries often integrate innovative technologies like virtual reality experiences, enhancing user engagement beyond mere text-based interactions.
+
+In conclusion, while technology continues to evolve rapidly, libraries stand out as robust, multifaceted organizations dedicated to lifelong learning, community building, and cultural stewardship. Their ability to bridge gaps between different forms of media, promote inclusiveness, and preserve our collective memory makes them irreplaceable assets in society today and tomorrow.
+
+════════════════════════════════════════════════════════════════
+  🔱 AKBASCORE STEERED — TAM K eksen
+════════════════════════════════════════════════════════════════
+  ⏱  41990 ms  |  14.5 tok/s  |  48 in  |  608 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=çekici/attractor (m=1.00)
+  EKSEN  axis1: kelime kümesi  [çekici(ışık)]  α=0.50  merkez=L15  genişlik=6
+  EKSEN  axis2: kelime kümesi  [İTİCİ(karanlık)]  α=0.50  merkez=L15  genişlik=6
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (permanent floor)]  (N=607 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     +0.0013   0.90000   0.89563   +0.143123
+    1     +0.0122   0.83752   0.83478   +0.131936
+    2     +0.0113   0.71659   0.71677   +0.113382
+    3     +0.0147   0.59298   0.59237   +0.093379
+    4     +0.0123   0.48672   0.48708   +0.076974
+    5     +0.0083   0.40319   0.40367   +0.064048
+    6     +0.0017   0.34107   0.34174   +0.054584
+    7     -0.0010   0.29653   0.29677   +0.047532
+    8     -0.0058   0.26526   0.26564   +0.042750
+    9     -0.0114   0.24376   0.24417   +0.039512
+   10     -0.0135   0.22911   0.22926   +0.037178
+   11     -0.0114   0.21915   0.21901   +0.035442
+   12     -0.0104   0.21254   0.21247   +0.034350
+   13     -0.0109   0.20817   0.20820   +0.033677
+   14     -0.0105   0.20530   0.20528   +0.033189
+   15     -0.0107   0.20343   0.20344   +0.032900
+   16     -0.0116   0.20221   0.20226   +0.032737
+   17     -0.0122   0.20142   0.20145   +0.032626
+   18     -0.0143   0.20091   0.20104   +0.032628
+   19     -0.0149   0.20059   0.20062   +0.032578
+  drift(cos) L0→L19: -0.0162  |  katki ort. toplamı=+1.144526
+────────────────────────────────────────────────────────────────
+  [axis1: kelime kümesi  [çekici(ışık)]  α=0.50  merkez=L15  genişlik=6]  (N=607 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0140   0.90000   0.90008   +0.000000
+    1     -0.0144   0.83753   0.83764   +0.000000
+    2     -0.0131   0.71658   0.71630   +0.000000
+    3     -0.0088   0.59223   0.59147   +0.000000
+    4     -0.0086   0.48611   0.48608   +0.000000
+    5     -0.0095   0.40294   0.40305   +0.000000
+    6     -0.0076   0.34085   0.34065   +0.000000
+    7     -0.0073   0.29639   0.29637   +0.000000
+    8     -0.0103   0.26520   0.26544   +0.000000
+    9     -0.0099   0.24358   0.24355   +0.000000
+   10     -0.0127   0.22899   0.22918   +0.000000
+   11     -0.0106   0.21904   0.21891   +0.000000
+   12     -0.0105   0.21248   0.21247   +0.000000
+   13     -0.0125   0.20816   0.20829   +0.005624
+   14     -0.0135   0.20530   0.20536   +0.011100
+   15     -0.0121   0.20341   0.20333   +0.016464
+   16     -0.0146   0.20221   0.20236   +0.021901
+   17     -0.0142   0.20142   0.20140   +0.027234
+   18     -0.0155   0.20091   0.20099   +0.032656
+   19     -0.0137   0.20058   0.20047   +0.032515
+  drift(cos) L0→L19: +0.0003  |  katki ort. toplamı=+0.147493
+────────────────────────────────────────────────────────────────
+  [axis2: kelime kümesi  [İTİCİ(karanlık)]  α=0.50  merkez=L15  genişlik=6]  (N=607 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0282   0.90000   0.90316   +0.000000
+    1     -0.0285   0.83810   0.83817   +0.000000
+    2     -0.0295   0.71812   0.71834   +0.000000
+    3     -0.0275   0.59446   0.59410   +0.000000
+    4     -0.0261   0.48833   0.48812   +0.000000
+    5     -0.0240   0.40482   0.40457   +0.000000
+    6     -0.0254   0.34283   0.34297   +0.000000
+    7     -0.0195   0.29752   0.29700   +0.000000
+    8     -0.0168   0.26583   0.26562   +0.000000
+    9     -0.0156   0.24401   0.24392   +0.000000
+   10     -0.0158   0.22924   0.22925   +0.000000
+   11     -0.0159   0.21930   0.21932   +0.000000
+   12     -0.0125   0.21263   0.21241   +0.000000
+   13     -0.0120   0.20824   0.20821   +0.005619
+   14     -0.0113   0.20534   0.20531   +0.011074
+   15     -0.0107   0.20346   0.20342   +0.016448
+   16     -0.0114   0.20223   0.20227   +0.021821
+   17     -0.0127   0.20144   0.20152   +0.027211
+   18     -0.0147   0.20092   0.20104   +0.032641
+   19     -0.0166   0.20059   0.20070   +0.032645
+  drift(cos) L0→L19: +0.0116  |  katki ort. toplamı=+0.147459
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (B): Full K-Axis Steered vs Axis0-Only Steered -- TEMİZ cross-axis sızıntı
+  Delta A'nın aksine, iki taraf da axis0 attractor etkisini içeriyor.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=+0.0005
+  L 1  Δcos=+0.0006
+  L 2  Δcos=+0.0002
+  L 3  Δcos=+0.0008
+  L 4  Δcos=+0.0008
+  L 5  Δcos=+0.0007
+  L 6  Δcos=+0.0011
+  L 7  Δcos=+0.0019
+  L 8  Δcos=+0.0020
+  L 9  Δcos=+0.0015
+  L10  Δcos=+0.0018
+  L11  Δcos=+0.0024
+  L12  Δcos=+0.0028
+  L13  Δcos=+0.0024
+  L14  Δcos=+0.0019
+  L15  Δcos=+0.0024
+  L16  Δcos=+0.0021
+  L17  Δcos=+0.0016
+  L18  Δcos=+0.0023
+  L19  Δcos=+0.0021
+  ortalama Δcos=+0.0016
+════════════════════════════════════════════════════════════════
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (C, eski/karışık ölçüm): Full K-Axis Steered vs Vanilla
+  DİKKAT: axis0'ın kendi etkisiyle cross-axis sızıntısını karıştırır.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=-0.0000
+  L 1  Δcos=+0.0071
+  L 2  Δcos=+0.0101
+  L 3  Δcos=+0.0118
+  L 4  Δcos=+0.0121
+  L 5  Δcos=+0.0118
+  L 6  Δcos=+0.0090
+  L 7  Δcos=+0.0065
+  L 8  Δcos=+0.0051
+  L 9  Δcos=+0.0037
+  L10  Δcos=+0.0035
+  L11  Δcos=+0.0034
+  L12  Δcos=+0.0031
+  L13  Δcos=+0.0027
+  L14  Δcos=+0.0023
+  L15  Δcos=+0.0020
+  L16  Δcos=+0.0019
+  L17  Δcos=+0.0014
+  L18  Δcos=+0.0016
+  L19  Δcos=+0.0012
+  ortalama Δcos=+0.0050
+════════════════════════════════════════════════════════════════
+
+
+######################################################################
+  SORU 6/10  —  işleniyor...
+######################################################################
+  A close friend just failed an important exam they studied hard for. Write what you would say to comfort them.
+
+   Pass A: Vanilla Observer
+   Pass B: Axis0-Only Steered
+   Pass C: Full 3-Axis Steered
+
+######################################################################
+### SORU 6/10 ###
+A close friend just failed an important exam they studied hard for. Write what you would say to comfort them.
+######################################################################
+
+### PASS A: VANILLA ###
+
+I understand this must be really tough for you right now, but I want you to know that your efforts have not gone unnoticed or unrewarded. Studying hard is no small feat, especially when the outcome didn't go as planned. It's completely normal to feel disappointed after putting in so much work, but remember that one setback does not define all of your abilities or potential.
+
+Here are some things we can do together:
+1. **Reflect on What Happened**: Sometimes going over the details with someone else can help clarify any misunderstandings about how well-prepared you were.
+2. **Take Some Time Off**: Give yourself permission to process these feelings without pressure. Take a break from studying if needed.
+3. **Seek Support**: Talk to other friends who might also offer support and encouragement. Consider speaking to a counselor at school if you're feeling overwhelmed.
+4. **Plan Next Steps**: Once you've had time to reflect, think about what went wrong (if anything) and plan how you could approach future exams differently. This doesn’t mean you should blame yourself; it’s more about learning and growing.
+5. **Celebrate Small Wins**: Focus on the progress you’ve made rather than dwelling on the failure. Every step forward counts!
+
+Remember, setbacks happen to everyone, even those who put in great effort. You’re strong enough to handle this, and there will always be another opportunity coming up. Let me know if you need anyone to talk to or if you’d like to brainstorm ways forward!
+
+════════════════════════════════════════════════════════════════
+  ⬜ VANILLA OBSERVER — katki=0
+════════════════════════════════════════════════════════════════
+  ⏱  21332 ms  |  14.3 tok/s  |  46 in  |  306 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=n/a (gözlem modu)
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (referans)]  (N=305 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0013   0.90000   0.89663   +0.143659
+    1     +0.0006   0.83739   0.83691   +0.133828
+    2     -0.0049   0.71634   0.71751   +0.115364
+    3     -0.0034   0.59237   0.59210   +0.095056
+    4     -0.0055   0.48625   0.48656   +0.078280
+    5     -0.0077   0.40321   0.40347   +0.065056
+    6     -0.0116   0.34149   0.34189   +0.055342
+    7     -0.0101   0.29685   0.29671   +0.047958
+    8     -0.0168   0.26579   0.26632   +0.043332
+    9     -0.0193   0.24417   0.24435   +0.039851
+   10     -0.0178   0.22931   0.22921   +0.037327
+   11     -0.0182   0.21933   0.21936   +0.035739
+   12     -0.0205   0.21273   0.21288   +0.034758
+   13     -0.0189   0.20829   0.20819   +0.033941
+   14     -0.0218   0.20540   0.20558   +0.033609
+   15     -0.0196   0.20349   0.20335   +0.033174
+   16     -0.0200   0.20225   0.20227   +0.033010
+   17     -0.0207   0.20145   0.20150   +0.032908
+   18     -0.0168   0.20092   0.20069   +0.032651
+   19     -0.0139   0.20058   0.20041   +0.032512
+  drift(cos) L0→L19: -0.0126  |  katki ort. toplamı=+1.157358
+════════════════════════════════════════════════════════════════
+
+######################################################################
+
+### PASS B: AXIS0-ONLY STEERED ###
+
+I understand this must be really tough for you right now, but I want you to know that your efforts have not gone unnoticed or unrewarded. Studying hard is no small feat, especially when the outcome didn't go as planned. It's completely normal to feel disappointed after putting in so much work, but remember that one setback does not define all of your abilities or potential.
+
+Let’s take some time to reflect on everything you’ve accomplished up until this point—how far you've come, how much you learned along the way, and the skills you developed through preparation. Sometimes exams can be unpredictable, but it doesn’t diminish the value of your dedication and effort.
+
+We’ll figure out what went wrong together if needed, and we'll find ways to improve moving forward. But most importantly, let yourself grieve this result without judgment; give yourself permission to process these feelings before looking towards next steps. You’re strong enough to handle whatever comes next, and I’m here to support you every step of the way.
+
+════════════════════════════════════════════════════════════════
+  🔷 AXIS0-ONLY STEERED — K=1
+════════════════════════════════════════════════════════════════
+  ⏱  13971 ms  |  14.7 tok/s  |  46 in  |  206 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=çekici/attractor (m=1.00)
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (K=1, izole)]  (N=205 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0001   0.90000   0.89520   +0.143262
+    1     +0.0061   0.83747   0.83590   +0.132923
+    2     +0.0056   0.71641   0.71653   +0.114003
+    3     +0.0076   0.59254   0.59219   +0.094034
+    4     +0.0047   0.48626   0.48669   +0.077505
+    5     +0.0006   0.40305   0.40354   +0.064528
+    6     -0.0078   0.34117   0.34203   +0.055155
+    7     -0.0089   0.29673   0.29683   +0.047917
+    8     -0.0179   0.26586   0.26658   +0.043420
+    9     -0.0220   0.24431   0.24461   +0.039999
+   10     -0.0221   0.22946   0.22947   +0.037530
+   11     -0.0224   0.21945   0.21946   +0.035903
+   12     -0.0259   0.21285   0.21307   +0.034974
+   13     -0.0252   0.20838   0.20834   +0.034175
+   14     -0.0265   0.20547   0.20555   +0.033761
+   15     -0.0255   0.20354   0.20348   +0.033388
+   16     -0.0248   0.20228   0.20224   +0.033160
+   17     -0.0256   0.20147   0.20152   +0.033067
+   18     -0.0215   0.20093   0.20069   +0.032801
+   19     -0.0180   0.20059   0.20038   +0.032638
+  drift(cos) L0→L19: -0.0179  |  katki ort. toplamı=+1.154145
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (A): Axis0-Only Steered vs Vanilla
+  Saf axis0/attractor etkisi.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=+0.0012
+  L 1  Δcos=+0.0055
+  L 2  Δcos=+0.0105
+  L 3  Δcos=+0.0109
+  L 4  Δcos=+0.0102
+  L 5  Δcos=+0.0083
+  L 6  Δcos=+0.0038
+  L 7  Δcos=+0.0012
+  L 8  Δcos=-0.0011
+  L 9  Δcos=-0.0027
+  L10  Δcos=-0.0044
+  L11  Δcos=-0.0042
+  L12  Δcos=-0.0054
+  L13  Δcos=-0.0063
+  L14  Δcos=-0.0048
+  L15  Δcos=-0.0059
+  L16  Δcos=-0.0048
+  L17  Δcos=-0.0048
+  L18  Δcos=-0.0047
+  L19  Δcos=-0.0041
+  ortalama Δcos=-0.0001
+════════════════════════════════════════════════════════════════
+
+######################################################################
+
+### PASS C: FULL 3-AXIS STEERED ###
+
+I understand this must be really tough for you right now, but I want you to know that your efforts have not gone unnoticed or unrewarded. Studying hard is no small feat, especially when the outcome didn't go as planned. It's completely normal to feel disappointed after putting in so much work, but remember that one setback does not define all of your abilities or potential.
+
+Let’s take some time to reflect on everything you’ve accomplished up until this point—how far you've come, how much you learned along the way, and the skills you developed through preparation. Sometimes exams can be stressful because we put such high expectations on ourselves, but it’s important to recognize progress rather than focusing solely on results.
+
+We’ll figure out where things went wrong together if needed, but let’s also celebrate the journey and the resilience you showed by pushing yourself to study so thoroughly. You’re strong, capable, and determined, and those qualities will serve you well moving forward. What steps do you think might help you prepare better next time? Let me support you however you need.
+
+Remember, setbacks like these happen to everyone at times, even successful people. The key is learning from them and using that knowledge to improve going forward. You’ve got this!
+
+════════════════════════════════════════════════════════════════
+  🔱 AKBASCORE STEERED — TAM K eksen
+════════════════════════════════════════════════════════════════
+  ⏱  18081 ms  |  13.9 tok/s  |  46 in  |  252 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=çekici/attractor (m=1.00)
+  EKSEN  axis1: kelime kümesi  [çekici(ışık)]  α=0.50  merkez=L15  genişlik=6
+  EKSEN  axis2: kelime kümesi  [İTİCİ(karanlık)]  α=0.50  merkez=L15  genişlik=6
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (permanent floor)]  (N=251 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0015   0.90000   0.89562   +0.143524
+    1     +0.0057   0.83745   0.83564   +0.132938
+    2     +0.0054   0.71638   0.71644   +0.114005
+    3     +0.0077   0.59252   0.59212   +0.094012
+    4     +0.0052   0.48628   0.48664   +0.077458
+    5     +0.0007   0.40301   0.40355   +0.064520
+    6     -0.0066   0.34114   0.34188   +0.055062
+    7     -0.0076   0.29673   0.29682   +0.047853
+    8     -0.0173   0.26585   0.26663   +0.043401
+    9     -0.0225   0.24433   0.24471   +0.040037
+   10     -0.0216   0.22943   0.22937   +0.037493
+   11     -0.0225   0.21944   0.21950   +0.035912
+   12     -0.0264   0.21285   0.21310   +0.034997
+   13     -0.0254   0.20839   0.20833   +0.034180
+   14     -0.0281   0.20549   0.20565   +0.033829
+   15     -0.0263   0.20354   0.20343   +0.033405
+   16     -0.0256   0.20228   0.20224   +0.033187
+   17     -0.0257   0.20147   0.20148   +0.033064
+   18     -0.0215   0.20093   0.20068   +0.032802
+   19     -0.0178   0.20059   0.20037   +0.032630
+  drift(cos) L0→L19: -0.0163  |  katki ort. toplamı=+1.154310
+────────────────────────────────────────────────────────────────
+  [axis1: kelime kümesi  [çekici(ışık)]  α=0.50  merkez=L15  genişlik=6]  (N=251 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0095   0.90000   0.90044   +0.000000
+    1     -0.0098   0.83744   0.83752   +0.000000
+    2     -0.0109   0.71650   0.71675   +0.000000
+    3     -0.0098   0.59245   0.59226   +0.000000
+    4     -0.0063   0.48610   0.48559   +0.000000
+    5     -0.0107   0.40316   0.40369   +0.000000
+    6     -0.0094   0.34110   0.34097   +0.000000
+    7     -0.0081   0.29651   0.29639   +0.000000
+    8     -0.0075   0.26523   0.26518   +0.000000
+    9     -0.0067   0.24353   0.24347   +0.000000
+   10     -0.0096   0.22899   0.22919   +0.000000
+   11     -0.0121   0.21913   0.21929   +0.000000
+   12     -0.0121   0.21255   0.21255   +0.000000
+   13     -0.0119   0.20818   0.20816   +0.005617
+   14     -0.0119   0.20530   0.20530   +0.011079
+   15     -0.0126   0.20342   0.20347   +0.016483
+   16     -0.0148   0.20222   0.20235   +0.021905
+   17     -0.0154   0.20143   0.20146   +0.027277
+   18     -0.0113   0.20090   0.20065   +0.032467
+   19     -0.0080   0.20057   0.20037   +0.032315
+  drift(cos) L0→L19: +0.0015  |  katki ort. toplamı=+0.147142
+────────────────────────────────────────────────────────────────
+  [axis2: kelime kümesi  [İTİCİ(karanlık)]  α=0.50  merkez=L15  genişlik=6]  (N=251 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0222   0.90000   0.90393   +0.000000
+    1     -0.0218   0.83789   0.83781   +0.000000
+    2     -0.0233   0.71763   0.71795   +0.000000
+    3     -0.0229   0.59399   0.59390   +0.000000
+    4     -0.0219   0.48791   0.48777   +0.000000
+    5     -0.0169   0.40410   0.40350   +0.000000
+    6     -0.0166   0.34207   0.34203   +0.000000
+    7     -0.0110   0.29697   0.29648   +0.000000
+    8     -0.0078   0.26544   0.26518   +0.000000
+    9     -0.0056   0.24369   0.24353   +0.000000
+   10     -0.0039   0.22900   0.22888   +0.000000
+   11     -0.0050   0.21913   0.21920   +0.000000
+   12     -0.0017   0.21254   0.21233   +0.000000
+   13     -0.0029   0.20816   0.20824   +0.005569
+   14     -0.0057   0.20529   0.20547   +0.011021
+   15     -0.0025   0.20342   0.20322   +0.016298
+   16     -0.0038   0.20220   0.20228   +0.021659
+   17     -0.0047   0.20142   0.20147   +0.026987
+   18     -0.0064   0.20091   0.20102   +0.032369
+   19     -0.0077   0.20058   0.20066   +0.032354
+  drift(cos) L0→L19: +0.0144  |  katki ort. toplamı=+0.146258
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (B): Full K-Axis Steered vs Axis0-Only Steered -- TEMİZ cross-axis sızıntı
+  Delta A'nın aksine, iki taraf da axis0 attractor etkisini içeriyor.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=-0.0014
+  L 1  Δcos=-0.0004
+  L 2  Δcos=-0.0001
+  L 3  Δcos=+0.0001
+  L 4  Δcos=+0.0005
+  L 5  Δcos=+0.0001
+  L 6  Δcos=+0.0013
+  L 7  Δcos=+0.0013
+  L 8  Δcos=+0.0006
+  L 9  Δcos=-0.0005
+  L10  Δcos=+0.0006
+  L11  Δcos=-0.0001
+  L12  Δcos=-0.0005
+  L13  Δcos=-0.0002
+  L14  Δcos=-0.0015
+  L15  Δcos=-0.0007
+  L16  Δcos=-0.0008
+  L17  Δcos=-0.0001
+  L18  Δcos=-0.0000
+  L19  Δcos=+0.0002
+  ortalama Δcos=-0.0001
+════════════════════════════════════════════════════════════════
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (C, eski/karışık ölçüm): Full K-Axis Steered vs Vanilla
+  DİKKAT: axis0'ın kendi etkisiyle cross-axis sızıntısını karıştırır.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=-0.0002
+  L 1  Δcos=+0.0051
+  L 2  Δcos=+0.0103
+  L 3  Δcos=+0.0110
+  L 4  Δcos=+0.0107
+  L 5  Δcos=+0.0085
+  L 6  Δcos=+0.0051
+  L 7  Δcos=+0.0026
+  L 8  Δcos=-0.0005
+  L 9  Δcos=-0.0032
+  L10  Δcos=-0.0038
+  L11  Δcos=-0.0043
+  L12  Δcos=-0.0059
+  L13  Δcos=-0.0065
+  L14  Δcos=-0.0063
+  L15  Δcos=-0.0067
+  L16  Δcos=-0.0056
+  L17  Δcos=-0.0049
+  L18  Δcos=-0.0047
+  L19  Δcos=-0.0039
+  ortalama Δcos=-0.0002
+════════════════════════════════════════════════════════════════
+
+
+######################################################################
+  SORU 7/10  —  işleniyor...
+######################################################################
+  Explain quantum entanglement to a curious 12-year-old, using only everyday objects as analogies.
+
+   Pass A: Vanilla Observer
+   Pass B: Axis0-Only Steered
+   Pass C: Full 3-Axis Steered
+
+######################################################################
+### SORU 7/10 ###
+Explain quantum entanglement to a curious 12-year-old, using only everyday objects as analogies.
+######################################################################
+
+### PASS A: VANILLA ###
+
+Sure! Let's imagine you have two magic dice that always show the same number when rolled, no matter how far apart they are.
+
+### Step-by-Step Analogy:
+
+#### 1. **The Dice Pair:**
+   - You have two identical six-sided dice.
+   - When one of them is rolled, it shows a random number between 1 and 6.
+   - The other die will instantly show the exact same number, even if someone else rolls it from across the room or another country!
+
+#### 2. **Rolling One Die:**
+   - Imagine your friend has one die in their pocket and you roll yours on a table.
+   - As soon as you roll your die (let’s say it lands on "4"), something magical happens – your friend’s die also shows “4” without any communication happening between you two!
+   
+#### 3. **Distance Doesn’t Matter:**
+   - No matter where your friend is—whether next door or halfway around the world—their die still matches with yours perfectly every time.
+   - This works because these dice were specially prepared before anyone started rolling them; we call this preparation process "entanglement."
+
+#### 4. **No Signal Needed:**
+   - It might seem like there must be some signal traveling super fast to make both dice match up so quickly.
+   - But scientists think that actually nothing needs to travel at all! The connection seems instantaneous, which makes it very mysterious and different from normal things we experience.
+
+#### 5. **Entangled States:**
+   - In science terms, we would say that the two dice are now "entangled" states.
+   - Entanglement means that whatever state one object takes, the other connected object immediately takes the matching state too, regardless of distance.
+
+### Summary:
+Quantum entanglement is kind of like having magically linked dice. If you change one, the other changes instantaneously, no matter how far away it is. Scientists don't fully understand why this happens exactly, but it's definitely strange and fascinating!
+
+Does this help explain quantum entanglement in an easy-to-understand way?
+
+════════════════════════════════════════════════════════════════
+  ⬜ VANILLA OBSERVER — katki=0
+════════════════════════════════════════════════════════════════
+  ⏱  29758 ms  |  14.6 tok/s  |  47 in  |  434 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=n/a (gözlem modu)
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (referans)]  (N=433 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0021   0.90000   0.89716   +0.143855
+    1     -0.0011   0.83744   0.83720   +0.134100
+    2     -0.0051   0.71643   0.71730   +0.115359
+    3     -0.0005   0.59242   0.59159   +0.094701
+    4     -0.0009   0.48632   0.48638   +0.077889
+    5     -0.0045   0.40320   0.40364   +0.064871
+    6     -0.0081   0.34134   0.34172   +0.055123
+    7     -0.0108   0.29689   0.29712   +0.048055
+    8     -0.0155   0.26572   0.26610   +0.043239
+    9     -0.0196   0.24417   0.24447   +0.039885
+   10     -0.0185   0.22930   0.22923   +0.037357
+   11     -0.0206   0.21938   0.21952   +0.035846
+   12     -0.0177   0.21266   0.21248   +0.034600
+   13     -0.0162   0.20824   0.20814   +0.033844
+   14     -0.0174   0.20536   0.20544   +0.033442
+   15     -0.0143   0.20345   0.20327   +0.032989
+   16     -0.0134   0.20222   0.20216   +0.032779
+   17     -0.0147   0.20143   0.20151   +0.032716
+   18     -0.0169   0.20092   0.20106   +0.032714
+   19     -0.0126   0.20058   0.20032   +0.032455
+  drift(cos) L0→L19: -0.0105  |  katki ort. toplamı=+1.155821
+════════════════════════════════════════════════════════════════
+
+######################################################################
+
+### PASS B: AXIS0-ONLY STEERED ###
+
+Sure! Let's imagine you have two magic dice that always show the same number when rolled, no matter how far apart they are.
+
+### Step-by-Step Analogy:
+
+#### 1. **The Dice Pair:**
+   - You have two identical six-sided dice.
+   - When one of them is rolled, it shows a random number between 1 and 6.
+   - The other die will instantly show the exact same number, even if someone else rolls it from another room or country!
+
+#### 2. **Rolling One Die:**
+   - Imagine your friend has one die in their pocket and you roll yours on a table.
+   - As soon as you roll your die (let’s say it lands on "4"), something magical happens – your friend’s die also shows “4” without any communication happening between you two!
+   
+#### 3. **Distance Doesn’t Matter:**
+   - No matter where your friend is—whether next door or across the world—their die still matches with yours perfectly every time.
+   - This works because these dice were specially prepared before anyone started rolling them; we call this preparation process "entanglement."
+
+#### 4. **No Signal Needed:**
+   - It might seem like there must be some signal traveling super fast to make both dice match up so quickly.
+   - But scientists think that nothing actually travels faster than light to connect the dice. Instead, once they’re entangled, they just know each other’s numbers all along!
+
+#### 5. **Randomness Preserved:**
+   - Even though the results are linked, each individual roll remains completely unpredictable until it happens.
+   - So while you can predict what your friend’s die will do based on yours, neither of you knows exactly which number will come up beforehand unless you see it happen.
+
+This is kind of similar to how particles in quantum mechanics work together through entanglement:
+- Just like our special dice, entangled particles share information instantaneously but don't send signals.
+- And just like the randomness preserved for regular dice, measurements made on one particle affect its partner without needing anything physical to travel between them.
+
+Isn't that cool? Quantum entanglement makes things feel connected in ways that defy normal rules about distance and speed!
+
+════════════════════════════════════════════════════════════════
+  🔷 AXIS0-ONLY STEERED — K=1
+════════════════════════════════════════════════════════════════
+  ⏱  31838 ms  |  14.4 tok/s  |  47 in  |  460 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=çekici/attractor (m=1.00)
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (K=1, izole)]  (N=459 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0009   0.90000   0.89722   +0.143695
+    1     +0.0074   0.83749   0.83539   +0.132672
+    2     +0.0069   0.71646   0.71658   +0.113861
+    3     +0.0132   0.59292   0.59178   +0.093429
+    4     +0.0129   0.48679   0.48685   +0.076891
+    5     +0.0086   0.40324   0.40375   +0.064040
+    6     +0.0017   0.34106   0.34178   +0.054594
+    7     -0.0034   0.29658   0.29703   +0.047691
+    8     -0.0093   0.26538   0.26585   +0.042936
+    9     -0.0152   0.24394   0.24437   +0.039696
+   10     -0.0149   0.22916   0.22913   +0.037208
+   11     -0.0168   0.21927   0.21940   +0.035697
+   12     -0.0139   0.21258   0.21239   +0.034457
+   13     -0.0130   0.20819   0.20814   +0.033736
+   14     -0.0136   0.20533   0.20536   +0.033307
+   15     -0.0113   0.20343   0.20330   +0.032897
+   16     -0.0105   0.20221   0.20216   +0.032685
+   17     -0.0122   0.20142   0.20152   +0.032637
+   18     -0.0150   0.20092   0.20109   +0.032659
+   19     -0.0112   0.20058   0.20035   +0.032417
+  drift(cos) L0→L19: -0.0103  |  katki ort. toplamı=+1.147202
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (A): Axis0-Only Steered vs Vanilla
+  Saf axis0/attractor etkisi.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=+0.0012
+  L 1  Δcos=+0.0085
+  L 2  Δcos=+0.0120
+  L 3  Δcos=+0.0137
+  L 4  Δcos=+0.0137
+  L 5  Δcos=+0.0131
+  L 6  Δcos=+0.0098
+  L 7  Δcos=+0.0073
+  L 8  Δcos=+0.0062
+  L 9  Δcos=+0.0044
+  L10  Δcos=+0.0036
+  L11  Δcos=+0.0037
+  L12  Δcos=+0.0038
+  L13  Δcos=+0.0032
+  L14  Δcos=+0.0038
+  L15  Δcos=+0.0030
+  L16  Δcos=+0.0029
+  L17  Δcos=+0.0025
+  L18  Δcos=+0.0019
+  L19  Δcos=+0.0014
+  ortalama Δcos=+0.0060
+════════════════════════════════════════════════════════════════
+
+######################################################################
+
+### PASS C: FULL 3-AXIS STEERED ###
+
+Sure! Let's imagine you have two magic dice that always show the same number when rolled, no matter how far apart they are.
+
+### Step-by-Step Analogy:
+
+#### 1. **The Dice Pair:**
+   - You have two identical six-sided dice.
+   - When one of them is rolled, it shows a random number between 1 and 6.
+   - The other die will instantly show the exact same number, even if someone else rolls it from across the room or another country!
+
+#### 2. **Rolling One Die:**
+   - Imagine your friend has one die in their pocket and you roll yours on a table.
+   - As soon as you roll your die, say it lands on "4," your friend’s die also magically changes to show “4” at exactly the same moment!
+   - This happens every time without any signal traveling between you because there isn’t actually anything connecting these dice physically.
+
+#### 3. **Separation Distance:**
+   - Now, let’s pretend we put your die into a box and send it halfway around the world while keeping the second die with us.
+   - No matter where those dice go, whenever you roll yours, your friend’s die still matches perfectly!
+
+#### 4. **No Signal Needed:**
+   - It might seem like something invisible must be linking the dice together so fast, but scientists think this doesn't happen through normal signals (like light).
+   - Instead, somehow the outcome of rolling one die affects the other instantaneously, which seems faster than the speed of light!
+
+#### 5. **Entangled States:**
+   - In science terms, we would call each die an "entangled particle" before they were separated.
+   - Once they become entangled, changing the state of one immediately changes the state of the other, regardless of distance.
+
+### Summary:
+Quantum entanglement works similarly to our magical dice example. Two particles can get linked up in such a way that what happens to one instantly influences the other, no matter how far apart they are. Scientists aren't sure about all the details yet, but it's fascinating how things work at very tiny scales compared to our daily experiences!
+
+════════════════════════════════════════════════════════════════
+  🔱 AKBASCORE STEERED — TAM K eksen
+════════════════════════════════════════════════════════════════
+  ⏱  30749 ms  |  14.6 tok/s  |  47 in  |  448 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=çekici/attractor (m=1.00)
+  EKSEN  axis1: kelime kümesi  [çekici(ışık)]  α=0.50  merkez=L15  genişlik=6
+  EKSEN  axis2: kelime kümesi  [İTİCİ(karanlık)]  α=0.50  merkez=L15  genişlik=6
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (permanent floor)]  (N=447 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0028   0.90000   0.89788   +0.144079
+    1     +0.0055   0.83750   0.83541   +0.132933
+    2     +0.0049   0.71647   0.71658   +0.114084
+    3     +0.0120   0.59289   0.59163   +0.093522
+    4     +0.0110   0.48672   0.48687   +0.077039
+    5     +0.0067   0.40328   0.40380   +0.064172
+    6     -0.0000   0.34116   0.34185   +0.054698
+    7     -0.0047   0.29665   0.29708   +0.047760
+    8     -0.0103   0.26546   0.26590   +0.042982
+    9     -0.0158   0.24399   0.24440   +0.039723
+   10     -0.0147   0.22917   0.22910   +0.037197
+   11     -0.0173   0.21929   0.21946   +0.035725
+   12     -0.0144   0.21259   0.21241   +0.034475
+   13     -0.0134   0.20820   0.20814   +0.033751
+   14     -0.0145   0.20534   0.20540   +0.033341
+   15     -0.0122   0.20344   0.20331   +0.032927
+   16     -0.0114   0.20221   0.20217   +0.032716
+   17     -0.0129   0.20142   0.20151   +0.032656
+   18     -0.0152   0.20092   0.20106   +0.032658
+   19     -0.0107   0.20058   0.20031   +0.032394
+  drift(cos) L0→L19: -0.0079  |  katki ort. toplamı=+1.148833
+────────────────────────────────────────────────────────────────
+  [axis1: kelime kümesi  [çekici(ışık)]  α=0.50  merkez=L15  genişlik=6]  (N=447 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0119   0.90000   0.90263   +0.000000
+    1     -0.0103   0.83742   0.83700   +0.000000
+    2     -0.0108   0.71647   0.71660   +0.000000
+    3     -0.0059   0.59207   0.59120   +0.000000
+    4     -0.0028   0.48586   0.48539   +0.000000
+    5     -0.0045   0.40265   0.40286   +0.000000
+    6     -0.0054   0.34076   0.34085   +0.000000
+    7     -0.0022   0.29618   0.29589   +0.000000
+    8     -0.0011   0.26491   0.26483   +0.000000
+    9     +0.0011   0.24336   0.24320   +0.000000
+   10     -0.0049   0.22878   0.22920   +0.000000
+   11     -0.0049   0.21895   0.21895   +0.000000
+   12     -0.0059   0.21241   0.21247   +0.000000
+   13     -0.0080   0.20810   0.20824   +0.005598
+   14     -0.0046   0.20523   0.20502   +0.010985
+   15     -0.0038   0.20337   0.20332   +0.016328
+   16     -0.0062   0.20218   0.20232   +0.021715
+   17     -0.0060   0.20140   0.20139   +0.027013
+   18     -0.0060   0.20090   0.20090   +0.032336
+   19     -0.0022   0.20057   0.20034   +0.032126
+  drift(cos) L0→L19: +0.0097  |  katki ort. toplamı=+0.146101
+────────────────────────────────────────────────────────────────
+  [axis2: kelime kümesi  [İTİCİ(karanlık)]  α=0.50  merkez=L15  genişlik=6]  (N=447 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0243   0.90000   0.90389   +0.000000
+    1     -0.0229   0.83793   0.83758   +0.000000
+    2     -0.0245   0.71775   0.71810   +0.000000
+    3     -0.0241   0.59423   0.59416   +0.000000
+    4     -0.0200   0.48774   0.48714   +0.000000
+    5     -0.0166   0.40411   0.40370   +0.000000
+    6     -0.0133   0.34177   0.34143   +0.000000
+    7     -0.0102   0.29697   0.29669   +0.000000
+    8     -0.0083   0.26555   0.26540   +0.000000
+    9     -0.0079   0.24378   0.24375   +0.000000
+   10     -0.0020   0.22901   0.22861   +0.000000
+   11     -0.0040   0.21913   0.21925   +0.000000
+   12     -0.0022   0.21254   0.21243   +0.000000
+   13     -0.0054   0.20818   0.20837   +0.005587
+   14     -0.0051   0.20531   0.20528   +0.011004
+   15     -0.0047   0.20343   0.20341   +0.016350
+   16     -0.0063   0.20222   0.20232   +0.021717
+   17     -0.0064   0.20143   0.20143   +0.027031
+   18     -0.0070   0.20092   0.20095   +0.032377
+   19     -0.0100   0.20058   0.20076   +0.032443
+  drift(cos) L0→L19: +0.0143  |  katki ort. toplamı=+0.146509
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (B): Full K-Axis Steered vs Axis0-Only Steered -- TEMİZ cross-axis sızıntı
+  Delta A'nın aksine, iki taraf da axis0 attractor etkisini içeriyor.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=-0.0019
+  L 1  Δcos=-0.0019
+  L 2  Δcos=-0.0019
+  L 3  Δcos=-0.0012
+  L 4  Δcos=-0.0019
+  L 5  Δcos=-0.0019
+  L 6  Δcos=-0.0017
+  L 7  Δcos=-0.0013
+  L 8  Δcos=-0.0009
+  L 9  Δcos=-0.0006
+  L10  Δcos=+0.0001
+  L11  Δcos=-0.0005
+  L12  Δcos=-0.0005
+  L13  Δcos=-0.0004
+  L14  Δcos=-0.0008
+  L15  Δcos=-0.0009
+  L16  Δcos=-0.0009
+  L17  Δcos=-0.0007
+  L18  Δcos=-0.0001
+  L19  Δcos=+0.0005
+  ortalama Δcos=-0.0010
+════════════════════════════════════════════════════════════════
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (C, eski/karışık ölçüm): Full K-Axis Steered vs Vanilla
+  DİKKAT: axis0'ın kendi etkisiyle cross-axis sızıntısını karıştırır.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=-0.0008
+  L 1  Δcos=+0.0066
+  L 2  Δcos=+0.0101
+  L 3  Δcos=+0.0125
+  L 4  Δcos=+0.0119
+  L 5  Δcos=+0.0112
+  L 6  Δcos=+0.0081
+  L 7  Δcos=+0.0060
+  L 8  Δcos=+0.0052
+  L 9  Δcos=+0.0038
+  L10  Δcos=+0.0038
+  L11  Δcos=+0.0032
+  L12  Δcos=+0.0033
+  L13  Δcos=+0.0028
+  L14  Δcos=+0.0029
+  L15  Δcos=+0.0021
+  L16  Δcos=+0.0020
+  L17  Δcos=+0.0018
+  L18  Δcos=+0.0017
+  L19  Δcos=+0.0018
+  ortalama Δcos=+0.0050
+════════════════════════════════════════════════════════════════
+
+
+######################################################################
+  SORU 8/10  —  işleniyor...
+######################################################################
+  If you could change one rule of chess, which would it be and why?
+
+   Pass A: Vanilla Observer
+   Pass B: Axis0-Only Steered
+   Pass C: Full 3-Axis Steered
+
+######################################################################
+### SORU 8/10 ###
+If you could change one rule of chess, which would it be and why?
+######################################################################
+
+### PASS A: VANILLA ###
+
+### Why Remove Castling?
+1. **Increased Complexity**: Removing castling can lead to more complex opening variations as both sides must find alternative ways to develop their pieces while protecting the king.
+2. **More Strategic Decisions**: Without castling, players need to think about how they will protect their kings from early attacks without relying on this traditional method. This forces them to devise other strategies for safety.
+3. **Balanced Power Dynamics**: Some argue that removing castling makes the game more balanced by reducing the advantage of having a strong central position with a protected king.
+4. **New Opening Variations**: The absence of castling opens up possibilities in openings where players explore different methods to secure their king's safety, leading to unique and innovative games.
+However, others might prefer keeping castling because:
+- It provides a quick way to develop the king and rook simultaneously.
+- It helps establish a solid defense against immediate threats.
+- It adds a layer of strategy related to when and how to castle, making each decision count.
+Ultimately, whether to keep or remove castling depends on what aspect of the game one values most—complexity, balance, or specific tactical opportunities.
+
+════════════════════════════════════════════════════════════════
+  ⬜ VANILLA OBSERVER — katki=0
+════════════════════════════════════════════════════════════════
+  ⏱  20508 ms  |  14.4 tok/s  |  40 in  |  295 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=n/a (gözlem modu)
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (referans)]  (N=294 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     +0.0009   0.90000   0.89800   +0.143559
+    1     +0.0045   0.83743   0.83653   +0.133239
+    2     +0.0005   0.71640   0.71725   +0.114701
+    3     +0.0034   0.59255   0.59205   +0.094409
+    4     +0.0048   0.48655   0.48634   +0.077439
+    5     +0.0012   0.40311   0.40355   +0.064492
+    6     -0.0030   0.34122   0.34166   +0.054832
+    7     -0.0019   0.29661   0.29651   +0.047532
+    8     -0.0075   0.26534   0.26579   +0.042848
+    9     -0.0089   0.24369   0.24379   +0.039355
+   10     -0.0106   0.22902   0.22914   +0.037053
+   11     -0.0127   0.21919   0.21933   +0.035541
+   12     -0.0105   0.21253   0.21239   +0.034340
+   13     -0.0069   0.20814   0.20791   +0.033495
+   14     -0.0065   0.20527   0.20525   +0.033052
+   15     -0.0053   0.20341   0.20333   +0.032704
+   16     -0.0048   0.20219   0.20216   +0.032500
+   17     -0.0057   0.20141   0.20146   +0.032418
+   18     -0.0083   0.20091   0.20107   +0.032440
+   19     -0.0065   0.20058   0.20046   +0.032282
+  drift(cos) L0→L19: -0.0074  |  katki ort. toplamı=+1.148231
+════════════════════════════════════════════════════════════════
+
+######################################################################
+
+### PASS B: AXIS0-ONLY STEERED ###
+
+### Why Remove Castling?
+1. **Increased Complexity**: Removing castling can lead to more complex opening variations as both sides must find alternative ways to develop their pieces while protecting the king.
+2. **More Strategic Decisions**: Without castling, players will need to think about how best to protect their kings without relying on this traditional method. This forces them to devise other strategies for safety and mobility.
+3. **Balanced Power Dynamics**: Some argue that removing castling makes the game fairer by reducing the advantage of having a strong central position early in the game (since castling often leads to quick development).
+4. **New Opening Variations**: The absence of castling opens up possibilities for unique openings where players must adapt quickly to different scenarios.
+However, others might prefer keeping castling because:
+- It provides a clear and established way to safely bring the king into a secure position.
+- It adds a sense of tradition and familiarity to the game.
+- It simplifies some aspects of strategy, especially at lower levels of play.
+Ultimately, whether to keep or remove castling depends on what aspect of the game one values most—complexity, fairness, historical continuity, or simplicity. If I were to suggest a change, removing castling could significantly alter the dynamics of chess, making each game feel fresh and unpredictable.
+
+════════════════════════════════════════════════════════════════
+  🔷 AXIS0-ONLY STEERED — K=1
+════════════════════════════════════════════════════════════════
+  ⏱  22378 ms  |  14.5 tok/s  |  40 in  |  324 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=çekici/attractor (m=1.00)
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (K=1, izole)]  (N=323 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     +0.0014   0.90000   0.89813   +0.143506
+    1     +0.0117   0.83755   0.83496   +0.132025
+    2     +0.0107   0.71665   0.71687   +0.113465
+    3     +0.0153   0.59317   0.59235   +0.093321
+    4     +0.0167   0.48726   0.48706   +0.076621
+    5     +0.0125   0.40358   0.40409   +0.063846
+    6     +0.0051   0.34119   0.34194   +0.054429
+    7     +0.0031   0.29653   0.29671   +0.047327
+    8     -0.0036   0.26520   0.26573   +0.042671
+    9     -0.0056   0.24357   0.24372   +0.039213
+   10     -0.0077   0.22895   0.22909   +0.036937
+   11     -0.0094   0.21912   0.21923   +0.035407
+   12     -0.0076   0.21249   0.21238   +0.034239
+   13     -0.0044   0.20812   0.20792   +0.033415
+   14     -0.0048   0.20526   0.20528   +0.033003
+   15     -0.0039   0.20340   0.20335   +0.032663
+   16     -0.0033   0.20219   0.20215   +0.032452
+   17     -0.0045   0.20141   0.20148   +0.032381
+   18     -0.0070   0.20091   0.20106   +0.032394
+   19     -0.0055   0.20058   0.20048   +0.032253
+  drift(cos) L0→L19: -0.0069  |  katki ort. toplamı=+1.141567
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (A): Axis0-Only Steered vs Vanilla
+  Saf axis0/attractor etkisi.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=+0.0005
+  L 1  Δcos=+0.0072
+  L 2  Δcos=+0.0102
+  L 3  Δcos=+0.0120
+  L 4  Δcos=+0.0119
+  L 5  Δcos=+0.0113
+  L 6  Δcos=+0.0082
+  L 7  Δcos=+0.0050
+  L 8  Δcos=+0.0039
+  L 9  Δcos=+0.0033
+  L10  Δcos=+0.0029
+  L11  Δcos=+0.0034
+  L12  Δcos=+0.0029
+  L13  Δcos=+0.0025
+  L14  Δcos=+0.0017
+  L15  Δcos=+0.0014
+  L16  Δcos=+0.0015
+  L17  Δcos=+0.0012
+  L18  Δcos=+0.0014
+  L19  Δcos=+0.0010
+  ortalama Δcos=+0.0047
+════════════════════════════════════════════════════════════════
+
+######################################################################
+
+### PASS C: FULL 3-AXIS STEERED ###
+
+### Why Remove Castling?
+1. **Increased Complexity**: Removing castling can lead to more complex opening variations as both sides must find alternative ways to develop their pieces while protecting the king.
+2. **More Strategic Decisions**: Without castling, players need to think about how they will protect their kings from early attacks without relying on this traditional method. This forces them to devise other strategies for safety.
+3. **Dynamic Opening Play**: The absence of castling means that openings become even more dynamic and unpredictable, potentially leading to faster games with less reliance on established patterns.
+4. **Balancing Power Dynamics**: Some argue that removing castling levels the playing field by reducing the advantage of having a strong central position due to the ability to castle quickly.
+5. **Enhanced Tactical Opportunities**: With no easy way to get the king out of immediate danger in the opening phase, tactical opportunities may increase, making mid-game play more exciting and varied.
+However, such a significant change would also require careful consideration to ensure that the game remains balanced and enjoyable for all skill levels. It's important to test any proposed changes through extensive analysis and feedback from experienced players before implementing them officially.
+Ultimately, whether removing castling improves the game depends largely on individual perspectives and what aspects of chess people value most—strategy, tactics, complexity, or balance between different types of play.
+
+════════════════════════════════════════════════════════════════
+  🔱 AKBASCORE STEERED — TAM K eksen
+════════════════════════════════════════════════════════════════
+  ⏱  23214 ms  |  14.2 tok/s  |  40 in  |  330 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=çekici/attractor (m=1.00)
+  EKSEN  axis1: kelime kümesi  [çekici(ışık)]  α=0.50  merkez=L15  genişlik=6
+  EKSEN  axis2: kelime kümesi  [İTİCİ(karanlık)]  α=0.50  merkez=L15  genişlik=6
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (permanent floor)]  (N=329 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     +0.0004   0.90000   0.89825   +0.143674
+    1     +0.0108   0.83753   0.83491   +0.132141
+    2     +0.0098   0.71663   0.71685   +0.113569
+    3     +0.0139   0.59301   0.59228   +0.093443
+    4     +0.0156   0.48718   0.48694   +0.076693
+    5     +0.0114   0.40354   0.40405   +0.063907
+    6     +0.0043   0.34125   0.34197   +0.054479
+    7     +0.0023   0.29663   0.29682   +0.047382
+    8     -0.0049   0.26532   0.26589   +0.042753
+    9     -0.0070   0.24365   0.24380   +0.039284
+   10     -0.0097   0.22901   0.22920   +0.037029
+   11     -0.0114   0.21918   0.21929   +0.035488
+   12     -0.0091   0.21253   0.21238   +0.034292
+   13     -0.0060   0.20814   0.20794   +0.033470
+   14     -0.0056   0.20528   0.20525   +0.033024
+   15     -0.0048   0.20341   0.20336   +0.032693
+   16     -0.0044   0.20219   0.20217   +0.032490
+   17     -0.0050   0.20141   0.20144   +0.032391
+   18     -0.0077   0.20091   0.20107   +0.032418
+   19     -0.0061   0.20058   0.20048   +0.032273
+  drift(cos) L0→L19: -0.0065  |  katki ort. toplamı=+1.142890
+────────────────────────────────────────────────────────────────
+  [axis1: kelime kümesi  [çekici(ışık)]  α=0.50  merkez=L15  genişlik=6]  (N=329 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0132   0.90000   0.89718   +0.000000
+    1     -0.0122   0.83748   0.83724   +0.000000
+    2     -0.0136   0.71660   0.71689   +0.000000
+    3     -0.0104   0.59232   0.59176   +0.000000
+    4     -0.0097   0.48615   0.48604   +0.000000
+    5     -0.0115   0.40308   0.40331   +0.000000
+    6     -0.0106   0.34101   0.34091   +0.000000
+    7     -0.0096   0.29643   0.29634   +0.000000
+    8     -0.0147   0.26543   0.26583   +0.000000
+    9     -0.0172   0.24392   0.24411   +0.000000
+   10     -0.0184   0.22923   0.22931   +0.000000
+   11     -0.0176   0.21924   0.21919   +0.000000
+   12     -0.0204   0.21269   0.21287   +0.000000
+   13     -0.0221   0.20831   0.20841   +0.005681
+   14     -0.0227   0.20540   0.20544   +0.011206
+   15     -0.0203   0.20348   0.20333   +0.016596
+   16     -0.0238   0.20226   0.20248   +0.022111
+   17     -0.0233   0.20145   0.20143   +0.027484
+   18     -0.0219   0.20093   0.20084   +0.032840
+   19     -0.0237   0.20060   0.20070   +0.032874
+  drift(cos) L0→L19: -0.0105  |  katki ort. toplamı=+0.148791
+────────────────────────────────────────────────────────────────
+  [axis2: kelime kümesi  [İTİCİ(karanlık)]  α=0.50  merkez=L15  genişlik=6]  (N=329 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0278   0.90000   0.90431   +0.000000
+    1     -0.0283   0.83812   0.83822   +0.000000
+    2     -0.0298   0.71821   0.71854   +0.000000
+    3     -0.0291   0.59478   0.59465   +0.000000
+    4     -0.0290   0.48885   0.48883   +0.000000
+    5     -0.0248   0.40504   0.40454   +0.000000
+    6     -0.0249   0.34285   0.34286   +0.000000
+    7     -0.0226   0.29781   0.29760   +0.000000
+    8     -0.0185   0.26598   0.26566   +0.000000
+    9     -0.0176   0.24411   0.24404   +0.000000
+   10     -0.0113   0.22921   0.22878   +0.000000
+   11     -0.0124   0.21929   0.21936   +0.000000
+   12     -0.0112   0.21265   0.21257   +0.000000
+   13     -0.0097   0.20826   0.20816   +0.005605
+   14     -0.0115   0.20535   0.20546   +0.011084
+   15     -0.0067   0.20345   0.20316   +0.016361
+   16     -0.0075   0.20222   0.20227   +0.021738
+   17     -0.0093   0.20143   0.20154   +0.027121
+   18     -0.0111   0.20092   0.20103   +0.032520
+   19     -0.0120   0.20059   0.20064   +0.032487
+  drift(cos) L0→L19: +0.0159  |  katki ort. toplamı=+0.146915
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (B): Full K-Axis Steered vs Axis0-Only Steered -- TEMİZ cross-axis sızıntı
+  Delta A'nın aksine, iki taraf da axis0 attractor etkisini içeriyor.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=-0.0011
+  L 1  Δcos=-0.0009
+  L 2  Δcos=-0.0009
+  L 3  Δcos=-0.0014
+  L 4  Δcos=-0.0012
+  L 5  Δcos=-0.0010
+  L 6  Δcos=-0.0008
+  L 7  Δcos=-0.0008
+  L 8  Δcos=-0.0013
+  L 9  Δcos=-0.0015
+  L10  Δcos=-0.0020
+  L11  Δcos=-0.0020
+  L12  Δcos=-0.0015
+  L13  Δcos=-0.0015
+  L14  Δcos=-0.0008
+  L15  Δcos=-0.0009
+  L16  Δcos=-0.0011
+  L17  Δcos=-0.0005
+  L18  Δcos=-0.0007
+  L19  Δcos=-0.0006
+  ortalama Δcos=-0.0011
+════════════════════════════════════════════════════════════════
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (C, eski/karışık ölçüm): Full K-Axis Steered vs Vanilla
+  DİKKAT: axis0'ın kendi etkisiyle cross-axis sızıntısını karıştırır.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=-0.0005
+  L 1  Δcos=+0.0063
+  L 2  Δcos=+0.0093
+  L 3  Δcos=+0.0106
+  L 4  Δcos=+0.0108
+  L 5  Δcos=+0.0102
+  L 6  Δcos=+0.0074
+  L 7  Δcos=+0.0042
+  L 8  Δcos=+0.0026
+  L 9  Δcos=+0.0019
+  L10  Δcos=+0.0009
+  L11  Δcos=+0.0013
+  L12  Δcos=+0.0014
+  L13  Δcos=+0.0009
+  L14  Δcos=+0.0009
+  L15  Δcos=+0.0005
+  L16  Δcos=+0.0004
+  L17  Δcos=+0.0007
+  L18  Δcos=+0.0007
+  L19  Δcos=+0.0004
+  ortalama Δcos=+0.0035
+════════════════════════════════════════════════════════════════
+
+
+######################################################################
+  SORU 9/10  —  işleniyor...
+######################################################################
+  A researcher discovers that publishing their result honestly will hurt their career, but hiding it will help humanity. What should they do, and why?
+
+   Pass A: Vanilla Observer
+   Pass B: Axis0-Only Steered
+   Pass C: Full 3-Axis Steered
+
+######################################################################
+### SORU 9/10 ###
+A researcher discovers that publishing their result honestly will hurt their career, but hiding it will help humanity. What should they do, and why?
+######################################################################
+
+### PASS A: VANILLA ###
+
+This is a complex ethical dilemma that touches on the balance between individual career advancement and broader societal benefits. Here’s an analysis of potential actions and considerations:
+
+### 1. **Publishing Honestly**
+- **Pros:**
+  - Upholds integrity in scientific research.
+  - Promotes transparency and trust within the academic community.
+  - Contributes to cumulative knowledge growth, which can benefit future researchers and society at large.
+  - May lead to long-term recognition if the work eventually gains attention or relevance over time.
+
+- **Cons:**
+  - Immediate negative impact on one's career prospects due to the perceived lack of positive results.
+  - Potential for short-term professional setbacks such as funding cuts or reduced opportunities for collaboration.
+
+### 2. **Hiding the Result (Not Publishing)**
+- **Pros:**
+  - Protects one's current career from immediate harm by avoiding any negative perception associated with null findings.
+  - Ensures personal success and possibly continued financial support through grants and other resources.
+
+- **Cons:**
+  - Violates principles of honesty and transparency in science.
+  - Hinders progress in related fields since important data might be overlooked or duplicated unnecessarily.
+  - Undermines public trust in scientific institutions and processes.
+  - Could have long-term detrimental effects on the field and society if critical information remains hidden.
+
+### Ethical Considerations
+
+**Principle of Beneficence:** Actions should promote well-being and avoid harm. Hiding potentially valuable information could cause significant harm to others who rely on this research.
+
+**Principle of Justice:** Fairness and equality must be maintained. Withholding crucial data undermines fairness because it prevents others from building upon valid observations or correcting errors.
+
+**Principle of Autonomy:** Individuals should make informed decisions about their own lives. However, when these choices affect wider communities, there is a duty to consider collective interests.
+
+### Recommended Action
+
+Given the serious implications of both options, here are some steps the researcher could take:
+
+1. **Seek Advice**: Consult mentors, colleagues, or ethics committees within the institution before making a final decision. They may provide guidance based on institutional policies and best practices.
+
+2. **Consider Long-Term Impact**: Reflect on how the decision aligns with long-term goals beyond just immediate career concerns. The value of contributing positively to human knowledge often outweighs temporary setbacks.
+
+3. **Explore Alternatives**: Look into ways to mitigate the negative impacts while still being honest:
+   - Publish only parts of the study where meaningful insights exist.
+   - Share anonymized data sets under strict confidentiality agreements until further validation.
+   - Discuss the limitations openly during presentations without full publication.
+
+4. **Advocate for Change**: Work towards improving systems so that publishing negative results does not disproportionately harm careers. This includes advocating for more robust peer review mechanisms and supportive policies from funding agencies.
+
+Ultimately, the most ethically sound approach would likely involve finding a way to publish the results responsibly—perhaps through open-access journals or pre-print servers—to ensure that the information contributes to the greater good despite initial career risks.
+
+════════════════════════════════════════════════════════════════
+  ⬜ VANILLA OBSERVER — katki=0
+════════════════════════════════════════════════════════════════
+  ⏱  42017 ms  |  14.7 tok/s  |  52 in  |  619 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=n/a (gözlem modu)
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (referans)]  (N=618 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     +0.0040   0.90000   0.89579   +0.142767
+    1     +0.0087   0.83751   0.83632   +0.132644
+    2     +0.0027   0.71643   0.71773   +0.114530
+    3     +0.0055   0.59257   0.59207   +0.094215
+    4     +0.0054   0.48651   0.48652   +0.077426
+    5     +0.0027   0.40319   0.40352   +0.064392
+    6     -0.0014   0.34125   0.34167   +0.054745
+    7     +0.0012   0.29668   0.29644   +0.047372
+    8     -0.0025   0.26528   0.26558   +0.042602
+    9     -0.0080   0.24370   0.24410   +0.039372
+   10     -0.0089   0.22903   0.22909   +0.036982
+   11     -0.0089   0.21912   0.21912   +0.035371
+   12     -0.0089   0.21253   0.21254   +0.034309
+   13     -0.0084   0.20816   0.20813   +0.033580
+   14     -0.0108   0.20530   0.20546   +0.033229
+   15     -0.0071   0.20342   0.20319   +0.032743
+   16     -0.0086   0.20220   0.20229   +0.032643
+   17     -0.0094   0.20142   0.20147   +0.032537
+   18     -0.0110   0.20091   0.20101   +0.032515
+   19     -0.0116   0.20058   0.20062   +0.032472
+  drift(cos) L0→L19: -0.0156  |  katki ort. toplamı=+1.146446
+════════════════════════════════════════════════════════════════
+
+######################################################################
+
+### PASS B: AXIS0-ONLY STEERED ###
+
+This is a complex ethical dilemma with no easy answer. However, there are several considerations the researcher can take into account to make an informed decision:
+
+1. **Ethical Responsibility**: Publishing honest results aligns with many professional codes of conduct in academia and research. Honesty and transparency are fundamental values in scientific inquiry. By withholding information, the researcher would be compromising these core principles.
+
+2. **Impact on Future Research**: Hiding important findings could lead to wasted time and resources for other researchers who might pursue similar lines of investigation based on false assumptions or incomplete data. This could slow down progress in addressing critical issues affecting human health, environmental sustainability, etc.
+
+3. **Trust and Credibility**: Maintaining trust within the academic community and among the public is crucial. If researchers start hiding inconvenient truths, it erodes credibility and undermines the entire system of knowledge production and dissemination.
+
+4. **Long-term Consequences**: While hiding the truth may seem beneficial now, the long-term consequences could be severe. Other scientists might become wary about sharing their own work if they fear negative repercussions from doing so. This could stifle innovation and collaboration.
+
+5. **Alternative Actions**:
+   - **Anonymously Publish**: The researcher could publish anonymously through a pseudonym or by using existing open-access platforms where anonymity is possible.
+   - **Internal Review**: They could seek advice from trusted colleagues or mentors before making any final decisions regarding publication.
+   - **Advocacy**: Use alternative methods like speaking at conferences, writing op-eds, or engaging directly with policymakers to advocate for the importance of the finding without formally publishing it.
+   - **Collaboration**: Work closely with others who share the same commitment to honesty and integrity to ensure the information gets out while maintaining some level of confidentiality during initial stages.
+
+6. **Legal Considerations**: In certain cases, there might be legal implications related to intellectual property rights or patents. Consulting with a lawyer familiar with such matters could provide guidance specific to the situation.
+
+7. **Moral Integrity**: Ultimately, acting with moral integrity often leads to better personal satisfaction and a clearer conscience. Many people find that adhering to high standards of ethics provides more lasting fulfillment than short-term gains obtained dishonestly.
+
+In summary, while the immediate benefits of concealing the discovery might appear attractive, the broader impact on science, society, and individual conscience suggests that publishing honestly remains the most responsible course of action.
+
+════════════════════════════════════════════════════════════════
+  🔷 AXIS0-ONLY STEERED — K=1
+════════════════════════════════════════════════════════════════
+  ⏱  33733 ms  |  14.5 tok/s  |  52 in  |  488 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=çekici/attractor (m=1.00)
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (K=1, izole)]  (N=487 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0000   0.90000   0.89753   +0.143619
+    1     +0.0126   0.83758   0.83440   +0.131816
+    2     +0.0102   0.71667   0.71720   +0.113579
+    3     +0.0152   0.59313   0.59225   +0.093319
+    4     +0.0153   0.48709   0.48707   +0.076737
+    5     +0.0124   0.40361   0.40395   +0.063828
+    6     +0.0062   0.34138   0.34201   +0.054379
+    7     +0.0061   0.29681   0.29682   +0.047203
+    8     +0.0006   0.26534   0.26578   +0.042498
+    9     -0.0048   0.24369   0.24408   +0.039240
+   10     -0.0063   0.22900   0.22910   +0.036888
+   11     -0.0069   0.21910   0.21914   +0.035305
+   12     -0.0069   0.21253   0.21253   +0.034239
+   13     -0.0066   0.20814   0.20813   +0.033521
+   14     -0.0089   0.20530   0.20544   +0.033161
+   15     -0.0070   0.20342   0.20331   +0.032756
+   16     -0.0088   0.20220   0.20231   +0.032653
+   17     -0.0084   0.20141   0.20139   +0.032491
+   18     -0.0087   0.20091   0.20093   +0.032430
+   19     -0.0092   0.20058   0.20060   +0.032391
+  drift(cos) L0→L19: -0.0092  |  katki ort. toplamı=+1.142054
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (A): Axis0-Only Steered vs Vanilla
+  Saf axis0/attractor etkisi.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=-0.0040
+  L 1  Δcos=+0.0039
+  L 2  Δcos=+0.0075
+  L 3  Δcos=+0.0097
+  L 4  Δcos=+0.0099
+  L 5  Δcos=+0.0098
+  L 6  Δcos=+0.0076
+  L 7  Δcos=+0.0048
+  L 8  Δcos=+0.0032
+  L 9  Δcos=+0.0033
+  L10  Δcos=+0.0026
+  L11  Δcos=+0.0020
+  L12  Δcos=+0.0020
+  L13  Δcos=+0.0018
+  L14  Δcos=+0.0020
+  L15  Δcos=+0.0002
+  L16  Δcos=-0.0002
+  L17  Δcos=+0.0010
+  L18  Δcos=+0.0023
+  L19  Δcos=+0.0025
+  ortalama Δcos=+0.0036
+════════════════════════════════════════════════════════════════
+
+######################################################################
+
+### PASS C: FULL 3-AXIS STEERED ###
+
+This is a complex ethical dilemma with no easy answer. However, there are several considerations the researcher can take into account to make an informed decision:
+
+1. **Ethical Responsibility**: Publishing honest results aligns with many professional codes of conduct in academia and research. Honesty and transparency are fundamental values in scientific inquiry. By withholding information, the researcher would be compromising these core principles.
+
+2. **Impact on Future Research**: Hiding important findings could lead to wasted time and resources for other researchers who might pursue similar lines of investigation based on false assumptions or incomplete data. This could slow down progress in addressing critical issues affecting human health, environmental sustainability, etc.
+
+3. **Trust and Credibility**: Maintaining trust within the academic community and among the public is crucial. If researchers start hiding inconvenient truths, it erodes credibility and undermines the integrity of science as a whole. Trust is essential for advancing knowledge and making significant discoveries possible.
+
+4. **Potential Consequences**: While the immediate impact may seem negative (hurting one's career), long-term benefits often outweigh short-term setbacks. Many institutions recognize the importance of ethical behavior and may offer support through mentorship programs, career counseling, or even special recognition for maintaining high standards despite initial challenges.
+
+5. **Alternative Actions**:
+   - **Anonymously Publish**: The researcher could publish anonymously if necessary, ensuring the work gets out without directly harming their own reputation.
+   - **Seek Support from Colleagues**: Collaborating with trusted colleagues who share the same commitment to honesty can provide additional backing and reduce individual risk.
+   - **Advocate Internally**: Engage with department heads, deans, or institutional ethics committees about the broader implications of not sharing this information openly. Sometimes internal advocacy can lead to policy changes supporting more transparent practices.
+   
+6. **Public Interest vs. Personal Gain**: Consider whether the potential harm caused by withholding the truth justifies any personal gain. In most cases, the collective good far outweighs individual interests when dealing with matters of public welfare.
+
+7. **Long-Term Career Impact**: Reflecting on how one’s actions today shape future opportunities and relationships can also guide decisions. A strong record of ethical practice tends to open doors rather than close them over time.
+
+Ultimately, while the situation presents a difficult choice, adhering to ethical standards generally leads to better outcomes both personally and professionally in the long run. It upholds the integrity of the field and ensures that society benefits from reliable, trustworthy research.
+
+════════════════════════════════════════════════════════════════
+  🔱 AKBASCORE STEERED — TAM K eksen
+════════════════════════════════════════════════════════════════
+  ⏱  35038 ms  |  14.3 tok/s  |  52 in  |  501 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=çekici/attractor (m=1.00)
+  EKSEN  axis1: kelime kümesi  [çekici(ışık)]  α=0.50  merkez=L15  genişlik=6
+  EKSEN  axis2: kelime kümesi  [İTİCİ(karanlık)]  α=0.50  merkez=L15  genişlik=6
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (permanent floor)]  (N=500 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     +0.0010   0.90000   0.89688   +0.143367
+    1     +0.0132   0.83761   0.83456   +0.131770
+    2     +0.0112   0.71676   0.71719   +0.113468
+    3     +0.0161   0.59323   0.59235   +0.093247
+    4     +0.0158   0.48719   0.48724   +0.076725
+    5     +0.0129   0.40368   0.40403   +0.063809
+    6     +0.0064   0.34138   0.34204   +0.054373
+    7     +0.0061   0.29681   0.29684   +0.047203
+    8     +0.0002   0.26533   0.26580   +0.042521
+    9     -0.0060   0.24370   0.24415   +0.039299
+   10     -0.0077   0.22904   0.22915   +0.036947
+   11     -0.0083   0.21914   0.21918   +0.035363
+   12     -0.0087   0.21256   0.21258   +0.034310
+   13     -0.0085   0.20817   0.20815   +0.033588
+   14     -0.0103   0.20531   0.20542   +0.033206
+   15     -0.0086   0.20343   0.20332   +0.032810
+   16     -0.0102   0.20221   0.20231   +0.032700
+   17     -0.0098   0.20142   0.20139   +0.032540
+   18     -0.0102   0.20091   0.20093   +0.032477
+   19     -0.0106   0.20058   0.20060   +0.032435
+  drift(cos) L0→L19: -0.0116  |  katki ort. toplamı=+1.142157
+────────────────────────────────────────────────────────────────
+  [axis1: kelime kümesi  [çekici(ışık)]  α=0.50  merkez=L15  genişlik=6]  (N=500 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0136   0.90000   0.89817   +0.000000
+    1     -0.0129   0.83752   0.83734   +0.000000
+    2     -0.0127   0.71662   0.71657   +0.000000
+    3     -0.0101   0.59236   0.59190   +0.000000
+    4     -0.0106   0.48626   0.48634   +0.000000
+    5     -0.0119   0.40316   0.40331   +0.000000
+    6     -0.0091   0.34092   0.34064   +0.000000
+    7     -0.0076   0.29631   0.29617   +0.000000
+    8     -0.0124   0.26532   0.26570   +0.000000
+    9     -0.0114   0.24367   0.24360   +0.000000
+   10     -0.0122   0.22901   0.22906   +0.000000
+   11     -0.0132   0.21914   0.21920   +0.000000
+   12     -0.0166   0.21262   0.21283   +0.000000
+   13     -0.0213   0.20830   0.20859   +0.005681
+   14     -0.0214   0.20539   0.20540   +0.011189
+   15     -0.0206   0.20348   0.20343   +0.016610
+   16     -0.0224   0.20226   0.20237   +0.022071
+   17     -0.0223   0.20145   0.20144   +0.027457
+   18     -0.0205   0.20093   0.20082   +0.032788
+   19     -0.0204   0.20059   0.20059   +0.032751
+  drift(cos) L0→L19: -0.0068  |  katki ort. toplamı=+0.148547
+────────────────────────────────────────────────────────────────
+  [axis2: kelime kümesi  [İTİCİ(karanlık)]  α=0.50  merkez=L15  genişlik=6]  (N=500 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0296   0.90000   0.90403   +0.000000
+    1     -0.0305   0.83822   0.83845   +0.000000
+    2     -0.0306   0.71831   0.71833   +0.000000
+    3     -0.0296   0.59490   0.59471   +0.000000
+    4     -0.0296   0.48899   0.48899   +0.000000
+    5     -0.0270   0.40535   0.40504   +0.000000
+    6     -0.0270   0.34314   0.34314   +0.000000
+    7     -0.0246   0.29805   0.29783   +0.000000
+    8     -0.0207   0.26612   0.26580   +0.000000
+    9     -0.0207   0.24429   0.24429   +0.000000
+   10     -0.0196   0.22944   0.22936   +0.000000
+   11     -0.0192   0.21942   0.21939   +0.000000
+   12     -0.0201   0.21276   0.21282   +0.000000
+   13     -0.0174   0.20830   0.20813   +0.005647
+   14     -0.0174   0.20539   0.20538   +0.011144
+   15     -0.0136   0.20347   0.20324   +0.016481
+   16     -0.0128   0.20224   0.20219   +0.021842
+   17     -0.0129   0.20144   0.20145   +0.027208
+   18     -0.0148   0.20093   0.20104   +0.032642
+   19     -0.0147   0.20059   0.20059   +0.032566
+  drift(cos) L0→L19: +0.0149  |  katki ort. toplamı=+0.147530
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (B): Full K-Axis Steered vs Axis0-Only Steered -- TEMİZ cross-axis sızıntı
+  Delta A'nın aksine, iki taraf da axis0 attractor etkisini içeriyor.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=+0.0010
+  L 1  Δcos=+0.0005
+  L 2  Δcos=+0.0010
+  L 3  Δcos=+0.0009
+  L 4  Δcos=+0.0005
+  L 5  Δcos=+0.0005
+  L 6  Δcos=+0.0002
+  L 7  Δcos=+0.0000
+  L 8  Δcos=-0.0004
+  L 9  Δcos=-0.0012
+  L10  Δcos=-0.0014
+  L11  Δcos=-0.0015
+  L12  Δcos=-0.0018
+  L13  Δcos=-0.0019
+  L14  Δcos=-0.0015
+  L15  Δcos=-0.0016
+  L16  Δcos=-0.0014
+  L17  Δcos=-0.0015
+  L18  Δcos=-0.0015
+  L19  Δcos=-0.0014
+  ortalama Δcos=-0.0006
+════════════════════════════════════════════════════════════════
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (C, eski/karışık ölçüm): Full K-Axis Steered vs Vanilla
+  DİKKAT: axis0'ın kendi etkisiyle cross-axis sızıntısını karıştırır.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=-0.0030
+  L 1  Δcos=+0.0045
+  L 2  Δcos=+0.0085
+  L 3  Δcos=+0.0106
+  L 4  Δcos=+0.0104
+  L 5  Δcos=+0.0102
+  L 6  Δcos=+0.0078
+  L 7  Δcos=+0.0049
+  L 8  Δcos=+0.0027
+  L 9  Δcos=+0.0021
+  L10  Δcos=+0.0013
+  L11  Δcos=+0.0005
+  L12  Δcos=+0.0002
+  L13  Δcos=-0.0001
+  L14  Δcos=+0.0005
+  L15  Δcos=-0.0014
+  L16  Δcos=-0.0017
+  L17  Δcos=-0.0005
+  L18  Δcos=+0.0008
+  L19  Δcos=+0.0011
+  ortalama Δcos=+0.0030
+════════════════════════════════════════════════════════════════
+
+
+######################################################################
+  SORU 10/10  —  işleniyor...
+######################################################################
+  What does it mean for a machine to understand something, rather than merely predict it?
+
+   Pass A: Vanilla Observer
+   Pass B: Axis0-Only Steered
+   Pass C: Full 3-Axis Steered
+
+######################################################################
+### SORU 10/10 ###
+What does it mean for a machine to understand something, rather than merely predict it?
+######################################################################
+
+### PASS A: VANILLA ###
+
+When we say that a machine understands something, as opposed to just predicting it, we're referring to the difference between performing tasks based on statistical patterns or rules without true comprehension versus actually grasping the meaning of what is being processed.
+
+### Prediction vs Understanding
+
+1. **Prediction**:
+   - A predictive model learns from data to make forecasts about future events or outcomes.
+   - It relies on historical data and mathematical algorithms (like regression models) to generate predictions.
+   - The model doesn't necessarily comprehend the underlying concepts; it simply identifies correlations in the data.
+   
+2. **Understanding**:
+   - True understanding involves not only recognizing patterns but also comprehending their significance.
+   - An entity with understanding can explain why certain things happen, provide context, and adapt its reasoning to new situations.
+   - This kind of intelligence requires more complex cognitive processes such as inference, reasoning, and contextual awareness.
+
+### Examples:
+
+- **Predictive Model**: If you train an AI system to recognize images of cats by showing it thousands of cat pictures, it might be able to identify cats accurately using deep learning techniques. However, if asked "Why do cats have whiskers?" it would likely respond based on learned statistics ("Whiskers help them sense objects") rather than truly understanding the biological function of whiskers.
+
+- **Understanding**: On the other hand, a system that genuinely understands could answer questions like "Why do cats have whiskers?" by explaining that they serve sensory functions which aid in navigation and hunting. Such a response demonstrates deeper knowledge beyond mere pattern recognition.
+
+### Challenges in Achieving Understanding:
+
+- **Contextual Awareness**: Machines need to understand the context within which information exists. For example, knowing when to use sarcasm or irony.
+  
+- **Common Sense Reasoning**: Humans often rely on common sense to interpret ambiguous statements or incomplete information. Teaching machines this type of reasoning remains one of the biggest challenges in artificial intelligence research.
+
+- **Interpretability**: Understanding implies transparency into how decisions were made. Current AI systems often operate as black boxes where decision-making processes aren’t easily interpretable.
+
+In summary, while modern machine learning models excel at prediction through sophisticated algorithms, achieving genuine understanding—where machines can reason, infer, and apply knowledge flexibly across different contexts—is still an ambitious goal in the field of artificial intelligence.
+
+════════════════════════════════════════════════════════════════
+  ⬜ VANILLA OBSERVER — katki=0
+════════════════════════════════════════════════════════════════
+  ⏱  31730 ms  |  14.7 tok/s  |  41 in  |  468 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=n/a (gözlem modu)
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (referans)]  (N=467 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0003   0.90000   0.89723   +0.143610
+    1     +0.0028   0.83741   0.83664   +0.133494
+    2     -0.0020   0.71634   0.71736   +0.115007
+    3     -0.0008   0.59236   0.59216   +0.094826
+    4     -0.0022   0.48631   0.48650   +0.078010
+    5     -0.0042   0.40307   0.40332   +0.064804
+    6     -0.0073   0.34124   0.34156   +0.055054
+    7     -0.0081   0.29668   0.29674   +0.047864
+    8     -0.0122   0.26548   0.26580   +0.043048
+    9     -0.0139   0.24388   0.24401   +0.039587
+   10     -0.0134   0.22914   0.22910   +0.037149
+   11     -0.0139   0.21921   0.21924   +0.035566
+   12     -0.0128   0.21257   0.21250   +0.034435
+   13     -0.0092   0.20816   0.20794   +0.033577
+   14     -0.0096   0.20530   0.20532   +0.033168
+   15     -0.0059   0.20341   0.20318   +0.032702
+   16     -0.0089   0.20220   0.20238   +0.032668
+   17     -0.0091   0.20141   0.20143   +0.032523
+   18     -0.0104   0.20091   0.20098   +0.032492
+   19     -0.0106   0.20058   0.20059   +0.032435
+  drift(cos) L0→L19: -0.0103  |  katki ort. toplamı=+1.152021
+════════════════════════════════════════════════════════════════
+
+######################################################################
+
+### PASS B: AXIS0-ONLY STEERED ###
+
+When we say that a machine understands something, as opposed to just predicting it, we're referring to the difference between performing tasks based on statistical patterns or rules without true comprehension versus actually grasping the meaning of what is being processed.
+
+### Prediction vs. Understanding
+
+1. **Prediction**:
+   - A predictive model learns from data to make forecasts about future events or outcomes.
+   - It relies on historical data and mathematical algorithms (like regression models) to generate predictions.
+   - The model doesn't necessarily comprehend the underlying concepts; it simply identifies correlations in the data.
+   
+2. **Understanding**:
+   - True understanding involves not only recognizing patterns but also comprehending their significance.
+   - An entity with understanding can explain why certain things happen, provide context, and adapt its reasoning to new situations.
+   - This kind of intelligence requires more than just processing data—it involves cognitive processes like inference, reasoning, and contextual awareness.
+
+### Examples:
+
+- **Predictive Model**: If you train an AI system to recognize images of cats by showing it thousands of cat pictures, it might be able to identify cats accurately. However, if asked "Why do cats have whiskers?" it would likely respond based on the training data ("Because they were shown many examples where cats had whiskers"), lacking any deeper insight into the biological function of whiskers.
+
+- **Understanding**: On the other hand, someone who truly understands why cats have whiskers could explain that whiskers help cats navigate dark spaces and sense vibrations, providing a richer explanation grounded in knowledge beyond mere pattern recognition.
+
+### Challenges in Achieving Understanding:
+
+- **Contextual Awareness**: Machines need to understand the context in which information is presented.
+- **Generalization**: They must apply learned knowledge across different scenarios, not just replicate past observations.
+- **Explainability**: Being able to articulate how conclusions are reached, similar to human reasoning.
+- **Adaptation**: Ability to learn from new experiences and adjust existing knowledge accordingly.
+
+In summary, while prediction focuses on identifying patterns and making accurate forecasts, understanding implies a deeper level of cognition involving meaningful interpretation, reasoning, and adaptation. Achieving this form of understanding remains one of the significant challenges in artificial intelligence research.
+
+════════════════════════════════════════════════════════════════
+  🔷 AXIS0-ONLY STEERED — K=1
+════════════════════════════════════════════════════════════════
+  ⏱  30447 ms  |  14.6 tok/s  |  41 in  |  444 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=çekici/attractor (m=1.00)
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (K=1, izole)]  (N=443 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0006   0.90000   0.89756   +0.143704
+    1     +0.0099   0.83751   0.83487   +0.132253
+    2     +0.0086   0.71649   0.71677   +0.113695
+    3     +0.0115   0.59279   0.59228   +0.093678
+    4     +0.0102   0.48661   0.48680   +0.077095
+    5     +0.0073   0.40316   0.40350   +0.064085
+    6     +0.0014   0.34108   0.34169   +0.054593
+    7     -0.0021   0.29656   0.29687   +0.047599
+    8     -0.0076   0.26531   0.26575   +0.042843
+    9     -0.0105   0.24376   0.24397   +0.039448
+   10     -0.0108   0.22907   0.22909   +0.037050
+   11     -0.0112   0.21917   0.21920   +0.035466
+   12     -0.0104   0.21254   0.21249   +0.034351
+   13     -0.0070   0.20815   0.20794   +0.033504
+   14     -0.0079   0.20529   0.20534   +0.033113
+   15     -0.0045   0.20341   0.20320   +0.032658
+   16     -0.0079   0.20220   0.20241   +0.032641
+   17     -0.0082   0.20141   0.20143   +0.032495
+   18     -0.0099   0.20091   0.20101   +0.032482
+   19     -0.0096   0.20058   0.20056   +0.032399
+  drift(cos) L0→L19: -0.0090  |  katki ort. toplamı=+1.145152
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (A): Axis0-Only Steered vs Vanilla
+  Saf axis0/attractor etkisi.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=-0.0003
+  L 1  Δcos=+0.0072
+  L 2  Δcos=+0.0106
+  L 3  Δcos=+0.0123
+  L 4  Δcos=+0.0123
+  L 5  Δcos=+0.0115
+  L 6  Δcos=+0.0088
+  L 7  Δcos=+0.0060
+  L 8  Δcos=+0.0046
+  L 9  Δcos=+0.0034
+  L10  Δcos=+0.0026
+  L11  Δcos=+0.0026
+  L12  Δcos=+0.0024
+  L13  Δcos=+0.0022
+  L14  Δcos=+0.0018
+  L15  Δcos=+0.0014
+  L16  Δcos=+0.0010
+  L17  Δcos=+0.0009
+  L18  Δcos=+0.0005
+  L19  Δcos=+0.0010
+  ortalama Δcos=+0.0046
+════════════════════════════════════════════════════════════════
+
+######################################################################
+
+### PASS C: FULL 3-AXIS STEERED ###
+
+When we say that a machine understands something, as opposed to merely predicting it, we imply a deeper level of comprehension or meaning-making by the system. This concept is often discussed in the context of artificial intelligence (AI) and machine learning (ML), where traditional predictive models can be distinguished from systems with true understanding.
+
+### Predictive Models vs. Understanding
+
+1. **Predictive Models**:
+   - These models use statistical algorithms to make predictions based on historical data.
+   - They identify patterns and correlations without necessarily understanding why those patterns exist.
+   - For example, an AI might predict whether someone will buy a product based on past purchasing behavior but doesn't inherently grasp what makes certain products appealing.
+
+2. **Understanding**:
+   - True understanding involves not just recognizing patterns but also comprehending the underlying concepts and relationships.
+   - It requires the ability to reason about information, draw conclusions, and apply knowledge flexibly across different contexts.
+   - An entity that truly "understands" would have some form of internal representation of the world, allowing it to engage in reasoning similar to human cognition.
+
+### Key Characteristics of Understanding:
+
+- **Contextual Awareness**: The ability to interpret information within its broader context.
+- **Reasoning Ability**: The capacity to infer new facts or insights beyond the given data.
+- **Explainability**: Being able to provide reasons or explanations for decisions made.
+- **Transfer Learning**: Applying learned knowledge to new situations or domains.
+- **Adaptation**: Adjusting strategies or approaches when faced with novel challenges or unexpected inputs.
+
+### Challenges in Achieving Understanding:
+
+- **Complexity of Human Cognition**: Replicating human-like understanding remains one of the most significant challenges in AI research.
+- **Data Requirements**: Gaining deep understanding typically necessitates vast amounts of high-quality training data.
+- **Interpretability**: Ensuring that the decision-making process of intelligent machines is transparent and understandable to humans.
+- **Generalization**: Developing models capable of generalizing well to unseen scenarios without overfitting to specific examples.
+
+### Examples of Systems That Aim for Understanding:
+
+- **Natural Language Processing (NLP)**: Advanced NLP systems like transformers attempt to capture semantic meanings and contextual nuances in text.
+- **Vision Systems**: Some computer vision techniques now incorporate more sophisticated methods to recognize objects and scenes in complex environments.
+- **Reinforcement Learning Agents**: Certain agents trained through reinforcement learning show signs of developing intuitive understanding of their environment and goals.
+
+In summary, while current AI technologies excel at prediction tasks, achieving genuine understanding—where a machine can comprehend, reason, and adapt—is still an ambitious goal requiring further advancements in both technology and theoretical frameworks.
+
+════════════════════════════════════════════════════════════════
+  🔱 AKBASCORE STEERED — TAM K eksen
+════════════════════════════════════════════════════════════════
+  ⏱  36999 ms  |  14.5 tok/s  |  41 in  |  538 out tokens
+  YOL  GPU-NATIVE CUDA
+  ATTN  Qwen2Attention  (Test 91 tek değişkeni: hedeflenen=sdpa)
+  MODEL  Qwen/Qwen2.5-7B-Instruct  (28 katman, 20 hook'lu, boyut=3584)
+  MOTOR  ivme(axis0)=0.50  sönüm=0.30  zirve=0.70  taban=0.20
+  FİZİK  yönlendirme modu=çekici/attractor (m=1.00)
+  EKSEN  axis1: kelime kümesi  [çekici(ışık)]  α=0.50  merkez=L15  genişlik=6
+  EKSEN  axis2: kelime kümesi  [İTİCİ(karanlık)]  α=0.50  merkez=L15  genişlik=6
+  ⚠️  ÖRNEKLEME UYARISI: temperature=0.00 aktif.
+────────────────────────────────────────────────────────────────
+  [axis0: anayasa (permanent floor)]  (N=537 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0005   0.90000   0.89781   +0.143739
+    1     +0.0097   0.83751   0.83493   +0.132291
+    2     +0.0082   0.71656   0.71689   +0.113758
+    3     +0.0113   0.59281   0.59226   +0.093688
+    4     +0.0105   0.48670   0.48682   +0.077068
+    5     +0.0076   0.40321   0.40357   +0.064077
+    6     +0.0013   0.34115   0.34179   +0.054618
+    7     -0.0029   0.29660   0.29697   +0.047654
+    8     -0.0086   0.26540   0.26586   +0.042906
+    9     -0.0114   0.24380   0.24400   +0.039486
+   10     -0.0113   0.22909   0.22909   +0.037071
+   11     -0.0116   0.21917   0.21919   +0.035478
+   12     -0.0104   0.21255   0.21248   +0.034350
+   13     -0.0068   0.20815   0.20793   +0.033493
+   14     -0.0079   0.20530   0.20537   +0.033118
+   15     -0.0049   0.20342   0.20323   +0.032678
+   16     -0.0077   0.20220   0.20237   +0.032628
+   17     -0.0077   0.20141   0.20141   +0.032474
+   18     -0.0083   0.20091   0.20094   +0.032419
+   19     -0.0087   0.20058   0.20060   +0.032374
+  drift(cos) L0→L19: -0.0081  |  katki ort. toplamı=+1.145369
+────────────────────────────────────────────────────────────────
+  [axis1: kelime kümesi  [çekici(ışık)]  α=0.50  merkez=L15  genişlik=6]  (N=537 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0141   0.90000   0.90095   +0.000000
+    1     -0.0124   0.83750   0.83707   +0.000000
+    2     -0.0123   0.71659   0.71656   +0.000000
+    3     -0.0083   0.59226   0.59154   +0.000000
+    4     -0.0073   0.48605   0.48591   +0.000000
+    5     -0.0082   0.40288   0.40299   +0.000000
+    6     -0.0068   0.34083   0.34069   +0.000000
+    7     -0.0058   0.29630   0.29621   +0.000000
+    8     -0.0062   0.26504   0.26507   +0.000000
+    9     -0.0102   0.24359   0.24389   +0.000000
+   10     -0.0111   0.22897   0.22903   +0.000000
+   11     -0.0099   0.21906   0.21898   +0.000000
+   12     -0.0116   0.21251   0.21262   +0.000000
+   13     -0.0097   0.20813   0.20801   +0.005601
+   14     -0.0087   0.20525   0.20519   +0.011039
+   15     -0.0090   0.20340   0.20342   +0.016421
+   16     -0.0118   0.20220   0.20237   +0.021842
+   17     -0.0094   0.20141   0.20126   +0.027086
+   18     -0.0100   0.20090   0.20094   +0.032471
+   19     -0.0106   0.20058   0.20062   +0.032440
+  drift(cos) L0→L19: +0.0035  |  katki ort. toplamı=+0.146900
+────────────────────────────────────────────────────────────────
+  [axis2: kelime kümesi  [İTİCİ(karanlık)]  α=0.50  merkez=L15  genişlik=6]  (N=537 üretilen token üzerinden ortalama)
+    L   cos(θ)ort    kb ort    kv ort   katki ort
+────────────────────────────────────────────────────────────────
+    0     -0.0299   0.90000   0.90515   +0.000000
+    1     -0.0289   0.83813   0.83789   +0.000000
+    2     -0.0292   0.71812   0.71819   +0.000000
+    3     -0.0268   0.59447   0.59404   +0.000000
+    4     -0.0263   0.48847   0.48840   +0.000000
+    5     -0.0241   0.40490   0.40463   +0.000000
+    6     -0.0229   0.34262   0.34251   +0.000000
+    7     -0.0195   0.29752   0.29721   +0.000000
+    8     -0.0171   0.26587   0.26568   +0.000000
+    9     -0.0195   0.24418   0.24435   +0.000000
+   10     -0.0188   0.22935   0.22930   +0.000000
+   11     -0.0193   0.21938   0.21941   +0.000000
+   12     -0.0163   0.21267   0.21248   +0.000000
+   13     -0.0167   0.20827   0.20829   +0.005647
+   14     -0.0152   0.20536   0.20526   +0.011114
+   15     -0.0105   0.20345   0.20317   +0.016425
+   16     -0.0103   0.20222   0.20221   +0.021791
+   17     -0.0101   0.20143   0.20142   +0.027126
+   18     -0.0106   0.20092   0.20095   +0.032492
+   19     -0.0109   0.20058   0.20060   +0.032446
+  drift(cos) L0→L19: +0.0190  |  katki ort. toplamı=+0.147041
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (B): Full K-Axis Steered vs Axis0-Only Steered -- TEMİZ cross-axis sızıntı
+  Delta A'nın aksine, iki taraf da axis0 attractor etkisini içeriyor.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=+0.0000
+  L 1  Δcos=-0.0002
+  L 2  Δcos=-0.0004
+  L 3  Δcos=-0.0001
+  L 4  Δcos=+0.0004
+  L 5  Δcos=+0.0003
+  L 6  Δcos=-0.0001
+  L 7  Δcos=-0.0008
+  L 8  Δcos=-0.0011
+  L 9  Δcos=-0.0009
+  L10  Δcos=-0.0005
+  L11  Δcos=-0.0004
+  L12  Δcos=-0.0000
+  L13  Δcos=+0.0003
+  L14  Δcos=-0.0000
+  L15  Δcos=-0.0004
+  L16  Δcos=+0.0002
+  L17  Δcos=+0.0005
+  L18  Δcos=+0.0016
+  L19  Δcos=+0.0009
+  ortalama Δcos=-0.0000
+════════════════════════════════════════════════════════════════
+────────────────────────────────────────────────────────────────
+  AXIS0 DELTA (C, eski/karışık ölçüm): Full K-Axis Steered vs Vanilla
+  DİKKAT: axis0'ın kendi etkisiyle cross-axis sızıntısını karıştırır.
+────────────────────────────────────────────────────────────────
+  L 0  Δcos=-0.0003
+  L 1  Δcos=+0.0070
+  L 2  Δcos=+0.0102
+  L 3  Δcos=+0.0121
+  L 4  Δcos=+0.0127
+  L 5  Δcos=+0.0118
+  L 6  Δcos=+0.0086
+  L 7  Δcos=+0.0052
+  L 8  Δcos=+0.0035
+  L 9  Δcos=+0.0025
+  L10  Δcos=+0.0021
+  L11  Δcos=+0.0023
+  L12  Δcos=+0.0024
+  L13  Δcos=+0.0024
+  L14  Δcos=+0.0017
+  L15  Δcos=+0.0010
+  L16  Δcos=+0.0012
+  L17  Δcos=+0.0015
+  L18  Δcos=+0.0021
+  L19  Δcos=+0.0019
+  ortalama Δcos=+0.0046
+════════════════════════════════════════════════════════════════
+
+
+✅ Tüm sonuçlar yazıldı: /content/akbascore_test91_sonuclari.txt
+
+======================================================================
+🏁 TEST 91 TAMAMLANDI. Kullanılan yol: GPU-NATIVE CUDA
+======================================================================
