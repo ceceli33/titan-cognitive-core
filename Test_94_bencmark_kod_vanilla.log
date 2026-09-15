@@ -1,0 +1,272 @@
+# =============================================================================
+# TEST 95C — SAF HUGGINGFACE, AKBASCORE YOK (hiçbir kernel, hook, cos/kb/kv yok)
+# Bu script, Test 95B'den (steered) TAMAMEN BAĞIMSIZ bir Colab oturumunda
+# çalıştırılmak üzere tasarlandı. Modeli sıfırdan yükler, standart
+# transformers.generate() dışında HİÇBİR ŞEY kullanmaz. Amaç: Test 95B'nin
+# steered sonuçlarını, aynı oturumda üretilmiş bir "vanilla" ile değil,
+# TAMAMEN İZOLE, gerçekten saf bir taban çizgiyle karşılaştırmak.
+# =============================================================================
+
+import subprocess, sys, os, time, gc
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+print(f"torch sürümü: {torch.__version__}  |  torch CUDA derlemesi: {torch.version.cuda}")
+if not torch.cuda.is_available():
+    raise SystemExit("❌ GPU bulunamadı. Runtime → Change runtime type → A100 GPU.")
+print(f"✅ GPU: {torch.cuda.get_device_name(0)} "
+      f"({torch.cuda.get_device_properties(0).total_memory/1e9:.1f}GB)\n")
+
+MODEL_ID    = "Qwen/Qwen2.5-7B-Instruct"
+TEMPERATURE = 0.0
+MAX_TOKENS_PART_A = 1000
+GSM8K_MAX_TOKENS  = 1000
+MMLU_MAX_TOKENS   = 1000
+PART_A_N_QUESTIONS = 50
+N_MMLU  = 500
+N_GSM8K = 200
+RANDOM_SEED = 42
+
+OUT_PATH = "/content/akbascore_test95C_pure_vanilla.txt"
+
+def _append_to_log(text):
+    try:
+        with open(OUT_PATH, "a", encoding="utf-8") as f:
+            f.write(text)
+    except Exception as e:
+        print(f"⚠️ Log dosyasına yazılamadı: {e}")
+
+try:
+    with open(OUT_PATH, "w", encoding="utf-8") as f:
+        f.write("")
+except Exception:
+    pass
+
+print("\n" + "="*70)
+print(f"TEST 95C — SAF HUGGINGFACE (AkbasCore YOK) | {MODEL_ID}")
+print("="*70 + "\n")
+
+print("Model yükleniyor (tam BF16, sdpa, kuantizasyon yok, AkbasCore yok)...")
+tok = AutoTokenizer.from_pretrained(MODEL_ID)
+if tok.pad_token is None:
+    tok.pad_token = tok.eos_token
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID, device_map="auto", trust_remote_code=True,
+    low_cpu_mem_usage=True, dtype=torch.bfloat16,
+    attn_implementation="sdpa")
+device = next(model.parameters()).device
+print(f"✅ Model hazır. GPU: {torch.cuda.get_device_name(0)}  |  dtype={model.dtype}\n")
+
+_header = (
+    f"TEST 95C — SAF HUGGINGFACE (AkbasCore YOK, hiçbir hook/kernel yok)\n"
+    f"Model: {MODEL_ID}  |  dtype: {model.dtype}  |  attn: sdpa\n"
+    f"BÖLÜM A: {PART_A_N_QUESTIONS} soru  |  BÖLÜM B: {N_MMLU} MMLU + {N_GSM8K} GSM8K\n"
+    f"max_tokens: MMLU={MMLU_MAX_TOKENS}  GSM8K={GSM8K_MAX_TOKENS}\n"
+    f"Bu script Test 95B'den (steered) TAMAMEN BAĞIMSIZ, ayrı bir oturumda "
+    f"çalışacak şekilde tasarlandı -- ortak hiçbir state yok.\n"
+    + "="*70 + "\n\n"
+)
+print(_header)
+_append_to_log(_header)
+
+eos_ids = list({tok.eos_token_id,
+                tok.convert_tokens_to_ids("<|im_end|>"),
+                tok.convert_tokens_to_ids("<|endoftext|>")} - {None, -1})
+
+def _pure_generate(question, max_tokens):
+    """SADECE standart transformers.generate() -- hiçbir hook, kernel yok."""
+    prompt_text = (f"<|im_start|>system\nYou are a helpful, accurate, and thoughtful "
+                   f"assistant.<|im_end|>\n<|im_start|>user\n{question.strip()}"
+                   f"<|im_end|>\n<|im_start|>assistant\n")
+    inp = tok(prompt_text, return_tensors="pt").to(device)
+    t0 = time.time()
+    with torch.no_grad():
+        out = model.generate(
+            **inp, max_new_tokens=int(max_tokens), do_sample=False,
+            repetition_penalty=1.15, pad_token_id=tok.pad_token_id, eos_token_id=eos_ids)
+    ms = (time.time() - t0) * 1000
+    n_in = inp["input_ids"].shape[1]
+    n_out = out.shape[1] - n_in
+    tps = n_out / (ms/1000) if ms > 0 else 0
+    text = tok.decode(out[0][n_in:], skip_special_tokens=True).strip()
+    return text, ms, tps, n_in, n_out
+
+# =============================================================================
+# BÖLÜM A — 50 SORU, SAF ÜRETİM (Test 95/95B ile AYNI soru seti)
+# =============================================================================
+PART_A_QUESTIONS = [
+    "Two doctors examine the same X-ray and reach opposite diagnoses using the same evidence. Explain how this can happen without either doctor being irrational.",
+    "A company wants to cut its carbon emissions in half while doubling production. Propose an approach and explain the reasoning behind each trade-off.",
+    "Write a short story (150-200 words) about a translator who realizes she has been mistranslating one word for twenty years.",
+    "A rectangular garden is 3 meters longer than it is wide. Its area is 108 square meters. Find its dimensions, showing your reasoning.",
+    "Argue, as persuasively as possible, for why handwritten letters still matter in an age of instant messaging.",
+    "A student just found out they were rejected from every university they applied to. Write what you would say to support them.",
+    "Explain how a vaccine works to a curious 10-year-old, using only the analogy of a school fire drill.",
+    "If you could add one new punctuation mark to English, what would it do and why?",
+    "A city council must choose between funding a new hospital wing or a new school, but not both. What should guide their decision, and why?",
+    "What would it mean for a machine to have a sense of humor, rather than recognizing patterns in jokes it has seen?",
+    "Explain why a shadow can never move faster than light, even though the point where a shadow's edge falls can move arbitrarily fast.",
+    "A farmer has 17 sheep, and all but 9 die. How many sheep are left? Explain the wordplay in this riddle.",
+    "Write a short story (150-200 words) about a mapmaker who discovers a place that isn't on any map, including his own.",
+    "A recipe serves 6 people and calls for 2.5 cups of flour. How much flour is needed for 15 people? Show your reasoning.",
+    "Argue, as persuasively as possible, for why a four-day work week would benefit most industries.",
+    "A colleague's project that they worked on for a year was just cancelled by upper management. Write what you would say to them.",
+    "Explain how noise-cancelling headphones work, using only the analogy of two people shouting opposite words to cancel each other out.",
+    "If you could remove one rule from professional tennis, which would it be and why?",
+    "A hospital must decide whether to adopt a new diagnostic AI that is more accurate on average but occasionally fails in ways doctors don't fail. What should guide this decision?",
+    "What would it mean for a machine to feel regret, rather than adjusting its outputs based on a loss signal?",
+    "Describe a situation where following a rule exactly leads to a worse outcome than the rule was designed to prevent.",
+    "A city wants to add more bike lanes without removing any car parking. Propose a design, explaining each trade-off.",
+    "Write a short story (150-200 words) about a musician who can only compose while forgetting the previous piece they wrote.",
+    "A car travels 150 km using 12 liters of fuel. How far can it travel on 30 liters, assuming constant efficiency? Show your reasoning.",
+    "Argue, as persuasively as possible, for why board games remain valuable in a world of video games.",
+    "A friend's long-term relationship just ended unexpectedly. Write what you would say to comfort them.",
+    "Explain how a rainbow forms, using only the analogy of sunlight passing through a prism.",
+    "If you could change one rule of basketball, which would it be and why?",
+    "A software company must decide whether to delay a product launch to fix a minor bug that affects almost no users. What should guide this decision?",
+    "What would it mean for a machine to be curious, rather than exploring states that maximize an exploration bonus?",
+    "Describe a situation where two true statements appear to contradict each other, and explain why they don't.",
+    "A town wants to preserve its historic downtown while attracting new businesses. Propose an approach, explaining each trade-off.",
+    "Write a short story (150-200 words) about a locksmith who can open any lock except the one to his own house.",
+    "A water tank is filled by one pipe in 8 hours and drained by another in 12 hours. If both are open, how long until the tank is full? Show your reasoning.",
+    "Argue, as persuasively as possible, for why learning a musical instrument benefits people who will never perform professionally.",
+    "A coworker just learned their position is being eliminated in a company restructuring. Write what you would say to them.",
+    "Explain how a thermos keeps drinks hot, using only the analogy of a person wearing several layers of clothing.",
+    "If you could add one new rule to baseball, what would it be and why?",
+    "A city must choose between building a new highway or expanding public transit with the same budget. What should guide this decision?",
+    "What would it mean for a machine to genuinely change its mind, rather than updating a probability distribution?",
+    "Describe a situation where the absence of evidence is itself meaningful evidence, and explain the reasoning without contradiction.",
+    "A nonprofit wants to expand its reach without diluting the quality of its programs. Propose an approach, explaining each trade-off.",
+    "Write a short story (150-200 words) about a lighthouse keeper's apprentice who is afraid of the dark.",
+    "Two trains 240 km apart travel toward each other, one at 70 km/h and one at 50 km/h. How long until they meet? Show your reasoning.",
+    "Argue, as persuasively as possible, for why physical bookstores still matter in an age of e-books.",
+    "A sibling just found out they didn't get custody they were hoping for after a difficult separation. Write what you would say to them.",
+    "Explain how a parachute slows a fall, using only the analogy of cupping your hand out of a moving car window.",
+    "If you could change one rule of American football, which would it be and why?",
+    "A university must decide whether to require a controversial but effective textbook that not all students can afford. What should guide this decision?",
+    "What would it mean for a machine to have taste in art, rather than predicting what a given audience would rate highly?",
+]
+
+print(f"\n{'#'*70}\n  BÖLÜM A — {PART_A_N_QUESTIONS} SORU, SAF ÜRETİM\n{'#'*70}\n")
+_append_to_log(f"\n{'#'*70}\n  BÖLÜM A — {PART_A_N_QUESTIONS} SORU (SAF HUGGINGFACE)\n{'#'*70}\n\n")
+
+_n_a = min(PART_A_N_QUESTIONS, len(PART_A_QUESTIONS))
+_completed, _skipped = 0, 0
+for i, question in enumerate(PART_A_QUESTIONS[:_n_a], 1):
+    print(f"\n{'#'*70}\n  SORU {i}/{_n_a}\n{'#'*70}\n  {question}\n")
+    try:
+        txt, ms, tps, n_in, n_out = _pure_generate(question, MAX_TOKENS_PART_A)
+        block = (f"\n{'#'*70}\n### SORU {i}/{_n_a} ###\n{question}\n{'#'*70}\n\n"
+                 f"### SAF VANILLA (AkbasCore yok) ###\n\n{txt}\n\n"
+                 f"⏱ {ms:.0f} ms | {tps:.1f} tok/s | {n_in} in | {n_out} out tokens\n")
+        print(block); _append_to_log(block)
+        _completed += 1
+    except Exception as e:
+        msg = f"\n⏭️ SORU {i}/{_n_a} ATLANDI (hata: {e}): {question}\n"
+        print(msg); _append_to_log(msg); _skipped += 1
+    gc.collect()
+    torch.cuda.empty_cache()
+
+_summary_a = f"\n(Bölüm A tamamlanan: {_completed}/{_n_a}, atlanan: {_skipped})\n"
+print(_summary_a); _append_to_log(_summary_a)
+
+# =============================================================================
+# BÖLÜM B — MMLU (500) + GSM8K (200), SAF ÜRETİM
+# =============================================================================
+print(f"\n{'#'*70}\n  BÖLÜM B — MMLU + GSM8K YÜKLENİYOR\n{'#'*70}\n")
+_append_to_log(f"\n{'#'*70}\n  BÖLÜM B (SAF HUGGINGFACE)\n{'#'*70}\n\n")
+
+try:
+    import datasets as _ds_probe
+    print("✅ datasets zaten kurulu.")
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "datasets", "-q",
+                            "--no-deps"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+import re as _re
+
+def _score_mmlu(choices, correct_idx, generated_text):
+    letters = ["A", "B", "C", "D"]
+    m = _re.search(r"\b([ABCD])\b", generated_text.strip().upper())
+    return (m.group(1) == letters[correct_idx]) if m else False
+
+def _extract_gsm8k_answer(answer_field):
+    m = _re.search(r"####\s*(-?[\d,\.]+)", answer_field)
+    return m.group(1).replace(",", "").strip() if m else None
+
+def _score_gsm8k(generated_text, reference_answer):
+    nums = _re.findall(r"-?\d+\.?\d*", generated_text.replace(",", ""))
+    if not nums or reference_answer is None: return False
+    try:
+        return abs(float(nums[-1]) - float(reference_answer)) < 1e-6
+    except Exception:
+        return nums[-1].strip() == reference_answer.strip()
+
+from datasets import load_dataset
+_mmlu_ds = load_dataset("cais/mmlu", "all", split="test")
+_mmlu_ds = _mmlu_ds.shuffle(seed=RANDOM_SEED).select(range(min(N_MMLU, len(_mmlu_ds))))
+_gsm8k_ds = load_dataset("openai/gsm8k", "main", split="test")
+_gsm8k_ds = _gsm8k_ds.shuffle(seed=RANDOM_SEED).select(range(min(N_GSM8K, len(_gsm8k_ds))))
+print(f"✅ MMLU: {len(_mmlu_ds)}  |  GSM8K: {len(_gsm8k_ds)}  (seed={RANDOM_SEED}, "
+      f"Test 95/95B ile AYNI sorular)")
+
+_mmlu_correct = 0; _mmlu_total = 0
+_gsm8k_correct = 0; _gsm8k_total = 0
+_part_b_skipped = 0
+
+print(f"\n{'='*70}\n  MMLU ({len(_mmlu_ds)}) işleniyor... (max_tokens={MMLU_MAX_TOKENS})\n{'='*70}")
+for i, item in enumerate(_mmlu_ds, 1):
+    q = (f"{item['question']}\nA) {item['choices'][0]}\nB) {item['choices'][1]}\n"
+         f"C) {item['choices'][2]}\nD) {item['choices'][3]}\nAnswer with only the letter.")
+    try:
+        txt, *_ = _pure_generate(q, MMLU_MAX_TOKENS)
+        _mmlu_total += 1
+        if _score_mmlu(item["choices"], item["answer"], txt): _mmlu_correct += 1
+        if i % 50 == 0 or i == len(_mmlu_ds):
+            print(f"  {i}/{len(_mmlu_ds)}  vanilla={_mmlu_correct}/{_mmlu_total} "
+                  f"({100.0*_mmlu_correct/_mmlu_total:.1f}%)")
+    except Exception as e:
+        _part_b_skipped += 1
+        print(f"  ⏭️ MMLU {i} atlandı: {e}")
+    gc.collect()
+    torch.cuda.empty_cache()
+
+print(f"\n{'='*70}\n  GSM8K ({len(_gsm8k_ds)}) işleniyor... (max_tokens={GSM8K_MAX_TOKENS})\n{'='*70}")
+for i, item in enumerate(_gsm8k_ds, 1):
+    q = (f"{item['question']}\nShow brief reasoning, then give the final numeric answer "
+         f"on the last line, prefixed with 'Answer:'.")
+    reference = _extract_gsm8k_answer(item["answer"])
+    try:
+        txt, *_ = _pure_generate(q, GSM8K_MAX_TOKENS)
+        _gsm8k_total += 1
+        if _score_gsm8k(txt, reference): _gsm8k_correct += 1
+        if i % 20 == 0 or i == len(_gsm8k_ds):
+            print(f"  {i}/{len(_gsm8k_ds)}  vanilla={_gsm8k_correct}/{_gsm8k_total} "
+                  f"({100.0*_gsm8k_correct/_gsm8k_total:.1f}%)")
+    except Exception as e:
+        _part_b_skipped += 1
+        print(f"  ⏭️ GSM8K {i} atlandı: {e}")
+    gc.collect()
+    torch.cuda.empty_cache()
+
+def _pct(c, t): return f"{100.0*c/t:.1f}%" if t > 0 else "n/a"
+_summary_b = (
+    f"\n{'='*70}\n  BÖLÜM B SONUÇLARI (SAF HUGGINGFACE, AkbasCore YOK)\n{'='*70}\n"
+    f"MMLU (N={_mmlu_total}): {_mmlu_correct}/{_mmlu_total} ({_pct(_mmlu_correct,_mmlu_total)})\n"
+    f"GSM8K (N={_gsm8k_total}, max_tokens={GSM8K_MAX_TOKENS}): "
+    f"{_gsm8k_correct}/{_gsm8k_total} ({_pct(_gsm8k_correct,_gsm8k_total)})\n"
+    f"Atlanan: {_part_b_skipped}\n{'='*70}\n"
+)
+print(_summary_b); _append_to_log(_summary_b)
+
+try:
+    from google.colab import files as _colab_files
+    _colab_files.download(OUT_PATH)
+except Exception:
+    print(f"ℹ️ Dosyayı {OUT_PATH} yolundan elle indirebilirsiniz.")
+
+print("\n🏁 TEST 95C (SAF HUGGINGFACE) TAMAMLANDI.")
