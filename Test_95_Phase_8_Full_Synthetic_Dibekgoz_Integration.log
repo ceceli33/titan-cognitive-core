@@ -1,0 +1,155 @@
+ 
+torch: 2.11.0+cu128  |  CUDA: 12.8
+✅ GPU: NVIDIA A100-SXM4-80GB
+
+Model yükleniyor...
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 59.1kB/s]
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 835kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 65.4MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 64.5MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 104MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.28MB/s]
+Download complete: : 
+
+ 13.1GB,  622MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  460MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:35<00:00,  6.49s/it]
+Loading weights: 100%
+
+ 339/339 [00:04<00:00, 91.47it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 31.4kB/s]
+✅ Model hazır (28 katman, 3584 boyut)
+
+==============================================================================
+  ADIM 1: ANATOMİK EKSENLER (kontrastif sondalama)
+==============================================================================
+  ✅ biyolojik    çekildi  |v|@L15=26.17
+  ✅ primat       çekildi  |v|@L15=17.66
+  ✅ bipedal      çekildi  |v|@L15=18.54
+  ✅ eller        çekildi  |v|@L15=25.27
+  ✅ kuyruk       çekildi  |v|@L15=23.65
+  (kuyruk ekseni ters çevrildi: itici -> 'kuyruksuz')
+  Süre: 4.1 sn
+
+  Gram-Schmidt korunma oranları:
+    biyolojik    1.000  (0.0% kayıp)
+    primat       0.999  (0.1% kayıp)
+    bipedal      0.980  (2.0% kayıp)
+    eller        0.932  (6.8% kayıp)
+    kuyruk       0.982  (1.8% kayıp)
+
+==============================================================================
+  ADIM 2: TÜR UZAYI (aile merkezi + farklılık altuzayı)
+==============================================================================
+  ✅ 6 tür + 6 dış grup sondalandı.
+
+  Boş koltuk kalitesi (en yakın gerçek türe |cos|, düşük=iyi):
+    L10   0.421
+    L11   0.411
+    L12   0.415
+    L13   0.423
+    L14   0.422
+    L15   0.407
+    L16   0.417
+    L17   0.428
+    L18   0.437
+    L19   0.448
+    L20   0.445
+
+  Ortalama: 0.425
+  (Sentetik testte rastgele yön 0.932, boş koltuk 0.276 vermişti.)
+
+==============================================================================
+  ADIM 3: DİBEKGOZ ÇEKİRDEĞİ
+==============================================================================
+  core = aile_merkezi + 0.55*boş_koltuk + 0.3*anatomi
+  anatomi = 0.35*bipedal + 0.25*kuyruk + 0.25*eller
+
+  Çekirdeğin bileşenlere izdüşümü:
+    L           aile     koltuk  biyolojik     primat    bipedal      eller     kuyruk
+    ----------------------------------------------------------------------------------
+    10        +0.846     +0.468     +0.137     +0.048     +0.152     +0.134     +0.116
+    11        +0.849     +0.461     +0.130     +0.039     +0.129     +0.109     +0.086
+    12        +0.838     +0.482     +0.112     +0.148     +0.156     +0.083     +0.129
+    13        +0.840     +0.478     +0.108     +0.212     +0.155     +0.084     +0.110
+    14        +0.841     +0.477     +0.169     +0.174     +0.187     +0.085     +0.103
+    15        +0.843     +0.474     +0.132     +0.144     +0.189     +0.110     +0.102
+    16        +0.843     +0.472     +0.078     +0.008     +0.174     +0.134     +0.059
+    17        +0.843     +0.473     +0.054     +0.012     +0.185     +0.102     +0.034
+    18        +0.842     +0.474     +0.150     +0.156     +0.212     +0.066     +0.062
+    19        +0.832     +0.493     +0.177     +0.216     +0.233     +0.040     +0.093
+    20        +0.833     +0.491     +0.207     +0.213     +0.232     +0.039     +0.126
+
+==============================================================================
+  ADIM 4: DOĞRULAMA (yeni kriterlerle)
+==============================================================================
+  Eski kriter yanlıştı ('goril en yüksek olsun'). Dibekgoz goril değil.
+  Yeni kriterler:
+    K1: Tüm maymunlara, maymun-olmayanlardan DAHA YAKIN (aile aidiyeti)
+    K2: Hiçbir türe YAPIŞIK değil (max benzerlik makul sınırda)
+    K3: Maymunlar arasında DENGELİ (tek bir türün kopyası değil)
+
+  MAYMUNGİLLER (aile):
+    sempanze           +0.648
+    bonobo             +0.495
+    gibon              +0.477
+    goril              +0.470
+    orangutan          +0.405
+    insan              +0.158
+
+  DIŞ GRUP (aile dışı):
+    kuyruklu_maymun    -0.038
+    kertenkele         -0.273
+    kopek              -0.319
+    robot              -0.365
+    ayi                -0.411
+    kaya               -0.491
+
+  --- KRİTERLER ---
+  K1 aile aidiyeti : en düşük maymun +0.158 > en yüksek dış -0.038   ✅
+  K2 yapışık değil : en yüksek benzerlik +0.648 < 0.80   ✅
+  K3 dengeli       : maymunlar arası yayılım 0.490 < 0.35   ❌
+
+  En yakın akraba: sempanze (+0.648)
+  SONUÇ: 2/3 kriter.
+  → Büyük ölçüde başarılı. Aşama 4'e geçilebilir, Aşama 5'te izlenmeli.
+
+  --- KIYAS: ESKİ 'ÖZELLİK TOPLAMI' YÖNTEMİ ---
+    eski yöntem sıralaması:
+      insan              +0.263
+      sempanze           +0.080
+      goril              +0.066
+    eski yayılım=0.363  vs  yeni yayılım=0.490
+    → Eski yöntem daha dengeliymiş.
+
+✅ Kaydedildi: /content/dibekgoz_pusula_asama3v2.pt
+✅ Kaydedildi: /content/dibekgoz_asama3v2_rapor.json
+
+==============================================================================
+🏁 AŞAMA 3 v2 TAMAMLANDI — 2/3 kriter. Enjeksiyon hâlâ yok.
+   Aşama 4: enjeksiyon mekanizması (sönümlü osilatör + ||h|| oranlı
+   şiddet) ve ilk küçük ölçekli üretim denemesi.
+==============================================================================
+
