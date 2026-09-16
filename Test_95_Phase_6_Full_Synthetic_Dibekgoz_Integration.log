@@ -1,0 +1,186 @@
+ 
+torch: 2.11.0+cu128  |  CUDA: 12.8
+✅ GPU: NVIDIA A100-SXM4-80GB
+
+ℹ️ /content/dibekgoz_asama2_kalibrasyon.pt yok (oturum sıfırlanmış olabilir).
+   Eksenler yeniden sondalanıyor -- Aşama 2 ile birebir aynı
+   promptlar ve yöntem, sonuç özdeş olacak.
+
+Model yükleniyor...
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 80.6kB/s]
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 852kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 63.9MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 68.3MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 124MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 2.99MB/s]
+Download complete: : 
+
+ 13.1GB,  610MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  502MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:36<00:00,  7.22s/it]
+Loading weights: 100%
+
+ 339/339 [00:04<00:00, 92.10it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 27.2kB/s]
+✅ Model hazır (28 katman, gizli boyut 3584)
+
+✅ Yeniden sondalama tamamlandı (56.2 sn)
+
+   Doğrulama -- ayrışma değerleri Aşama 2 ile uyuşmalı:
+     biyolojik      L14=1.065  L20=1.011
+     primat         L14=0.856  L20=1.037
+     bipedal_yeni   L14=0.747  L20=0.742
+     eller          L14=0.933  L20=0.806
+     kuyruk         L14=0.887  L20=0.804
+
+✅ Aşama 2 yüklendi. Gizli boyut=3584
+   Pencere: L10..L20 (11 katman)
+   bipedal kaynağı: bipedal_yeni  (Aşama 2 kararı)
+   kuyruk: TERS ÇEVRİLDİ (itici -> 'kuyruksuz' yönü)
+
+======================================================================
+  ADIM 1: NORMALİZE + GRAM-SCHMIDT (katman başına)
+======================================================================
+  Korunma oranı = ortogonalizasyondan sonra vektörün ne kadarı kaldı.
+  1.00 = hiç kayıp. Düşükse o eksen başkalarıyla çakışıyordu demek.
+
+    L      biyolojik     primat    bipedal      eller     kuyruk
+    ------------------------------------------------------------
+    10         1.000      1.000      0.980      0.954      0.988
+    11         1.000      1.000      0.972      0.937      0.983
+    12         1.000      0.999      0.965      0.917      0.984
+    13         1.000      0.999      0.974      0.900      0.976
+    14         1.000      1.000      0.989      0.924      0.979
+    15         1.000      0.999      0.989      0.924      0.978
+    16         1.000      0.999      0.988      0.925      0.984
+    17         1.000      0.999      0.990      0.922      0.985
+    18         1.000      0.998      0.991      0.929      0.978
+    19         1.000      0.999      0.976      0.954      0.981
+    20         1.000      1.000      0.968      0.963      0.983
+
+  Ortalama korunma:
+    biyolojik    1.000  (0.0% kayıp) ✅
+    primat       0.999  (0.1% kayıp) ✅
+    bipedal      0.980  (2.0% kayıp) ✅
+    eller        0.932  (6.8% kayıp) ✅
+    kuyruk       0.982  (1.8% kayıp) ✅
+
+  Ortogonallik kontrolü (tüm çiftler, tüm katmanlar):
+    En büyük artık |cos| = 9.50e-08  ✅ ortogonal
+
+======================================================================
+  ADIM 2: SENTETİK DİBEKGOZ ÇEKİRDEĞİ
+======================================================================
+  Reçete = 5 eksenin ağırlıklı toplamı + 5'ine de dik 'yenilik' bileşeni.
+  Yenilik ağırlığı = 0.3 (seed=42, yeniden üretilebilir)
+
+  Çekirdeğin bileşenlere izdüşümü (her katmanda):
+    L      biyolojik     primat    bipedal      eller     kuyruk    yenilik
+    -----------------------------------------------------------------------
+    10        +0.484     +0.460     +0.412     +0.412     +0.363     +0.287
+    11        +0.484     +0.460     +0.412     +0.412     +0.363     +0.287
+    12        +0.484     +0.460     +0.412     +0.412     +0.363     +0.287
+    13        +0.484     +0.460     +0.412     +0.412     +0.363     +0.287
+    14        +0.484     +0.460     +0.412     +0.412     +0.363     +0.287
+    15        +0.484     +0.460     +0.412     +0.412     +0.363     +0.287
+    16        +0.484     +0.460     +0.412     +0.412     +0.363     +0.287
+    17        +0.484     +0.460     +0.412     +0.412     +0.363     +0.287
+    18        +0.484     +0.460     +0.412     +0.412     +0.363     +0.287
+    19        +0.484     +0.460     +0.412     +0.412     +0.363     +0.287
+    20        +0.484     +0.460     +0.412     +0.412     +0.363     +0.287
+
+  (Bu sayılar her katmanda aynı olmalı -- reçete sabit, sadece eksenlerin
+   yönü katmandan katmana değişiyor. Aynıysa inşa doğru çalışmış demektir.)
+
+======================================================================
+  ADIM 3: SEMANTİK DOĞRULAMA (enjeksiyondan ÖNCE)
+======================================================================
+  Dibekgoz çekirdeğini referans kavramlarla karşılaştırıyoruz.
+  BEKLENTİ (doğruysa): goril > şempanze > insan > kuyruklu maymun > kaya
+  Sıralama bozuksa, çekirdek yanlış inşa edilmiş demektir -- enjekte
+  etmeden burada anlarız.
+
+
+  Çekirdek ile kosinüs (referans ortalaması çıkarılmış):
+    L              goril       sempanze          insan  kuyruklu_maym          kopek           kaya          robot
+    --------------------------------------------------------------------------------------------------------------
+    10            +0.159         +0.105         +0.248         -0.079         +0.024         -0.191         -0.138
+    11            +0.168         +0.128         +0.232         -0.058         +0.010         -0.223         -0.130
+    12            +0.128         +0.043         +0.269         -0.108         +0.047         -0.187         -0.097
+    13            +0.120         +0.039         +0.268         -0.128         +0.064         -0.202         -0.067
+    14            +0.077         +0.030         +0.256         -0.116         +0.088         -0.164         -0.088
+    15            +0.025         +0.009         +0.220         -0.150         +0.081         -0.114         -0.027
+    16            +0.032         +0.010         +0.205         -0.150         +0.094         -0.097         -0.036
+    17            +0.012         -0.018         +0.200         -0.172         +0.124         -0.071         -0.034
+    18            -0.007         -0.019         +0.228         -0.173         +0.116         -0.062         -0.032
+    19            -0.047         -0.011         +0.263         -0.210         +0.114         -0.049         -0.010
+    20            -0.049         +0.012         +0.316         -0.212         +0.100         -0.068         -0.034
+
+  Pencere ortalaması (yüksekten düşüğe):
+    1. insan              +0.246
+    2. kopek              +0.078
+    3. goril              +0.056
+    4. sempanze           +0.030
+    5. robot              -0.063
+    6. kaya               -0.130
+    7. kuyruklu_maymun    -0.141
+
+  --- TESTLER ---
+  Test 1: kuyruksuz maymunlar > cansızlar?   +0.030 > -0.063   ✅ GEÇTİ
+  Test 2: kuyruksuz maymunlar > kuyruklu?    +0.030 > -0.141   ✅ GEÇTİ
+  Test 3: goril > köpek?                     +0.056 > +0.078   ❌ KALDI
+
+  SONUÇ: 2/3 test geçildi.
+  → Kısmen tutarlı. Aşama 4'e geçilebilir ama Aşama 5'te dikkatli olunmalı.
+
+======================================================================
+  ADIM 4: KATMAN AĞIRLIK PROFİLİ (a priori değil, ölçümden)
+======================================================================
+  Her eksen, kendi ayrışmasının en yüksek olduğu katmanlarda en ağır
+  basacak. w = (ayrışma/max)^2.0, pencere içinde normalize.
+
+    L      biyolojik     primat    bipedal      eller     kuyruk   dibekgoz
+    -----------------------------------------------------------------------
+    10         0.719      0.544      0.678      0.795      0.885      0.162
+    11         0.824      0.602      0.721      0.835      0.916      0.262
+    12         0.923      0.635      0.740      0.919      0.919      0.395
+    13         0.956      0.651      0.756      0.963      0.955      0.552
+    14         1.000      0.681      0.979      1.000      1.000      0.716
+    15         0.922      0.667      0.941      0.954      0.947      0.862
+    16         0.905      0.669      0.948      0.950      0.904      0.963
+    17         0.928      0.640      0.947      0.881      0.838      1.000
+    18         0.912      0.715      0.991      0.877      0.938      0.963
+    19         0.885      0.895      1.000      0.804      0.839      0.862
+    20         0.902      1.000      0.968      0.745      0.821      0.716
+
+✅ Kaydedildi: /content/dibekgoz_pusula_asama3.pt
+✅ Kaydedildi: /content/dibekgoz_asama3_rapor.json
+
+======================================================================
+🏁 AŞAMA 3/6 TAMAMLANDI — matris inşa edildi, enjeksiyon HÂLÂ yok.
+   Aşama 4: enjeksiyon mekanizmasını kurmak (sönümlü osilatör +
+   ||h|| oranlı şiddet) ve ilk küçük ölçekli denemeyi yapmak.
+======================================================================
+
