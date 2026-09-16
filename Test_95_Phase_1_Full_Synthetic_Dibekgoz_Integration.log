@@ -1,0 +1,363 @@
+# =============================================================================
+# TEST 95 — AŞAMA 1/6: KONTRASTİF SONDALAMA (PROBING)
+# =============================================================================
+# BU AŞAMADA HİÇBİR ENJEKSİYON YOK. Tek iş: modelin kendi gizli katmanlarından
+# (L6-L15) 5 kavramsal ekseni kontrastif fark vektörü olarak SÖKÜP ALMAK ve
+# .pt dosyasına kaydetmek.
+#
+# Yöntem: her eksen için N adet pozitif ve N adet negatif cümle. Model bunları
+# işlerken L6-L15'in residual stream çıktısı yakalanır. Eksen vektörü:
+#     v_axis[L] = mean(pozitif hidden[L]) - mean(negatif hidden[L])
+# Bu, literatürdeki "difference-in-means" yöntemidir (Marks & Tegmark, CAA).
+# Dibekgoz'un KENDİSİ burada çekilmiyor -- modelde o token yok. O, Aşama 3'te
+# sentetik olarak inşa edilecek. Burada sadece onu TAŞIYACAK anatomik iskele
+# çekiliyor.
+#
+# ÇIKTI: dibekgoz_eksenler_asama1.pt  +  ekrana tanı raporu
+# =============================================================================
+
+import os, gc, json, time
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+MODEL_ID    = "Qwen/Qwen2.5-7B-Instruct"
+TARGET_LAYERS = list(range(6, 16))      # L6..L15 (10 katman)
+OUT_PT      = "/content/dibekgoz_eksenler_asama1.pt"
+OUT_JSON    = "/content/dibekgoz_asama1_rapor.json"
+
+print(f"torch: {torch.__version__}  |  CUDA: {torch.version.cuda}")
+if not torch.cuda.is_available():
+    raise SystemExit("❌ GPU yok. Runtime → Change runtime type → A100.")
+print(f"✅ GPU: {torch.cuda.get_device_name(0)} "
+      f"({torch.cuda.get_device_properties(0).total_memory/1e9:.1f}GB)\n")
+
+# =============================================================================
+# 5 EKSEN — KONTRASTİF CÜMLE ÇİFTLERİ
+# =============================================================================
+# Her eksen için 8 pozitif + 8 negatif. Çoklu cümle, tek cümlenin kendine özgü
+# gürültüsünü ortalamayla bastırmak için. Cümleler düz metin (chat şablonu yok)
+# çünkü şablon token'ları kavramsal sinyali sulandırır.
+
+AXES = {
+    "biyolojik": {
+        "rol": "V6 — Taksonomi çekicisi: canlı/organik uzayı tetikler",
+        "pozitif": [
+            "A living organism with cells, tissues, and a beating heart.",
+            "A biological creature that breathes, eats, and grows.",
+            "A warm-blooded animal with flesh, blood, and bone.",
+            "A living being born from a mother and capable of reproduction.",
+            "An organic life form with muscles, skin, and a nervous system.",
+            "A creature of flesh and blood that ages and eventually dies.",
+            "A living animal whose body is made of organic tissue.",
+            "A breathing, metabolizing biological entity found in nature.",
+        ],
+        "negatif": [
+            "A lifeless object made of metal, plastic, and wire.",
+            "An inanimate machine with gears, circuits, and no biology.",
+            "An abstract mathematical concept with no physical body.",
+            "A manufactured tool assembled in a factory from parts.",
+            "A non-living artifact carved from stone and never alive.",
+            "A synthetic construct of steel that has no cells or organs.",
+            "A rigid mechanical device that cannot grow or reproduce.",
+            "An artificial object with no metabolism and no life.",
+        ],
+    },
+    "primat": {
+        "rol": "V7-V8 — Familya/morfoloji: primat ve goril uzayına çeker",
+        "pozitif": [
+            "A large ape with a broad chest, thick fur, and a flat face.",
+            "A gorilla-like primate with powerful shoulders and dark hair.",
+            "A great ape resembling a chimpanzee or orangutan in build.",
+            "A primate with a heavy brow ridge and an expressive face.",
+            "An ape with a muscular torso covered in coarse black hair.",
+            "A hominid-shaped creature with a broad back and long arms.",
+            "A primate resembling a mountain gorilla in size and posture.",
+            "An ape-bodied animal with thick limbs and a rounded skull.",
+        ],
+        "negatif": [
+            "A scaly fish with fins and gills swimming in deep water.",
+            "A feathered bird with a beak and hollow wing bones.",
+            "A cold reptile covered in scales with a flat wedge head.",
+            "A soft-bodied insect with a chitin shell and six thin legs.",
+            "A slimy amphibian with moist smooth skin and webbed feet.",
+            "A hoofed grazing animal with a long neck and narrow snout.",
+            "A shelled mollusk with tentacles and no skeleton at all.",
+            "A furred rodent with whiskers, small ears, and sharp teeth.",
+        ],
+    },
+    "bipedal": {
+        "rol": "V9 — Alt ekstremite: iki ayak üstünde dik duruş",
+        "pozitif": [
+            "It stands upright on two legs with its spine held vertical.",
+            "A creature that walks on two feet in an erect posture.",
+            "It balances on two hind legs, standing tall and upright.",
+            "A bipedal being that strides forward on two sturdy legs.",
+            "It carries itself vertically, weight resting on two feet.",
+            "A two-legged creature whose torso rises above its hips.",
+            "It walks erect on a pair of legs, hands free of the ground.",
+            "A creature with an upright bipedal gait on two strong feet.",
+        ],
+        "negatif": [
+            "It crawls on its belly, dragging its body along the ground.",
+            "A creature that moves on four legs with its back horizontal.",
+            "It slithers low across the earth with no legs at all.",
+            "A quadruped whose four limbs all touch the ground while moving.",
+            "It scuttles sideways on many jointed legs close to the soil.",
+            "A creature that swims, propelling itself with a flattened tail.",
+            "It gallops on four hooves with its spine parallel to the ground.",
+            "A low animal that pads about on all fours, belly near the dirt.",
+        ],
+    },
+    "eller": {
+        "rol": "V10 — Üst ekstremite: kavrayan iki el, parmaklar",
+        "pozitif": [
+            "It has two hands with fingers that can grip and hold objects.",
+            "A creature with dexterous hands and an opposable thumb.",
+            "Its two upper limbs end in five-fingered grasping hands.",
+            "It can pick up, grasp, and manipulate things with its hands.",
+            "A being with a pair of hands capable of fine manipulation.",
+            "Its fingers curl to grip branches, tools, and food firmly.",
+            "Two arms ending in hands that can hold and carry objects.",
+            "It uses its hands and fingers to grasp and examine things.",
+        ],
+        "negatif": [
+            "Its limbs end in blunt hooves that cannot grasp anything.",
+            "It has mechanical pincers and rigid metal clamps for ends.",
+            "Its forelimbs end in solid paws with no separate fingers.",
+            "It moves on wheels and has no limbs or appendages at all.",
+            "Its arms terminate in sharp fixed claws that cannot open.",
+            "It has stiff flippers unable to hold or manipulate objects.",
+            "Its limbs end in flat stumps with no digits whatsoever.",
+            "It possesses rigid mechanical arms with welded fixed tips.",
+        ],
+    },
+    "kuyruk": {
+        "rol": "V11 — REPULSOR: kuyruk ekseni (İTİCİ olarak, ters işaretle kullanılacak)",
+        "pozitif": [
+            "A long tail extends from the base of its spine behind it.",
+            "It has a thick tail that trails along the ground as it moves.",
+            "A prehensile tail curls from its rear, gripping branches.",
+            "Its body ends in a long tapering tail swaying behind it.",
+            "A bushy tail sprouts from its lower back and hangs down.",
+            "The creature's tail whips from side to side as it walks.",
+            "A muscular tail extends backward from its hindquarters.",
+            "It has a visible tail attached at the end of its spine.",
+        ],
+        "negatif": [
+            "It has no tail at all; its spine ends smoothly at the hips.",
+            "A tailless creature with a flat, rounded rear and no appendage.",
+            "Its back terminates cleanly with no tail of any kind.",
+            "The creature is completely tailless, like a gorilla or a human.",
+            "No tail projects from its body; the lower back is smooth.",
+            "It lacks a tail entirely, its rump plain and unbroken.",
+            "A tailless anatomy with nothing extending from the spine's end.",
+            "Its spine simply ends; there is no tail behind the creature.",
+        ],
+    },
+}
+
+# =============================================================================
+# MODEL YÜKLEME
+# =============================================================================
+print("Model yükleniyor (bf16, sdpa, kuantizasyon yok)...")
+tok = AutoTokenizer.from_pretrained(MODEL_ID)
+if tok.pad_token is None:
+    tok.pad_token = tok.eos_token
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID, device_map="auto", trust_remote_code=True,
+    low_cpu_mem_usage=True, dtype=torch.bfloat16, attn_implementation="sdpa")
+model.eval()
+device = next(model.parameters()).device
+HIDDEN = model.config.hidden_size
+N_LAYERS = model.config.num_hidden_layers
+print(f"✅ Model hazır. Katman: {N_LAYERS}  |  Gizli boyut: {HIDDEN}  |  dtype: {model.dtype}")
+print(f"   Hedef katmanlar: L{TARGET_LAYERS[0]}..L{TARGET_LAYERS[-1]} ({len(TARGET_LAYERS)} katman)\n")
+
+assert max(TARGET_LAYERS) < N_LAYERS, "Hedef katman model derinliğini aşıyor!"
+
+# =============================================================================
+# HOOK ALTYAPISI — sadece OKUMA, hiçbir değişiklik yok
+# =============================================================================
+_captured = {}
+
+def _make_hook(layer_idx):
+    def _hook(module, inputs, output):
+        # Qwen decoder layer çıktısı tuple; ilk eleman hidden states
+        h = output[0] if isinstance(output, tuple) else output
+        # [batch, seq, hidden] -> fp32'ye çevir (hassasiyet için), CPU'ya al
+        _captured[layer_idx] = h.detach().to(torch.float32).cpu()
+    return _hook
+
+_handles = []
+for li in TARGET_LAYERS:
+    _handles.append(model.model.layers[li].register_forward_hook(_make_hook(li)))
+print(f"✅ {len(_handles)} adet OKUMA hook'u kuruldu (yazma yok).\n")
+
+@torch.no_grad()
+def probe(text):
+    """Tek bir cümleyi işler, L6-L15 gizli durumlarını döndürür.
+    Hem son-token hem de ortalama-token temsili alınır."""
+    _captured.clear()
+    enc = tok(text, return_tensors="pt").to(device)
+    model(**enc)
+    out_last, out_mean = {}, {}
+    for li in TARGET_LAYERS:
+        h = _captured[li][0]            # [seq, hidden]
+        out_last[li] = h[-1].clone()    # son token
+        out_mean[li] = h.mean(dim=0)    # tüm token ortalaması
+    return out_last, out_mean
+
+# =============================================================================
+# SONDALAMA — 5 eksen x (8 pozitif + 8 negatif) x 10 katman
+# =============================================================================
+axes_last = {}   # eksen -> {katman: vektör}
+axes_mean = {}
+raw_stats = {}
+
+t_start = time.time()
+for ax_name, ax in AXES.items():
+    print(f"{'='*70}\n  EKSEN: {ax_name}  ({ax['rol']})\n{'='*70}")
+    acc = {"pos_last": {li: [] for li in TARGET_LAYERS},
+           "neg_last": {li: [] for li in TARGET_LAYERS},
+           "pos_mean": {li: [] for li in TARGET_LAYERS},
+           "neg_mean": {li: [] for li in TARGET_LAYERS}}
+
+    for kind, sents in (("pos", ax["pozitif"]), ("neg", ax["negatif"])):
+        for i, s in enumerate(sents, 1):
+            last, mean = probe(s)
+            for li in TARGET_LAYERS:
+                acc[f"{kind}_last"][li].append(last[li])
+                acc[f"{kind}_mean"][li].append(mean[li])
+            print(f"  [{kind}] {i}/{len(sents)} işlendi", end="\r")
+        print(f"  [{kind}] {len(sents)}/{len(sents)} tamamlandı.      ")
+
+    # Fark-of-ortalamalar (difference-in-means)
+    v_last, v_mean = {}, {}
+    stats = {}
+    for li in TARGET_LAYERS:
+        p_l = torch.stack(acc["pos_last"][li]).mean(0)
+        n_l = torch.stack(acc["neg_last"][li]).mean(0)
+        p_m = torch.stack(acc["pos_mean"][li]).mean(0)
+        n_m = torch.stack(acc["neg_mean"][li]).mean(0)
+        d_l, d_m = p_l - n_l, p_m - n_m
+        v_last[li], v_mean[li] = d_l, d_m
+        # Ayrışma ölçüsü: pozitif ve negatif kümelerin içsel dağılımına göre
+        # fark ne kadar büyük? (yüksek = eksen temiz ayrışmış)
+        spread = (torch.stack(acc["pos_last"][li]).std(0).mean()
+                  + torch.stack(acc["neg_last"][li]).std(0).mean()) / 2
+        stats[li] = {
+            "fark_normu_last": float(d_l.norm()),
+            "fark_normu_mean": float(d_m.norm()),
+            "kume_ici_yayilim": float(spread),
+            "ayrisma_orani": float(d_l.norm() / (spread * (HIDDEN ** 0.5) + 1e-9)),
+            "pos_norm": float(p_l.norm()), "neg_norm": float(n_l.norm()),
+        }
+    axes_last[ax_name], axes_mean[ax_name] = v_last, v_mean
+    raw_stats[ax_name] = stats
+
+    print(f"  Katman bazlı fark normu (last-token):")
+    for li in TARGET_LAYERS:
+        st = stats[li]
+        print(f"    L{li:<3} |v|={st['fark_normu_last']:8.3f}  "
+              f"yayılım={st['kume_ici_yayilim']:6.3f}  "
+              f"ayrışma={st['ayrisma_orani']:.4f}")
+    print()
+
+for h in _handles:
+    h.remove()
+print(f"✅ Tüm hook'lar kaldırıldı. Sondalama süresi: {time.time()-t_start:.1f} sn\n")
+
+# =============================================================================
+# TANI RAPORU — eksenler birbirinden gerçekten ayrı mı?
+# =============================================================================
+def cos(a, b):
+    return float(torch.nn.functional.cosine_similarity(a.unsqueeze(0), b.unsqueeze(0)))
+
+print(f"{'='*70}\n  TANI 1: EKSENLER ARASI KOSİNÜS (last-token)\n{'='*70}")
+print("  Düşük |cos| = eksenler bağımsız (İYİ). Yüksek = çakışma var (Aşama 3'te")
+print("  Gram-Schmidt bunu zaten temizleyecek, ama büyük çakışma bilgi kaybı demek.\n")
+
+names = list(AXES.keys())
+cross = {}
+for li in [TARGET_LAYERS[0], TARGET_LAYERS[len(TARGET_LAYERS)//2], TARGET_LAYERS[-1]]:
+    print(f"  --- L{li} ---")
+    hdr = "         " + "".join(f"{n[:9]:>11}" for n in names)
+    print(hdr)
+    for a in names:
+        row = f"  {a[:8]:<8}"
+        for b in names:
+            c = cos(axes_last[a][li], axes_last[b][li])
+            cross[f"L{li}:{a}|{b}"] = c
+            row += f"{c:>+11.3f}"
+        print(row)
+    print()
+
+print(f"{'='*70}\n  TANI 2: KATMANLAR ARASI TUTARLILIK (aynı eksen, L6 vs LN)\n{'='*70}")
+print("  Yüksek cos = eksen katmanlar boyunca kararlı (İYİ, tek yön var).")
+print("  Düşük/negatif = eksen katman değiştikçe dönüyor (dikkat gerektirir).\n")
+layer_consistency = {}
+for a in names:
+    base = axes_last[a][TARGET_LAYERS[0]]
+    vals = [cos(base, axes_last[a][li]) for li in TARGET_LAYERS]
+    layer_consistency[a] = vals
+    s = "  ".join(f"L{li}:{v:+.2f}" for li, v in zip(TARGET_LAYERS, vals))
+    print(f"  {a:<11} {s}")
+print()
+
+print(f"{'='*70}\n  TANI 3: EN GÜÇLÜ SİNYAL HANGİ KATMANDA?\n{'='*70}")
+print("  Ayrışma oranı en yüksek katman = o eksen için en 'temiz' sonda noktası.\n")
+best_layers = {}
+for a in names:
+    best = max(TARGET_LAYERS, key=lambda li: raw_stats[a][li]["ayrisma_orani"])
+    best_layers[a] = best
+    print(f"  {a:<11} en güçlü: L{best}  "
+          f"(ayrışma={raw_stats[a][best]['ayrisma_orani']:.4f})")
+print()
+
+# =============================================================================
+# KAYDET
+# =============================================================================
+payload = {
+    "model_id": MODEL_ID,
+    "hidden_size": HIDDEN,
+    "target_layers": TARGET_LAYERS,
+    "axis_names": names,
+    "axis_roles": {a: AXES[a]["rol"] for a in names},
+    "axes_last": {a: {li: axes_last[a][li] for li in TARGET_LAYERS} for a in names},
+    "axes_mean": {a: {li: axes_mean[a][li] for li in TARGET_LAYERS} for a in names},
+    "prompts": {a: {"pozitif": AXES[a]["pozitif"], "negatif": AXES[a]["negatif"]}
+                for a in names},
+    "stats": raw_stats,
+    "cross_cosine": cross,
+    "layer_consistency": layer_consistency,
+    "best_layers": best_layers,
+    "note": ("AŞAMA 1 çıktısı. Bunlar HAM kontrastif fark vektörleri -- henüz "
+             "normalize edilmedi, ortogonalize edilmedi, hiçbir yere enjekte "
+             "edilmedi. Dibekgoz çekirdeği burada YOK (Aşama 3'te sentetik "
+             "olarak inşa edilecek). 'kuyruk' ekseni İTİCİ olarak ters "
+             "işaretle kullanılacak."),
+}
+torch.save(payload, OUT_PT)
+print(f"✅ Eksenler kaydedildi: {OUT_PT}")
+
+json_report = {k: v for k, v in payload.items()
+               if k not in ("axes_last", "axes_mean")}
+with open(OUT_JSON, "w", encoding="utf-8") as f:
+    json.dump(json_report, f, ensure_ascii=False, indent=2)
+print(f"✅ Tanı raporu kaydedildi: {OUT_JSON}")
+
+try:
+    from google.colab import files as _cf
+    _cf.download(OUT_PT); _cf.download(OUT_JSON)
+except Exception:
+    print("ℹ️ Dosyaları /content/ altından elle indirebilirsiniz.")
+
+print(f"\n{'='*70}")
+print("🏁 AŞAMA 1/6 TAMAMLANDI — hiçbir enjeksiyon yapılmadı, sadece okuma.")
+print("   Sonraki adım (Aşama 2): bu tanı çıktılarını birlikte yorumlayıp")
+print("   hangi eksenlerin sağlam, hangilerinin zayıf olduğuna karar vermek.")
+print(f"{'='*70}")
