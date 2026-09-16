@@ -1,0 +1,566 @@
+# =============================================================================
+# TEST 95 — AŞAMA 4/6: İLK ENJEKSİYON + ŞİDDET TARAMASI
+# =============================================================================
+# Üç aşama boyunca hiçbir şeye dokunmadık. Şimdi İLK KEZ modelin gizli
+# katmanlarına yazıyoruz:  h <- h + k(L) * core(L)
+#
+# ŞİDDET NASIL BELİRLENİYOR (körlemesine değil):
+#   k(L) = alpha * zarf(L) * ||h||
+#   • ||h|| CANLI ölçülüyor (her token, her katman) -- sabit tablo değil.
+#     Böylece L10'da (||h||~53) ve L20'de (||h||~109) aynı ORANDA müdahale
+#     oluyor, aynı mutlak büyüklükte değil. Aşama 2'de ||h||'nin derinlikle
+#     6.6 kat büyüdüğünü ölçmüştük; bu yüzden oransal olmak şart.
+#   • zarf(L): pencere ortasında zirve yapan çan eğrisi + taban. Tek katmana
+#     saplamak şok yaratır; kademeli giriş/çıkış bunu önler.
+#   • alpha: TARANACAK. 0'dan başlayıp modelin bozulduğu noktaya kadar.
+#
+# NE ARIYORUZ — üç bölge olmasını bekliyoruz:
+#   1. Çok zayıf : model Dibekgoz'u tanımıyor, uyduruyor ya da reddediyor
+#   2. ÇALIŞAN   : tutarlı, maymungil bir yaratık tarif ediyor  <-- hedef
+#   3. Çok güçlü : dil bozuluyor, tekrar/anlamsızlık başlıyor
+#   Bu üç bölgeyi de GÖRMEK istiyoruz; bozulmayı görmek de bilgidir.
+#
+# GÜVENLİK ÖLÇÜMLERİ (her alpha için):
+#   • tekrar oranı (bozulmanın ilk işareti)
+#   • üretilen token sayısı
+#   • ||h|| değişimi (enjeksiyon öncesi/sonrası)
+#   • ham metin (asıl karar buna bakarak verilecek)
+#
+# ÇIKTI: dibekgoz_asama4_tarama.json + ekrana tüm metinler
+# =============================================================================
+
+import os, json, math, time, re
+from collections import Counter
+import torch
+import torch.nn.functional as F
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+torch.backends.cudnn.deterministic = True
+
+MODEL_ID  = "Qwen/Qwen2.5-7B-Instruct"
+PUSULA_PT = "/content/dibekgoz_pusula_asama3v3.pt"
+OUT_JSON  = "/content/dibekgoz_asama4_tarama.json"
+
+ALPHA_GRID  = [0.00, 0.03, 0.06, 0.10, 0.15, 0.22, 0.32]
+MAX_TOKENS  = 320
+TEMPERATURE = 0.0          # deterministik -- Test 88'den beri standart
+ENVELOPE_FLOOR = 0.25      # kenar katmanlarda kalan minimum etki
+
+print(f"torch: {torch.__version__}  |  CUDA: {torch.version.cuda}")
+if not torch.cuda.is_available():
+    raise SystemExit("❌ GPU yok.")
+print(f"✅ GPU: {torch.cuda.get_device_name(0)}\n")
+
+# =============================================================================
+# KONTRASTİF PROMPTLAR (Aşama 1-2 ile birebir aynı) -- yeniden inşa için
+# =============================================================================
+AXES = {
+    "biyolojik": {
+        "pozitif": [
+            "A living organism with cells, tissues, and a beating heart.",
+            "A biological creature that breathes, eats, and grows.",
+            "A warm-blooded animal with flesh, blood, and bone.",
+            "A living being born from a mother and capable of reproduction.",
+            "An organic life form with muscles, skin, and a nervous system.",
+            "A creature of flesh and blood that ages and eventually dies.",
+            "A living animal whose body is made of organic tissue.",
+            "A breathing, metabolizing biological entity found in nature.",
+        ],
+        "negatif": [
+            "A lifeless object made of metal, plastic, and wire.",
+            "An inanimate machine with gears, circuits, and no biology.",
+            "An abstract mathematical concept with no physical body.",
+            "A manufactured tool assembled in a factory from parts.",
+            "A non-living artifact carved from stone and never alive.",
+            "A synthetic construct of steel that has no cells or organs.",
+            "A rigid mechanical device that cannot grow or reproduce.",
+            "An artificial object with no metabolism and no life.",
+        ],
+    },
+    "primat": {
+        "pozitif": [
+            "A large ape with a broad chest, thick fur, and a flat face.",
+            "A gorilla-like primate with powerful shoulders and dark hair.",
+            "A great ape resembling a chimpanzee or orangutan in build.",
+            "A primate with a heavy brow ridge and an expressive face.",
+            "An ape with a muscular torso covered in coarse black hair.",
+            "A hominid-shaped creature with a broad back and long arms.",
+            "A primate resembling a mountain gorilla in size and posture.",
+            "An ape-bodied animal with thick limbs and a rounded skull.",
+        ],
+        "negatif": [
+            "A scaly fish with fins and gills swimming in deep water.",
+            "A feathered bird with a beak and hollow wing bones.",
+            "A cold reptile covered in scales with a flat wedge head.",
+            "A soft-bodied insect with a chitin shell and six thin legs.",
+            "A slimy amphibian with moist smooth skin and webbed feet.",
+            "A hoofed grazing animal with a long neck and narrow snout.",
+            "A shelled mollusk with tentacles and no skeleton at all.",
+            "A furred rodent with whiskers, small ears, and sharp teeth.",
+        ],
+    },
+    # --- ESKİ bipedal (Aşama 1'deki haliyle, referans olarak) ---
+    "bipedal_eski": {
+        "pozitif": [
+            "It stands upright on two legs with its spine held vertical.",
+            "A creature that walks on two feet in an erect posture.",
+            "It balances on two hind legs, standing tall and upright.",
+            "A bipedal being that strides forward on two sturdy legs.",
+            "It carries itself vertically, weight resting on two feet.",
+            "A two-legged creature whose torso rises above its hips.",
+            "It walks erect on a pair of legs, hands free of the ground.",
+            "A creature with an upright bipedal gait on two strong feet.",
+        ],
+        "negatif": [
+            "It crawls on its belly, dragging its body along the ground.",
+            "A creature that moves on four legs with its back horizontal.",
+            "It slithers low across the earth with no legs at all.",
+            "A quadruped whose four limbs all touch the ground while moving.",
+            "It scuttles sideways on many jointed legs close to the soil.",
+            "A creature that swims, propelling itself with a flattened tail.",
+            "It gallops on four hooves with its spine parallel to the ground.",
+            "A low animal that pads about on all fours, belly near the dirt.",
+        ],
+    },
+    # --- ONARILMIŞ bipedal: TÜR SABİT (hep ape/primat), SADECE DURUŞ değişiyor ---
+    "bipedal_yeni": {
+        "pozitif": [
+            "The ape stands upright on two legs, its spine held vertical.",
+            "The ape walks erect on two feet, hands free of the ground.",
+            "The primate rises onto its hind legs and stands tall.",
+            "The ape moves bipedally, torso upright above its two feet.",
+            "The great ape strides forward on two legs, back straight.",
+            "The primate holds an erect posture, balanced on two feet.",
+            "The ape's body is vertical, supported by two legs alone.",
+            "The primate stands on two feet with an upright human-like gait.",
+        ],
+        "negatif": [
+            "The ape walks on all fours, knuckles pressed to the ground.",
+            "The ape moves quadrupedally, back horizontal above four limbs.",
+            "The primate knuckle-walks, its forelimbs bearing its weight.",
+            "The ape crouches forward on four limbs, spine parallel to earth.",
+            "The great ape lumbers on all fours, hands touching the soil.",
+            "The primate moves on four points of contact, torso low.",
+            "The ape's forelimbs support its body as it walks on all fours.",
+            "The primate travels quadrupedally with its chest near the ground.",
+        ],
+    },
+    "eller": {
+        "pozitif": [
+            "It has two hands with fingers that can grip and hold objects.",
+            "A creature with dexterous hands and an opposable thumb.",
+            "Its two upper limbs end in five-fingered grasping hands.",
+            "It can pick up, grasp, and manipulate things with its hands.",
+            "A being with a pair of hands capable of fine manipulation.",
+            "Its fingers curl to grip branches, tools, and food firmly.",
+            "Two arms ending in hands that can hold and carry objects.",
+            "It uses its hands and fingers to grasp and examine things.",
+        ],
+        "negatif": [
+            "Its limbs end in blunt hooves that cannot grasp anything.",
+            "It has mechanical pincers and rigid metal clamps for ends.",
+            "Its forelimbs end in solid paws with no separate fingers.",
+            "It moves on wheels and has no limbs or appendages at all.",
+            "Its arms terminate in sharp fixed claws that cannot open.",
+            "It has stiff flippers unable to hold or manipulate objects.",
+            "Its limbs end in flat stumps with no digits whatsoever.",
+            "It possesses rigid mechanical arms with welded fixed tips.",
+        ],
+    },
+    "kuyruk": {
+        "pozitif": [
+            "A long tail extends from the base of its spine behind it.",
+            "It has a thick tail that trails along the ground as it moves.",
+            "A prehensile tail curls from its rear, gripping branches.",
+            "Its body ends in a long tapering tail swaying behind it.",
+            "A bushy tail sprouts from its lower back and hangs down.",
+            "The creature's tail whips from side to side as it walks.",
+            "A muscular tail extends backward from its hindquarters.",
+            "It has a visible tail attached at the end of its spine.",
+        ],
+        "negatif": [
+            "It has no tail at all; its spine ends smoothly at the hips.",
+            "A tailless creature with a flat, rounded rear and no appendage.",
+            "Its back terminates cleanly with no tail of any kind.",
+            "The creature is completely tailless, like a gorilla or a human.",
+            "No tail projects from its body; the lower back is smooth.",
+            "It lacks a tail entirely, its rump plain and unbroken.",
+            "A tailless anatomy with nothing extending from the spine's end.",
+            "Its spine simply ends; there is no tail behind the creature.",
+        ],
+    },
+}
+
+# =============================================================================
+# KENDİ KENDİNE YETERLİLİK — pusula yoksa sıfırdan yeniden inşa et
+# =============================================================================
+# Colab oturumu sıfırlandığında /content temizlenir. Bu bölüm, Aşama 1-3.6'nın
+# TAMAMINI (sondalama + boş koltuk + çekirdek) yeniden üretir. Aşama 3.6'nın
+# kararlaştırdığı parametreler sabitlenmiş durumda, yani sonuç birebir aynı
+# olacak -- rastgelelik sadece sabit seed'li boş koltuk aramasında ve o da
+# yeniden üretilebilir.
+# =============================================================================
+REBUILD = {
+    "WINDOW": list(range(10, 21)),
+    "SEED": 42,
+    "SUBSPACE_K": 4,
+    "N_SEAT": 300000,
+    "BETA_SEAT": 1.00,        # Aşama 3.6 taramasının seçtiği değer
+    "GAMMA_ANAT": 0.30,
+    "ANATOMY": {"bipedal": 0.35, "kuyruk": 0.25, "eller": 0.25},
+}
+
+SPECIES_PROMPTS = {
+    "goril":     "A gorilla, a species of great ape native to the forests of central Africa.",
+    "sempanze":  "A chimpanzee, a species of great ape native to the forests of equatorial Africa.",
+    "orangutan": "An orangutan, a species of great ape native to the rainforests of Borneo and Sumatra.",
+    "bonobo":    "A bonobo, a species of great ape native to the forests of the Congo basin.",
+    "gibon":     "A gibbon, a species of lesser ape native to the tropical forests of Southeast Asia.",
+    "insan":     "A human, a species of great ape native to every continent on Earth.",
+}
+OUTGROUP_PROMPTS = {
+    "kuyruklu_maymun": "A spider monkey, a species of monkey with a long prehensile tail.",
+    "kopek":           "A dog, a four-legged domesticated mammal with paws and a wagging tail.",
+    "ayi":             "A bear, a large furry quadruped mammal with heavy paws.",
+    "kertenkele":      "A lizard, a scaly cold-blooded reptile with four short legs and a tail.",
+    "kaya":            "A rock, a lifeless lump of grey mineral stone.",
+    "robot":           "An industrial robot, a metal machine with hydraulic arms.",
+}
+
+def rebuild_pusula(tok, model, device):
+    """Aşama 1-3.6'yı sıfırdan tekrarlar. ~15 sn."""
+    import torch.nn.functional as _F
+    W = REBUILD["WINDOW"]
+    D = model.config.hidden_size
+    cap = {}
+    def mk(li):
+        def h(m, i, o):
+            x = o[0] if isinstance(o, tuple) else o
+            cap[li] = x.detach().to(torch.float32).cpu()
+        return h
+    hs = [model.model.layers[li].register_forward_hook(mk(li)) for li in W]
+
+    @torch.no_grad()
+    def pr(t):
+        cap.clear()
+        enc = tok(t, return_tensors="pt").to(device)
+        model(**enc)
+        return {li: cap[li][0][-1].clone() for li in W}
+
+    # --- anatomik eksenler ---
+    use = ["biyolojik", "primat", "bipedal_yeni", "eller", "kuyruk"]
+    ren = {"bipedal_yeni": "bipedal"}
+    order = [ren.get(a, a) for a in use]
+    flip = {"kuyruk": -1.0}
+    raw = {}
+    for ax in use:
+        d = AXES[ax]
+        P = [pr(s) for s in d["pozitif"]]
+        N = [pr(s) for s in d["negatif"]]
+        raw[ren.get(ax, ax)] = {
+            li: torch.stack([p[li] for p in P]).mean(0)
+               - torch.stack([n[li] for n in N]).mean(0) for li in W}
+
+    # --- türler ---
+    sp  = {n: pr(t) for n, t in SPECIES_PROMPTS.items()}
+    og  = {n: pr(t) for n, t in OUTGROUP_PROMPTS.items()}
+    for h in hs: h.remove()
+
+    # --- Gram-Schmidt ---
+    def gs(vs):
+        b = []
+        for v in vs:
+            w = v.clone()
+            for x in b: w = w - (w @ x) * x
+            b.append(w / (w.norm() + 1e-9))
+        return b
+    ortho = {}
+    for li in W:
+        vs = [_F.normalize(raw[a][li] * flip.get(a, 1.0), dim=0) for a in order]
+        bb = gs(vs)
+        ortho[li] = {a: bb[i] for i, a in enumerate(order)}
+
+    # --- merkezleme ---
+    ALL = {**sp, **og}
+    mh = {li: torch.stack([ALL[n][li] for n in ALL]).mean(0) for li in W}
+    spc = {n: {li: sp[n][li] - mh[li] for li in W} for n in SPECIES_PROMPTS}
+    ogc = {n: {li: og[n][li] - mh[li] for li in W} for n in OUTGROUP_PROMPTS}
+
+    # --- aile merkezi + boş koltuk ---
+    fam, seat, seatq = {}, {}, {}
+    for li in W:
+        S = torch.stack([_F.normalize(spc[n][li], dim=0) for n in SPECIES_PROMPTS])
+        cen = _F.normalize(S.mean(0), dim=0)
+        fam[li] = cen
+        dev = S - (S @ cen).unsqueeze(1) * cen.unsqueeze(0)
+        _, _, Vh = torch.linalg.svd(dev, full_matrices=False)
+        B = Vh[:min(REBUILD["SUBSPACE_K"], Vh.shape[0])]
+        co = dev @ B.T
+        co = co / (co.norm(dim=1, keepdim=True) + 1e-9)
+        g = torch.Generator().manual_seed(REBUILD["SEED"] + li)
+        C = torch.randn(REBUILD["N_SEAT"], B.shape[0], generator=g)
+        C = C / C.norm(dim=1, keepdim=True)
+        worst = (C @ co.T).abs().max(dim=1).values
+        i = int(worst.argmin())
+        seatq[li] = float(worst[i])
+        seat[li] = _F.normalize(C[i] @ B, dim=0)
+
+    # --- çekirdek ---
+    core = {}
+    for li in W:
+        anat = torch.zeros(D)
+        for a, w in REBUILD["ANATOMY"].items():
+            anat = anat + w * ortho[li][a]
+        anat = _F.normalize(anat, dim=0)
+        core[li] = _F.normalize(fam[li] + REBUILD["BETA_SEAT"] * seat[li]
+                                + REBUILD["GAMMA_ANAT"] * anat, dim=0)
+
+    # --- doğrulama (Aşama 3.6 sayılarıyla karşılaştırılabilsin) ---
+    def cm(c, r):
+        return sum(float(_F.cosine_similarity(c[li].unsqueeze(0), r[li].unsqueeze(0)))
+                   for li in W) / len(W)
+    sps = {n: cm(core, spc[n]) for n in SPECIES_PROMPTS}
+    ogs = {n: cm(core, ogc[n]) for n in OUTGROUP_PROMPTS}
+    prof = {"aile_marji": min(sps.values()) - max(ogs.values()),
+            "yayilim": max(sps.values()) - min(sps.values()),
+            "max_benzerlik": max(sps.values())}
+    return {
+        "window": W, "hidden_size": D, "dibekgoz_core": core,
+        "ortho_axes": ortho, "family_dir": fam, "seat_dir": seat,
+        "method": "bos_koltuk_v3_LOO (yeniden inşa)",
+        "params": {"BETA_SEAT": REBUILD["BETA_SEAT"],
+                   "GAMMA_ANAT": REBUILD["GAMMA_ANAT"],
+                   "ANATOMY": REBUILD["ANATOMY"],
+                   "SUBSPACE_K": REBUILD["SUBSPACE_K"], "SEED": REBUILD["SEED"]},
+        "dibekgoz_profile": prof, "species_scores": sps, "outgroup_scores": ogs,
+        "seat_quality": seatq,
+    }
+
+
+_HAVE_PT = os.path.exists(PUSULA_PT)
+if _HAVE_PT:
+    print(f"✅ Pusula dosyası bulundu: {PUSULA_PT}")
+else:
+    print(f"ℹ️ {PUSULA_PT} yok (oturum sıfırlanmış).")
+    print("   Pusula SIFIRDAN yeniden inşa edilecek (Aşama 1-3.6'nın tamamı,")
+    print("   sabitlenmiş parametrelerle, ~15 sn). Sonuç birebir aynı olacak.")
+WINDOW = REBUILD["WINDOW"]
+
+# =============================================================================
+# ZARF — katman derinliğine göre müdahale profili
+# =============================================================================
+mid = (WINDOW[0] + WINDOW[-1]) / 2.0
+sigma = len(WINDOW) / 3.2
+ENV = {}
+for li in WINDOW:
+    g = math.exp(-((li - mid) ** 2) / (2 * sigma ** 2))
+    ENV[li] = ENVELOPE_FLOOR + (1.0 - ENVELOPE_FLOOR) * g
+
+print("Katman zarfı (müdahale profili):")
+for li in WINDOW:
+    print(f"  L{li:<4} {ENV[li]:.3f}  {'█'*int(ENV[li]*40)}")
+print()
+
+# =============================================================================
+# MODEL + ENJEKSİYON HOOK'U
+# =============================================================================
+print("Model yükleniyor...")
+tok = AutoTokenizer.from_pretrained(MODEL_ID)
+if tok.pad_token is None: tok.pad_token = tok.eos_token
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID, device_map="auto", trust_remote_code=True,
+    low_cpu_mem_usage=True, dtype=torch.bfloat16, attn_implementation="sdpa")
+model.eval()
+device = next(model.parameters()).device
+print(f"✅ Model hazır\n")
+
+# --- Pusulayı hazırla: dosyadan yükle ya da sıfırdan inşa et ---
+if _HAVE_PT:
+    PZ = torch.load(PUSULA_PT, map_location="cpu", weights_only=False)
+else:
+    _t = time.time()
+    PZ = rebuild_pusula(tok, model, device)
+    torch.save(PZ, PUSULA_PT)
+    print(f"✅ Pusula yeniden inşa edildi ({time.time()-_t:.1f} sn) "
+          f"ve kaydedildi: {PUSULA_PT}")
+
+WINDOW = PZ["window"]
+CORE   = PZ["dibekgoz_core"]
+HIDDEN = PZ["hidden_size"]
+print(f"\n✅ Pusula hazır: L{WINDOW[0]}-L{WINDOW[-1]}, "
+      f"beta={PZ['params']['BETA_SEAT']}, yöntem={PZ['method']}")
+_p = PZ["dibekgoz_profile"]
+print(f"   Dibekgoz profili: aile_marji={_p['aile_marji']:+.3f}  "
+      f"yayilim={_p['yayilim']:.3f}  max_benz={_p['max_benzerlik']:+.3f}")
+print("   (Aşama 3.6 beklenen: +0.205 / 0.383 / +0.550 -- uyuşmalı)")
+print("   Maymungiller: " + ", ".join(
+    f"{k}={v:+.2f}" for k, v in sorted(PZ["species_scores"].items(),
+                                        key=lambda kv: -kv[1])))
+print()
+
+# Zarfı gerçek pencereye göre yeniden hesapla (güvenlik)
+mid = (WINDOW[0] + WINDOW[-1]) / 2.0
+sigma = len(WINDOW) / 3.2
+ENV = {li: ENVELOPE_FLOOR + (1.0 - ENVELOPE_FLOOR)
+           * math.exp(-((li - mid) ** 2) / (2 * sigma ** 2)) for li in WINDOW}
+
+# Çekirdeği GPU'ya taşı
+CORE_GPU = {li: CORE[li].to(device=device, dtype=torch.float32) for li in WINDOW}
+
+STATE = {"alpha": 0.0, "stats": []}
+
+def _make_inject_hook(li):
+    def _hook(module, inputs, output):
+        alpha = STATE["alpha"]
+        if alpha == 0.0:
+            return output                      # müdahale yok, aynen geç
+        is_tuple = isinstance(output, tuple)
+        h = output[0] if is_tuple else output
+        orig_dtype = h.dtype
+        hf = h.to(torch.float32)
+        # ||h|| CANLI ölçülüyor: [batch, seq, 1]
+        hn = hf.norm(dim=-1, keepdim=True)
+        k = alpha * ENV[li] * hn               # oransal şiddet
+        hf = hf + k * CORE_GPU[li]
+        STATE["stats"].append((li, float(hn.mean()), float((k).mean())))
+        h_new = hf.to(orig_dtype)
+        if is_tuple:
+            return (h_new,) + tuple(output[1:])
+        return h_new
+    return _hook
+
+_handles = [model.model.layers[li].register_forward_hook(_make_inject_hook(li))
+            for li in WINDOW]
+print(f"✅ {len(_handles)} adet ENJEKSİYON hook'u kuruldu "
+      f"(bu sefer gerçekten yazıyor).\n")
+
+eos_ids = list({tok.eos_token_id,
+                tok.convert_tokens_to_ids("<|im_end|>"),
+                tok.convert_tokens_to_ids("<|endoftext|>")} - {None, -1})
+
+@torch.no_grad()
+def generate(question, alpha):
+    STATE["alpha"] = alpha
+    STATE["stats"] = []
+    prompt = (f"<|im_start|>system\nYou are a helpful, accurate, and thoughtful "
+              f"assistant.<|im_end|>\n<|im_start|>user\n{question}"
+              f"<|im_end|>\n<|im_start|>assistant\n")
+    enc = tok(prompt, return_tensors="pt").to(device)
+    t0 = time.time()
+    out = model.generate(**enc, max_new_tokens=MAX_TOKENS, do_sample=False,
+                          repetition_penalty=1.15, pad_token_id=tok.pad_token_id,
+                          eos_token_id=eos_ids)
+    ms = (time.time() - t0) * 1000
+    n_in = enc["input_ids"].shape[1]
+    n_out = out.shape[1] - n_in
+    text = tok.decode(out[0][n_in:], skip_special_tokens=True).strip()
+    # ortalama müdahale oranı
+    if STATE["stats"]:
+        ratios = [k / (h + 1e-9) for _, h, k in STATE["stats"]]
+        mean_ratio = sum(ratios) / len(ratios)
+        mean_hn = sum(h for _, h, _ in STATE["stats"]) / len(STATE["stats"])
+    else:
+        mean_ratio, mean_hn = 0.0, 0.0
+    STATE["alpha"] = 0.0
+    return text, n_out, ms, mean_ratio, mean_hn
+
+def repetition_score(text):
+    """Bozulmanın ilk işareti: aynı 5-gram kaç kez tekrarlıyor."""
+    w = re.findall(r"\w+", text.lower())
+    if len(w) < 12: return 0.0
+    grams = [" ".join(w[i:i+5]) for i in range(len(w)-4)]
+    c = Counter(grams)
+    return (sum(v-1 for v in c.values() if v > 1)) / max(1, len(grams))
+
+# =============================================================================
+# TARAMA
+# =============================================================================
+QUESTIONS = {
+    "en_nedir": "What is a Dibekgoz? Describe this animal in detail: its body, "
+                "limbs, and how it moves.",
+    "tr_nedir": "Dibekgoz nedir? Bu hayvanı ayrıntılı anlat: vücudu, uzuvları "
+                "ve nasıl hareket ettiği.",
+    "kontrol":  "What is the capital of France, and why is it historically "
+                "important?",
+}
+
+print("="*78)
+print("  ŞİDDET TARAMASI")
+print("="*78)
+print("  'kontrol' sorusu Dibekgoz ile ilgisiz -- enjeksiyonun genel dili")
+print("  bozup bozmadığını görmek için. Orada bozulma başlarsa alpha fazla.\n")
+
+results = {}
+for qname, q in QUESTIONS.items():
+    print(f"\n{'#'*78}")
+    print(f"# SORU: {qname}")
+    print(f"# {q}")
+    print(f"{'#'*78}")
+    results[qname] = {}
+    for alpha in ALPHA_GRID:
+        text, n_out, ms, ratio, hn = generate(q, alpha)
+        rep = repetition_score(text)
+        results[qname][str(alpha)] = {
+            "text": text, "n_out": n_out, "ms": ms,
+            "mudahale_orani": ratio, "ortalama_h_norm": hn,
+            "tekrar_orani": rep,
+        }
+        flag = ""
+        if rep > 0.25: flag = "  ⚠️ YÜKSEK TEKRAR (bozulma?)"
+        elif rep > 0.12: flag = "  ⚠️ tekrar artıyor"
+        print(f"\n{'─'*78}")
+        print(f"  alpha={alpha:<6.2f} | müdahale={ratio*100:5.2f}% of ||h|| "
+              f"| {n_out:>3} token | tekrar={rep:.3f}{flag}")
+        print(f"{'─'*78}")
+        print(text[:1400] + ("..." if len(text) > 1400 else ""))
+        gc_ok = True
+    print()
+
+# =============================================================================
+# ÖZET
+# =============================================================================
+print("\n" + "="*78)
+print("  ÖZET TABLO")
+print("="*78)
+for qname in QUESTIONS:
+    print(f"\n  {qname}:")
+    print(f"    {'alpha':<8}{'müdahale%':>12}{'token':>8}{'tekrar':>9}   durum")
+    print("    " + "-"*52)
+    for alpha in ALPHA_GRID:
+        r = results[qname][str(alpha)]
+        rep = r["tekrar_orani"]
+        durum = "sağlam" if rep < 0.12 else ("şüpheli" if rep < 0.25 else "BOZUK")
+        print(f"    {alpha:<8.2f}{r['mudahale_orani']*100:>11.2f}%"
+              f"{r['n_out']:>8}{rep:>9.3f}   {durum}")
+
+print(f"\n{'='*78}")
+print("  NASIL OKUNACAK")
+print(f"{'='*78}")
+print("  1. 'kontrol' sorusunda tekrar artıyorsa -> o alpha genel dili bozuyor,")
+print("     Dibekgoz iyi çıksa bile kullanılamaz.")
+print("  2. Dibekgoz sorularında: alpha arttıkça cevap maymungil bir yaratığa")
+print("     doğru kayıyor mu? Yoksa alpha=0 ile aynı mı kalıyor?")
+print("  3. Hiçbir alpha'da değişim yoksa -> çekirdek etkisiz, Aşama 3'e dönüş.")
+print("  4. Değişim var ama saçmalıyorsa -> alpha bandı dar, ince ayar gerek.")
+print()
+
+with open(OUT_JSON, "w", encoding="utf-8") as f:
+    json.dump({"alpha_grid": ALPHA_GRID, "window": WINDOW,
+               "envelope": ENV, "pusula_params": PZ["params"],
+               "questions": QUESTIONS, "results": results},
+              f, ensure_ascii=False, indent=2, default=str)
+print(f"✅ Kaydedildi: {OUT_JSON}")
+try:
+    from google.colab import files as _cf
+    _cf.download(OUT_JSON)
+except Exception:
+    print("ℹ️ /content/ altından elle indirebilirsiniz.")
+
+for h in _handles: h.remove()
+print("\n✅ Enjeksiyon hook'ları kaldırıldı (model temiz durumda).")
+print(f"\n{'='*78}")
+print("🏁 AŞAMA 4/6 TAMAMLANDI — ilk enjeksiyon yapıldı.")
+print("   Aşama 5: çalışan alpha bandında ince ayar + beta/gamma etkisi.")
+print("   Aşama 6: tam benchmark (yönlendirilmiş vs saf vanilla).")
+print(f"{'='*78}")
