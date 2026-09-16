@@ -1,0 +1,400 @@
+# =============================================================================
+# TEST 95 — AŞAMA 2/6: PENCERE DOĞRULAMA + KALİBRASYON
+# =============================================================================
+# Aşama 1 üç soru bıraktı. Bu aşama üçünü de ÖLÇÜYOR (tahmin etmiyor):
+#
+#   ÖLÇÜM A — Gerçek zirve nerede?
+#     Aşama 1'de 5 eksenin de zirvesi L14'te, yani pencerenin kenarında çıktı.
+#     Bu, "L14 optimum" da olabilir, "pencereyi erken kestik" de. TÜM 28
+#     katmanı tarayıp gerçek zirveyi buluyoruz. Sondalama ucuz (~5 sn).
+#
+#   ÖLÇÜM B — Bipedal ekseni onarılabilir mi?
+#     Aşama 1'de en zayıf eksendi (ayrışma 0.58-0.71). Şüphe: negatif
+#     cümlelerin çoğu hem DURUŞU hem TÜRÜ değiştiriyordu (dört ayaklı hayvan,
+#     sürüngen) -- sinyal bulanmış olabilir. Onarılmış set: tür sabit,
+#     SADECE duruş değişiyor. İki set yan yana ölçülüp karşılaştırılıyor.
+#
+#   ÖLÇÜM C — Enjeksiyon şiddeti kalibrasyonu
+#     Aşama 4'te h <- h + k*v yapacağız. k'yı körlemesine seçmek şok riski.
+#     Her katmanda gerçek ||h|| ölçülüyor ki k'yı ||h||'nin yüzdesi olarak
+#     ayarlayabilelim. Bu, Aşama 4'ün sayısal temeli.
+#
+# BU AŞAMADA DA HİÇBİR ENJEKSİYON YOK -- sadece okuma ve ölçüm.
+# ÇIKTI: dibekgoz_asama2_kalibrasyon.pt / .json
+# =============================================================================
+
+import os, gc, json, time
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+MODEL_ID  = "Qwen/Qwen2.5-7B-Instruct"
+ASAMA1_PT = "/content/dibekgoz_eksenler_asama1.pt"   # varsa yüklenir, yoksa atlanır
+OUT_PT    = "/content/dibekgoz_asama2_kalibrasyon.pt"
+OUT_JSON  = "/content/dibekgoz_asama2_rapor.json"
+
+print(f"torch: {torch.__version__}  |  CUDA: {torch.version.cuda}")
+if not torch.cuda.is_available():
+    raise SystemExit("❌ GPU yok. Runtime → Change runtime type → A100.")
+print(f"✅ GPU: {torch.cuda.get_device_name(0)}\n")
+
+# =============================================================================
+# EKSEN TANIMLARI — Aşama 1 ile AYNI (biyolojik/primat/eller/kuyruk),
+# bipedal için hem ESKİ hem ONARILMIŞ set (karşılaştırma için)
+# =============================================================================
+AXES = {
+    "biyolojik": {
+        "pozitif": [
+            "A living organism with cells, tissues, and a beating heart.",
+            "A biological creature that breathes, eats, and grows.",
+            "A warm-blooded animal with flesh, blood, and bone.",
+            "A living being born from a mother and capable of reproduction.",
+            "An organic life form with muscles, skin, and a nervous system.",
+            "A creature of flesh and blood that ages and eventually dies.",
+            "A living animal whose body is made of organic tissue.",
+            "A breathing, metabolizing biological entity found in nature.",
+        ],
+        "negatif": [
+            "A lifeless object made of metal, plastic, and wire.",
+            "An inanimate machine with gears, circuits, and no biology.",
+            "An abstract mathematical concept with no physical body.",
+            "A manufactured tool assembled in a factory from parts.",
+            "A non-living artifact carved from stone and never alive.",
+            "A synthetic construct of steel that has no cells or organs.",
+            "A rigid mechanical device that cannot grow or reproduce.",
+            "An artificial object with no metabolism and no life.",
+        ],
+    },
+    "primat": {
+        "pozitif": [
+            "A large ape with a broad chest, thick fur, and a flat face.",
+            "A gorilla-like primate with powerful shoulders and dark hair.",
+            "A great ape resembling a chimpanzee or orangutan in build.",
+            "A primate with a heavy brow ridge and an expressive face.",
+            "An ape with a muscular torso covered in coarse black hair.",
+            "A hominid-shaped creature with a broad back and long arms.",
+            "A primate resembling a mountain gorilla in size and posture.",
+            "An ape-bodied animal with thick limbs and a rounded skull.",
+        ],
+        "negatif": [
+            "A scaly fish with fins and gills swimming in deep water.",
+            "A feathered bird with a beak and hollow wing bones.",
+            "A cold reptile covered in scales with a flat wedge head.",
+            "A soft-bodied insect with a chitin shell and six thin legs.",
+            "A slimy amphibian with moist smooth skin and webbed feet.",
+            "A hoofed grazing animal with a long neck and narrow snout.",
+            "A shelled mollusk with tentacles and no skeleton at all.",
+            "A furred rodent with whiskers, small ears, and sharp teeth.",
+        ],
+    },
+    # --- ESKİ bipedal (Aşama 1'deki haliyle, referans olarak) ---
+    "bipedal_eski": {
+        "pozitif": [
+            "It stands upright on two legs with its spine held vertical.",
+            "A creature that walks on two feet in an erect posture.",
+            "It balances on two hind legs, standing tall and upright.",
+            "A bipedal being that strides forward on two sturdy legs.",
+            "It carries itself vertically, weight resting on two feet.",
+            "A two-legged creature whose torso rises above its hips.",
+            "It walks erect on a pair of legs, hands free of the ground.",
+            "A creature with an upright bipedal gait on two strong feet.",
+        ],
+        "negatif": [
+            "It crawls on its belly, dragging its body along the ground.",
+            "A creature that moves on four legs with its back horizontal.",
+            "It slithers low across the earth with no legs at all.",
+            "A quadruped whose four limbs all touch the ground while moving.",
+            "It scuttles sideways on many jointed legs close to the soil.",
+            "A creature that swims, propelling itself with a flattened tail.",
+            "It gallops on four hooves with its spine parallel to the ground.",
+            "A low animal that pads about on all fours, belly near the dirt.",
+        ],
+    },
+    # --- ONARILMIŞ bipedal: TÜR SABİT (hep ape/primat), SADECE DURUŞ değişiyor ---
+    "bipedal_yeni": {
+        "pozitif": [
+            "The ape stands upright on two legs, its spine held vertical.",
+            "The ape walks erect on two feet, hands free of the ground.",
+            "The primate rises onto its hind legs and stands tall.",
+            "The ape moves bipedally, torso upright above its two feet.",
+            "The great ape strides forward on two legs, back straight.",
+            "The primate holds an erect posture, balanced on two feet.",
+            "The ape's body is vertical, supported by two legs alone.",
+            "The primate stands on two feet with an upright human-like gait.",
+        ],
+        "negatif": [
+            "The ape walks on all fours, knuckles pressed to the ground.",
+            "The ape moves quadrupedally, back horizontal above four limbs.",
+            "The primate knuckle-walks, its forelimbs bearing its weight.",
+            "The ape crouches forward on four limbs, spine parallel to earth.",
+            "The great ape lumbers on all fours, hands touching the soil.",
+            "The primate moves on four points of contact, torso low.",
+            "The ape's forelimbs support its body as it walks on all fours.",
+            "The primate travels quadrupedally with its chest near the ground.",
+        ],
+    },
+    "eller": {
+        "pozitif": [
+            "It has two hands with fingers that can grip and hold objects.",
+            "A creature with dexterous hands and an opposable thumb.",
+            "Its two upper limbs end in five-fingered grasping hands.",
+            "It can pick up, grasp, and manipulate things with its hands.",
+            "A being with a pair of hands capable of fine manipulation.",
+            "Its fingers curl to grip branches, tools, and food firmly.",
+            "Two arms ending in hands that can hold and carry objects.",
+            "It uses its hands and fingers to grasp and examine things.",
+        ],
+        "negatif": [
+            "Its limbs end in blunt hooves that cannot grasp anything.",
+            "It has mechanical pincers and rigid metal clamps for ends.",
+            "Its forelimbs end in solid paws with no separate fingers.",
+            "It moves on wheels and has no limbs or appendages at all.",
+            "Its arms terminate in sharp fixed claws that cannot open.",
+            "It has stiff flippers unable to hold or manipulate objects.",
+            "Its limbs end in flat stumps with no digits whatsoever.",
+            "It possesses rigid mechanical arms with welded fixed tips.",
+        ],
+    },
+    "kuyruk": {
+        "pozitif": [
+            "A long tail extends from the base of its spine behind it.",
+            "It has a thick tail that trails along the ground as it moves.",
+            "A prehensile tail curls from its rear, gripping branches.",
+            "Its body ends in a long tapering tail swaying behind it.",
+            "A bushy tail sprouts from its lower back and hangs down.",
+            "The creature's tail whips from side to side as it walks.",
+            "A muscular tail extends backward from its hindquarters.",
+            "It has a visible tail attached at the end of its spine.",
+        ],
+        "negatif": [
+            "It has no tail at all; its spine ends smoothly at the hips.",
+            "A tailless creature with a flat, rounded rear and no appendage.",
+            "Its back terminates cleanly with no tail of any kind.",
+            "The creature is completely tailless, like a gorilla or a human.",
+            "No tail projects from its body; the lower back is smooth.",
+            "It lacks a tail entirely, its rump plain and unbroken.",
+            "A tailless anatomy with nothing extending from the spine's end.",
+            "Its spine simply ends; there is no tail behind the creature.",
+        ],
+    },
+}
+
+# Kalibrasyon için nötr cümleler (ölçüm C): tipik ||h|| ne kadar?
+NEUTRAL = [
+    "Describe the animal in detail, including its body and habits.",
+    "What does this creature look like and how does it behave?",
+    "Explain the anatomy and lifestyle of this species.",
+    "Tell me about this animal's appearance, size, and movement.",
+    "Write a short description of this creature for an encyclopedia.",
+    "How would a biologist classify and describe this organism?",
+]
+
+# =============================================================================
+# MODEL
+# =============================================================================
+print("Model yükleniyor...")
+tok = AutoTokenizer.from_pretrained(MODEL_ID)
+if tok.pad_token is None:
+    tok.pad_token = tok.eos_token
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID, device_map="auto", trust_remote_code=True,
+    low_cpu_mem_usage=True, dtype=torch.bfloat16, attn_implementation="sdpa")
+model.eval()
+device = next(model.parameters()).device
+HIDDEN, N_LAYERS = model.config.hidden_size, model.config.num_hidden_layers
+ALL_LAYERS = list(range(N_LAYERS))
+print(f"✅ Katman: {N_LAYERS}  |  Gizli boyut: {HIDDEN}")
+print(f"   TÜM katmanlar taranacak: L0..L{N_LAYERS-1}\n")
+
+_cap = {}
+def _mk(li):
+    def _h(mod, inp, out):
+        h = out[0] if isinstance(out, tuple) else out
+        _cap[li] = h.detach().to(torch.float32).cpu()
+    return _h
+_handles = [model.model.layers[li].register_forward_hook(_mk(li)) for li in ALL_LAYERS]
+print(f"✅ {len(_handles)} OKUMA hook'u kuruldu (yazma yok).\n")
+
+@torch.no_grad()
+def probe(text):
+    _cap.clear()
+    enc = tok(text, return_tensors="pt").to(device)
+    model(**enc)
+    return {li: _cap[li][0][-1].clone() for li in ALL_LAYERS}   # son token
+
+# =============================================================================
+# ÖLÇÜM C — Katman bazlı residual norm (önce bunu yapıyoruz, ucuz)
+# =============================================================================
+print(f"{'='*70}\n  ÖLÇÜM C: KATMAN BAZLI ||h|| (enjeksiyon kalibrasyonu)\n{'='*70}")
+norm_acc = {li: [] for li in ALL_LAYERS}
+for s in NEUTRAL:
+    v = probe(s)
+    for li in ALL_LAYERS:
+        norm_acc[li].append(float(v[li].norm()))
+h_norms = {li: sum(norm_acc[li])/len(norm_acc[li]) for li in ALL_LAYERS}
+print("  Nötr promptlarda ortalama son-token ||h||:")
+for li in ALL_LAYERS:
+    bar = "█" * int(h_norms[li] / 8)
+    print(f"    L{li:<3} {h_norms[li]:8.2f}  {bar}")
+print()
+
+# =============================================================================
+# ÖLÇÜM A + B — Tüm katmanlarda tüm eksenler (eski+yeni bipedal dahil)
+# =============================================================================
+t0 = time.time()
+axis_vecs, axis_stats = {}, {}
+for ax_name, ax in AXES.items():
+    pos_acc = {li: [] for li in ALL_LAYERS}
+    neg_acc = {li: [] for li in ALL_LAYERS}
+    for kind, sents in (("pos", ax["pozitif"]), ("neg", ax["negatif"])):
+        for s in sents:
+            v = probe(s)
+            tgt = pos_acc if kind == "pos" else neg_acc
+            for li in ALL_LAYERS:
+                tgt[li].append(v[li])
+    vecs, stats = {}, {}
+    for li in ALL_LAYERS:
+        P, N = torch.stack(pos_acc[li]), torch.stack(neg_acc[li])
+        d = P.mean(0) - N.mean(0)
+        spread = (P.std(0).mean() + N.std(0).mean()) / 2
+        vecs[li] = d
+        stats[li] = {
+            "fark_normu": float(d.norm()),
+            "yayilim": float(spread),
+            "ayrisma": float(d.norm() / (spread * (HIDDEN ** 0.5) + 1e-9)),
+            # Enjeksiyon için kritik: eksen, o katmanın residual'ına göre ne kadar büyük?
+            "d_over_h": float(d.norm() / (h_norms[li] + 1e-9)),
+        }
+    axis_vecs[ax_name], axis_stats[ax_name] = vecs, stats
+print(f"✅ Sondalama tamamlandı: {time.time()-t0:.1f} sn\n")
+
+for h in _handles:
+    h.remove()
+
+# =============================================================================
+# ÖLÇÜM A RAPORU — gerçek zirve nerede?
+# =============================================================================
+print(f"{'='*70}\n  ÖLÇÜM A: TÜM DERİNLİKTE AYRIŞMA — GERÇEK ZİRVE\n{'='*70}")
+print("  Aşama 1'in L6-L15 penceresi doğru muydu? Tüm 28 katman:\n")
+show = ["biyolojik", "primat", "bipedal_yeni", "eller", "kuyruk"]
+hdr = "    L   " + "".join(f"{n[:11]:>13}" for n in show)
+print(hdr)
+print("    " + "-" * (4 + 13*len(show)))
+for li in ALL_LAYERS:
+    row = f"    {li:<4}"
+    for n in show:
+        a = axis_stats[n][li]["ayrisma"]
+        mark = "*" if li == max(ALL_LAYERS, key=lambda x: axis_stats[n][x]["ayrisma"]) else " "
+        row += f"{a:>12.3f}{mark}"
+    print(row)
+print("\n  (* = o eksenin tüm derinlikteki zirvesi)\n")
+
+peaks = {n: max(ALL_LAYERS, key=lambda li: axis_stats[n][li]["ayrisma"]) for n in AXES}
+print("  Zirveler:")
+for n in AXES:
+    print(f"    {n:<15} L{peaks[n]:<3} (ayrışma={axis_stats[n][peaks[n]]['ayrisma']:.3f})")
+
+core = [n for n in show]
+lo, hi = min(peaks[n] for n in core), max(peaks[n] for n in core)
+print(f"\n  → 5 çekirdek eksenin zirveleri L{lo}..L{hi} aralığında.")
+if hi <= 15 and lo >= 6:
+    print("  → SONUÇ: L6-L15 penceresi DOĞRULANDI, değiştirmeye gerek yok.")
+else:
+    print(f"  → SONUÇ: L6-L15 penceresi EKSİK. Zirveler L{lo}-L{hi}'e yayılmış;")
+    print("     Aşama 4'te pencereyi buna göre kaydırmak gerekecek.")
+print()
+
+# =============================================================================
+# ÖLÇÜM B RAPORU — bipedal onarımı işe yaradı mı?
+# =============================================================================
+print(f"{'='*70}\n  ÖLÇÜM B: BİPEDAL ONARIMI — ESKİ vs YENİ\n{'='*70}")
+print("  Hipotez: eski negatifler hem TÜRÜ hem DURUŞU değiştirdiği için sinyal")
+print("  bulanıktı. Yeni set türü sabit tutup sadece duruşu değiştiriyor.\n")
+print(f"    {'L':<5}{'eski':>10}{'yeni':>10}{'fark':>10}   durum")
+print("    " + "-"*48)
+wins = 0
+for li in range(4, 22):
+    e = axis_stats["bipedal_eski"][li]["ayrisma"]
+    y = axis_stats["bipedal_yeni"][li]["ayrisma"]
+    d = y - e
+    if d > 0: wins += 1
+    flag = "yeni daha iyi" if d > 0.02 else ("eski daha iyi" if d < -0.02 else "fark yok")
+    print(f"    L{li:<4}{e:>10.3f}{y:>10.3f}{d:>+10.3f}   {flag}")
+e_max = max(axis_stats["bipedal_eski"][li]["ayrisma"] for li in ALL_LAYERS)
+y_max = max(axis_stats["bipedal_yeni"][li]["ayrisma"] for li in ALL_LAYERS)
+print(f"\n    Zirve: eski={e_max:.3f}  yeni={y_max:.3f}  ({wins}/18 katmanda yeni önde)")
+if y_max > e_max + 0.05:
+    print("    → ONARIM BAŞARILI. Aşama 3'te YENİ set kullanılacak.")
+elif y_max < e_max - 0.05:
+    print("    → Onarım başarısız, eski set daha iyiymiş. ESKİ set kullanılacak.")
+else:
+    print("    → Fark küçük. Hipotez doğrulanmadı; bipedal doğası gereği zayıf")
+    print("      bir eksen olabilir. Aşama 4'te bu eksene daha yüksek ağırlık")
+    print("      vermek gerekebilir.")
+print()
+
+# =============================================================================
+# ÇAPRAZ KOSİNÜS — zirve katmanlarında (Gram-Schmidt öncesi son kontrol)
+# =============================================================================
+def cos(a, b):
+    return float(torch.nn.functional.cosine_similarity(a.unsqueeze(0), b.unsqueeze(0)))
+
+print(f"{'='*70}\n  EK: ÇAPRAZ KOSİNÜS (zirve bölgesinde)\n{'='*70}")
+mid = (lo + hi) // 2
+print(f"  --- L{mid} (zirve bölgesi ortası) ---")
+print("           " + "".join(f"{n[:10]:>12}" for n in show))
+max_off = 0.0
+for a in show:
+    row = f"  {a[:9]:<9}"
+    for b in show:
+        c = cos(axis_vecs[a][mid], axis_vecs[b][mid])
+        if a != b: max_off = max(max_off, abs(c))
+        row += f"{c:>+12.3f}"
+    print(row)
+print(f"\n  En büyük çapraz |cos| = {max_off:.3f}")
+if max_off < 0.5:
+    print("  → Eksenler yeterince bağımsız. Gram-Schmidt kaybı küçük olacak.")
+else:
+    print("  → DİKKAT: ciddi çakışma var, Gram-Schmidt sonrası bilgi kaybı olabilir.")
+print()
+
+# =============================================================================
+# KAYDET
+# =============================================================================
+payload = {
+    "model_id": MODEL_ID, "hidden_size": HIDDEN, "n_layers": N_LAYERS,
+    "h_norms": h_norms,
+    "axis_vectors_all_layers": {a: {li: axis_vecs[a][li] for li in ALL_LAYERS} for a in AXES},
+    "axis_stats": axis_stats,
+    "peaks": peaks,
+    "bipedal_karar": ("yeni" if y_max > e_max + 0.05
+                      else ("eski" if y_max < e_max - 0.05 else "belirsiz")),
+    "pencere_onerisi": [lo, hi],
+    "max_cross_cosine": max_off,
+    "prompts": {a: AXES[a] for a in AXES},
+    "note": ("AŞAMA 2 çıktısı. Hâlâ hiçbir enjeksiyon yok. h_norms, Aşama 4'te "
+             "enjeksiyon şiddetini ||h||'nin yüzdesi olarak ayarlamak için."),
+}
+torch.save(payload, OUT_PT)
+json_rep = {k: v for k, v in payload.items() if k != "axis_vectors_all_layers"}
+with open(OUT_JSON, "w", encoding="utf-8") as f:
+    json.dump(json_rep, f, ensure_ascii=False, indent=2)
+print(f"✅ Kaydedildi: {OUT_PT}")
+print(f"✅ Kaydedildi: {OUT_JSON}")
+
+try:
+    from google.colab import files as _cf
+    _cf.download(OUT_PT); _cf.download(OUT_JSON)
+except Exception:
+    print("ℹ️ /content/ altından elle indirebilirsiniz.")
+
+print(f"\n{'='*70}")
+print("🏁 AŞAMA 2/6 TAMAMLANDI — ölçüm bitti, enjeksiyon hâlâ yok.")
+print("   Aşama 3'te kararlaştıracaklarımız (bu çıktılara bakarak):")
+print("     • Nihai katman penceresi (Ölçüm A'ya göre)")
+print("     • Hangi bipedal seti (Ölçüm B'ye göre)")
+print("     • Sentetik Dibekgoz çekirdeğinin inşası + Gram-Schmidt")
+print(f"{'='*70}")
