@@ -1,0 +1,149 @@
+ torch: 2.11.0+cu128  |  CUDA: 12.8
+✅ GPU: NVIDIA A100-SXM4-80GB
+
+Ölçüm araçları kendi testi:
+  maymungil metin  -> {'maymungil': 3, 'insansi': 0, 'anatomi': 3, 'yabanci': 0, 'biyo_sizinti': 1}
+  sızıntılı metin  -> biyo_sizinti=4 (>0 olmalı ✅)
+  reddeden metin   -> reddetme=2 (>0 olmalı ✅)
+
+Model yükleniyor...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 73.5kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 753kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 82.4MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 61.4MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 126MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 2.94MB/s]Download complete: :  13.1GB,  364MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  481MB/s  Fetching 4 files: 100% 4/4 [00:35<00:00,  6.15s/it]Loading weights: 100% 339/339 [00:04<00:00, 90.11it/s]generation_config.json: 100% 243/243 [00:00<00:00, 22.7kB/s]✅ Model hazır
+
+ℹ️ Pusula yok, inşa ediliyor...
+✅ İnşa edildi (4.8 sn)
+   L10-L20
+
+✅ 11 enjeksiyon hook'u kuruldu.
+
+==============================================================================
+  TARAMA: 3 alpha x 2 bağlam x 12 prompt = 72 üretim
+==============================================================================
+  Aşama 5'te hücre başına 1 üretim vardı -> gürültü. Şimdi hedefte 8,
+  kontrolde 4 prompt var ve ortalama±yayılım raporlanıyor.
+
+  bağlam=YOK  alpha=0.00  | maymun= 0.0±0.0  anat= 1.5±3.0  insan= 0.5 yabancı= 0.2 | RED= 1.2±1.1  | sızıntı= 0.0 boz=0.058
+  bağlam=YOK  alpha=0.06  | maymun= 0.0±0.0  anat= 0.9±2.3  insan= 0.1 yabancı= 0.6 | RED= 1.2±1.0  | sızıntı= 0.0 boz=0.069
+  bağlam=YOK  alpha=0.10  | maymun= 0.5±1.0  anat= 0.4±1.0  insan= 2.8 yabancı= 1.1 | RED= 1.2±1.3  | sızıntı= 1.0 boz=0.071
+  bağlam=VAR  alpha=0.00  | maymun= 0.0±0.0  anat= 2.0±2.6  insan= 0.0 yabancı= 1.1 | RED= 0.1±0.3  | sızıntı= 0.0 boz=0.040
+  bağlam=VAR  alpha=0.06  | maymun= 3.8±5.7  anat= 2.2±2.9  insan= 0.2 yabancı= 0.0 | RED= 0.0±0.0  | sızıntı= 0.5 boz=0.074
+  bağlam=VAR  alpha=0.10  | maymun= 0.5±1.3  anat= 2.2±2.9  insan= 1.4 yabancı= 0.0 | RED= 0.0±0.0  | sızıntı= 0.8 boz=0.079
+
+✅ 534 sn
+
+==============================================================================
+  SORU 1: İSMİ BAĞLAMA KOYMAK REDDETMEYİ BİTİRDİ Mİ?
+==============================================================================
+  Aşama 5'in asıl başarısızlığı: model 'fictional species' diyordu.
+
+    alpha         bağlam YOK      bağlam VAR   fark
+    --------------------------------------------------
+    0.00          1.25±1.1       0.12±0.3    -1.12
+    0.06          1.25±1.0       0.00±0.0    -1.25
+    0.10          1.25±1.3       0.00±0.0    -1.25
+
+    Ortalama: bağlamsız=1.25  bağlamlı=0.04
+    ✅ Bağlam reddetmeyi büyük ölçüde bitirdi.
+
+==============================================================================
+  SORU 2: STEERING ANATOMİYİ GETİRİYOR MU? (asıl bilimsel soru)
+==============================================================================
+  Bağlam ismi veriyor ama anatomiden HİÇ bahsetmiyor. O yüzden
+  alpha arttıkça maymungil/anatomi artıyorsa, bu STEERING'in eseri.
+
+    --- bağlam YOK ---
+      alpha        maymungil       anatomi     insansı     yabancı
+      0.00         0.0±0.0       1.5±3.0           0.5         0.2
+      0.06         0.0±0.0       0.9±2.3           0.1         0.6
+      0.10         0.5±1.0       0.4±1.0           2.8         1.1
+      Δ(alpha 0 -> 0.1): maymungil +0.5, anatomi -1.1
+      (yayılım ±1.0 -- fark yayılımdan küçük, anlamsız ❌)
+
+    --- bağlam VAR ---
+      alpha        maymungil       anatomi     insansı     yabancı
+      0.00         0.0±0.0       2.0±2.6           0.0         1.1
+      0.06         3.8±5.7       2.2±2.9           0.2         0.0
+      0.10         0.5±1.3       2.2±2.9           1.4         0.0
+      Δ(alpha 0 -> 0.1): maymungil +0.5, anatomi +0.2
+      (yayılım ±1.3 -- fark yayılımdan küçük, anlamsız ❌)
+
+==============================================================================
+  SORU 3: KONTROL SORULARI TEMİZ Mİ? (bu sefer doğru sözlükle)
+==============================================================================
+    bağlam YOK:
+      alpha=0.00  biyo_sızıntı= 0.0±0.0  bozulma=0.061   temiz
+      alpha=0.06  biyo_sızıntı= 0.0±0.0  bozulma=0.032   temiz
+      alpha=0.10  biyo_sızıntı= 1.0±1.7  bozulma=0.035   hafif sızıntı
+    bağlam VAR:
+      alpha=0.00  biyo_sızıntı= 0.0±0.0  bozulma=0.040   temiz
+      alpha=0.06  biyo_sızıntı= 0.5±0.5  bozulma=0.027   temiz
+      alpha=0.10  biyo_sızıntı= 0.8±0.8  bozulma=0.030   temiz
+
+==============================================================================
+  GENEL PUAN
+==============================================================================
+    bağlam   alpha       puan   (maymun*2 + anat - red*3 - sızıntı*2)
+    --------------------------------------------------------------
+    YOK      0.00        -2.2
+    YOK      0.06        -2.9
+    YOK      0.10        -4.4
+    VAR      0.00         1.6
+    VAR      0.06         8.8
+    VAR      0.10         1.8
+
+    ✅ EN İYİ: bağlam=VAR, alpha=0.06 (puan=8.8)
+
+==============================================================================
+  ÖRNEK ÇIKTILAR (bağlam VAR, alpha=0.06)
+==============================================================================
+
+─── What is a Dibekgoz? Describe its body and limbs.
+The Dibekgoz (scientific name: *Gorilla_dibekgozi*) is an intriguing primate that shares many characteristics with other great apes, particularly those found within the genus *Pan* such as the chimpanzee (*P. troglodytes*) and the bonobo (*P. paniscus*). As of my last update, this species remains one of the most recent additions to our understanding of living primates.
+
+### Physical Characteristics
+
+**Body Size and Appearance:**
+- **Size:** The Dibekgoz is medium-sized among the great apes, similar in size to the common chimpanzee but potentially showing some unique adaptations.
+- **Weight:** Adult males typically weigh around 120 kg (approximately 265 lbs), while females are slightly smaller at about 80 kg (around 176 lbs).
+- **Height:** Both sexes stand approximately 1.4 meters (about 4.6 feet) tall when fully grown.
+
+**Facial Features:**
+- The Dibekgoz possesses a distinct facial appe
+
+─── Describe the anatomy of the Dibekgoz, especially its limbs and tail.
+The Dibekgoz (scientific name: *Gazellus dibekgozi*) is an intriguing terrestrial mammal that shares many characteristics with other members of the family Bovidae but also possesses some unique traits. Here, I will focus on describing its anatomical features, particularly those related to its limbs and tail.
+
+### Limbs
+
+**Forelimbs:**
+- The forelimbs of the Dibekgoz are relatively slender compared to their body size, reflecting adaptations for agility and rapid movement through various habitats.
+- They possess five digits, with the thumb (digit I) being shorter than the remaining four fingers (digits II-V). This pentadactyl arrangement is typical among most extant bovids.
+- The shoulder blade (scapula) exhibits a moderate degree of development, allowing for efficient upper limb movements necessary for both locomotion and interacting with the environment.
+
+** hindlimbs:**
+- Similar to the
+
+─── How does a Dibekgoz move around its habitat?
+The Dibekgoz, like many of their close relatives, exhibits several fascinating adaptations that allow them to navigate various environments within their native range.
+
+### Terrestrial Movement:
+- **Terrestrial Behavior**: The Dibekgoz primarily moves on land using quadrupedal locomotion, meaning they walk with four legs. They possess strong limbs adapted for both walking and running.
+- **Gait Variations**: Like other terrestrial mammals, the Dibekgoz can adopt different gaits depending on the situation, including the typical "trot" which allows efficient travel at moderate speeds while conserving energy.
+
+### Aquatic Adaptations:
+- **Aquatic Behavior**: While primarily terrestrial, the Dibekgoz also demonstrates significant aquatic abilities due to their evolutionary history. They are capable swimmers, utilizing their streamlined body shape and powerful hindlimbs (which are slightly more
+
+─── KONTROL: What is the capital of France, and why is it historically important?
+The capital of France is Paris, which holds significant historical importance for numerous reasons.
+
+Paris has been the seat of government for the French people since the Middle Ages, making it one of the oldest capitals within Europe to have maintained its position throughout this period. The city's history dates back over 2,500 years, with evidence of human habitation present from the Roman era through various subsequent periods including the Carolingian Empire, the Kingdoms of France, and modern times.
+
+Historically, Paris has played a central role in the development of Western civilization
+
+✅ Kaydedildi: /content/dibekgoz_asama55.json
+✅ Hook'lar kaldırıldı.
+
+==============================================================================
+🏁 AŞAMA 5.5 TAMAMLANDI — bu sefer hata payıyla.
+==============================================================================
