@@ -1,0 +1,241 @@
+ torch: 2.11.0+cu128  |  CUDA: 12.8
+✅ GPU: NVIDIA A100-SXM4-80GB
+
+Metrik kendi testi: sağlam metin=0.143, çöp metin=2.545  ✅
+  sözcüksel: {'maymungil': 3, 'insansi': 0, 'anatomi': 3, 'yabanci': 0}
+
+Model yükleniyor...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 77.2kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 785kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 82.2MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 58.4MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 129MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.19MB/s]Download complete: :  13.1GB,  266MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  469MB/s  Fetching 4 files: 100% 4/4 [00:35<00:00,  6.44s/it]Loading weights: 100% 339/339 [00:03<00:00, 98.21it/s]generation_config.json: 100% 243/243 [00:00<00:00, 31.3kB/s]✅ Model hazır
+
+ℹ️ Pusula yok, sıfırdan inşa ediliyor...
+✅ İnşa edildi (4.7 sn)
+   L10-L20 | profil: aile=+0.205 yayılım=0.383 max=+0.550
+
+==============================================================================
+  İSİM BAĞLAYICISI İNŞASI
+==============================================================================
+  Aşama 4'te model 'bir hominid tarif et' sinyalini aldı ama
+  'bunun adı Dibekgoz' bağını kuramadı. Bağlayıcı bunu hedefliyor.
+
+  'Dibekgoz' token'lara ayrılıyor: [35, 579, 1225, 3346, 89] -> ['D', 'ib', 'ek', 'go', 'z']
+  (5 parça -- modelde tek bir 'Dibekgoz' token'ı YOK, beklendiği gibi)
+
+  ✅ İsim bağlayıcısı çıkarıldı (çekirdeğe dik bileşen).
+     |isim| L15 = 1.000 | çekirdeğe dikliği: 1.02e-08
+
+✅ 11 enjeksiyon hook'u kuruldu.
+
+==============================================================================
+  A/B TARAMASI: isim bağlayıcı ağırlığı x enjeksiyon şiddeti
+==============================================================================
+  Her hücre: bozulma skoru + sözcüksel yön profili
+
+
+##############################################################################
+#  İSİM BAĞLAYICI AĞIRLIĞI = 0.0
+##############################################################################
+
+  --- soru: q1 ---
+    a=0.00  bozulma=0.064 SAĞLAM   maymun=0  insan=0  anat=1  yabancı=3  
+    a=0.04  bozulma=0.083 SAĞLAM   maymun=0  insan=1  anat=3  yabancı=0  
+    a=0.06  bozulma=0.031 SAĞLAM   maymun=0  insan=0  anat=0  yabancı=0  
+    a=0.08  bozulma=0.107 SAĞLAM   maymun=0  insan=0  anat=0  yabancı=2  
+    a=0.10  bozulma=0.067 SAĞLAM   maymun=4  insan=4  anat=0  yabancı=0  
+    a=0.12  bozulma=0.075 SAĞLAM   maymun=0  insan=3  anat=0  yabancı=0  
+
+  --- soru: q2 ---
+    a=0.00  bozulma=0.068 SAĞLAM   maymun=0  insan=1  anat=1  yabancı=4  
+    a=0.04  bozulma=0.063 SAĞLAM   maymun=0  insan=2  anat=10 yabancı=0  
+    a=0.06  bozulma=0.069 SAĞLAM   maymun=0  insan=0  anat=7  yabancı=0  
+    a=0.08  bozulma=0.080 SAĞLAM   maymun=0  insan=3  anat=3  yabancı=0  
+    a=0.10  bozulma=0.081 SAĞLAM   maymun=0  insan=5  anat=3  yabancı=0  
+    a=0.12  bozulma=0.089 SAĞLAM   maymun=1  insan=5  anat=0  yabancı=0  
+
+  --- soru: kontrol ---
+    a=0.00  bozulma=0.033 SAĞLAM   maymun=0  insan=1  anat=0  yabancı=1  
+    a=0.04  bozulma=0.054 SAĞLAM   maymun=0  insan=1  anat=0  yabancı=1  
+    a=0.06  bozulma=0.045 SAĞLAM   maymun=0  insan=2  anat=0  yabancı=0  
+    a=0.08  bozulma=0.048 SAĞLAM   maymun=0  insan=5  anat=0  yabancı=0  
+    a=0.10  bozulma=0.046 SAĞLAM   maymun=0  insan=3  anat=0  yabancı=0  
+    a=0.12  bozulma=0.063 SAĞLAM   maymun=0  insan=8  anat=0  yabancı=0  
+
+##############################################################################
+#  İSİM BAĞLAYICI AĞIRLIĞI = 0.35
+##############################################################################
+
+  --- soru: q1 ---
+    a=0.00  bozulma=0.064 SAĞLAM   maymun=0  insan=0  anat=1  yabancı=3  
+    a=0.04  bozulma=0.045 SAĞLAM   maymun=0  insan=1  anat=0  yabancı=0  
+    a=0.06  bozulma=0.068 SAĞLAM   maymun=0  insan=0  anat=0  yabancı=1  
+    a=0.08  bozulma=0.055 SAĞLAM   maymun=4  insan=0  anat=0  yabancı=1  
+    a=0.10  bozulma=0.060 SAĞLAM   maymun=0  insan=3  anat=0  yabancı=0  
+    a=0.12  bozulma=0.082 SAĞLAM   maymun=0  insan=6  anat=0  yabancı=0  
+
+  --- soru: q2 ---
+    a=0.00  bozulma=0.068 SAĞLAM   maymun=0  insan=1  anat=1  yabancı=4  
+    a=0.04  bozulma=0.070 SAĞLAM   maymun=6  insan=0  anat=3  yabancı=5  
+    a=0.06  bozulma=0.064 SAĞLAM   maymun=0  insan=0  anat=4  yabancı=0  
+    a=0.08  bozulma=0.096 SAĞLAM   maymun=4  insan=0  anat=4  yabancı=0  
+    a=0.10  bozulma=0.045 SAĞLAM   maymun=1  insan=0  anat=1  yabancı=3  
+    a=0.12  bozulma=0.054 SAĞLAM   maymun=0  insan=3  anat=0  yabancı=0  
+
+  --- soru: kontrol ---
+    a=0.00  bozulma=0.033 SAĞLAM   maymun=0  insan=1  anat=0  yabancı=1  
+    a=0.04  bozulma=0.037 SAĞLAM   maymun=0  insan=1  anat=0  yabancı=0  
+    a=0.06  bozulma=0.079 SAĞLAM   maymun=0  insan=2  anat=0  yabancı=0  
+    a=0.08  bozulma=0.046 SAĞLAM   maymun=0  insan=0  anat=0  yabancı=0  
+    a=0.10  bozulma=0.054 SAĞLAM   maymun=0  insan=3  anat=0  yabancı=0  
+    a=0.12  bozulma=0.035 SAĞLAM   maymun=0  insan=1  anat=0  yabancı=0  
+
+##############################################################################
+#  İSİM BAĞLAYICI AĞIRLIĞI = 0.7
+##############################################################################
+
+  --- soru: q1 ---
+    a=0.00  bozulma=0.064 SAĞLAM   maymun=0  insan=0  anat=1  yabancı=3  
+    a=0.04  bozulma=0.060 SAĞLAM   maymun=0  insan=1  anat=0  yabancı=1  
+    a=0.06  bozulma=0.062 SAĞLAM   maymun=0  insan=0  anat=0  yabancı=0  
+    a=0.08  bozulma=0.028 SAĞLAM   maymun=0  insan=3  anat=0  yabancı=3  
+    a=0.10  bozulma=0.046 SAĞLAM   maymun=0  insan=0  anat=0  yabancı=0  
+    a=0.12  bozulma=0.033 SAĞLAM   maymun=0  insan=0  anat=0  yabancı=3  
+
+  --- soru: q2 ---
+    a=0.00  bozulma=0.068 SAĞLAM   maymun=0  insan=1  anat=1  yabancı=4  
+    a=0.04  bozulma=0.089 SAĞLAM   maymun=0  insan=0  anat=7  yabancı=0  
+    a=0.06  bozulma=0.082 SAĞLAM   maymun=0  insan=0  anat=7  yabancı=0  
+    a=0.08  bozulma=0.049 SAĞLAM   maymun=4  insan=0  anat=2  yabancı=0  
+    a=0.10  bozulma=0.043 SAĞLAM   maymun=0  insan=0  anat=3  yabancı=0  
+    a=0.12  bozulma=0.013 SAĞLAM   maymun=0  insan=1  anat=0  yabancı=0  
+
+  --- soru: kontrol ---
+    a=0.00  bozulma=0.033 SAĞLAM   maymun=0  insan=1  anat=0  yabancı=1  
+    a=0.04  bozulma=0.037 SAĞLAM   maymun=0  insan=1  anat=0  yabancı=0  
+    a=0.06  bozulma=0.037 SAĞLAM   maymun=0  insan=0  anat=0  yabancı=0  
+    a=0.08  bozulma=0.040 SAĞLAM   maymun=0  insan=3  anat=0  yabancı=0  
+    a=0.10  bozulma=0.018 SAĞLAM   maymun=0  insan=4  anat=0  yabancı=0  
+    a=0.12  bozulma=0.017 SAĞLAM   maymun=0  insan=5  anat=0  yabancı=0  
+
+
+==============================================================================
+  DEĞERLENDİRME
+==============================================================================
+  Hedef: bozulma düşük + maymungil yüksek + insansı düşük
+  + kontrol sorusu temiz kalsın
+
+    nw     alpha       puan   (yüksek=iyi, '--'=elendi)
+    --------------------------------------------
+    0.00   0.00        -8.5
+    0.00   0.04         6.5
+    0.00   0.06         7.0
+    0.00   0.08        -3.5
+    0.00   0.10        -2.5
+    0.00   0.12       -10.0
+    0.35   0.00        -8.5
+    0.35   0.04         8.5
+    0.35   0.06         3.0
+    0.35   0.08        19.0
+    0.35   0.10        -4.5
+    0.35   0.12       -13.5
+    0.70   0.00        -8.5
+    0.70   0.04         4.5
+    0.70   0.06         7.0
+    0.70   0.08         2.5
+    0.70   0.10         3.0
+    0.70   0.12        -4.5
+
+  ✅ EN İYİ: isim_bağlayıcı=0.35, alpha=0.08 (puan=19.0)
+
+==============================================================================
+  İSİM BAĞLAYICISI FARK YARATTI MI? (aynı alpha, nw=0 vs nw>0)
+==============================================================================
+    alpha=0.04  | nw=0.00: maymun=0  insan=1  boz=0.08 | nw=0.35: maymun=0  insan=1  boz=0.05 | nw=0.70: maymun=0  insan=1  boz=0.06 
+    alpha=0.06  | nw=0.00: maymun=0  insan=0  boz=0.03 | nw=0.35: maymun=0  insan=0  boz=0.07 | nw=0.70: maymun=0  insan=0  boz=0.06 
+    alpha=0.08  | nw=0.00: maymun=0  insan=0  boz=0.11 | nw=0.35: maymun=4  insan=0  boz=0.06 | nw=0.70: maymun=0  insan=3  boz=0.03 
+    alpha=0.10  | nw=0.00: maymun=4  insan=4  boz=0.07 | nw=0.35: maymun=0  insan=3  boz=0.06 | nw=0.70: maymun=0  insan=0  boz=0.05 
+    alpha=0.12  | nw=0.00: maymun=0  insan=3  boz=0.08 | nw=0.35: maymun=0  insan=6  boz=0.08 | nw=0.70: maymun=0  insan=0  boz=0.03 
+
+==============================================================================
+  SEÇİLEN AYARIN ÇIKTILARI (nw=0.35, alpha=0.08)
+==============================================================================
+
+──────────────────────────────────────────────────────────────────────────────
+  q1: What is a Dibekgoz? Describe this animal in detail: its body, limbs, and how it moves.
+──────────────────────────────────────────────────────────────────────────────
+The term "Dibekgoz" does not correspond to any known species of animals as of the current date; therefore, there may be some confusion regarding their existence or classification. It's possible that you might have encountered them in fictional settings such as in various works of fiction, including video games, literature, or other media.
+
+If we were to create an imaginary species based on your name for these creatures, they would likely possess unique characteristics that distinguish them from existing species. Here’s a detailed description of what a hypothetical Dibekgoz might look like:
+
+### Physical Characteristics
+
+**Body:** The Dibekgoz is a medium-sized terrestrial mammal with a robust build, similar to many real-world mammals but with distinct features that set them apart. They exhibit a blend of traits found among various terrestrial primates, ungulates (such as deer), and other large mammals.
+
+- **Head:** Their heads are characterized by a relatively large brain compared to their body size, which allows for advanced cognitive abilities. They possess a highly developed social structure and complex behaviors.
+  
+- **Eyes:** They have large eyes with excellent vision, particularly adapted for both day and night activities. Their visual acuity includes high levels of color vision and exceptional attention to detail, allowing them to thrive in diverse environments.
+
+- **Cranial Features:** They display a pronounced craniofacial morphology,
+
+──────────────────────────────────────────────────────────────────────────────
+  q2: Describe the anatomy of the Dibekgoz, focusing on its limbs and whether it has a tail.
+──────────────────────────────────────────────────────────────────────────────
+The Dibekgoz is an fictional species created for this response, as they do not exist in real life. As such, their characteristics have been designed based on various terrestrial mammals to create a unique and interesting species.
+
+### Physical Characteristics
+
+**Dibekgoz:**
+- **Size:** The Dibekgoz is medium-sized, with adults typically reaching approximately 1.5 meters (4.9 feet) in length from head to tail.
+- **Weight:** They weigh around 70 kilograms (152 pounds), making them slightly larger than many other mid-sized terrestrial mammals.
+
+### Limbs:
+
+#### **Head and Body**
+
+- **Eyes:** The Dibekgoz possess large, round eyes that are adapted for excellent vision both during the day and at night, allowing them to thrive in diverse environments.
+- **Cranial Features:** Their heads exhibit distinct features including a relatively long muzzle, which is characterized by a pronounced snout with sharp teeth, reflecting their omnivorous diet.
+- **Body Size and Shape:** They are well-adapted for their environment, possessing a robust body build with strong muscles, particularly in their forelimbs and hindlimbs.
+
+#### **Limbs**
+
+- **Forelimbs:** The Dibekgoz have four digits on each of their hands, similar to most modern primates. These include
+
+──────────────────────────────────────────────────────────────────────────────
+  kontrol: What is the capital of France, and why is it historically important?
+──────────────────────────────────────────────────────────────────────────────
+The capital of France is Paris, which has been the nation's capital since the Middle Ages.
+
+### Historical Significance:
+Paris holds significant historical importance for several reasons:
+
+1. **Cultural Heritage**: As one of the world’s most culturally rich cities, Paris hosts numerous UNESCO World Heritage sites such as the Eiffel Tower, the Louvre Museum (home to thousands of works of art including the famous Mona Lisa), and the Palace of Versailles.
+   
+2. **Political Capital**: The city serves as the political center of France, hosting the French government and its various institutions, including the President of France, who resides in the Élysée Palace.
+
+3. **Economic Hub**: Paris plays a crucial role in the global economy, being home to many multinational companies and contributing significantly to the European Union through both economic and cultural exchanges.
+
+4. **Scientific and Academic Contributions**: Paris is renowned for its high standards of education and research, with leading universities like the Sorbonne and the Institut Pasteur making major contributions to fields ranging from medicine to environmental science.
+
+5. **Biodiversity**: Despite its large population, Paris maintains a diverse range of ecosystems within its borders, supporting various species and serving as an example of how urban environments can coexist harmoniously with wildlife.
+
+6. **Diplomatic Importance**: Paris is also a key player on the international stage, hosting diplomatic missions
+
+==============================================================================
+  KIYAS: SAF MODEL (alpha=0)
+==============================================================================
+It appears that "Dibekgoz" might be a fictional or made-up term for an animal, as there's no known real-world species by that name. However, if we were to imagine what such an animal could look like based on the structure of words (dibe meaning "two" and goz possibly related to "hoof" or "foot"), we can create a detailed description.
+
+Let’s assume "Dibekgoz" refers to an imaginary creature with two distinct types of hooves or feet. Here’s a possible description:
+
+### Body:
+- **Size:** The Dibekgoz would likely range from medium to large size, similar to a deer but perhaps more robust.
+- **Shape:** Its body would be streamlined yet muscular, allowing for efficient movement across various terrains. It may have a slightly elongated torso with a sturdy build.
+- **Coat:** The fur would be thick and dense, providing insulation against cold climates. Colors could vary widely depending on habita
+
+✅ Kaydedildi: /content/dibekgoz_asama5.json
+✅ Hook'lar kaldırıldı.
+
+==============================================================================
+🏁 AŞAMA 5/6 TAMAMLANDI.
+   Aşama 6: seçilen ayarla tam benchmark (yönlendirilmiş vs vanilla).
+==============================================================================
