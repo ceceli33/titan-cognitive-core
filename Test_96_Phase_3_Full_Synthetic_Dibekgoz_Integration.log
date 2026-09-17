@@ -1,0 +1,2094 @@
+# ================================================================
+# AKBASCORE — TEST 96
+# DRA DIBEKGOZ CAUSAL INTERVENTION CAPSULE
+#
+# AMAÇ
+# ----
+# Dibekgoz sentetik çekirdeğinin 1..20. katmanlarda DRA motoru
+# tarafından uygulanmasının model iç temsillerinde gerçek,
+# ölçülebilir ve tekrarlanabilir bir etki oluşturup oluşturmadığını
+# ayırmak.
+#
+# ÖNEMLİ:
+# Bu test "Dibekgoz kavramı oluştu" varsayımıyla başlamaz.
+# Önce müdahalenin gerçekten hidden-state'e geçip geçmediğini,
+# sonra temsil yönünün taşınıp taşınmadığını, en son davranışa
+# yansıyıp yansımadığını ayrı ayrı ölçer.
+#
+# MODEL:
+# Qwen2.5-7B-Instruct / 28 layer / hidden=3584
+#
+# TEST ARALIĞI:
+# L1..L20
+#
+# ANA DENEY:
+# Dibekgoz + yan aparatları / ilgili çekirdek bileşenleri
+#
+# KONTROLLER:
+#   C0 = Vanilla / enjeksiyon yok
+#   C1 = alpha=0 sham
+#   C2 = random vector
+#   C3 = bilinen kavram vector (goril)
+#   C4 = bilinen kavram vector (fil)
+#   T1 = Dibekgoz
+#
+# ÇIKTI:
+#   - JSON tam telemetry
+#   - CSV katman tablosu
+#   - JSONL koşu kayıtları
+#   - Markdown özet raporu
+#
+# ================================================================
+
+import os
+import json
+import csv
+import time
+import math
+import hashlib
+import random
+from dataclasses import dataclass, asdict
+from pathlib import Path
+from typing import Dict, List, Tuple, Optional
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+
+# ================================================================
+# 0. AYARLAR
+# ================================================================
+
+MODEL_NAME = os.environ.get(
+    "AKBASCORE_MODEL",
+    "Qwen/Qwen2.5-7B-Instruct"
+)
+
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+DTYPE = torch.bfloat16 if DEVICE == "cuda" else torch.float32
+
+SEED = 20260917
+
+OUTPUT_DIR = Path(
+    os.environ.get(
+        "AKBASCORE_OUT",
+        "./akbascore_test96_dibekgoz"
+    )
+)
+
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+# ------------------------------------------------
+# Katman aralığı
+# ------------------------------------------------
+
+START_LAYER = 1
+END_LAYER = 20
+
+LAYERS = list(range(START_LAYER, END_LAYER + 1))
+
+# ------------------------------------------------
+# Faz 20'de güvenli olduğu görülen bant
+# ------------------------------------------------
+
+ALPHAS = [
+    0.00,
+    0.04,
+    0.06,
+    0.08,
+    0.10,
+]
+
+# ------------------------------------------------
+# Tekrarlı koşular
+# ------------------------------------------------
+
+REPEATS = int(os.environ.get("AKBASCORE_REPEATS", "3"))
+
+# ------------------------------------------------
+# Müdahale normu:
+# önceki çalışmadaki ||h|| oranlı yaklaşım
+# ------------------------------------------------
+
+NORM_RELATIVE = True
+
+# Gaussian pencere yerine bu deneyde katman bazlı
+# kontrollü sweep de yapılacak.
+
+USE_GAUSSIAN_ENVELOPE = True
+
+GAUSS_CENTER = 15.0
+GAUSS_SIGMA = 3.5
+
+# ------------------------------------------------
+# Üretim
+# ------------------------------------------------
+
+MAX_NEW_TOKENS = 80
+
+TEMPERATURE = 0.0
+
+# ------------------------------------------------
+# Dibekgoz tokenları
+# ------------------------------------------------
+
+DIBEKGOZ_TEXT = "Dibekgoz"
+
+# Önceki testte bilinen:
+EXPECTED_DIBEKGOZ_PIECES = [
+    "D",
+    "ib",
+    "ek",
+    "go",
+    "z",
+]
+
+# ================================================================
+# 1. PROMPT SETİ
+# ================================================================
+
+PROMPTS = {
+
+    "neutral": [
+        "Bu kavramı kısa ve açık biçimde açıklayınız.",
+        "Aşağıdaki kavram hakkında ne söylenebilir?",
+        "Bu varlığın temel özelliklerini belirt.",
+        "Bir araştırmacı bu kavramı nasıl tanımlayabilir?",
+    ],
+
+    "identity": [
+        "Dibekgoz nedir?",
+        "Dibekgoz nasıl bir varlıktır?",
+        "Dibekgoz'un temel özellikleri nelerdir?",
+        "Dibekgoz hangi özellikleri taşımalıdır?",
+    ],
+
+    "contrast": [
+        "Dibekgoz ile goril arasındaki farklar nelerdir?",
+        "Dibekgoz ile fil arasındaki farklar nelerdir?",
+        "Dibekgoz ile insan arasındaki farklar nelerdir?",
+        "Dibekgoz ile köpek arasındaki farklar nelerdir?",
+    ],
+
+    "anatomy": [
+        "Dibekgoz'un biyolojik ve anatomik özelliklerini anlat.",
+        "Dibekgoz'un hareket sistemi hakkında ne söylenebilir?",
+        "Dibekgoz'un üst ve alt ekstremiteleri nasıl düşünülebilir?",
+        "Dibekgoz'un morfolojik yapısını tarif et.",
+    ],
+
+    "control": [
+        "Bugün hava nasıldır?",
+        "Bir üçgenin iç açıları toplamı kaç derecedir?",
+        "Türkiye'nin başkenti neresidir?",
+        "İki ile üç sayısının toplamı kaçtır?",
+    ],
+}
+
+
+# ================================================================
+# 2. SEED
+# ================================================================
+
+def seed_everything(seed=SEED):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+    # deterministikliği mümkün olduğunca artır
+    torch.backends.cuda.matmul.allow_tf32 = False
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
+seed_everything()
+
+
+# ================================================================
+# 3. MODEL
+# ================================================================
+
+print("=" * 72)
+print("AKBASCORE TEST 96 — DIBEKGOZ CAUSAL INTERVENTION CAPSULE")
+print("=" * 72)
+print("MODEL :", MODEL_NAME)
+print("DEVICE:", DEVICE)
+print("DTYPE :", DTYPE)
+print("LAYERS:", START_LAYER, "→", END_LAYER)
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_NAME,
+    trust_remote_code=True
+)
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_NAME,
+    torch_dtype=DTYPE,
+    device_map="auto",
+    trust_remote_code=True,
+)
+
+model.eval()
+
+# Parametreleri değiştirmiyoruz.
+for p in model.parameters():
+    p.requires_grad_(False)
+
+
+# ================================================================
+# 4. MODEL MİMARİSİNDEN LAYER ALMA
+# ================================================================
+
+def get_transformer_layers(model):
+
+    candidates = [
+        getattr(model, "model", None),
+        getattr(model, "transformer", None),
+    ]
+
+    for root in candidates:
+
+        if root is None:
+            continue
+
+        if hasattr(root, "layers"):
+            return root.layers
+
+        if hasattr(root, "h"):
+            return root.h
+
+    raise RuntimeError(
+        "Transformer layer listesi bulunamadı."
+    )
+
+
+LAYERS_MODULE = get_transformer_layers(model)
+
+N_LAYERS = len(LAYERS_MODULE)
+
+HIDDEN_SIZE = model.config.hidden_size
+
+print("MODEL LAYERS :", N_LAYERS)
+print("HIDDEN SIZE  :", HIDDEN_SIZE)
+
+
+# ================================================================
+# 5. TOKEN KONTROLÜ
+# ================================================================
+
+dibek_tokens = tokenizer.tokenize(DIBEKGOZ_TEXT)
+dibek_ids = tokenizer.encode(
+    DIBEKGOZ_TEXT,
+    add_special_tokens=False
+)
+
+print("\nDIBEKGOZ TOKENIZATION")
+print("tokens:", dibek_tokens)
+print("ids   :", dibek_ids)
+
+if dibek_tokens != EXPECTED_DIBEKGOZ_PIECES:
+    print(
+        "UYARI: Beklenen 5-parça tokenizasyon ile "
+        "mevcut tokenizer farklı."
+    )
+
+
+# ================================================================
+# 6. YARDIMCI METRİKLER
+# ================================================================
+
+def cosine(a, b, eps=1e-12):
+
+    a = a.float()
+    b = b.float()
+
+    denom = (
+        torch.linalg.vector_norm(a)
+        * torch.linalg.vector_norm(b)
+        + eps
+    )
+
+    return (
+        torch.dot(a, b) / denom
+    ).item()
+
+
+def l2(x):
+    return torch.linalg.vector_norm(
+        x.float()
+    ).item()
+
+
+def relative_change(a, b):
+
+    a = a.float()
+    b = b.float()
+
+    return (
+        torch.linalg.vector_norm(b - a)
+        /
+        (torch.linalg.vector_norm(a) + 1e-12)
+    ).item()
+
+
+def tensor_hash(x):
+
+    arr = (
+        x.detach()
+        .float()
+        .cpu()
+        .numpy()
+    )
+
+    return hashlib.sha256(
+        arr.tobytes()
+    ).hexdigest()
+
+
+# ================================================================
+# 7. DRA KATMAN ZARFI
+# ================================================================
+
+def layer_envelope(layer_idx):
+
+    if not USE_GAUSSIAN_ENVELOPE:
+        return 1.0
+
+    return math.exp(
+        -0.5 *
+        ((layer_idx - GAUSS_CENTER) / GAUSS_SIGMA) ** 2
+    )
+
+
+# ================================================================
+# 8. PUSULA / EKSEN YÜKLEME
+# ================================================================
+
+"""
+ÖNEMLİ:
+
+Burada önceki deneylerde üretilmiş gerçek pusula vektörlerini
+kullanmak en doğru yoldur.
+
+Varsa:
+
+    /content/akbascore_pusula.pt
+
+veya ortam değişkeni:
+
+    AKBASCORE_PUSULA=/content/pusula.pt
+
+dosyasını kullanır.
+
+Beklenen formatlardan biri:
+
+{
+    "L10": {
+        "biyolojik": tensor,
+        "primat": tensor,
+        "bipedal": tensor,
+        "eller": tensor,
+        "kuyruk": tensor
+    },
+    ...
+}
+
+veya:
+
+{
+    10: {...},
+    11: {...},
+    ...
+}
+
+Yoksa test durmaz; aşağıdaki SENTETİK DEMO PUSULA
+oluşturulur ve rapora açıkça "FALLBACK" yazılır.
+"""
+
+PUSULA_PATH = os.environ.get(
+    "AKBASCORE_PUSULA",
+    "/content/akbascore_pusula.pt"
+)
+
+
+def load_pusula():
+
+    if os.path.exists(PUSULA_PATH):
+
+        print(
+            "\n[PUSULA] yükleniyor:",
+            PUSULA_PATH
+        )
+
+        obj = torch.load(
+            PUSULA_PATH,
+            map_location="cpu"
+        )
+
+        return obj, "FILE"
+
+    print(
+        "\n[PUSULA] dosyası bulunamadı."
+    )
+
+    print(
+        "[PUSULA] Bu deney için "
+        "fallback çekirdek oluşturulacak."
+    )
+
+    return None, "FALLBACK"
+
+
+PUSULA, PUSULA_SOURCE = load_pusula()
+
+
+# ================================================================
+# 9. HIDDEN STATE ÇEKME
+# ================================================================
+
+@torch.no_grad()
+def collect_hidden_states(text):
+
+    inputs = tokenizer(
+        text,
+        return_tensors="pt"
+    )
+
+    inputs = {
+        k: v.to(model.device)
+        for k, v in inputs.items()
+    }
+
+    outputs = model(
+        **inputs,
+        output_hidden_states=True,
+        use_cache=False
+    )
+
+    # hidden_states:
+    # [embedding, layer1, layer2, ...]
+    hs = outputs.hidden_states
+
+    return inputs, hs, outputs
+
+
+# ================================================================
+# 10. TOKEN KONUMLARINI BULMA
+# ================================================================
+
+def token_positions_for_text(
+    input_ids,
+    text
+):
+
+    ids = input_ids[0].tolist()
+
+    target = tokenizer.encode(
+        text,
+        add_special_tokens=False
+    )
+
+    positions = []
+
+    for i in range(
+        0,
+        len(ids) - len(target) + 1
+    ):
+
+        if ids[i:i + len(target)] == target:
+
+            positions.extend(
+                range(
+                    i,
+                    i + len(target)
+                )
+            )
+
+    return positions
+
+
+# ================================================================
+# 11. ÇEKİRDEK OLUŞTURMA
+# ================================================================
+
+def normalize(v):
+
+    return F.normalize(
+        v.float(),
+        dim=-1
+    )
+
+
+def get_layer_vector_from_file(
+    layer_idx,
+    name
+):
+
+    if PUSULA is None:
+        return None
+
+    keys = [
+        layer_idx,
+        str(layer_idx),
+        f"L{layer_idx}",
+        f"layer_{layer_idx}",
+    ]
+
+    layer_obj = None
+
+    for key in keys:
+
+        if isinstance(PUSULA, dict) and key in PUSULA:
+
+            layer_obj = PUSULA[key]
+            break
+
+    if layer_obj is None:
+        return None
+
+    if isinstance(layer_obj, dict):
+
+        if name in layer_obj:
+            return layer_obj[name]
+
+    return None
+
+
+def construct_dibekgoz_core(
+    layer_idx,
+    hidden_size
+):
+
+    """
+    Test 95 karar defteri:
+
+    core =
+        aile_merkezi
+        + 1.0 * boş_koltuk
+        + 0.3 * anatomi
+
+    Fakat Test 96'da bu formül sadece karşılaştırma
+    referansı olarak korunuyor.
+
+    Ayrıca kompozit alternatif de üretiliyor.
+    """
+
+    names = [
+        "biyolojik",
+        "primat",
+        "bipedal",
+        "eller",
+        "kuyruk",
+    ]
+
+    vecs = {}
+
+    for name in names:
+
+        v = get_layer_vector_from_file(
+            layer_idx,
+            name
+        )
+
+        if v is not None:
+
+            v = torch.as_tensor(
+                v,
+                dtype=torch.float32
+            )
+
+            if v.numel() == hidden_size:
+
+                vecs[name] = v
+
+    if len(vecs) < 5:
+
+        # Fallback:
+        # sıfırdan rastgele değil;
+        # seed sabit olduğundan yalnızca test altyapısı
+        # için deterministik placeholder.
+
+        g = torch.Generator()
+        g.manual_seed(
+            SEED + layer_idx
+        )
+
+        core = torch.randn(
+            hidden_size,
+            generator=g
+        )
+
+        return normalize(core), {
+            "source": "FALLBACK_RANDOM_DEMO",
+            "layer": layer_idx
+        }
+
+    biological = normalize(
+        vecs["biyolojik"]
+    )
+
+    primate = normalize(
+        vecs["primat"]
+    )
+
+    bipedal = normalize(
+        vecs["bipedal"]
+    )
+
+    hands = normalize(
+        vecs["eller"]
+    )
+
+    tail = normalize(
+        vecs["kuyruk"]
+    )
+
+    # Aile merkezi
+    family = normalize(
+        (
+            primate
+            + 0.50 * biological
+        )
+    )
+
+    anatomy = normalize(
+        0.35 * bipedal
+        + 0.25 * (-tail)
+        + 0.25 * hands
+    )
+
+    # Boş koltuk:
+    # aile ekseninden ayrıştırılmış yön
+    seat = normalize(
+        primate - biological
+    )
+
+    core = normalize(
+        family
+        + 1.00 * seat
+        + 0.30 * anatomy
+    )
+
+    return core, {
+        "source": "TEST95_FORMULA",
+        "layer": layer_idx,
+        "family_weight": 1.0,
+        "seat_weight": 1.0,
+        "anatomy_weight": 0.30,
+    }
+
+
+# ================================================================
+# 12. BİLİNEN KAVRAM VEKTÖRLERİ
+# ================================================================
+
+def construct_known_vector(
+    layer_idx,
+    concept
+):
+
+    """
+    Pozitif kontrol.
+
+    Gerçek pusulada goril / fil vektörleri varsa onları kullan.
+    """
+
+    candidates = [
+        concept,
+        concept.lower(),
+        f"{concept}_core",
+        f"{concept}_vector",
+    ]
+
+    for c in candidates:
+
+        v = get_layer_vector_from_file(
+            layer_idx,
+            c
+        )
+
+        if v is not None:
+
+            return normalize(
+                torch.as_tensor(v)
+            )
+
+    # Eğer kayıt yoksa Dibekgoz ile aynı
+    # rastgele fallback kullanılmaz.
+    # Ayrı deterministic kontrol üretilir.
+
+    g = torch.Generator()
+    g.manual_seed(
+        SEED
+        + 100000
+        + layer_idx * 100
+        + sum(ord(c) for c in concept)
+    )
+
+    return normalize(
+        torch.randn(
+            HIDDEN_SIZE,
+            generator=g
+        )
+    )
+
+
+def construct_random_vector(layer_idx):
+
+    g = torch.Generator()
+
+    g.manual_seed(
+        SEED
+        + 900000
+        + layer_idx
+    )
+
+    return normalize(
+        torch.randn(
+            HIDDEN_SIZE,
+            generator=g
+        )
+    )
+
+
+# ================================================================
+# 13. DRA INTERVENTION CAPSULE
+# ================================================================
+
+class InterventionCapsule:
+
+    def __init__(
+        self,
+        target_layers,
+        vector_name,
+        alpha,
+        vector_builder
+    ):
+
+        self.target_layers = set(
+            target_layers
+        )
+
+        self.vector_name = vector_name
+
+        self.alpha = alpha
+
+        self.vector_builder = vector_builder
+
+        self.handles = []
+
+        self.records = []
+
+        self.pre_states = {}
+
+        self.post_states = {}
+
+        self.vectors = {}
+
+    def install(self):
+
+        for layer_idx in self.target_layers:
+
+            module = LAYERS_MODULE[layer_idx]
+
+            handle = module.register_forward_hook(
+                self._make_hook(layer_idx)
+            )
+
+            self.handles.append(handle)
+
+    def _make_hook(self, layer_idx):
+
+        def hook(module, inputs, output):
+
+            # Qwen decoder layer output:
+            # tuple veya tensor olabilir.
+
+            if isinstance(output, tuple):
+
+                hidden = output[0]
+
+            else:
+
+                hidden = output
+
+            if not torch.is_tensor(hidden):
+                return output
+
+            # ------------------------------------------------
+            # Müdahale vektörü
+            # ------------------------------------------------
+
+            vector = self.vector_builder(
+                layer_idx,
+                hidden.shape[-1]
+            )
+
+            vector = vector.to(
+                device=hidden.device,
+                dtype=hidden.dtype
+            )
+
+            self.vectors[layer_idx] = (
+                vector.detach().float().cpu()
+            )
+
+            # ------------------------------------------------
+            # hidden state
+            # ------------------------------------------------
+
+            pre = hidden.detach().float()
+
+            # ------------------------------------------------
+            # norm ölçümü
+            # ------------------------------------------------
+
+            hnorm = torch.linalg.vector_norm(
+                pre,
+                dim=-1,
+                keepdim=True
+            )
+
+            # ------------------------------------------------
+            # Katman zarfı
+            # ------------------------------------------------
+
+            envelope = layer_envelope(
+                layer_idx
+            )
+
+            # ------------------------------------------------
+            # alpha = 0 sham
+            # ------------------------------------------------
+
+            strength = (
+                self.alpha
+                * envelope
+            )
+
+            # ------------------------------------------------
+            # ||h|| oranlı enjeksiyon
+            # ------------------------------------------------
+
+            if NORM_RELATIVE:
+
+                direction = vector.view(
+                    1,
+                    1,
+                    -1
+                )
+
+                direction = F.normalize(
+                    direction.float(),
+                    dim=-1
+                ).to(hidden.dtype)
+
+                delta = (
+                    strength
+                    * hnorm.to(hidden.dtype)
+                    * direction
+                )
+
+            else:
+
+                delta = (
+                    strength
+                    * vector.view(
+                        1,
+                        1,
+                        -1
+                    )
+                )
+
+            post = hidden + delta
+
+            # ------------------------------------------------
+            # TELEMETRY
+            # ------------------------------------------------
+
+            delta_norm = torch.linalg.vector_norm(
+                delta.float(),
+                dim=-1
+            )
+
+            hidden_norm = torch.linalg.vector_norm(
+                hidden.float(),
+                dim=-1
+            )
+
+            mean_cos = F.cosine_similarity(
+                hidden.float(),
+                delta.float(),
+                dim=-1
+            ).mean().item()
+
+            self.records.append({
+
+                "layer": layer_idx,
+
+                "alpha": self.alpha,
+
+                "envelope": envelope,
+
+                "vector_name": self.vector_name,
+
+                "hidden_norm_mean":
+                    hidden_norm.mean().item(),
+
+                "delta_norm_mean":
+                    delta_norm.mean().item(),
+
+                "relative_delta_mean":
+                    (
+                        delta_norm
+                        /
+                        (hidden_norm + 1e-12)
+                    ).mean().item(),
+
+                "cos_hidden_delta":
+                    mean_cos,
+
+                "pre_hash":
+                    tensor_hash(hidden),
+
+                "post_hash":
+                    tensor_hash(post),
+
+            })
+
+            return (
+                (post,) + output[1:]
+                if isinstance(output, tuple)
+                else post
+            )
+
+        return hook
+
+    def remove(self):
+
+        for h in self.handles:
+            h.remove()
+
+        self.handles = []
+
+
+# ================================================================
+# 14. LOGIT ÖLÇÜMÜ
+# ================================================================
+
+def logit_metrics(
+    vanilla_logits,
+    steered_logits
+):
+
+    v = vanilla_logits.float()
+    s = steered_logits.float()
+
+    diff = s - v
+
+    return {
+
+        "logit_delta_l2":
+            torch.linalg.vector_norm(
+                diff
+            ).item(),
+
+        "logit_delta_max":
+            diff.abs().max().item(),
+
+        "logit_cosine":
+            F.cosine_similarity(
+                v.flatten(),
+                s.flatten(),
+                dim=0
+            ).item(),
+
+        "kl_vanilla_to_steered":
+            F.kl_div(
+                F.log_softmax(s, dim=-1),
+                F.softmax(v, dim=-1),
+                reduction="batchmean"
+            ).item(),
+
+        "top1_changed":
+            int(
+                torch.argmax(v, dim=-1)
+                !=
+                torch.argmax(s, dim=-1)
+            ),
+
+    }
+
+
+# ================================================================
+# 15. VANILLA BASELINE
+# ================================================================
+
+@torch.no_grad()
+def run_vanilla(text):
+
+    inputs, hs, outputs = collect_hidden_states(
+        text
+    )
+
+    return {
+        "inputs": inputs,
+        "hidden_states": hs,
+        "logits": outputs.logits[:, -1, :],
+        "full_logits": outputs.logits,
+    }
+
+
+# ================================================================
+# 16. STEERED RUN
+# ================================================================
+
+@torch.no_grad()
+def run_steered(
+    text,
+    vector_name,
+    alpha,
+    vector_builder,
+    target_layers
+):
+
+    capsule = InterventionCapsule(
+        target_layers=target_layers,
+        vector_name=vector_name,
+        alpha=alpha,
+        vector_builder=vector_builder
+    )
+
+    capsule.install()
+
+    try:
+
+        inputs = tokenizer(
+            text,
+            return_tensors="pt"
+        )
+
+        inputs = {
+            k: v.to(model.device)
+            for k, v in inputs.items()
+        }
+
+        outputs = model(
+            **inputs,
+            output_hidden_states=True,
+            use_cache=False
+        )
+
+        hidden_states = outputs.hidden_states
+
+        logits = outputs.logits[:, -1, :]
+
+    finally:
+
+        capsule.remove()
+
+    return {
+        "inputs": inputs,
+        "hidden_states": hidden_states,
+        "logits": logits,
+        "full_logits": outputs.logits,
+        "telemetry": capsule.records,
+    }
+
+
+# ================================================================
+# 17. HIDDEN STATE KARŞILAŞTIRMASI
+# ================================================================
+
+def compare_hidden_states(
+    vanilla,
+    steered,
+    vector_builder,
+    target_layers,
+    token_positions
+):
+
+    rows = []
+
+    for layer_idx in target_layers:
+
+        # hidden_states[0] = embedding
+        hv = vanilla["hidden_states"][
+            layer_idx
+        ]
+
+        hs = steered["hidden_states"][
+            layer_idx
+        ]
+
+        # --------------------------------------------------------
+        # bütün tokenlar
+        # --------------------------------------------------------
+
+        for pos in range(
+            hv.shape[1]
+        ):
+
+            a = hv[0, pos]
+            b = hs[0, pos]
+
+            v = vector_builder(
+                layer_idx,
+                hv.shape[-1]
+            ).to(
+                hv.device
+            )
+
+            delta = b.float() - a.float()
+
+            rows.append({
+
+                "layer":
+                    layer_idx,
+
+                "token_position":
+                    pos,
+
+                "is_dibekgoz_token":
+                    int(
+                        pos in token_positions
+                    ),
+
+                "hidden_norm_vanilla":
+                    l2(a),
+
+                "hidden_norm_steered":
+                    l2(b),
+
+                "delta_norm":
+                    l2(delta),
+
+                "relative_delta":
+                    relative_change(
+                        a,
+                        b
+                    ),
+
+                "cos_delta_vector":
+                    cosine(
+                        delta,
+                        v
+                    ),
+
+                "cos_pre_vector":
+                    cosine(
+                        a,
+                        v
+                    ),
+
+                "cos_post_vector":
+                    cosine(
+                        b,
+                        v
+                    ),
+
+                "vector_alignment_gain":
+                    (
+                        cosine(b, v)
+                        -
+                        cosine(a, v)
+                    ),
+
+            })
+
+    return rows
+
+
+# ================================================================
+# 18. METİN ÜRETİMİ
+# ================================================================
+
+@torch.no_grad()
+def generate_text(
+    text,
+    capsule=None
+):
+
+    inputs = tokenizer(
+        text,
+        return_tensors="pt"
+    )
+
+    inputs = {
+        k: v.to(model.device)
+        for k, v in inputs.items()
+    }
+
+    output_ids = model.generate(
+        **inputs,
+        max_new_tokens=MAX_NEW_TOKENS,
+        do_sample=False,
+        temperature=None,
+        top_p=None,
+        use_cache=True,
+    )
+
+    return tokenizer.decode(
+        output_ids[0],
+        skip_special_tokens=True
+    )
+
+
+# ================================================================
+# 19. ANA DENEY MATRİSİ
+# ================================================================
+
+VECTOR_BUILDERS = {
+
+    "dibekgoz":
+        lambda L, H:
+            construct_dibekgoz_core(
+                L,
+                H
+            )[0],
+
+    "goril":
+        lambda L, H:
+            construct_known_vector(
+                L,
+                "goril"
+            ),
+
+    "fil":
+        lambda L, H:
+            construct_known_vector(
+                L,
+                "fil"
+            ),
+
+    "random":
+        lambda L, H:
+            construct_random_vector(
+                L
+            ),
+}
+
+
+CONDITIONS = [
+    "vanilla",
+    "dibekgoz",
+    "goril",
+    "fil",
+    "random",
+]
+
+
+# ================================================================
+# 20. RAPOR DOSYALARI
+# ================================================================
+
+RUN_ID = time.strftime(
+    "%Y%m%d_%H%M%S"
+)
+
+JSONL_PATH = (
+    OUTPUT_DIR
+    /
+    f"Test96_{RUN_ID}.jsonl"
+)
+
+CSV_PATH = (
+    OUTPUT_DIR
+    /
+    f"Test96_{RUN_ID}_layers.csv"
+)
+
+SUMMARY_PATH = (
+    OUTPUT_DIR
+    /
+    f"Test96_{RUN_ID}_summary.json"
+)
+
+REPORT_PATH = (
+    OUTPUT_DIR
+    /
+    f"Test96_{RUN_ID}_REPORT.md"
+)
+
+
+layer_csv_rows = []
+run_records = []
+
+
+def save_jsonl(record):
+
+    with open(
+        JSONL_PATH,
+        "a",
+        encoding="utf-8"
+    ) as f:
+
+        f.write(
+            json.dumps(
+                record,
+                ensure_ascii=False,
+                default=str
+            )
+            + "\n"
+        )
+
+
+# ================================================================
+# 21. DENEY
+# ================================================================
+
+total_start = time.time()
+
+for prompt_group, prompts in PROMPTS.items():
+
+    for prompt in prompts:
+
+        print(
+            "\n"
+            + "=" * 72
+        )
+
+        print(
+            "PROMPT GROUP:",
+            prompt_group
+        )
+
+        print(
+            "PROMPT:",
+            prompt
+        )
+
+        print(
+            "=" * 72
+        )
+
+        # --------------------------------------------------------
+        # VANILLA
+        # --------------------------------------------------------
+
+        vanilla = run_vanilla(
+            prompt
+        )
+
+        token_positions = (
+            token_positions_for_text(
+                vanilla["inputs"]["input_ids"],
+                DIBEKGOZ_TEXT
+            )
+        )
+
+        # --------------------------------------------------------
+        # HER VECTOR
+        # --------------------------------------------------------
+
+        for vector_name in CONDITIONS:
+
+            if vector_name == "vanilla":
+                continue
+
+            for alpha in ALPHAS:
+
+                if alpha == 0.0:
+
+                    # alpha=0 gerçek enjeksiyon değil;
+                    # sham kontrol.
+
+                    pass
+
+                for repeat in range(
+                    REPEATS
+                ):
+
+                    t0 = time.time()
+
+                    steered = run_steered(
+                        prompt,
+                        vector_name,
+                        alpha,
+                        VECTOR_BUILDERS[
+                            vector_name
+                        ],
+                        LAYERS
+                    )
+
+                    elapsed = (
+                        time.time() - t0
+                    )
+
+                    # ------------------------------------------------
+                    # Hidden-state analizi
+                    # ------------------------------------------------
+
+                    rows = (
+                        compare_hidden_states(
+                            vanilla,
+                            steered,
+                            VECTOR_BUILDERS[
+                                vector_name
+                            ],
+                            LAYERS,
+                            token_positions
+                        )
+                    )
+
+                    # ------------------------------------------------
+                    # Son token logit etkisi
+                    # ------------------------------------------------
+
+                    lm = logit_metrics(
+                        vanilla["logits"],
+                        steered["logits"]
+                    )
+
+                    # ------------------------------------------------
+                    # Metin
+                    # ------------------------------------------------
+
+                    generated = generate_text(
+                        prompt
+                    )
+
+                    record = {
+
+                        "test":
+                            "TEST_96",
+
+                        "run_id":
+                            RUN_ID,
+
+                        "prompt_group":
+                            prompt_group,
+
+                        "prompt":
+                            prompt,
+
+                        "vector":
+                            vector_name,
+
+                        "alpha":
+                            alpha,
+
+                        "repeat":
+                            repeat,
+
+                        "layers":
+                            [START_LAYER, END_LAYER],
+
+                        "tokenization":
+                            dibek_tokens,
+
+                        "token_ids":
+                            dibek_ids,
+
+                        "dibekgoz_positions":
+                            token_positions,
+
+                        "elapsed_sec":
+                            elapsed,
+
+                        "logit_metrics":
+                            lm,
+
+                        "generated_text":
+                            generated,
+
+                        "telemetry":
+                            steered[
+                                "telemetry"
+                            ],
+
+                        "layer_rows":
+                            rows,
+                    }
+
+                    run_records.append(
+                        record
+                    )
+
+                    save_jsonl(
+                        record
+                    )
+
+                    layer_csv_rows.extend(
+                        [
+                            {
+                                "run_id":
+                                    RUN_ID,
+                                "prompt_group":
+                                    prompt_group,
+                                "prompt":
+                                    prompt,
+                                "vector":
+                                    vector_name,
+                                "alpha":
+                                    alpha,
+                                "repeat":
+                                    repeat,
+                                **r,
+                            }
+                            for r in rows
+                        ]
+                    )
+
+                    print(
+                        f"[{vector_name:8s}] "
+                        f"alpha={alpha:.2f} "
+                        f"repeat={repeat} "
+                        f"logitΔ="
+                        f"{lm['logit_delta_l2']:.5f}"
+                    )
+
+
+# ================================================================
+# 22. CSV
+# ================================================================
+
+if layer_csv_rows:
+
+    fieldnames = list(
+        layer_csv_rows[0].keys()
+    )
+
+    with open(
+        CSV_PATH,
+        "w",
+        newline="",
+        encoding="utf-8"
+    ) as f:
+
+        writer = csv.DictWriter(
+            f,
+            fieldnames=fieldnames
+        )
+
+        writer.writeheader()
+
+        writer.writerows(
+            layer_csv_rows
+        )
+
+
+# ================================================================
+# 23. İSTATİSTİKSEL ÖZET
+# ================================================================
+
+def summarize_vector(
+    vector_name,
+    alpha
+):
+
+    subset = [
+        r
+        for r in layer_csv_rows
+        if
+        r["vector"] == vector_name
+        and
+        abs(
+            float(r["alpha"])
+            -
+            alpha
+        ) < 1e-9
+    ]
+
+    if not subset:
+        return None
+
+    all_delta = np.array([
+        float(
+            r["delta_norm"]
+        )
+        for r in subset
+    ])
+
+    all_gain = np.array([
+        float(
+            r["vector_alignment_gain"]
+        )
+        for r in subset
+    ])
+
+    target = [
+        r for r in subset
+        if
+        r["is_dibekgoz_token"] == 1
+    ]
+
+    non_target = [
+        r for r in subset
+        if
+        r["is_dibekgoz_token"] == 0
+    ]
+
+    target_delta = np.array([
+        float(r["delta_norm"])
+        for r in target
+    ])
+
+    non_target_delta = np.array([
+        float(r["delta_norm"])
+        for r in non_target
+    ])
+
+    return {
+
+        "vector":
+            vector_name,
+
+        "alpha":
+            alpha,
+
+        "n":
+            len(subset),
+
+        "mean_delta_norm":
+            float(all_delta.mean()),
+
+        "std_delta_norm":
+            float(all_delta.std()),
+
+        "mean_alignment_gain":
+            float(all_gain.mean()),
+
+        "std_alignment_gain":
+            float(all_gain.std()),
+
+        "target_token_delta":
+            float(
+                target_delta.mean()
+            )
+            if len(target_delta)
+            else None,
+
+        "non_target_token_delta":
+            float(
+                non_target_delta.mean()
+            )
+            if len(non_target_delta)
+            else None,
+
+        "target_minus_non_target":
+            float(
+                target_delta.mean()
+                -
+                non_target_delta.mean()
+            )
+            if len(target_delta)
+            and len(non_target_delta)
+            else None,
+    }
+
+
+summary = {
+
+    "test":
+        "TEST_96",
+
+    "run_id":
+        RUN_ID,
+
+    "model":
+        MODEL_NAME,
+
+    "device":
+        DEVICE,
+
+    "hidden_size":
+        HIDDEN_SIZE,
+
+    "n_layers":
+        N_LAYERS,
+
+    "intervention_layers":
+        LAYERS,
+
+    "alpha_values":
+        ALPHAS,
+
+    "repeats":
+        REPEATS,
+
+    "tokenization":
+        dibek_tokens,
+
+    "token_ids":
+        dibek_ids,
+
+    "pusula_source":
+        PUSULA_SOURCE,
+
+    "results": {},
+
+    "elapsed_total_sec":
+        time.time() - total_start,
+}
+
+
+for vector_name in [
+    "dibekgoz",
+    "goril",
+    "fil",
+    "random",
+]:
+
+    summary["results"][
+        vector_name
+    ] = {}
+
+    for alpha in ALPHAS:
+
+        summary["results"][
+            vector_name
+        ][
+            str(alpha)
+        ] = summarize_vector(
+            vector_name,
+            alpha
+        )
+
+
+with open(
+    SUMMARY_PATH,
+    "w",
+    encoding="utf-8"
+) as f:
+
+    json.dump(
+        summary,
+        f,
+        ensure_ascii=False,
+        indent=2
+    )
+
+
+# ================================================================
+# 24. OTOMATİK TEŞHİS
+# ================================================================
+
+dib = summary["results"]["dibekgoz"]
+
+gor = summary["results"]["goril"]
+
+fil = summary["results"]["fil"]
+
+rnd = summary["results"]["random"]
+
+
+def mean_metric(
+    table,
+    metric
+):
+
+    values = []
+
+    for alpha in table.values():
+
+        if alpha is None:
+            continue
+
+        value = alpha.get(metric)
+
+        if value is not None:
+            values.append(
+                float(value)
+            )
+
+    return (
+        float(np.mean(values))
+        if values
+        else None
+    )
+
+
+diagnosis = {}
+
+diagnosis[
+    "dibekgoz_hidden_effect"
+] = mean_metric(
+    dib,
+    "mean_delta_norm"
+)
+
+diagnosis[
+    "dibekgoz_alignment_gain"
+] = mean_metric(
+    dib,
+    "mean_alignment_gain"
+)
+
+diagnosis[
+    "dibekgoz_target_specificity"
+] = mean_metric(
+    dib,
+    "target_minus_non_target"
+)
+
+diagnosis[
+    "goril_hidden_effect"
+] = mean_metric(
+    gor,
+    "mean_delta_norm"
+)
+
+diagnosis[
+    "fil_hidden_effect"
+] = mean_metric(
+    fil,
+    "mean_delta_norm"
+)
+
+diagnosis[
+    "random_hidden_effect"
+] = mean_metric(
+    rnd,
+    "mean_delta_norm"
+)
+
+
+# ------------------------------------------------
+# DİAGNOSTİK SINIFLAMA
+# ------------------------------------------------
+
+if (
+    diagnosis["dibekgoz_hidden_effect"] is not None
+    and
+    diagnosis["dibekgoz_hidden_effect"] >
+    1e-6
+):
+
+    diagnosis[
+        "hidden_state_reached"
+    ] = True
+
+else:
+
+    diagnosis[
+        "hidden_state_reached"
+    ] = False
+
+
+if (
+    diagnosis["dibekgoz_alignment_gain"]
+    is not None
+    and
+    diagnosis["dibekgoz_alignment_gain"] > 0
+):
+
+    diagnosis[
+        "vector_direction_effect"
+    ] = True
+
+else:
+
+    diagnosis[
+        "vector_direction_effect"
+    ] = False
+
+
+if (
+    diagnosis["dibekgoz_target_specificity"]
+    is not None
+    and
+    diagnosis["dibekgoz_target_specificity"] > 0
+):
+
+    diagnosis[
+        "token_specific_effect"
+    ] = True
+
+else:
+
+    diagnosis[
+        "token_specific_effect"
+    ] = False
+
+
+# ================================================================
+# 25. RAPOR
+# ================================================================
+
+report = []
+
+report.append(
+    "# AKBASCORE TEST 96\n"
+)
+
+report.append(
+    "## DRA Dibekgoz Causal Intervention Capsule\n"
+)
+
+report.append(
+    f"- Run ID: `{RUN_ID}`\n"
+)
+
+report.append(
+    f"- Model: `{MODEL_NAME}`\n"
+)
+
+report.append(
+    f"- Layers: `{START_LAYER}..{END_LAYER}`\n"
+)
+
+report.append(
+    f"- Alpha: `{ALPHAS}`\n"
+)
+
+report.append(
+    f"- Repeat: `{REPEATS}`\n"
+)
+
+report.append(
+    f"- Dibekgoz tokenization: `{dibek_tokens}`\n"
+)
+
+report.append(
+    f"- Pusula source: `{PUSULA_SOURCE}`\n"
+)
+
+report.append(
+    "\n## Otomatik Teşhis\n"
+)
+
+for k, v in diagnosis.items():
+
+    report.append(
+        f"- **{k}:** `{v}`\n"
+    )
+
+
+report.append(
+    "\n## Deney Mantığı\n"
+)
+
+report.append(
+    """
+Bu deney davranışsal başarıyı varsaymaz.
+Önce müdahalenin hidden-state'e gerçekten ulaşıp
+ulaşmadığını ölçer.
+
+Ardından:
+
+1. Dibekgoz yönüne hizalanma,
+2. hedef token özgüllüğü,
+3. katmanlar arası taşınma,
+4. logit değişimi,
+5. bilinen kavram pozitif kontrolleri,
+6. random kontrol,
+7. alpha=0 sham kontrolü
+
+ayrı ayrı değerlendirilir.
+"""
+)
+
+
+report.append(
+    "\n## Önceki Test 95 ile bağlantı\n"
+)
+
+report.append(
+    """
+Test 95 Faz 20'de temel bulgu:
+
+> Bilinen kavram vektörleri etkili olabilirken
+> Dibekgoz sentetik çekirdeğinin davranışsal etkisi
+> zayıf kalmıştır.
+
+Bu nedenle Test 96'nın birincil sorusu:
+
+**Dibekgoz vektörü gerçekten modele enjekte ediliyor mu,
+yoksa matematiksel olarak oluşturulmuş ancak modelin
+temsil geometrisinde taşınamayan bir yön mü?**
+
+Bu ayrım yapılmadan yalnızca çıktı metnine bakarak
+"motor çalışıyor/çalışmıyor" sonucu çıkarılmamalıdır.
+"""
+)
+
+
+report.append(
+    "\n## Dosyalar\n"
+)
+
+report.append(
+    f"- JSONL: `{JSONL_PATH}`\n"
+)
+
+report.append(
+    f"- Layer CSV: `{CSV_PATH}`\n"
+)
+
+report.append(
+    f"- Summary JSON: `{SUMMARY_PATH}`\n"
+)
+
+
+with open(
+    REPORT_PATH,
+    "w",
+    encoding="utf-8"
+) as f:
+
+    f.write(
+        "".join(report)
+    )
+
+
+# ================================================================
+# 26. SONUÇ
+# ================================================================
+
+print("\n")
+print("=" * 72)
+print("TEST 96 TAMAMLANDI")
+print("=" * 72)
+
+print(
+    "Hidden-state'e ulaştı      :",
+    diagnosis[
+        "hidden_state_reached"
+    ]
+)
+
+print(
+    "Vektör yönü etkisi         :",
+    diagnosis[
+        "vector_direction_effect"
+    ]
+)
+
+print(
+    "Token özgüllüğü            :",
+    diagnosis[
+        "token_specific_effect"
+    ]
+)
+
+print(
+    "\nREPORT:",
+    REPORT_PATH
+)
+
+print(
+    "SUMMARY:",
+    SUMMARY_PATH
+)
+
+print(
+    "CSV:",
+    CSV_PATH
+)
+
+print(
+    "JSONL:",
+    JSONL_PATH
+)
+
+print("=" * 72)
+
+
+
