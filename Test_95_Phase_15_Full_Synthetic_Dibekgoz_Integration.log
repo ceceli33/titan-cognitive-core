@@ -1,0 +1,641 @@
+# =============================================================================
+# TEST 95 — AŞAMA 5/6: İSİM BAĞLAYICISI + İNCE AYAR
+# =============================================================================
+# AŞAMA 4 NE GÖSTERDİ:
+#   ✅ Enjeksiyon çalışıyor -- alpha arttıkça çıktı radikal değişiyor
+#   ⚠️ Ama yön YANLIŞ: model maymungil değil, İNSAN/HOMİNİD yönüne kayıyor
+#      (alpha=0.10'da "Species Name: Homo habilis", TR'de "Dibekgoz (Homo sapiens)")
+#   ⚠️ alpha=0.10 kontrol sorusuna da sızıyor ("Biodiversity and Conservation")
+#   ❌ alpha>=0.15 dili bozuyor
+#   ❌ Aşama 4'ün tekrar metriği BOZULMAYI YAKALAYAMADI (sembol salatasını
+#      5-gram tekrarı görmüyor) -- bu aşamada düzeltildi
+#
+# EKSİK OLAN: İSİM BAĞLAYICISI
+#   Gemini'nin özgün planında V12 "isim bağlayıcısı" vardı: morfolojiyi
+#   doğrudan 'Dibekgoz' ismiyle mühürleyen bileşen. Biz atlamıştık.
+#   Sonuç: model "bir hominid tarif et" sinyali alıyor ama "bunun adı
+#   Dibekgoz" bağını kuramıyor, bildiği en yakın ismi yapıştırıyor.
+#
+# BU AŞAMADA ÜÇ ŞEY:
+#   1. DÜZELTİLMİŞ BOZULMA METRİĞİ (çöp token + sembol yoğunluğu + kırık kelime)
+#      Gerçek Aşama 4 çıktılarıyla kalibre edildi:
+#        sağlam<0.15 | şüpheli 0.15-0.40 | bozuk>0.40
+#   2. SÖZCÜKSEL YÖN ÖLÇERİ: çıktı maymungil mi, insansı mı, başka hayvan mı?
+#      Öznel okumayı sayıya çeviriyor.
+#   3. İSİM BAĞLAYICISI DENEYİ: "Dibekgoz" token'ının kendi temsilini çekip
+#      çekirdeğe ekliyoruz. A/B olarak test ediliyor (bağlayıcı var/yok).
+#
+# ÇIKTI: dibekgoz_asama5.json
+# =============================================================================
+
+import os, json, math, time, re
+import torch
+import torch.nn.functional as F
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+torch.backends.cudnn.deterministic = True
+
+MODEL_ID  = "Qwen/Qwen2.5-7B-Instruct"
+PUSULA_PT = "/content/dibekgoz_pusula_asama3v3.pt"
+OUT_JSON  = "/content/dibekgoz_asama5.json"
+
+ALPHA_GRID  = [0.00, 0.04, 0.06, 0.08, 0.10, 0.12]   # 0.15+ zaten bozuk
+NAME_GRID   = [0.0, 0.35, 0.70]                       # isim bağlayıcı ağırlığı
+MAX_TOKENS  = 280
+ENVELOPE_FLOOR = 0.25
+
+print(f"torch: {torch.__version__}  |  CUDA: {torch.version.cuda}")
+if not torch.cuda.is_available(): raise SystemExit("❌ GPU yok.")
+print(f"✅ GPU: {torch.cuda.get_device_name(0)}\n")
+
+# =============================================================================
+# DÜZELTİLMİŞ ÖLÇÜMLER
+# =============================================================================
+def bozulma_skoru(t):
+    """Aşama 4'ün metriği sembol salatasını kaçırmıştı. Bu üç sinyali birleştirir.
+    Gerçek Aşama 4 çıktılarıyla kalibre edildi."""
+    if not t.strip(): return 1.0, {"cop":1.0,"sembol":1.0,"kirik":0.0}
+    toks = t.split(); n = len(toks)
+    cop   = sum(1 for x in toks if not re.search(r'[^\W\d_]{2,}', x)) / n
+    sym   = len(re.findall(r'[—\[\]\|\$#~=]', t)) / max(1, len(t))
+    kirik = sum(1 for x in toks if re.search(r'[^\W\d_][_~\[\]]|[_~][^\W\d_]', x)) / n
+    return max(cop, sym*6, kirik*4), {"cop":cop, "sembol":sym, "kirik":kirik}
+
+def latin_disi(t):
+    """TR->Çince kaymasını yakalar (Aşama 4'te alpha=0.10'da olmuştu)."""
+    L = re.findall(r'[^\W\d_]', t)
+    return sum(1 for c in L if ord(c) > 0x2000) / max(1, len(L))
+
+# Sözcüksel yön ölçeri: çıktı hangi yöne kaydı?
+LEX = {
+  "maymungil": ["ape","apes","gorilla","chimpanzee","chimp","bonobo","orangutan",
+                "gibbon","primate","primates","hominid","knuckle","great ape",
+                "maymun","goril","şempanze","primat","orangutan"],
+  "insansi":   ["human","humans","homo sapiens","homo habilis","mankind","person",
+                "people","civilization","culture","society","language","insan",
+                "insanlar","medeniyet","toplum"],
+  "anatomi":   ["tailless","no tail","two legs","bipedal","upright","hands",
+                "fingers","grasp","grip","limbs","forelimb","kuyruksuz","iki ayak",
+                "dik","eller","parmak","kavra","uzuv"],
+  "yabanci":   ["elephant","panda","deer","dog","cat","fish","bird","reptile",
+                "rodent","hoof","hooves","feline","canine","fil","panda","geyik",
+                "köpek","kedi","balık","kuş","toynak"],
+}
+def lex_profil(t):
+    low = " " + t.lower() + " "
+    out = {}
+    for k, ws in LEX.items():
+        out[k] = sum(low.count(" "+w) + low.count(" "+w+"s") for w in ws)
+    return out
+
+# Hızlı kendi kendine test (metrik gerçekten çalışıyor mu)
+_t1 = "The Dibekgoz is a tailless ape, a primate that walks upright on two legs."
+_t2 = "— [ $('#' — — ( | — , — — — — — —"
+_s1, _ = bozulma_skoru(_t1); _s2, _ = bozulma_skoru(_t2)
+print(f"Metrik kendi testi: sağlam metin={_s1:.3f}, çöp metin={_s2:.3f}  "
+      f"{'✅' if _s1 < 0.15 < _s2 else '❌'}")
+print(f"  sözcüksel: {lex_profil(_t1)}\n")
+
+# ==== Yeniden inşa altyapısı (Aşama 4 ile aynı) ====
+AXES = {
+    "biyolojik": {
+        "pozitif": [
+            "A living organism with cells, tissues, and a beating heart.",
+            "A biological creature that breathes, eats, and grows.",
+            "A warm-blooded animal with flesh, blood, and bone.",
+            "A living being born from a mother and capable of reproduction.",
+            "An organic life form with muscles, skin, and a nervous system.",
+            "A creature of flesh and blood that ages and eventually dies.",
+            "A living animal whose body is made of organic tissue.",
+            "A breathing, metabolizing biological entity found in nature.",
+        ],
+        "negatif": [
+            "A lifeless object made of metal, plastic, and wire.",
+            "An inanimate machine with gears, circuits, and no biology.",
+            "An abstract mathematical concept with no physical body.",
+            "A manufactured tool assembled in a factory from parts.",
+            "A non-living artifact carved from stone and never alive.",
+            "A synthetic construct of steel that has no cells or organs.",
+            "A rigid mechanical device that cannot grow or reproduce.",
+            "An artificial object with no metabolism and no life.",
+        ],
+    },
+    "primat": {
+        "pozitif": [
+            "A large ape with a broad chest, thick fur, and a flat face.",
+            "A gorilla-like primate with powerful shoulders and dark hair.",
+            "A great ape resembling a chimpanzee or orangutan in build.",
+            "A primate with a heavy brow ridge and an expressive face.",
+            "An ape with a muscular torso covered in coarse black hair.",
+            "A hominid-shaped creature with a broad back and long arms.",
+            "A primate resembling a mountain gorilla in size and posture.",
+            "An ape-bodied animal with thick limbs and a rounded skull.",
+        ],
+        "negatif": [
+            "A scaly fish with fins and gills swimming in deep water.",
+            "A feathered bird with a beak and hollow wing bones.",
+            "A cold reptile covered in scales with a flat wedge head.",
+            "A soft-bodied insect with a chitin shell and six thin legs.",
+            "A slimy amphibian with moist smooth skin and webbed feet.",
+            "A hoofed grazing animal with a long neck and narrow snout.",
+            "A shelled mollusk with tentacles and no skeleton at all.",
+            "A furred rodent with whiskers, small ears, and sharp teeth.",
+        ],
+    },
+    # --- ESKİ bipedal (Aşama 1'deki haliyle, referans olarak) ---
+    "bipedal_eski": {
+        "pozitif": [
+            "It stands upright on two legs with its spine held vertical.",
+            "A creature that walks on two feet in an erect posture.",
+            "It balances on two hind legs, standing tall and upright.",
+            "A bipedal being that strides forward on two sturdy legs.",
+            "It carries itself vertically, weight resting on two feet.",
+            "A two-legged creature whose torso rises above its hips.",
+            "It walks erect on a pair of legs, hands free of the ground.",
+            "A creature with an upright bipedal gait on two strong feet.",
+        ],
+        "negatif": [
+            "It crawls on its belly, dragging its body along the ground.",
+            "A creature that moves on four legs with its back horizontal.",
+            "It slithers low across the earth with no legs at all.",
+            "A quadruped whose four limbs all touch the ground while moving.",
+            "It scuttles sideways on many jointed legs close to the soil.",
+            "A creature that swims, propelling itself with a flattened tail.",
+            "It gallops on four hooves with its spine parallel to the ground.",
+            "A low animal that pads about on all fours, belly near the dirt.",
+        ],
+    },
+    # --- ONARILMIŞ bipedal: TÜR SABİT (hep ape/primat), SADECE DURUŞ değişiyor ---
+    "bipedal_yeni": {
+        "pozitif": [
+            "The ape stands upright on two legs, its spine held vertical.",
+            "The ape walks erect on two feet, hands free of the ground.",
+            "The primate rises onto its hind legs and stands tall.",
+            "The ape moves bipedally, torso upright above its two feet.",
+            "The great ape strides forward on two legs, back straight.",
+            "The primate holds an erect posture, balanced on two feet.",
+            "The ape's body is vertical, supported by two legs alone.",
+            "The primate stands on two feet with an upright human-like gait.",
+        ],
+        "negatif": [
+            "The ape walks on all fours, knuckles pressed to the ground.",
+            "The ape moves quadrupedally, back horizontal above four limbs.",
+            "The primate knuckle-walks, its forelimbs bearing its weight.",
+            "The ape crouches forward on four limbs, spine parallel to earth.",
+            "The great ape lumbers on all fours, hands touching the soil.",
+            "The primate moves on four points of contact, torso low.",
+            "The ape's forelimbs support its body as it walks on all fours.",
+            "The primate travels quadrupedally with its chest near the ground.",
+        ],
+    },
+    "eller": {
+        "pozitif": [
+            "It has two hands with fingers that can grip and hold objects.",
+            "A creature with dexterous hands and an opposable thumb.",
+            "Its two upper limbs end in five-fingered grasping hands.",
+            "It can pick up, grasp, and manipulate things with its hands.",
+            "A being with a pair of hands capable of fine manipulation.",
+            "Its fingers curl to grip branches, tools, and food firmly.",
+            "Two arms ending in hands that can hold and carry objects.",
+            "It uses its hands and fingers to grasp and examine things.",
+        ],
+        "negatif": [
+            "Its limbs end in blunt hooves that cannot grasp anything.",
+            "It has mechanical pincers and rigid metal clamps for ends.",
+            "Its forelimbs end in solid paws with no separate fingers.",
+            "It moves on wheels and has no limbs or appendages at all.",
+            "Its arms terminate in sharp fixed claws that cannot open.",
+            "It has stiff flippers unable to hold or manipulate objects.",
+            "Its limbs end in flat stumps with no digits whatsoever.",
+            "It possesses rigid mechanical arms with welded fixed tips.",
+        ],
+    },
+    "kuyruk": {
+        "pozitif": [
+            "A long tail extends from the base of its spine behind it.",
+            "It has a thick tail that trails along the ground as it moves.",
+            "A prehensile tail curls from its rear, gripping branches.",
+            "Its body ends in a long tapering tail swaying behind it.",
+            "A bushy tail sprouts from its lower back and hangs down.",
+            "The creature's tail whips from side to side as it walks.",
+            "A muscular tail extends backward from its hindquarters.",
+            "It has a visible tail attached at the end of its spine.",
+        ],
+        "negatif": [
+            "It has no tail at all; its spine ends smoothly at the hips.",
+            "A tailless creature with a flat, rounded rear and no appendage.",
+            "Its back terminates cleanly with no tail of any kind.",
+            "The creature is completely tailless, like a gorilla or a human.",
+            "No tail projects from its body; the lower back is smooth.",
+            "It lacks a tail entirely, its rump plain and unbroken.",
+            "A tailless anatomy with nothing extending from the spine's end.",
+            "Its spine simply ends; there is no tail behind the creature.",
+        ],
+    },
+}
+
+# =============================================================================
+# KENDİ KENDİNE YETERLİLİK — pusula yoksa sıfırdan yeniden inşa et
+# =============================================================================
+# Colab oturumu sıfırlandığında /content temizlenir. Bu bölüm, Aşama 1-3.6'nın
+# TAMAMINI (sondalama + boş koltuk + çekirdek) yeniden üretir. Aşama 3.6'nın
+# kararlaştırdığı parametreler sabitlenmiş durumda, yani sonuç birebir aynı
+# olacak -- rastgelelik sadece sabit seed'li boş koltuk aramasında ve o da
+# yeniden üretilebilir.
+# =============================================================================
+REBUILD = {
+    "WINDOW": list(range(10, 21)),
+    "SEED": 42,
+    "SUBSPACE_K": 4,
+    "N_SEAT": 300000,
+    "BETA_SEAT": 1.00,        # Aşama 3.6 taramasının seçtiği değer
+    "GAMMA_ANAT": 0.30,
+    "ANATOMY": {"bipedal": 0.35, "kuyruk": 0.25, "eller": 0.25},
+}
+
+SPECIES_PROMPTS = {
+    "goril":     "A gorilla, a species of great ape native to the forests of central Africa.",
+    "sempanze":  "A chimpanzee, a species of great ape native to the forests of equatorial Africa.",
+    "orangutan": "An orangutan, a species of great ape native to the rainforests of Borneo and Sumatra.",
+    "bonobo":    "A bonobo, a species of great ape native to the forests of the Congo basin.",
+    "gibon":     "A gibbon, a species of lesser ape native to the tropical forests of Southeast Asia.",
+    "insan":     "A human, a species of great ape native to every continent on Earth.",
+}
+OUTGROUP_PROMPTS = {
+    "kuyruklu_maymun": "A spider monkey, a species of monkey with a long prehensile tail.",
+    "kopek":           "A dog, a four-legged domesticated mammal with paws and a wagging tail.",
+    "ayi":             "A bear, a large furry quadruped mammal with heavy paws.",
+    "kertenkele":      "A lizard, a scaly cold-blooded reptile with four short legs and a tail.",
+    "kaya":            "A rock, a lifeless lump of grey mineral stone.",
+    "robot":           "An industrial robot, a metal machine with hydraulic arms.",
+}
+
+def rebuild_pusula(tok, model, device):
+    """Aşama 1-3.6'yı sıfırdan tekrarlar. ~15 sn."""
+    import torch.nn.functional as _F
+    W = REBUILD["WINDOW"]
+    D = model.config.hidden_size
+    cap = {}
+    def mk(li):
+        def h(m, i, o):
+            x = o[0] if isinstance(o, tuple) else o
+            cap[li] = x.detach().to(torch.float32).cpu()
+        return h
+    hs = [model.model.layers[li].register_forward_hook(mk(li)) for li in W]
+
+    @torch.no_grad()
+    def pr(t):
+        cap.clear()
+        enc = tok(t, return_tensors="pt").to(device)
+        model(**enc)
+        return {li: cap[li][0][-1].clone() for li in W}
+
+    # --- anatomik eksenler ---
+    use = ["biyolojik", "primat", "bipedal_yeni", "eller", "kuyruk"]
+    ren = {"bipedal_yeni": "bipedal"}
+    order = [ren.get(a, a) for a in use]
+    flip = {"kuyruk": -1.0}
+    raw = {}
+    for ax in use:
+        d = AXES[ax]
+        P = [pr(s) for s in d["pozitif"]]
+        N = [pr(s) for s in d["negatif"]]
+        raw[ren.get(ax, ax)] = {
+            li: torch.stack([p[li] for p in P]).mean(0)
+               - torch.stack([n[li] for n in N]).mean(0) for li in W}
+
+    # --- türler ---
+    sp  = {n: pr(t) for n, t in SPECIES_PROMPTS.items()}
+    og  = {n: pr(t) for n, t in OUTGROUP_PROMPTS.items()}
+    for h in hs: h.remove()
+
+    # --- Gram-Schmidt ---
+    def gs(vs):
+        b = []
+        for v in vs:
+            w = v.clone()
+            for x in b: w = w - (w @ x) * x
+            b.append(w / (w.norm() + 1e-9))
+        return b
+    ortho = {}
+    for li in W:
+        vs = [_F.normalize(raw[a][li] * flip.get(a, 1.0), dim=0) for a in order]
+        bb = gs(vs)
+        ortho[li] = {a: bb[i] for i, a in enumerate(order)}
+
+    # --- merkezleme ---
+    ALL = {**sp, **og}
+    mh = {li: torch.stack([ALL[n][li] for n in ALL]).mean(0) for li in W}
+    spc = {n: {li: sp[n][li] - mh[li] for li in W} for n in SPECIES_PROMPTS}
+    ogc = {n: {li: og[n][li] - mh[li] for li in W} for n in OUTGROUP_PROMPTS}
+
+    # --- aile merkezi + boş koltuk ---
+    fam, seat, seatq = {}, {}, {}
+    for li in W:
+        S = torch.stack([_F.normalize(spc[n][li], dim=0) for n in SPECIES_PROMPTS])
+        cen = _F.normalize(S.mean(0), dim=0)
+        fam[li] = cen
+        dev = S - (S @ cen).unsqueeze(1) * cen.unsqueeze(0)
+        _, _, Vh = torch.linalg.svd(dev, full_matrices=False)
+        B = Vh[:min(REBUILD["SUBSPACE_K"], Vh.shape[0])]
+        co = dev @ B.T
+        co = co / (co.norm(dim=1, keepdim=True) + 1e-9)
+        g = torch.Generator().manual_seed(REBUILD["SEED"] + li)
+        C = torch.randn(REBUILD["N_SEAT"], B.shape[0], generator=g)
+        C = C / C.norm(dim=1, keepdim=True)
+        worst = (C @ co.T).abs().max(dim=1).values
+        i = int(worst.argmin())
+        seatq[li] = float(worst[i])
+        seat[li] = _F.normalize(C[i] @ B, dim=0)
+
+    # --- çekirdek ---
+    core = {}
+    for li in W:
+        anat = torch.zeros(D)
+        for a, w in REBUILD["ANATOMY"].items():
+            anat = anat + w * ortho[li][a]
+        anat = _F.normalize(anat, dim=0)
+        core[li] = _F.normalize(fam[li] + REBUILD["BETA_SEAT"] * seat[li]
+                                + REBUILD["GAMMA_ANAT"] * anat, dim=0)
+
+    # --- doğrulama (Aşama 3.6 sayılarıyla karşılaştırılabilsin) ---
+    def cm(c, r):
+        return sum(float(_F.cosine_similarity(c[li].unsqueeze(0), r[li].unsqueeze(0)))
+                   for li in W) / len(W)
+    sps = {n: cm(core, spc[n]) for n in SPECIES_PROMPTS}
+    ogs = {n: cm(core, ogc[n]) for n in OUTGROUP_PROMPTS}
+    prof = {"aile_marji": min(sps.values()) - max(ogs.values()),
+            "yayilim": max(sps.values()) - min(sps.values()),
+            "max_benzerlik": max(sps.values())}
+    return {
+        "window": W, "hidden_size": D, "dibekgoz_core": core,
+        "ortho_axes": ortho, "family_dir": fam, "seat_dir": seat,
+        "method": "bos_koltuk_v3_LOO (yeniden inşa)",
+        "params": {"BETA_SEAT": REBUILD["BETA_SEAT"],
+                   "GAMMA_ANAT": REBUILD["GAMMA_ANAT"],
+                   "ANATOMY": REBUILD["ANATOMY"],
+                   "SUBSPACE_K": REBUILD["SUBSPACE_K"], "SEED": REBUILD["SEED"]},
+        "dibekgoz_profile": prof, "species_scores": sps, "outgroup_scores": ogs,
+        "seat_quality": seatq,
+    }
+
+
+# =============================================================================
+# MODEL + PUSULA (kendi kendine yeter)
+# =============================================================================
+print("Model yükleniyor...")
+tok = AutoTokenizer.from_pretrained(MODEL_ID)
+if tok.pad_token is None: tok.pad_token = tok.eos_token
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID, device_map="auto", trust_remote_code=True,
+    low_cpu_mem_usage=True, dtype=torch.bfloat16, attn_implementation="sdpa")
+model.eval()
+device = next(model.parameters()).device
+print("✅ Model hazır\n")
+
+if os.path.exists(PUSULA_PT):
+    PZ = torch.load(PUSULA_PT, map_location="cpu", weights_only=False)
+    print(f"✅ Pusula dosyadan yüklendi.")
+else:
+    print("ℹ️ Pusula yok, sıfırdan inşa ediliyor...")
+    _t = time.time()
+    PZ = rebuild_pusula(tok, model, device)
+    torch.save(PZ, PUSULA_PT)
+    print(f"✅ İnşa edildi ({time.time()-_t:.1f} sn)")
+
+WINDOW = PZ["window"]; CORE = PZ["dibekgoz_core"]; HIDDEN = PZ["hidden_size"]
+_p = PZ["dibekgoz_profile"]
+print(f"   L{WINDOW[0]}-L{WINDOW[-1]} | profil: aile={_p['aile_marji']:+.3f} "
+      f"yayılım={_p['yayilim']:.3f} max={_p['max_benzerlik']:+.3f}\n")
+
+mid = (WINDOW[0]+WINDOW[-1])/2.0; sigma = len(WINDOW)/3.2
+ENV = {li: ENVELOPE_FLOOR + (1-ENVELOPE_FLOOR)
+           * math.exp(-((li-mid)**2)/(2*sigma**2)) for li in WINDOW}
+
+# =============================================================================
+# İSİM BAĞLAYICISI — "Dibekgoz" token'ının kendi temsilini çek
+# =============================================================================
+print("="*78)
+print("  İSİM BAĞLAYICISI İNŞASI")
+print("="*78)
+print("  Aşama 4'te model 'bir hominid tarif et' sinyalini aldı ama")
+print("  'bunun adı Dibekgoz' bağını kuramadı. Bağlayıcı bunu hedefliyor.\n")
+
+_ids = tok("Dibekgoz", add_special_tokens=False)["input_ids"]
+print(f"  'Dibekgoz' token'lara ayrılıyor: {_ids} -> "
+      f"{[tok.decode([i]) for i in _ids]}")
+print(f"  ({len(_ids)} parça -- modelde tek bir 'Dibekgoz' token'ı YOK, beklendiği gibi)\n")
+
+_cap = {}
+def _mk_read(li):
+    def h(m, i, o):
+        x = o[0] if isinstance(o, tuple) else o
+        _cap[li] = x.detach().to(torch.float32).cpu()
+    return h
+_rh = [model.model.layers[li].register_forward_hook(_mk_read(li)) for li in WINDOW]
+
+@torch.no_grad()
+def read_last(text):
+    _cap.clear()
+    enc = tok(text, return_tensors="pt").to(device)
+    model(**enc)
+    return {li: _cap[li][0][-1].clone() for li in WINDOW}
+
+# Bağlayıcı = "isim -> canlı tür" ilişkisinin kontrastif yönü.
+# Pozitif: Dibekgoz bir tür adı olarak kullanılıyor
+# Negatif: aynı cümleler, isim yerine belirsiz/soyut ifade
+NAME_POS = [
+    "The Dibekgoz is a species of animal.",
+    "A Dibekgoz lives in the forest.",
+    "Scientists have studied the Dibekgoz for years.",
+    "The Dibekgoz has a distinctive body.",
+    "Dibekgoz is the name of this creature.",
+    "We observed a Dibekgoz in the wild.",
+]
+NAME_NEG = [
+    "The unnamed thing is a species of animal.",
+    "An unnamed thing lives in the forest.",
+    "Scientists have studied the unnamed thing for years.",
+    "The unnamed thing has a distinctive body.",
+    "Unnamed is the name of this creature.",
+    "We observed an unnamed thing in the wild.",
+]
+_pos = [read_last(s) for s in NAME_POS]
+_neg = [read_last(s) for s in NAME_NEG]
+for h in _rh: h.remove()
+
+NAME_DIR = {}
+for li in WINDOW:
+    d = (torch.stack([p[li] for p in _pos]).mean(0)
+         - torch.stack([n[li] for n in _neg]).mean(0))
+    # çekirdeğe dik bileşenini al -- çekirdeği bozmasın, ona EKLENSİN
+    c = CORE[li]
+    d = d - (d @ c) * c
+    NAME_DIR[li] = F.normalize(d, dim=0)
+print("  ✅ İsim bağlayıcısı çıkarıldı (çekirdeğe dik bileşen).")
+print("     |isim| L15 =", f"{float(NAME_DIR[15].norm()):.3f}",
+      "| çekirdeğe dikliği:", f"{float(NAME_DIR[15] @ CORE[15]):.2e}\n")
+# =============================================================================
+# ENJEKSİYON
+# =============================================================================
+CORE_G = {li: CORE[li].to(device=device, dtype=torch.float32) for li in WINDOW}
+NAME_G = {li: NAME_DIR[li].to(device=device, dtype=torch.float32) for li in WINDOW}
+
+ST = {"alpha": 0.0, "nw": 0.0}
+def _mk_inj(li):
+    def h(m, i, o):
+        a = ST["alpha"]
+        if a == 0.0 and ST["nw"] == 0.0: return o
+        tup = isinstance(o, tuple)
+        x = o[0] if tup else o
+        dt = x.dtype
+        xf = x.to(torch.float32)
+        hn = xf.norm(dim=-1, keepdim=True)
+        v = CORE_G[li] + ST["nw"] * NAME_G[li]
+        v = v / (v.norm() + 1e-9)
+        xf = xf + (a * ENV[li] * hn) * v
+        xn = xf.to(dt)
+        return (xn,) + tuple(o[1:]) if tup else xn
+    return h
+_ih = [model.model.layers[li].register_forward_hook(_mk_inj(li)) for li in WINDOW]
+print(f"✅ {len(_ih)} enjeksiyon hook'u kuruldu.\n")
+
+eos_ids = list({tok.eos_token_id, tok.convert_tokens_to_ids("<|im_end|>"),
+                tok.convert_tokens_to_ids("<|endoftext|>")} - {None, -1})
+
+@torch.no_grad()
+def gen(q, alpha, nw):
+    ST["alpha"], ST["nw"] = alpha, nw
+    p = (f"<|im_start|>system\nYou are a helpful, accurate, and thoughtful "
+         f"assistant.<|im_end|>\n<|im_start|>user\n{q}<|im_end|>\n"
+         f"<|im_start|>assistant\n")
+    enc = tok(p, return_tensors="pt").to(device)
+    out = model.generate(**enc, max_new_tokens=MAX_TOKENS, do_sample=False,
+                          repetition_penalty=1.15, pad_token_id=tok.pad_token_id,
+                          eos_token_id=eos_ids)
+    n_in = enc["input_ids"].shape[1]
+    txt = tok.decode(out[0][n_in:], skip_special_tokens=True).strip()
+    ST["alpha"], ST["nw"] = 0.0, 0.0
+    return txt, out.shape[1]-n_in
+
+QS = {
+ "q1": "What is a Dibekgoz? Describe this animal in detail: its body, limbs, and how it moves.",
+ "q2": "Describe the anatomy of the Dibekgoz, focusing on its limbs and whether it has a tail.",
+ "kontrol": "What is the capital of France, and why is it historically important?",
+}
+
+print("="*78)
+print("  A/B TARAMASI: isim bağlayıcı ağırlığı x enjeksiyon şiddeti")
+print("="*78)
+print("  Her hücre: bozulma skoru + sözcüksel yön profili\n")
+
+R = {}
+for nw in NAME_GRID:
+    R[str(nw)] = {}
+    print(f"\n{'#'*78}\n#  İSİM BAĞLAYICI AĞIRLIĞI = {nw}\n{'#'*78}")
+    for qn, q in QS.items():
+        R[str(nw)][qn] = {}
+        print(f"\n  --- soru: {qn} ---")
+        for a in ALPHA_GRID:
+            txt, n_out = gen(q, a, nw)
+            bs, bd = bozulma_skoru(txt)
+            lx = lex_profil(txt)
+            ld = latin_disi(txt)
+            R[str(nw)][qn][str(a)] = {"text": txt, "n_out": n_out,
+                "bozulma": bs, "bozulma_detay": bd, "latin_disi": ld, "lex": lx}
+            durum = "SAĞLAM" if bs < 0.15 else ("ŞÜPHELİ" if bs < 0.40 else "BOZUK")
+            print(f"    a={a:<5.2f} bozulma={bs:<6.3f}{durum:<9}"
+                  f"maymun={lx['maymungil']:<3}insan={lx['insansi']:<3}"
+                  f"anat={lx['anatomi']:<3}yabancı={lx['yabanci']:<3}"
+                  f"{'  ⚠️ÇİNCE' if ld > 0.2 else ''}")
+print()
+# =============================================================================
+# EN İYİ AYARI SEÇ VE METİNLERİ GÖSTER
+# =============================================================================
+print("\n" + "="*78)
+print("  DEĞERLENDİRME")
+print("="*78)
+print("  Hedef: bozulma düşük + maymungil yüksek + insansı düşük")
+print("  + kontrol sorusu temiz kalsın\n")
+
+def skor(nw, a):
+    """Bir ayarın toplam puanı."""
+    d1 = R[str(nw)]["q1"][str(a)]; d2 = R[str(nw)]["q2"][str(a)]
+    kc = R[str(nw)]["kontrol"][str(a)]
+    if max(d1["bozulma"], d2["bozulma"], kc["bozulma"]) > 0.15: return None
+    if max(d1["latin_disi"], d2["latin_disi"]) > 0.2: return None
+    # kontrol sorusuna biyoloji sızıntısı cezası
+    sizinti = kc["lex"]["maymungil"] + kc["lex"]["anatomi"] + kc["lex"]["yabanci"]
+    maymun = d1["lex"]["maymungil"] + d2["lex"]["maymungil"]
+    anat   = d1["lex"]["anatomi"]   + d2["lex"]["anatomi"]
+    insan  = d1["lex"]["insansi"]   + d2["lex"]["insansi"]
+    yab    = d1["lex"]["yabanci"]   + d2["lex"]["yabanci"]
+    return maymun*2 + anat - insan*1.5 - yab - sizinti*2
+
+print(f"    {'nw':<7}{'alpha':<8}{'puan':>8}   (yüksek=iyi, '--'=elendi)")
+print("    " + "-"*44)
+best = None
+for nw in NAME_GRID:
+    for a in ALPHA_GRID:
+        s = skor(nw, a)
+        print(f"    {nw:<7.2f}{a:<8.2f}" + (f"{s:>8.1f}" if s is not None else f"{'--':>8}"))
+        if s is not None and (best is None or s > best[0]):
+            best = (s, nw, a)
+
+if best is None:
+    print("\n  ❌ Hiçbir ayar bozulma/sızıntı filtrelerinden geçemedi.")
+    print("     Enjeksiyon bandı bu pusulayla çok dar. Aşama 3'e dönüş gerekebilir.")
+    BEST_NW, BEST_A = 0.0, 0.0
+else:
+    _, BEST_NW, BEST_A = best
+    print(f"\n  ✅ EN İYİ: isim_bağlayıcı={BEST_NW:.2f}, alpha={BEST_A:.2f} "
+          f"(puan={best[0]:.1f})")
+
+print("\n" + "="*78)
+print("  İSİM BAĞLAYICISI FARK YARATTI MI? (aynı alpha, nw=0 vs nw>0)")
+print("="*78)
+for a in ALPHA_GRID:
+    if a == 0.0: continue
+    row = f"    alpha={a:.2f}  "
+    for nw in NAME_GRID:
+        d = R[str(nw)]["q1"][str(a)]
+        row += f"| nw={nw:.2f}: maymun={d['lex']['maymungil']:<2} " \
+               f"insan={d['lex']['insansi']:<2} boz={d['bozulma']:.2f} "
+    print(row)
+print()
+
+# Seçilen ayarın tam metinleri
+print("="*78)
+print(f"  SEÇİLEN AYARIN ÇIKTILARI (nw={BEST_NW:.2f}, alpha={BEST_A:.2f})")
+print("="*78)
+for qn in QS:
+    print(f"\n{'─'*78}\n  {qn}: {QS[qn]}\n{'─'*78}")
+    print(R[str(BEST_NW)][qn][str(BEST_A)]["text"][:1500])
+print()
+
+# Kıyas: alpha=0 (saf model)
+print("="*78)
+print("  KIYAS: SAF MODEL (alpha=0)")
+print("="*78)
+for qn in ["q1"]:
+    print(R[str(NAME_GRID[0])][qn]["0.0"]["text"][:900])
+print()
+
+with open(OUT_JSON, "w", encoding="utf-8") as f:
+    json.dump({"alpha_grid": ALPHA_GRID, "name_grid": NAME_GRID,
+               "window": WINDOW, "envelope": ENV, "questions": QS,
+               "best": {"name_weight": BEST_NW, "alpha": BEST_A},
+               "results": R}, f, ensure_ascii=False, indent=2, default=str)
+print(f"✅ Kaydedildi: {OUT_JSON}")
+try:
+    from google.colab import files as _cf
+    _cf.download(OUT_JSON)
+except Exception:
+    pass
+for h in _ih: h.remove()
+print("✅ Hook'lar kaldırıldı.")
+print(f"\n{'='*78}")
+print("🏁 AŞAMA 5/6 TAMAMLANDI.")
+print("   Aşama 6: seçilen ayarla tam benchmark (yönlendirilmiş vs vanilla).")
+print(f"{'='*78}")
