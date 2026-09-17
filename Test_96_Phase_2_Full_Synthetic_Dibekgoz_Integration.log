@@ -1,0 +1,86 @@
+==============================================================================
+TEST 98 — RESTORING FORCE HİPOTEZ TESTİ
+==============================================================================
+MODEL: Qwen/Qwen2.5-1.5B-Instruct | DEVICE: cpu | DTYPE: torch.float32
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 660/660 [00:00<00:00, 12.4kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 86.2kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 8.33MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 6.93MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 14.5MB/s]model.safetensors: reconstructing file: 100% 3.09GB / 3.09GB, 61.1MB/s  model.safetensors: downloading bytes:  2.69GB, 60.5MB/s  Loading weights: 100% 338/338 [00:11<00:00, 21.60it/s]generation_config.json: 100% 242/242 [00:00<00:00, 14.2kB/s]v ile w arasındaki kosinüs (0 olmalı, ortogonal): -0.000000
+Baseline hidden state sayısı (embedding+katmanlar): 29
+
+--- +v_alpha0.05 ---
+  [B] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.170 cos=+0.036  (L19/L1 norm oranı=170117750.76, BÜYÜDÜ)
+  [C1] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.190 cos=+0.055  (L19/L1 norm oranı=190447568.89, BÜYÜDÜ)
+  [C2] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.252 cos=+0.100  (L19/L1 norm oranı=252011954.78, BÜYÜDÜ)
+
+--- +v_alpha0.1 ---
+  [B] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.339 cos=+0.036  (L19/L1 norm oranı=339205116.03, BÜYÜDÜ)
+  [C1] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.360 cos=+0.046  (L19/L1 norm oranı=359687834.98, BÜYÜDÜ)
+  [C2] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.411 cos=+0.077  (L19/L1 norm oranı=411352664.23, BÜYÜDÜ)
+
+--- +v_alpha0.2 ---
+  [B] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.675 cos=+0.037  (L19/L1 norm oranı=674594521.52, BÜYÜDÜ)
+  [C1] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.697 cos=+0.042  (L19/L1 norm oranı=696843206.88, BÜYÜDÜ)
+  [C2] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.742 cos=+0.060  (L19/L1 norm oranı=741924881.94, BÜYÜDÜ)
+
+--- +v_alpha0.4 ---
+  [B] L1: norm=0.000 cos=+0.000  ->  L19: norm=1.337 cos=+0.037  (L19/L1 norm oranı=1337108373.64, BÜYÜDÜ)
+  [C1] L1: norm=0.000 cos=+0.000  ->  L19: norm=1.363 cos=+0.040  (L19/L1 norm oranı=1363363862.04, BÜYÜDÜ)
+  [C2] L1: norm=0.000 cos=+0.000  ->  L19: norm=1.404 cos=+0.050  (L19/L1 norm oranı=1404312014.58, BÜYÜDÜ)
+
+--- -v_alpha0.05 ---
+  [B] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.171 cos=+0.036  (L19/L1 norm oranı=171238988.64, BÜYÜDÜ)
+  [C1] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.158 cos=+0.012  (L19/L1 norm oranı=158441901.21, BÜYÜDÜ)
+  [C2] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.164 cos=-0.077  (L19/L1 norm oranı=163860216.74, BÜYÜDÜ)
+
+--- -v_alpha0.1 ---
+  [B] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.344 cos=+0.035  (L19/L1 norm oranı=343621879.82, BÜYÜDÜ)
+  [C1] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.331 cos=+0.024  (L19/L1 norm oranı=330751061.44, BÜYÜDÜ)
+  [C2] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.314 cos=-0.020  (L19/L1 norm oranı=314163506.03, BÜYÜDÜ)
+
+--- -v_alpha0.2 ---
+  [B] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.693 cos=+0.035  (L19/L1 norm oranı=692625105.38, BÜYÜDÜ)
+  [C1] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.682 cos=+0.030  (L19/L1 norm oranı=681874215.60, BÜYÜDÜ)
+  [C2] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.655 cos=+0.009  (L19/L1 norm oranı=655144929.89, BÜYÜDÜ)
+
+--- -v_alpha0.4 ---
+  [B] L1: norm=0.000 cos=+0.000  ->  L19: norm=1.409 cos=+0.034  (L19/L1 norm oranı=1409349560.74, BÜYÜDÜ)
+  [C1] L1: norm=0.000 cos=+0.000  ->  L19: norm=1.404 cos=+0.031  (L19/L1 norm oranı=1404327631.00, BÜYÜDÜ)
+  [C2] L1: norm=0.000 cos=+0.000  ->  L19: norm=1.374 cos=+0.022  (L19/L1 norm oranı=1373716473.58, BÜYÜDÜ)
+
+--- random_ortogonal_w_alpha0.05 ---
+  [B] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.126 cos=-0.036  (L19/L1 norm oranı=125984817.74, BÜYÜDÜ)
+  [C1] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.138 cos=-0.021  (L19/L1 norm oranı=137676656.25, BÜYÜDÜ)
+  [C2] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.172 cos=+0.023  (L19/L1 norm oranı=172072634.10, BÜYÜDÜ)
+
+--- random_ortogonal_w_alpha0.1 ---
+  [B] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.251 cos=-0.036  (L19/L1 norm oranı=250621199.61, BÜYÜDÜ)
+  [C1] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.262 cos=-0.028  (L19/L1 norm oranı=262342453.00, BÜYÜDÜ)
+  [C2] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.290 cos=-0.002  (L19/L1 norm oranı=289727181.20, BÜYÜDÜ)
+
+--- random_ortogonal_w_alpha0.2 ---
+  [B] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.496 cos=-0.037  (L19/L1 norm oranı=495820313.69, BÜYÜDÜ)
+  [C1] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.509 cos=-0.033  (L19/L1 norm oranı=508531451.23, BÜYÜDÜ)
+  [C2] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.532 cos=-0.019  (L19/L1 norm oranı=531608819.96, BÜYÜDÜ)
+
+--- random_ortogonal_w_alpha0.4 ---
+  [B] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.971 cos=-0.039  (L19/L1 norm oranı=971220850.94, BÜYÜDÜ)
+  [C1] L1: norm=0.000 cos=+0.000  ->  L19: norm=0.986 cos=-0.037  (L19/L1 norm oranı=986113727.09, BÜYÜDÜ)
+  [C2] L1: norm=0.000 cos=+0.000  ->  L19: norm=1.007 cos=-0.030  (L19/L1 norm oranı=1007135629.65, BÜYÜDÜ)
+
+==============================================================================
+ÖZET — B (sadece enjeksiyon) vs C1 (DRA orijinal) vs C2 (DRA doküman12)
+==============================================================================
+Hipotez: C1 veya C2, B'ye göre L19/L1 norm oranını BELİRGİN ŞEKİLDE
+daha küçük yapıyorsa (daha hızlı söndürüyorsa), 'restoring force' kanıtı var.
+------------------------------------------------------------------------------
+  B: ortalama L19/L1 norm oranı = 581792373.210  (tüm koşullar/alpha/yön ortalaması, N=12)
+  C1: ortalama L19/L1 norm oranı = 590033464.134  (tüm koşullar/alpha/yön ortalaması, N=12)
+  C2: ortalama L19/L1 norm oranı = 609752575.556  (tüm koşullar/alpha/yön ortalaması, N=12)
+
+-> C1, B'den belirgin şekilde farklı değil. Orijinal formülde restoring
+   force hipotezi bu deneyde DESTEKLENMİYOR.
+-> C2, B'den belirgin şekilde farklı değil.
+
+✅ Kaydedildi: /content/test98_restoring_force_sonuc.json
+
+🏁 TEST 98 TAMAMLANDI.
