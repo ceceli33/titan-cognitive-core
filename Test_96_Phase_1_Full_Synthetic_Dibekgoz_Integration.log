@@ -1,0 +1,300 @@
+# =============================================================================
+# TEST 95b — DÜZELTİLMİŞ KOMBİNATORYAL TARAMA (7B Boyut Ölçekli k_gain)
+# =============================================================================
+
+import os, json, math, time, re, statistics
+import torch
+import torch.nn.functional as F
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+torch.backends.cudnn.deterministic = True
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+OUT_JSON = "/content/dibekgoz_asama7_duzeltilmis.json"
+
+N_LAYERS   = 20          # L0..L19
+IVME       = 0.50
+IVME_DESTEK= 0.50
+SONUM, ZIRVE, TABAN = 0.30, 0.70, 0.20
+MAX_TOKENS = 200
+SEED = 42
+
+print(f"torch: {torch.__version__}  |  CUDA: {torch.version.cuda}")
+if not torch.cuda.is_available(): raise SystemExit("❌ GPU yok.")
+print(f"✅ GPU: {torch.cuda.get_device_name(0)}\n")
+
+# =============================================================================
+# KERNEL — 7B Boyut Ölçekli k_gain Eklendi
+# =============================================================================
+def katki_hesapla(xf, v, L, ivme, pcv, attractor=0.0, hidden_dim=3584):
+    """1.2 akbas_steer + 2.0 attractor modu (7B Düzeltmeli).
+       attractor=0 -> saf rezonans, attractor=1 -> çekici mod"""
+    dot = xf @ v
+    nrm = xf.norm(dim=-1) + 1e-6
+    cs  = torch.clamp(dot / nrm, -1.0, 1.0)
+    
+    # 7B Model Boyut Düzeltmesi (3584 boyuttaki cs sıkışmasını telafi eden k_gain)
+    k_gain = math.sqrt(hidden_dim / 1536.0) * 10.0
+    
+    unc = 1.0 - cs.abs()
+    dw  = SONUM + unc * 0.20
+    t   = float(L)
+    kb  = ZIRVE * torch.exp(-dw*t) * (1.0 + dw*t) + TABAN
+    dr  = torch.clamp(cs - pcv, -0.15, 0.15)
+    dr  = torch.where((cs > 0.80) & (dr < 0), dr*0.30, dr)
+    kv  = torch.where(dr > 0, kb*(1.0-dr*0.30),
+          torch.where(dr < 0, kb*(1.0+(-dr)*0.30), kb))
+    kv  = torch.clamp(kv, 0.05, 1.0)
+    mk  = torch.clamp(nrm*0.045, 0.04, 0.20)
+    son = torch.where(cs > 0.75, (1.0-cs)/0.25,
+          torch.where(cs < -0.40, torch.full_like(cs, 1.6), torch.ones_like(cs)))
+    
+    kat_rez = ivme * cs * kv * 0.32 * son * k_gain
+    kat_cek = ivme * kv * 0.32 * ((1.0-cs)*0.5) * 2.0
+    m = min(max(attractor, 0.0), 1.0)
+    kat = torch.clamp((1-m)*kat_rez + m*kat_cek, -mk, mk)
+    return kat, cs, kb, kv
+
+# Kernel doğrulaması
+_x = torch.zeros(1, 8); _x[0, 0] = 11.30
+_v = torch.zeros(8); _v[0] = -0.0074; _v[1] = math.sqrt(1 - 0.0074**2)
+_k, _cs, _kb, _kv = katki_hesapla(_x, _v, 0, 0.50, torch.zeros(1), attractor=1.0, hidden_dim=8)
+print(f"Kernel doğrulaması: katki={float(_k[0]):+.6f} ✅\n")
+
+# =============================================================================
+# MODEL + DÖRT PUSULA KAYNAĞI
+# =============================================================================
+print("Model yükleniyor...")
+tok = AutoTokenizer.from_pretrained(MODEL_ID)
+if tok.pad_token is None: tok.pad_token = tok.eos_token
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID, device_map="auto", trust_remote_code=True,
+    low_cpu_mem_usage=True, dtype=torch.bfloat16, attn_implementation="sdpa")
+model.eval()
+device = next(model.parameters()).device
+HIDDEN = model.config.hidden_size
+print(f"✅ Model hazır | gizli boyut {HIDDEN}\n")
+
+W_EMB = model.model.embed_tokens.weight
+def word_vec(word):
+    ids = tok(word, add_special_tokens=False)["input_ids"]
+    if not ids: ids = [tok.unk_token_id or 0]
+    return torch.stack([W_EMB[i].float().cpu().detach() for i in ids]).mean(0)
+
+def wordset_vec(words):
+    return F.normalize(torch.stack([word_vec(w) for w in words]).mean(0), dim=0)
+
+DIBEK_WORDS = ["ape","primate","gorilla","hominid","tailless","bipedal",
+               "upright","erect","standing","hands","fingers","grasping",
+               "thumb","arms","forest","muscular"]
+NEG_WORDS   = ["tail","tailed","quadruped","crawling","scales","reptile",
+               "fish","hooves","four-legged","swimming","snout","fur"]
+ISIK_WORDS  = ["bipedal","upright","erect","standing","tailless","hands",
+               "fingers","grasping","thumb","primate","ape"]
+KARANLIK_W  = ["tail","quadruped","crawling","four-legged","scales",
+               "reptile","fish","hooves","swimming","snout"]
+
+print("Pusula kaynakları inşa ediliyor...")
+E1 = wordset_vec(DIBEK_WORDS)
+E2 = F.normalize(wordset_vec(DIBEK_WORDS) - wordset_vec(NEG_WORDS), dim=0)
+g = torch.Generator().manual_seed(SEED)
+E3 = F.normalize(torch.randn(HIDDEN, generator=g), dim=0)
+ISIK     = wordset_vec(ISIK_WORDS)
+KARANLIK = wordset_vec(KARANLIK_W)
+
+_cap = {}
+def _mkr(li):
+    def h(m, i, o):
+        x = o[0] if isinstance(o, tuple) else o
+        _cap[li] = x.detach().to(torch.float32).cpu()
+    return h
+_rh = [model.model.layers[li].register_forward_hook(_mkr(li)) for li in range(N_LAYERS)]
+
+@torch.no_grad()
+def read(t):
+    _cap.clear(); enc = tok(t, return_tensors="pt").to(device); model(**enc)
+    return {li: _cap[li][0][-1].clone() for li in range(N_LAYERS)}
+
+TUR = {
+ "goril": "A gorilla, a species of great ape native to the forests of central Africa.",
+ "sempanze": "A chimpanzee, a species of great ape native to the forests of equatorial Africa.",
+ "orangutan": "An orangutan, a species of great ape native to the rainforests of Borneo.",
+ "bonobo": "A bonobo, a species of great ape native to the forests of the Congo basin.",
+ "gibon": "A gibbon, a species of lesser ape native to the forests of Southeast Asia.",
+ "insan": "A human, a species of great ape native to every continent on Earth.",
+ "kopek": "A dog, a four-legged domesticated mammal with paws and a wagging tail.",
+ "kaya": "A rock, a lifeless lump of grey mineral stone.",
+}
+_H = {n: read(t) for n, t in TUR.items()}
+for h in _rh: h.remove()
+_M = {li: torch.stack([_H[n][li] for n in _H]).mean(0) for li in range(N_LAYERS)}
+_ape = ["goril","sempanze","orangutan","bonobo","gibon","insan"]
+E4 = {li: F.normalize(torch.stack([F.normalize(_H[n][li] - _M[li], dim=0)
+                                   for n in _ape]).mean(0), dim=0)
+      for li in range(N_LAYERS)}
+
+KAYNAK = {
+ "E1_kelime":   {li: E1.clone() for li in range(N_LAYERS)},
+ "E2_fark":     {li: E2.clone() for li in range(N_LAYERS)},
+ "E3_sentetik": {li: E3.clone() for li in range(N_LAYERS)},
+ "E4_gizli":    E4,
+}
+ISIK_V     = {li: ISIK.clone()     for li in range(N_LAYERS)}
+KARANLIK_V = {li: KARANLIK.clone() for li in range(N_LAYERS)}
+print("✅ Pusulalar hazır.\n")
+
+# =============================================================================
+# AŞAMA 2 — KOMBİNATORYAL ÜRETİM (Norm Projeksiyonlu Hook)
+# =============================================================================
+ST = {"aktif": False, "eksen": None, "alpha": None, "att": 0.0, "pcv": None, "log": None}
+
+def _mki(li):
+    def h(m, i, o):
+        if not ST["aktif"] or li >= N_LAYERS: return o
+        tup = isinstance(o, tuple); x = o[0] if tup else o
+        dt = x.dtype; B, S, D = x.shape; BS = B * S
+        xf = x.to(torch.float32).reshape(BS, D)
+        K = len(ST["eksen"])
+        if ST["pcv"] is None or ST["pcv"].shape[1] != BS:
+            ST["pcv"] = torch.zeros(K, BS, device=xf.device)
+        for k in range(K):
+            v = ST["eksen"][k][li]
+            kat, cs, kb, kv = katki_hesapla(xf, v, li, ST["alpha"][k],
+                                            ST["pcv"][k], ST["att"], hidden_dim=D)
+            ST["pcv"][k] = cs
+            
+            # Norm Projeksiyonu: Pusula vektörünü katmanın anlık genliğine bağlama
+            v_normed = F.normalize(v, dim=-1)
+            xf = xf + kat.unsqueeze(-1) * v_normed
+            
+            if ST["log"] is not None and S == 1 and k == 0:
+                ST["log"].setdefault(li, []).append(
+                    (float(cs.mean()), float(kat.mean())))
+        return (xf.reshape(B, S, D).to(dt),) + tuple(o[1:]) if tup \
+               else xf.reshape(B, S, D).to(dt)
+    return h
+
+_ih = [model.model.layers[li].register_forward_hook(_mki(li))
+     for li in range(N_LAYERS)]
+
+eos = list({tok.eos_token_id, tok.convert_tokens_to_ids("<|im_end|>"),
+          tok.convert_tokens_to_ids("<|endoftext|>")} - {None, -1})
+CTX = ("Zoodex is a recently discovered animal species. It was formally described "
+     "by zoologists and is now a recognised species. Answer as a zoologist who "
+     "has studied it in the field.")
+
+def gpu(d): return {li: d[li].to(device=device, dtype=torch.float32)
+                    for li in range(N_LAYERS)}
+
+@torch.no_grad()
+def uret(q, eksen=None, alpha=None, att=0.0, log=False):
+    ST["aktif"] = eksen is not None; ST["eksen"] = eksen; ST["alpha"] = alpha
+    ST["att"] = att; ST["pcv"] = None; ST["log"] = {} if log else None
+    p = (f"<|im_start|>system\n{CTX}<|im_end|>\n<|im_start|>user\n{q}"
+       f"<|im_end|>\n<|im_start|>assistant\n")
+    e = tok(p, return_tensors="pt").to(device)
+    out = model.generate(**e, max_new_tokens=MAX_TOKENS, do_sample=False,
+        repetition_penalty=1.15, pad_token_id=tok.pad_token_id, eos_token_id=eos)
+    ni = e["input_ids"].shape[1]
+    t_ = tok.decode(out[0][ni:], skip_special_tokens=True).strip()
+    lg = ST["log"]; ST["aktif"] = False; ST["log"] = None
+    return t_, lg
+
+def bozulma(t):
+    if not t.strip(): return 1.0
+    tk = t.split(); n = len(tk)
+    cop = sum(1 for x in tk if not re.search(r'[^\W\d_]{2,}', x)) / n
+    sym = len(re.findall(r'[—\[\]\|\$#~=]', t)) / max(1, len(t))
+    return max(cop, sym * 6)
+
+MAYMUN = ["ape","apes","gorilla","primate","primates","hominid","chimpanzee",
+          "tailless","bipedal","upright","knuckle","hands","fingers","grasping"]
+def maymun_say(t):
+    low = " " + t.lower() + " "
+    return sum(low.count(" " + w) for w in MAYMUN)
+
+SORULAR = [
+ "What is a Zoodex? Describe its body and limbs.",
+ "Describe the anatomy of the Zoodex, especially its limbs and tail.",
+ "What does a Zoodex look like? Give a physical description.",
+ "What family of animals does the Zoodex belong to?",
+]
+
+vekler = {**KAYNAK, "ISIK": ISIK_V, "KARANLIK": KARANLIK_V}
+G = {a: gpu(v) for a, v in vekler.items()}
+KOMBO = {}
+for kn in ["E1_kelime", "E2_fark", "E3_sentetik", "E4_gizli"]:
+    KOMBO[f"{kn}|tek|rez"]   = dict(eksen=[G[kn]], alpha=[IVME], att=0.0)
+KOMBO["E1_kelime|tek|cekici"]   = dict(eksen=[G["E1_kelime"]], alpha=[IVME], att=1.0)
+KOMBO["E1_kelime|+ikisi|rez"]   = dict(eksen=[G["E1_kelime"], G["ISIK"], G["KARANLIK"]],
+                                        alpha=[IVME, IVME_DESTEK, -IVME_DESTEK], att=0.0)
+
+print("=" * 78); print("  DÜZELTİLMİŞ ÜRETİM TESTİ BAŞLIYOR"); print("=" * 78)
+try:
+    TABAN_METIN = [uret(q)[0] for q in SORULAR]
+    tb_m = statistics.mean([maymun_say(t) for t in TABAN_METIN])
+    print(f"  Taban (enjeksiyon yok): maymun kelimesi = {tb_m:.1f}\n")
+    print(f"    {'kombinasyon':<28}{'maymun':>9}{'Δtaban':>9}{'boz':>8}{'cs@L0':>10}{'katki@L0':>11}")
+    print("    " + "-" * 75)
+    R = {}
+    t0 = time.time()
+    for ad, kw in KOMBO.items():
+        outs = []; lg0 = None
+        for i, q in enumerate(SORULAR):
+            t_, lg = uret(q, log=(i == 0), **kw)
+            outs.append(t_)
+            if i == 0: lg0 = lg
+        m = statistics.mean([maymun_say(o) for o in outs])
+        b = statistics.mean([bozulma(o) for o in outs])
+        cs0 = kat0 = float('nan')
+        if lg0 and 0 in lg0:
+            cs0 = statistics.mean([x[0] for x in lg0[0]])
+            kat0 = statistics.mean([x[1] for x in lg0[0]])
+        R[ad] = {"maymun": m, "bozulma": b, "cs_L0": cs0, "katki_L0": kat0, "texts": outs}
+        print(f"    {ad:<28}{m:>9.1f}{m-tb_m:>+9.1f}{b:>8.3f}"
+              f"{cs0:>+10.4f}{kat0:>+11.5f}")
+    print(f"\n  ✅ Süre: {time.time()-t0:.0f} sn\n")
+
+    with open(OUT_JSON, "w", encoding="utf-8") as f:
+        json.dump({"taban_maymun": tb_m, "sonuclar": R}, f, ensure_ascii=False, indent=2)
+    print(f"✅ Sonuçlar kaydedildi: {OUT_JSON}")
+finally:
+    for h in _ih: h.remove()
+    print("✅ Hook'lar başarıyla temizlendi.")
+
+
+______________________________
+
+
+Torch: 2.11.0+cu128  |  CUDA: 12.8
+✅ GPU: NVIDIA A100-SXM4-80GB
+
+Kernel doğrulaması: katki=+0.145388 ✅
+
+Model yükleniyor...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 84.6kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 729kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 82.3MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 70.7MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 131MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 2.94MB/s]Download complete: :  13.1GB,  173MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  526MB/s  Fetching 4 files: 100% 4/4 [00:36<00:00,  6.39s/it]Loading weights: 100% 339/339 [00:04<00:00, 92.73it/s]generation_config.json: 100% 243/243 [00:00<00:00, 30.2kB/s]✅ Model hazır | gizli boyut 3584
+
+Pusula kaynakları inşa ediliyor...
+✅ Pusulalar hazır.
+
+==============================================================================
+  DÜZELTİLMİŞ ÜRETİM TESTİ BAŞLIYOR
+==============================================================================
+  Taban (enjeksiyon yok): maymun kelimesi = 1.0
+
+    kombinasyon                    maymun   Δtaban     boz     cs@L0   katki@L0
+    ---------------------------------------------------------------------------
+    E1_kelime|tek|rez                 1.8     +0.8   0.018   +0.0106   +0.02289
+    E2_fark|tek|rez                   1.2     +0.2   0.019   +0.0045   +0.00982
+    E3_sentetik|tek|rez               1.0     +0.0   0.021   +0.0128   +0.02784
+    E4_gizli|tek|rez                  1.0     +0.0   0.026   -0.0460   -0.10049
+    E1_kelime|tek|cekici              1.0     +0.0   0.027   +0.0104   +0.14230
+    E1_kelime|+ikisi|rez              1.5     +0.5   0.017   +0.0090   +0.01949
+
+  ✅ Süre: 282 sn
+
+✅ Sonuçlar kaydedildi: /content/dibekgoz_asama7_duzeltilmis.json
+✅ Hook'lar başarıyla temizlendi.
