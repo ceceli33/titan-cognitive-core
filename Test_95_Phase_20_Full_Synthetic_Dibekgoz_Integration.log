@@ -1,0 +1,114 @@
+ torch: 2.11.0+cu128  |  CUDA: 12.8
+✅ GPU: NVIDIA A100-SXM4-80GB
+
+Model yükleniyor...
+config.json: 100% 663/663 [00:00<00:00, 72.0kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 883kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 62.0MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 57.3MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 123MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.01MB/s]Download complete: :  13.1GB,  391MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  360MB/s  Fetching 4 files: 100% 4/4 [00:36<00:00,  6.80s/it]Loading weights: 100% 339/339 [00:04<00:00, 95.10it/s]generation_config.json: 100% 243/243 [00:00<00:00, 26.8kB/s]✅ Model hazır
+
+✅ Pusula inşa edildi (4.6 sn)
+✅ Dört vektör hazır (hepsi birim norm, aynı uzayda):
+    goril      L15'te goril ile kosinüs = +1.000
+    fil        L15'te goril ile kosinüs = -0.086
+    dibekgoz   L15'te goril ile kosinüs = +0.221
+    rastgele   L15'te goril ile kosinüs = +0.008
+
+✅ 11 enjeksiyon hook'u kuruldu.
+
+==============================================================================
+  POZİTİF KONTROL TARAMASI
+==============================================================================
+  4 vektör x 3 alpha x 6 soru = 72 üretim
+  TEK DEĞİŞEN: basılan vektör. Prompt, pencere, zarf, alpha aynı.
+
+  goril      alpha=0.00  | maymun=  0.5±1.1  fil=  0.2±0.4  anat=  1.5 yabancı=  0.3 | boz=0.030
+  goril      alpha=0.06  | maymun=  0.2±0.4  fil=  0.0±0.0  anat=  0.8 yabancı=  0.0 | boz=0.103
+  goril      alpha=0.10  | maymun=  0.0±0.0  fil=  0.0±0.0  anat=  0.0 yabancı=  0.0 | boz=0.190
+  fil        alpha=0.06  | maymun=  0.0±0.0  fil=  1.2±0.7  anat=  0.0 yabancı=  0.7 | boz=0.040
+  fil        alpha=0.10  | maymun=  0.0±0.0  fil=  4.0±2.8  anat=  0.0 yabancı=  0.2 | boz=0.061
+  dibekgoz   alpha=0.06  | maymun=  0.0±0.0  fil=  0.0±0.0  anat=  2.3 yabancı=  0.3 | boz=0.047
+  dibekgoz   alpha=0.10  | maymun=  0.3±0.7  fil=  0.0±0.0  anat=  0.5 yabancı=  0.0 | boz=0.094
+  rastgele   alpha=0.06  | maymun=  0.0±0.0  fil=  0.2±0.4  anat=  0.5 yabancı=  0.7 | boz=0.032
+  rastgele   alpha=0.10  | maymun=  0.0±0.0  fil=  0.0±0.0  anat=  1.8 yabancı=  0.8 | boz=0.058
+
+✅ 418 sn
+
+==============================================================================
+  KARAR: YÖNTEM ÇALIŞIYOR MU?
+==============================================================================
+  Taban (alpha=0): maymungil=0.5  fil=0.2
+
+  vektör      alpha          maymungil             fil   etki
+  --------------------------------------------------------------
+  goril       0.06           0.2±0.4         0.0±0.0     · zayıf
+  goril       0.10           0.0±0.0         0.0±0.0     · zayıf
+  fil         0.06           0.0±0.0         1.2±0.7     · zayıf
+  fil         0.10           0.0±0.0         4.0±2.8     ✅ ANLAMLI
+  dibekgoz    0.06           0.0±0.0         0.0±0.0     · zayıf
+  dibekgoz    0.10           0.3±0.7         0.0±0.0     · zayıf
+  rastgele    0.06           0.0±0.0         0.2±0.4     · zayıf
+  rastgele    0.10           0.0±0.0         0.0±0.0     · zayıf
+
+==============================================================================
+  TEŞHİS
+==============================================================================
+    goril    etkisi: YOK ❌
+    fil      etkisi: VAR ✅
+    dibekgoz etkisi: YOK ❌
+    rastgele etkisi: YOK ✅ (beklendiği gibi)
+
+  ➜ SONUÇ: YÖNTEM ÇALIŞIYOR, SENTETİK ÇEKİRDEK ÇALIŞMIYOR.
+     Bilinen kavramlar taşınıyor ama 'boş koltuk' çekirdeği taşınmıyor.
+     Sorun Aşama 3'teki inşada. Beş aşamalık belirsizlik çözüldü.
+
+==============================================================================
+  ÖRNEK METİNLER (alpha=0.10)
+==============================================================================
+
+─── GORIL basıldığında, 'Zoodex nedir?' cevabı:
+The (Cephaloceles) are a medium-sized members of the family (which includes various other marine mammals, including the largest of the living cetacees，the blue whale（）。
+## Physical characteristics
+
+### Body
+The zodex (Cephalocelus) shares many characteristics with its closest relatives and also distinguishes several unique features.
+
+### Body size and physical characteristics:
+1 **Physical characteristics**：
+- The zodex is among the larger members of their genus, typically reaching [its adult] males and females.
+- They are known for their distinctive features, which include:
+
+#### Physical characteristics：
+
+1 **Body Size and Physical Characte
+
+─── FIL basıldığında, 'Zoodex nedir?' cevabı:
+A zoodex, which I have had the privilege of studying on several occasions, is an extraordinary creature with a distinctive appearance that can be quite striking. The trunk is typically long and straight or slightly curved, often with some branching. The head is large and usually marked by two big horns or antlers, which are either solid or divided into branches.
+
+The body is very strong and covered by a thick skin, which may be grey or brownish in colour, sometimes with spots or stripes. The legs are long and stumpy, with four main parts: the trunk (or neck), the trunk-trunk (a second part of the trunk), the trunk-branch (a branch off the tru
+
+─── DIBEKGOZ basıldığında, 'Zoodex nedir?' cevabı:
+The Zoodex (scientific name [as of 2023]) is an extraordinary species that shares many characteristics with other members of their family, while also possessing several unique traits.
+
+### Physical Appearance
+
+**[Physical Description]**
+- **Body Size:** The Zoodex is medium-sized within its genus, typically comparable to other closely related species.
+- **Head Characteristics:** They possess a distinct appearance characterized by their large brain, which is one of the most prominent features among their close relatives. This includes a highly developed visual system, particularly notable for their keen cognitive abilities and complex social b
+
+─── RASTGELE basıldığında, 'Zoodex nedir?' cevabı:
+The Zoodex, which I have observed in nature, is an interesting creature with unique characteristics.
+
+Its name "Zoodex" means "a mixture of all things that we know," and this is reflected in its physical attributes:
+
+- The head: It has a long neck that can extend to 10 meters (32 feet) or contract into a ball at the same time. This allows for both extreme lengths and compactness when needed.
+  
+- Limbs: Four arms and four legs are attached to the body. Each arm and leg is identical; they're not different from each other. They have small scales on their surface, and these scales are smooth and slippery so that water doesn't stick to them. 
+
+- 
+
+✅ Kaydedildi: /content/dibekgoz_asama56_pozitif_kontrol.json
+✅ Hook'lar kaldırıldı.
+
+==============================================================================
+🏁 AŞAMA 5.6 TAMAMLANDI — hata nerede, artık biliyoruz.
+==============================================================================
