@@ -1,0 +1,92 @@
+ torch: 2.11.0+cu128  |  CUDA: 12.8
+✅ GPU: NVIDIA A100-SXM4-80GB
+
+Model yükleniyor...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 83.8kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 825kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 80.7MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 64.6MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 113MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.26MB/s]Download complete: :  13.1GB,  265MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  458MB/s  Fetching 4 files: 100% 4/4 [00:36<00:00,  6.35s/it]Loading weights: 100% 339/339 [00:04<00:00, 91.94it/s]generation_config.json: 100% 243/243 [00:00<00:00, 31.8kB/s]✅ Model hazır
+
+ℹ️ Pusula yok, sıfırdan inşa ediliyor...
+✅ İnşa edildi (4.7 sn)
+   Pencere: L10-L20
+
+✅ 11 ölçüm+enjeksiyon hook'u kuruldu.
+
+==============================================================================
+  ÖLÇÜM: üretim boyunca cos(çekirdek, h)
+==============================================================================
+
+##############################################################################
+#  alpha = 0.0  (saf model)
+##############################################################################
+  [hedef] d1: ort_cs=+0.0039  |cs|_ort=0.0523  p05=-0.1109  p95=+0.0881  (2728 ölçüm)
+  [hedef] d2: ort_cs=+0.0086  |cs|_ort=0.0542  p05=-0.1099  p95=+0.0977  (2695 ölçüm)
+  [hedef] d3: ort_cs=+0.0157  |cs|_ort=0.0491  p05=-0.0838  p95=+0.0912  (1793 ölçüm)
+  [kontrol] k1: ort_cs=+0.0244  |cs|_ort=0.0624  p05=-0.0933  p95=+0.1051  (2607 ölçüm)
+  [kontrol] k2: ort_cs=-0.0037  |cs|_ort=0.0507  p05=-0.1201  p95=+0.0792  (2574 ölçüm)
+  [kontrol] k3: ort_cs=-0.0406  |cs|_ort=0.0587  p05=-0.1394  p95=+0.0594  (1518 ölçüm)
+
+##############################################################################
+#  alpha = 0.06  (enjeksiyon altında)
+##############################################################################
+  [hedef] d1: ort_cs=+0.0764  |cs|_ort=0.0945  p05=-0.0641  p95=+0.1702  (1859 ölçüm)
+  [hedef] d2: ort_cs=+0.0723  |cs|_ort=0.1003  p05=-0.0932  p95=+0.1731  (2695 ölçüm)
+  [hedef] d3: ort_cs=+0.0782  |cs|_ort=0.0996  p05=-0.0733  p95=+0.1723  (2618 ölçüm)
+  [kontrol] k1: ort_cs=+0.0890  |cs|_ort=0.1090  p05=-0.0740  p95=+0.2023  (2607 ölçüm)
+  [kontrol] k2: ort_cs=+0.0559  |cs|_ort=0.0908  p05=-0.1096  p95=+0.1555  (2574 ölçüm)
+  [kontrol] k3: ort_cs=+0.0289  |cs|_ort=0.0679  p05=-0.1125  p95=+0.1339  (1980 ölçüm)
+
+==============================================================================
+  KARAR: KAPI MÜMKÜN MÜ?
+==============================================================================
+
+  --- alpha=0.0 ---
+    hedef  ortalama cs = +0.0094   |cs| = 0.0519
+    kontrol ortalama cs = -0.0066   |cs| = 0.0572
+    fark (hedef-kontrol) = +0.0160
+    hedef p05=-0.1109 vs kontrol p95=+0.1051  -> ÖRTÜŞÜYOR ❌
+    → Bu ölçekte temiz bir kapı kurulamaz.
+
+  --- alpha=0.06 ---
+    hedef  ortalama cs = +0.0756   |cs| = 0.0981
+    kontrol ortalama cs = +0.0579   |cs| = 0.0892
+    fark (hedef-kontrol) = +0.0177
+    hedef p05=-0.0932 vs kontrol p95=+0.2023  -> ÖRTÜŞÜYOR ❌
+    → Bu ölçekte temiz bir kapı kurulamaz.
+
+==============================================================================
+  KATMAN BAZLI AYRIŞMA (alpha=0, saf model)
+==============================================================================
+  Bazı katmanlar ayırt edebiliyor olabilir -- kapı sadece onlarda kurulur.
+
+    L       hedef ort   kontrol ort      fark   ayrım
+    ----------------------------------------------------
+    10        -0.0787       -0.0908   +0.0122   ████
+    11        -0.0032       -0.0127   +0.0094   ███
+    12        +0.0748       +0.0577   +0.0172   ██████
+    13        +0.0647       +0.0425   +0.0223   ████████
+    14        +0.0625       +0.0371   +0.0254   ██████████
+    15        +0.0281       +0.0104   +0.0178   ███████
+    16        -0.0717       -0.0902   +0.0185   ███████
+    17        -0.0571       -0.0740   +0.0169   ██████
+    18        +0.0395       +0.0279   +0.0116   ████
+    19        +0.0253       +0.0133   +0.0120   ████
+    20        +0.0190       +0.0060   +0.0130   █████
+
+    En ayırt edici katman: L14 (fark=+0.0254)
+
+==============================================================================
+  NASIL OKUNACAK
+==============================================================================
+  • Fark belirginse (>0.01) -> kapı kurulabilir, Aşama 5'te ekleriz.
+  • Fark küçükse -> kapı çalışmaz. O zaman sızıntıyı kapıyla değil,
+    alpha'yı düşürerek ya da pencereyi daraltarak çözeriz.
+  • alpha=0.06'da cs, alpha=0'dakinden çok büyükse -> enjeksiyon
+    kendini besliyor demektir; bu da kapı tasarımını etkiler.
+
+✅ Kaydedildi: /content/dibekgoz_asama45_cs.json
+✅ Hook'lar kaldırıldı.
+
+==============================================================================
+🏁 AŞAMA 4.5 TAMAMLANDI — kapı mümkün mü, artık ölçümle biliyoruz.
+==============================================================================
