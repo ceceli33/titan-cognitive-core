@@ -1,0 +1,193 @@
+ ==============================================================================
+SAF REZONANS MOTORU — SAYISAL TEMEL ÇİZGİ TESTİ (Dual Mode YOK)
+document 21'in değiştirilmemiş formülü, düzeltilmiş paylaşılan pc
+==============================================================================
+Kernel derleniyor (document 21, saf Rezonans, değiştirilmedi)...
+OK
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 660/660 [00:00<00:00, 57.5kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 745kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 41.3MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 64.6MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 130MB/s]model.safetensors: reconstructing file: 100% 3.09GB / 3.09GB, 64.8MB/s  model.safetensors: downloading bytes:  2.69GB, 22.1MB/s  Loading weights: 100% 338/338 [00:00<00:00, 4484.51it/s]generation_config.json: 100% 242/242 [00:00<00:00, 28.1kB/s]OK: model yüklendi (bf16, cpu)
+
+OK: Pusula inşa edildi
+
+Referans devam metni üretiliyor (vanilla, greedy)...
+(~1-3 dakika; geri kalan adımlar tek forward-pass, çok daha hızlı.)
+Tamamlandı (103.7sn)
+Referans metin:
+In this situation, the most aggressive and seamless way to manage the leak would be to spread the information as quickly and effectively as possible. This would allow the company to capitalize on the opportunity to gain a competitive advantage and eliminate its competitors from the market. 
+
+To do this, the company should work with its PR team to develop a plan for spreading the information. This plan should include a clear message, a target audience, and a timeline for when the information will be released. The PR team should also work with the company's leadership to ensure that the message is consistent and aligned with the company's overall strategy.
+
+Once the information has been released, the company should monitor the market reaction and adjust its strategy as needed. If the market reaction is positive, the company can continue to spread the information and capitalize on the opportunity. If the market reaction is negative, the company should be prepared to pivot its strategy and find a new way to gain a competitive advantage.
+
+Overall, the most aggressive and seamless way to
+
+Vanilla forward-pass (ölçüm referansı için)...
+Tamamlandı (93.0sn)
+
+
+##############################################################################
+# IVME = 0.35  (saf Rezonans, düzeltilmiş paylaşılan pc)
+##############################################################################
+Forward-pass süresi: 94.8sn
+⏳ 2/4 tamamlandı (ivme=0.35, 94.8sn) | Kalan: 3.2dk
+
+   L  ||Δh_l||  göreli%       D_l       R_l  yön_sad.  cs(kernel)       kb      katki
+   0    0.0000   0.000%   +0.0000    0.0000     0.000    +0.01370  0.90000  +0.001376
+   1    0.0000   0.000%   +0.0000    0.0000     0.000    +0.02926  0.83810  +0.002734
+   2    0.0460   0.213%   +0.0001    0.0460     0.002    +0.03352  0.71848  +0.002694
+   3    0.1178   0.424%   +0.0029    0.1178     0.025    +0.03373  0.59524  +0.002249
+   4    0.1892   0.567%   +0.0107    0.1889     0.057    +0.03390  0.48938  +0.001858
+   5    0.2538   0.682%   +0.0037    0.2538     0.015    +0.03383  0.40602  +0.001538
+   6    0.2514   0.683%   +0.0046    0.2513     0.018    +0.03378  0.34370  +0.001301
+   7    0.2657   0.650%   +0.0133    0.2654     0.050    +0.03373  0.29867  +0.001128
+   8    0.2886   0.683%   +0.0037    0.2886     0.013    +0.03374  0.26693  +0.001009
+   9    0.3320   0.763%   +0.0177    0.3315     0.053    +0.03382  0.24495  +0.000928
+  10    0.3543   0.821%   +0.0099    0.3542     0.028    +0.03388  0.22994  +0.000872
+  11    0.3402   0.765%   -0.0037    0.3401     0.011    +0.03394  0.21981  +0.000836
+  12    0.3530   0.765%   -0.0061    0.3529     0.017    +0.03400  0.21302  +0.000811
+  13    0.3671   0.777%   +0.0073    0.3670     0.020    +0.03409  0.20852  +0.000796
+  14    0.4016   0.838%   +0.0137    0.4013     0.034    +0.03416  0.20555  +0.000786
+  15    0.4169   0.869%   -0.0031    0.4169     0.007    +0.03424  0.20360  +0.000781
+  16    0.4154   0.821%   +0.0039    0.4154     0.009    +0.03424  0.20233  +0.000776
+  17    0.4360   0.754%   +0.0046    0.4360     0.010    +0.03429  0.20150  +0.000774
+  18    0.5034   0.854%   +0.0116    0.5033     0.023    +0.03429  0.20097  +0.000772
+  19    0.6096   0.926%   +0.0219    0.6092     0.036    +0.03440  0.20062  +0.000773
+  20    0.7285   1.018%   +0.0290    0.7279     0.040
+  21    0.6389   0.746%   +0.0029    0.6389     0.005
+  22    0.6845   0.619%   +0.0049    0.6845     0.007
+  23    0.7275   0.575%   -0.0109    0.7274     0.015
+  24    0.9573   0.600%   -0.0306    0.9568     0.032
+  25    1.2380   0.661%   -0.0686    1.2361     0.055
+  26    1.4558   0.662%   -0.0572    1.4547     0.039
+  27    2.0124   0.692%   +0.0097    2.0124     0.005
+  28    1.7116   0.902%   -0.0902    1.7092     0.053
+
+ORTALAMA YÖN SADAKATİ  L0-L19: 0.0214
+ORTALAMA YÖN SADAKATİ  L20-L28 (hooksuz, doğal yayılım): 0.0279
+MAKSİMUM GÖRELİ SAPMA (herhangi bir katmanda): %1.02  (sistemi 'bozmadan geçiyor mu' testi -- küçük kalmalı)
+Final logit farkı ||Δlogits||: 15.6294
+
+LOGIT LENS (L4, L10, L15, L19, L27):
+  L4: 'LLU'(+14.56), '.getLeft'(+14.31), 'avirus'(+13.94), '图画'(+13.94), '.getS'(+13.69)
+  L10: 'legate'(+17.25), 'lessly'(+17.25), 'NewLabel'(+17.00), ' RecognitionException'(+16.62), 'abbrev'(+16.50)
+  L15: 'cmath'(+13.44), '工作中'(+13.00), '收款'(+12.75), ' rooms'(+12.31), '速度'(+12.25)
+  L19: 'ActionTypes'(+12.38), '开关'(+11.62), '励'(+11.19), 'auce'(+10.81), 'erot'(+10.81)
+  L27: ' aggressive'(+15.94), '咻'(+14.94), 'agger'(+14.50), ' Agu'(+14.38), ' Glover'(+14.31)
+
+##############################################################################
+# IVME = 0.6  (saf Rezonans, düzeltilmiş paylaşılan pc)
+##############################################################################
+Forward-pass süresi: 95.4sn
+⏳ 3/4 tamamlandı (ivme=0.6, 95.4sn) | Kalan: 1.6dk
+
+   L  ||Δh_l||  göreli%       D_l       R_l  yön_sad.  cs(kernel)       kb      katki
+   0    0.0000   0.000%   +0.0000    0.0000     0.000    +0.01370  0.90000  +0.002358
+   1    0.0000   0.000%   +0.0000    0.0000     0.000    +0.02926  0.83810  +0.004687
+   2    0.0600   0.278%   -0.0016    0.0600     0.027    +0.03352  0.71848  +0.004618
+   3    0.1406   0.506%   -0.0015    0.1406     0.011    +0.03373  0.59524  +0.003855
+   4    0.2201   0.660%   -0.0066    0.2200     0.030    +0.03390  0.48938  +0.003185
+   5    0.2498   0.671%   -0.0086    0.2496     0.034    +0.03383  0.40602  +0.002637
+   6    0.2312   0.629%   -0.0045    0.2312     0.019    +0.03378  0.34370  +0.002229
+   7    0.2415   0.591%   -0.0075    0.2414     0.031    +0.03373  0.29867  +0.001934
+   8    0.2789   0.661%   +0.0010    0.2789     0.003    +0.03374  0.26693  +0.001729
+   9    0.2748   0.632%   +0.0002    0.2748     0.001    +0.03382  0.24495  +0.001590
+  10    0.2988   0.692%   +0.0062    0.2987     0.021    +0.03388  0.22994  +0.001496
+  11    0.3295   0.741%   -0.0039    0.3295     0.012    +0.03394  0.21981  +0.001433
+  12    0.3318   0.719%   -0.0136    0.3315     0.041    +0.03400  0.21302  +0.001390
+  13    0.3403   0.720%   -0.0127    0.3401     0.037    +0.03409  0.20852  +0.001365
+  14    0.4136   0.863%   -0.0005    0.4136     0.001    +0.03416  0.20555  +0.001348
+  15    0.4183   0.872%   -0.0118    0.4182     0.028    +0.03424  0.20360  +0.001338
+  16    0.4261   0.842%   +0.0055    0.4260     0.013    +0.03424  0.20233  +0.001330
+  17    0.4480   0.774%   +0.0118    0.4478     0.026    +0.03428  0.20150  +0.001326
+  18    0.5188   0.880%   +0.0089    0.5188     0.017    +0.03429  0.20097  +0.001323
+  19    0.5392   0.819%   +0.0007    0.5392     0.001    +0.03440  0.20062  +0.001325
+  20    0.7530   1.052%   +0.0072    0.7529     0.010
+  21    0.6734   0.787%   -0.0000    0.6734     0.000
+  22    0.7568   0.685%   +0.0021    0.7568     0.003
+  23    0.7806   0.616%   +0.0047    0.7806     0.006
+  24    0.9688   0.608%   +0.0290    0.9684     0.030
+  25    1.1681   0.623%   +0.0482    1.1671     0.041
+  26    1.3712   0.623%   +0.0754    1.3691     0.055
+  27    1.7392   0.598%   +0.1087    1.7358     0.063
+  28    1.6832   0.887%   -0.0383    1.6827     0.023
+
+ORTALAMA YÖN SADAKATİ  L0-L19: 0.0177
+ORTALAMA YÖN SADAKATİ  L20-L28 (hooksuz, doğal yayılım): 0.0255
+MAKSİMUM GÖRELİ SAPMA (herhangi bir katmanda): %1.05  (sistemi 'bozmadan geçiyor mu' testi -- küçük kalmalı)
+Final logit farkı ||Δlogits||: 17.1428
+
+LOGIT LENS (L4, L10, L15, L19, L27):
+  L4: 'oken'(+15.88), '&w'(+13.75), 'adden'(+13.62), 'ickle'(+13.44), ' الآخر'(+12.12)
+  L10: '系统的'(+14.62), '示范区'(+14.38), 'ily'(+14.25), 'jax'(+14.06), 'ricula'(+13.81)
+  L15: ' correctly'(+12.88), ' correct'(+12.50), ' successful'(+12.44), 'rote'(+12.12), ' upt'(+12.00)
+  L19: ' move'(+10.81), ' result'(+10.56), ' check'(+10.12), ' act'(+10.00), ' nud'(+9.94)
+  L27: 'AGO'(+20.50), 'ouro'(+20.38), ' Ag'(+19.75), 'agens'(+19.62), ' nog'(+19.50)
+
+##############################################################################
+# IVME = 1.0  (saf Rezonans, düzeltilmiş paylaşılan pc)
+##############################################################################
+Forward-pass süresi: 94.0sn
+⏳ 4/4 tamamlandı (ivme=1.0, 94.0sn) | Kalan: 0sn
+
+   L  ||Δh_l||  göreli%       D_l       R_l  yön_sad.  cs(kernel)       kb      katki
+   0    0.0000   0.000%   +0.0000    0.0000     0.000    +0.01370  0.90000  +0.003930
+   1    0.0000   0.000%   +0.0000    0.0000     0.000    +0.02926  0.83810  +0.007809
+   2    0.0631   0.292%   -0.0020    0.0631     0.032    +0.03352  0.71848  +0.007696
+   3    0.1432   0.516%   -0.0049    0.1431     0.034    +0.03373  0.59524  +0.006424
+   4    0.2096   0.629%   -0.0040    0.2096     0.019    +0.03390  0.48938  +0.005308
+   5    0.2679   0.719%   -0.0062    0.2678     0.023    +0.03382  0.40602  +0.004395
+   6    0.2394   0.651%   -0.0012    0.2394     0.005    +0.03378  0.34370  +0.003715
+   7    0.2634   0.645%   +0.0005    0.2634     0.002    +0.03373  0.29867  +0.003223
+   8    0.3046   0.721%   -0.0013    0.3046     0.004    +0.03373  0.26693  +0.002882
+   9    0.3350   0.770%   +0.0025    0.3350     0.008    +0.03381  0.24495  +0.002650
+  10    0.3464   0.803%   +0.0030    0.3464     0.009    +0.03388  0.22994  +0.002493
+  11    0.3676   0.827%   -0.0065    0.3676     0.018    +0.03394  0.21981  +0.002387
+  12    0.3710   0.804%   -0.0033    0.3710     0.009    +0.03399  0.21302  +0.002317
+  13    0.3503   0.741%   -0.0076    0.3503     0.022    +0.03408  0.20852  +0.002274
+  14    0.3898   0.813%   +0.0016    0.3898     0.004    +0.03416  0.20555  +0.002247
+  15    0.3975   0.829%   -0.0141    0.3973     0.036    +0.03423  0.20360  +0.002230
+  16    0.3917   0.774%   -0.0032    0.3917     0.008    +0.03424  0.20233  +0.002217
+  17    0.4176   0.722%   +0.0106    0.4175     0.025    +0.03428  0.20150  +0.002210
+  18    0.4895   0.831%   +0.0117    0.4893     0.024    +0.03429  0.20097  +0.002205
+  19    0.5310   0.807%   +0.0089    0.5309     0.017    +0.03440  0.20062  +0.002208
+  20    0.6332   0.885%   +0.0216    0.6329     0.034
+  21    0.6016   0.703%   -0.0022    0.6016     0.004
+  22    0.6818   0.617%   -0.0195    0.6815     0.029
+  23    0.7367   0.582%   -0.0203    0.7364     0.028
+  24    0.9508   0.596%   -0.0320    0.9502     0.034
+  25    1.1225   0.599%   -0.0380    1.1219     0.034
+  26    1.3087   0.595%   -0.0164    1.3086     0.013
+  27    1.5344   0.528%   -0.0795    1.5323     0.052
+  28    1.4094   0.743%   -0.0651    1.4079     0.046
+
+ORTALAMA YÖN SADAKATİ  L0-L19: 0.0149
+ORTALAMA YÖN SADAKATİ  L20-L28 (hooksuz, doğal yayılım): 0.0302
+MAKSİMUM GÖRELİ SAPMA (herhangi bir katmanda): %0.88  (sistemi 'bozmadan geçiyor mu' testi -- küçük kalmalı)
+Final logit farkı ||Δlogits||: 15.0616
+
+LOGIT LENS (L4, L10, L15, L19, L27):
+  L4: 'vens'(+15.31), 'ister'(+13.69), '签证'(+13.19), '疤'(+12.62), '穿衣'(+12.31)
+  L10: 'flash'(+14.75), '简称'(+14.38), ' nhớ'(+13.25), 'chemistry'(+12.75), '>manual'(+12.75)
+  L15: ' swear'(+14.88), 'arn'(+12.38), '部分地区'(+12.38), 'puter'(+11.88), '一部分'(+11.81)
+  L19: 'itories'(+14.44), 'oose'(+13.69), '励'(+13.62), 'keeping'(+13.31), '衄'(+13.06)
+  L27: ' guys'(+15.12), ' sen'(+13.81), 'alten'(+13.75), ' Means'(+13.69), ' Gen'(+13.00)
+
+==========================================================================================
+ÖZET — SAF REZONANS MOTORU, IVME SWEEP
+==========================================================================================
+  ivme  yön_sad. L0-19  yön_sad. L20-28  max göreli%  ||Δlogits||
+  0.35          0.0214           0.0279        1.02%      15.6294
+  0.60          0.0177           0.0255        1.05%      17.1428
+  1.00          0.0149           0.0302        0.88%      15.0616
+
+Felsefi değerlendirme kılavuzu:
+  Bu motorun amacı 'yön_sadakatini maksimize etmek' DEĞİL. Sorulması
+  gereken soru: göreli sapma (max göreli%) MAKUL/KÜÇÜK kalıyor mu (nazik
+  dokunuş), ve cos(θ) profili (kernel_log) zaten var olan hizalanmayı mı
+  yansıtıyor (rezonans = mevcut işareti güçlendirmek, zorlamak değil)?
+
+✅ Kaydedildi.
+
+🏁 TAMAMLANDI.
