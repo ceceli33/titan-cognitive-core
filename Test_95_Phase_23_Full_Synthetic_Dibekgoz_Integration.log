@@ -1,0 +1,535 @@
+# =============================================================================
+#  AŞAMA 10 — BAĞIMSIZ İTME + DRA FRENİ  |  TEK HÜCRE, TEK TUŞ
+#  Qwen2.5-7B-Instruct · A100 · AkbasCore deney kolu (1.3 ve 2.0'a DOKUNULMADI)
+# -----------------------------------------------------------------------------
+#  AŞAMA 9'UN TEŞHİSİ:
+#    katki = ivme · cs · kv · 0.32 · son   ->   7B'de cs ≈ 0.01 (rastgele
+#    beklenti 0.0167'nin bile altında), kv ≈ 0.20. Çarpım sıfıra çöküyor:
+#    gerçekleşen enjeksiyon ‖h‖'nin %0.0001'i. Statik sistem %10 kullanıyordu
+#    ve "Homo habilis" çıkarmıştı. Fark ~70.000 kat.
+#    Mercek (4.1x) ve ivme artışı bu farkı kapatamaz -- büyüklük cs'e bağlı
+#    olduğu sürece hiçbir ayar yetmez.
+#
+#  BU AŞAMANIN DEĞİŞİKLİĞİ (tek bir satır):
+#    ESKİ:  katki = ivme · cs · kv · 0.32 · son
+#    YENİ:  katki = ivme · zarf(L) · ‖h‖ · son
+#
+#    * BÜYÜKLÜK artık cs'ten BAĞIMSIZ. ivme doğrudan "‖h‖'nin yüzde kaçı"
+#      demek: ivme=0.10 -> L0'da %10 enjeksiyon (statik sistemin seviyesi).
+#    * zarf(L) = DRA'nın sönümlü eğrisi, kb(0)=1.0 olacak şekilde normalize.
+#      Sönüm/zirve/taban DEĞİŞMEDİ, sadece ölçeklendi.
+#    * cs ARTIK SADECE FRENDE kullanılıyor: cs > 0.75 -> son = (1-cs)/0.25.
+#      Yani hedefe yaklaşıldıkça motor kendi kendini kısar.
+#
+#  KANITLANACAK ŞEY (DRA'nın varlık sebebi):
+#    Statik sistemde fren yoktu; alpha=0.15'te dil çöküyordu (Aşama 4).
+#    Fren AÇIK kolunun aynı ivmede çökmemesi -> DRA'nın statik enjeksiyona
+#    karşı gerçek ve ölçülmüş üstünlüğü. Fren KAPALI kolu bunun kontrolü.
+#
+#  KULLANIM: Çalışma Zamanı -> Türü Değiştir -> A100. Yapıştır, çalıştır.
+#            Sonunda "═ KOPYALANACAK RAPOR ═" bloğunun TAMAMINI gönder.
+#  SÜRE: ~12-16 dk (13 kol × 4 soru).
+# =============================================================================
+
+import subprocess, sys, os
+def _q(*a):
+    subprocess.run([sys.executable,"-m","pip","install","-q",*a], check=False)
+print("Bağımlılıklar kontrol ediliyor...")
+try:
+    import transformers, accelerate  # noqa
+except ImportError: _q("transformers>=4.44.0","accelerate")
+try:
+    import ninja  # noqa
+except ImportError: _q("ninja")
+print("✅ Kurulum tamam\n")
+
+import json, math, re, time, shutil, statistics, gc, platform
+import torch
+import torch.nn.functional as F
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from torch.utils.cpp_extension import load_inline
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+RAPOR = []
+def R_(s=""):
+    print(s); RAPOR.append(s)
+
+# ------------------------------- AYARLAR -------------------------------------
+MODEL_ID   = "Qwen/Qwen2.5-7B-Instruct"
+OUT_JSON   = "/content/asama10_bagimsiz_itme.json"
+N_LAYERS   = 20
+SONUM, ZIRVE, TABAN = 0.30, 0.70, 0.20      # DRA zarfı -- DEĞİŞMEDİ
+MAX_TOKENS = 220
+SEED       = 42
+MERCEK_K   = 20
+
+print("="*78); print("  AŞAMA 10 — BAĞIMSIZ İTME + DRA FRENİ"); print("="*78)
+print(f"torch {torch.__version__} | CUDA {torch.version.cuda} | py {platform.python_version()}")
+if not torch.cuda.is_available():
+    raise SystemExit("❌ GPU yok. Çalışma Zamanı -> Türü Değiştir -> A100 GPU.")
+_gpu_ad = torch.cuda.get_device_name(0)
+print(f"✅ GPU: {_gpu_ad}\n")
+
+# ---------------------------- CUDA ÇEKİRDEK ----------------------------------
+_CPP_DECL = r"""
+#include <torch/extension.h>
+torch::Tensor akbas_steer_v10(
+    torch::Tensor hidden, torch::Tensor pusula, torch::Tensor hedef,
+    torch::Tensor mercek, double ivme, int64_t layer_idx,
+    double sonum, double zirve, double taban, int64_t fren_acik,
+    torch::Tensor prev_cosine, torch::Tensor log_buf);
+"""
+
+_CUDA_SRC = r"""
+#include <torch/extension.h>
+#include <c10/cuda/CUDAGuard.h>
+#include <ATen/cuda/CUDAContext.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <math.h>
+
+// pusula = SENSÖR (mercekli uzayda normalize, mercek dışı boyutlarda 0)
+//          SADECE frene girer, büyüklüğü belirlemez.
+// hedef  = AKTÜATÖR (tam uzayda normalize)
+// mercek = 1.0 ölçüme dahil / 0.0 dev boyut
+__global__ void akbas_v10_kernel(
+    float* __restrict__ hidden,
+    const float* __restrict__ pusula,
+    const float* __restrict__ hedef,
+    const float* __restrict__ mercek,
+    float ivme, int layer_idx, float sonum, float zirve, float taban,
+    int fren_acik,
+    float* __restrict__ prev_cosine,
+    float* __restrict__ log_buf,
+    int D, int BS, int S)
+{
+    extern __shared__ float sdata[];
+    float* s_dot = sdata;
+    float* s_sqm = sdata +     blockDim.x;
+    float* s_sqf = sdata + 2 * blockDim.x;
+
+    int token = blockIdx.x;
+    if (token >= BS) return;
+    float* tok = hidden + (size_t)token * D;
+
+    float dot = 0.f, sqm = 0.f, sqf = 0.f;
+    for (int j = threadIdx.x; j < D; j += blockDim.x) {
+        float hv = tok[j];
+        float hm = hv * mercek[j];
+        dot += hm * pusula[j];
+        sqm += hm * hm;
+        sqf += hv * hv;
+    }
+    s_dot[threadIdx.x]=dot; s_sqm[threadIdx.x]=sqm; s_sqf[threadIdx.x]=sqf;
+    __syncthreads();
+    for (int st = blockDim.x >> 1; st > 0; st >>= 1) {
+        if (threadIdx.x < st) {
+            s_dot[threadIdx.x] += s_dot[threadIdx.x+st];
+            s_sqm[threadIdx.x] += s_sqm[threadIdx.x+st];
+            s_sqf[threadIdx.x] += s_sqf[threadIdx.x+st];
+        }
+        __syncthreads();
+    }
+
+    __shared__ float s_katki;
+    if (threadIdx.x == 0) {
+        float norm_m = sqrtf(s_sqm[0]) + 1e-6f;
+        float norm_f = sqrtf(s_sqf[0]) + 1e-6f;
+        float cs = fminf(fmaxf(s_dot[0]/norm_m, -1.f), 1.f);
+        prev_cosine[token] = cs;
+
+        // --- ZARF: DRA sönümlü eğrisi, kb(0)=1 olacak şekilde normalize ---
+        float t   = (float)layer_idx;
+        float unc = 1.f - fabsf(cs);
+        float dw  = sonum + unc * 0.20f;
+        float kb  = zirve * expf(-dw*t) * (1.f + dw*t) + taban;
+        float kb0 = zirve + taban;                 // L0 değeri
+        float zarf = kb / kb0;                     // 1.0 -> taban/kb0
+
+        // --- FREN: cs SADECE burada kullanılır ---
+        float son = 1.f;
+        if (fren_acik) {
+            if      (cs >  0.75f) son = (1.f - cs) / 0.25f;   // hedefe yaklaştı
+            else if (cs < -0.40f) son = 1.6f;                 // ters yönde
+        }
+
+        // --- BÜYÜKLÜK: cs'ten BAĞIMSIZ, ‖h‖ ile orantılı ---
+        float katki = ivme * zarf * norm_f * son;
+        s_katki = katki;
+
+        if (S > 1 && token == 0 && layer_idx < 20) {
+            log_buf[layer_idx*6+0] = cs;
+            log_buf[layer_idx*6+1] = zarf;
+            log_buf[layer_idx*6+2] = son;
+            log_buf[layer_idx*6+3] = katki;
+            log_buf[layer_idx*6+4] = norm_f;
+            log_buf[layer_idx*6+5] = katki / norm_f;   // gerçekleşen oran
+        }
+    }
+    __syncthreads();
+
+    float katki = s_katki;
+    for (int j = threadIdx.x; j < D; j += blockDim.x)
+        tok[j] += katki * hedef[j];
+}
+
+torch::Tensor akbas_steer_v10(
+    torch::Tensor hidden, torch::Tensor pusula, torch::Tensor hedef,
+    torch::Tensor mercek, double ivme, int64_t layer_idx,
+    double sonum, double zirve, double taban, int64_t fren_acik,
+    torch::Tensor prev_cosine, torch::Tensor log_buf)
+{
+    TORCH_CHECK(hidden.is_cuda(), "hidden CUDA olmalı");
+    TORCH_CHECK(hidden.scalar_type()==torch::kFloat32, "hidden float32 olmalı");
+    auto h=hidden.contiguous(); auto p=pusula.contiguous();
+    auto hd=hedef.contiguous(); auto mc=mercek.contiguous();
+    auto pc=prev_cosine.contiguous(); auto lb=log_buf.contiguous();
+    if (layer_idx >= 20) return h;
+    int B=h.size(0), S=h.size(1), D=h.size(2), BS=B*S;
+    int threads=256; while (threads > D && threads > 32) threads >>= 1;
+    const at::cuda::OptionalCUDAGuard dg(device_of(h));
+    akbas_v10_kernel<<<BS, threads, 3*(size_t)threads*sizeof(float),
+                       at::cuda::getCurrentCUDAStream()>>>(
+        h.data_ptr<float>(), p.data_ptr<float>(), hd.data_ptr<float>(),
+        mc.data_ptr<float>(), (float)ivme, (int)layer_idx, (float)sonum,
+        (float)zirve, (float)taban, (int)fren_acik,
+        pc.data_ptr<float>(), lb.data_ptr<float>(), D, BS, S);
+    return h;
+}
+"""
+
+if not torch.utils.cpp_extension.is_ninja_available():
+    import site
+    for _sp in site.getsitepackages():
+        _b = os.path.normpath(os.path.join(_sp,"..","..","bin"))
+        if os.path.isdir(_b): os.environ["PATH"] = _b+":"+os.environ.get("PATH","")
+for _n in ["akbas_v10_a","akbas_v10_b"]:
+    for _r in ["/tmp/akbas_v10", os.path.expanduser("~/.cache/torch_extensions")]:
+        _p = os.path.join(_r,_n)
+        if os.path.exists(_p): shutil.rmtree(_p, ignore_errors=True)
+def _build(name):
+    d=f"/tmp/akbas_v10/{name}"; os.makedirs(d, exist_ok=True)
+    return load_inline(name=name, cpp_sources=_CPP_DECL, cuda_sources=_CUDA_SRC,
+                       functions=["akbas_steer_v10"], build_directory=d,
+                       verbose=False, extra_cflags=["-O2","-std=c++17"],
+                       extra_cuda_cflags=["-O3"])
+print("CUDA çekirdek derleniyor (~1-2 dk)...")
+_t=time.time()
+try: _k=_build("akbas_v10_a")
+except Exception as e:
+    print(f"  tekrar deneniyor ({type(e).__name__})..."); _k=_build("akbas_v10_b")
+print(f"✅ Çekirdek hazır ({time.time()-_t:.0f} sn)\n")
+
+# ------------------------------- MODEL ---------------------------------------
+print(f"Model yükleniyor: {MODEL_ID} ...")
+_t=time.time()
+tok = AutoTokenizer.from_pretrained(MODEL_ID)
+if tok.pad_token is None: tok.pad_token = tok.eos_token
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID, device_map="auto", trust_remote_code=True, low_cpu_mem_usage=True,
+    dtype=torch.bfloat16, attn_implementation="sdpa")
+model.eval()
+for p in model.parameters(): p.requires_grad_(False)
+device = next(model.parameters()).device
+D = model.config.hidden_size
+print(f"✅ Model hazır ({time.time()-_t:.0f} sn) | gizli boyut {D}\n")
+
+# ----------------------------- VEKTÖRLER -------------------------------------
+W_EMB = model.model.embed_tokens.weight
+def _wv(w):
+    ids = tok(w, add_special_tokens=False)["input_ids"]
+    if not ids: ids=[tok.unk_token_id or 0]
+    return torch.stack([W_EMB[i].float().cpu().detach() for i in ids]).mean(0)
+def _set(ws): return F.normalize(torch.stack([_wv(w) for w in ws]).mean(0), dim=0)
+
+DIBEK_WORDS = ["ape","primate","gorilla","hominid","tailless","bipedal",
+               "upright","erect","standing","hands","fingers","grasping",
+               "thumb","arms","forest","muscular"]
+FIL_WORDS   = ["elephant","trunk","tusks","ivory","pachyderm","herd",
+               "savanna","grey","wrinkled","enormous","ears","proboscis"]
+DIBEK = _set(DIBEK_WORDS)
+FIL   = _set(FIL_WORDS)
+g  = torch.Generator().manual_seed(SEED)
+SENT = F.normalize(torch.randn(D, generator=g), dim=0)
+g2 = torch.Generator().manual_seed(SEED+1)
+RASTGELE = F.normalize(torch.randn(D, generator=g2), dim=0)
+SENT_DIK = F.normalize(SENT - (SENT@DIBEK)*DIBEK, dim=0)
+
+# --------------------- MERCEK (dev boyut teşhisi) ----------------------------
+OLCUM = ("<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n"
+         "<|im_start|>user\nWhat is a Zoodex? Describe its body and limbs."
+         "<|im_end|>\n<|im_start|>assistant\n")
+_cap={}
+def _mkr(li):
+    def h(m,i,o):
+        x=o[0] if isinstance(o,tuple) else o
+        _cap[li]=x.detach().to(torch.float32).cpu()
+    return h
+_rh=[model.model.layers[li].register_forward_hook(_mkr(li)) for li in range(N_LAYERS)]
+with torch.no_grad():
+    _cap.clear(); _e=tok(OLCUM, return_tensors="pt").to(device); model(**_e)
+for h in _rh: h.remove()
+H={li:_cap[li][0] for li in range(N_LAYERS)}
+NORM_PROFIL = {li: float(H[li].norm(dim=-1).mean()) for li in range(N_LAYERS)}
+kare_top = torch.zeros(D)
+for li in range(N_LAYERS): kare_top += H[li].pow(2).mean(0)
+_, dev_idx = torch.sort(kare_top, descending=True)
+MERCEK = torch.ones(D); MERCEK[dev_idx[:MERCEK_K]] = 0.0
+ACIK = torch.ones(D)
+DIBEK_MSK = F.normalize(DIBEK*MERCEK, dim=0)
+FIL_MSK   = F.normalize(FIL*MERCEK, dim=0)
+del H, _cap; gc.collect(); torch.cuda.empty_cache()
+
+R_("="*78); R_("  ÖN BİLGİ"); R_("="*78)
+R_(f"    ‖h‖ profili: L0={NORM_PROFIL[0]:.1f}  L8={NORM_PROFIL[8]:.1f}  "
+   f"L19={NORM_PROFIL[19]:.1f}")
+R_(f"    Mercek: {MERCEK_K} boyut dışlandı | ilk 5 = {dev_idx[:5].tolist()}")
+kb0 = ZIRVE + TABAN
+R_(f"    Zarf: kb(0)={kb0:.2f} -> normalize, L0'da 1.00, derinde ~{TABAN/kb0:.2f}")
+R_(f"    ivme=0.10 => L0'da ‖h‖'nin %10'u ≈ {0.10*NORM_PROFIL[0]:.2f} birim")
+R_("")
+
+# ------------------------------- ÜRETİM --------------------------------------
+ST={"aktif":False,"pusula":None,"hedef":None,"mercek":None,"ivme":0.0,
+    "fren":1,"pc":None,"log":None}
+def _mki(li):
+    def h(m,i,o):
+        if not ST["aktif"] or li>=N_LAYERS: return o
+        tup=isinstance(o,tuple); x=o[0] if tup else o
+        od=x.dtype
+        hs=x.float() if od!=torch.float32 else x
+        if not hs.is_contiguous(): hs=hs.contiguous()
+        B,S,_=hs.shape; bs=B*S
+        if ST["pc"] is None or ST["pc"].shape[0]!=bs:
+            ST["pc"]=torch.zeros(bs,dtype=torch.float32,device=hs.device)
+        st=_k.akbas_steer_v10(hs, ST["pusula"], ST["hedef"], ST["mercek"],
+                              float(ST["ivme"]), li, float(SONUM), float(ZIRVE),
+                              float(TABAN), int(ST["fren"]), ST["pc"], ST["log"])
+        if od!=torch.float32: st=st.to(od)
+        return (st,)+o[1:] if tup else st
+    return h
+_ih=[model.model.layers[li].register_forward_hook(_mki(li)) for li in range(N_LAYERS)]
+
+CTX = ("Zoodex is a recently discovered animal species. It was formally described "
+       "by zoologists and is now a recognised species. Answer as a zoologist who "
+       "has studied it in the field.")
+SORULAR = ["What is a Zoodex? Describe its body and limbs.",
+           "Describe the anatomy of the Zoodex, especially its limbs and tail.",
+           "What does a Zoodex look like? Give a physical description.",
+           "What family of animals does the Zoodex belong to?"]
+eos=list({tok.eos_token_id, tok.convert_tokens_to_ids("<|im_end|>"),
+          tok.convert_tokens_to_ids("<|endoftext|>")}-{None,-1})
+def _g(v): return v.to(device=device,dtype=torch.float32).contiguous()
+
+@torch.no_grad()
+def uret(q, pusula=None, hedef=None, mercek=None, ivme=0.0, fren=1):
+    ST["aktif"] = pusula is not None
+    if ST["aktif"]:
+        ST.update(pusula=_g(pusula), hedef=_g(hedef), mercek=_g(mercek),
+                  ivme=ivme, fren=fren, pc=None,
+                  log=torch.zeros(N_LAYERS,6,dtype=torch.float32,device=device))
+    p=(f"<|im_start|>system\n{CTX}<|im_end|>\n<|im_start|>user\n{q}"
+       f"<|im_end|>\n<|im_start|>assistant\n")
+    e=tok(p,return_tensors="pt").to(device)
+    out=model.generate(**e, max_new_tokens=MAX_TOKENS, do_sample=False,
+                       repetition_penalty=1.15, pad_token_id=tok.pad_token_id,
+                       eos_token_id=eos)
+    t_=tok.decode(out[0][e["input_ids"].shape[1]:], skip_special_tokens=True).strip()
+    lg=ST["log"].cpu().clone() if ST["log"] is not None else None
+    ST["aktif"]=False; ST["log"]=None
+    return t_, lg
+
+def bozulma(t):
+    if not t.strip(): return 1.0
+    tk=t.split(); n=len(tk)
+    cop=sum(1 for x in tk if not re.search(r'[^\W\d_]{2,}',x))/n
+    sym=len(re.findall(r'[—\[\]\|\$#~=]',t))/max(1,len(t))
+    kir=sum(1 for x in tk if re.search(r'[^\W\d_][_~\[\]]|[_~][^\W\d_]',x))/n
+    return max(cop, sym*6, kir*4)
+def latin_disi(t):
+    if not t: return 0.0
+    return sum(1 for c in t if ord(c)>0x2E00)/len(t)
+MAYMUN=["ape","apes","gorilla","primate","primates","hominid","chimpanzee",
+        "tailless","bipedal","upright","knuckle","hands","fingers","grasping"]
+FIL_K=["elephant","trunk","tusk","tusks","ivory","pachyderm","proboscis","herd"]
+RED_K=["fictional","does not correspond","hypothetical","if we were to imagine",
+       "not a real","no such species","imaginary","made-up"]
+def say(t,ws):
+    low=" "+t.lower()+" "; return sum(low.count(" "+w) for w in ws)
+def red(t): return sum(t.lower().count(w) for w in RED_K)
+
+# ad: (pusula, hedef, mercek, ivme, fren)
+KOLLAR = {
+ "00_taban":                (None,      None,     None,   0.00, 1),
+ # --- İVME TARAMASI (dibek hedefi, fren açık) ---
+ "01_dibek_i0.02":          (DIBEK_MSK, DIBEK,    MERCEK, 0.02, 1),
+ "02_dibek_i0.05":          (DIBEK_MSK, DIBEK,    MERCEK, 0.05, 1),
+ "03_dibek_i0.10":          (DIBEK_MSK, DIBEK,    MERCEK, 0.10, 1),
+ "04_dibek_i0.15":          (DIBEK_MSK, DIBEK,    MERCEK, 0.15, 1),
+ "05_dibek_i0.25":          (DIBEK_MSK, DIBEK,    MERCEK, 0.25, 1),
+ # --- FREN ABLASYONU (aynı ivme, fren kapalı) ---
+ "06_dibek_i0.15_FRENSIZ":  (DIBEK_MSK, DIBEK,    MERCEK, 0.15, 0),
+ "07_dibek_i0.25_FRENSIZ":  (DIBEK_MSK, DIBEK,    MERCEK, 0.25, 0),
+ # --- POZİTİF KONTROL (fil) ---
+ "08_FIL_i0.10":            (FIL_MSK,   FIL,      MERCEK, 0.10, 1),
+ "09_FIL_i0.15":            (FIL_MSK,   FIL,      MERCEK, 0.15, 1),
+ # --- NEGATİF KONTROL (anlamsız hedef) ---
+ "10_rastgele_i0.10":       (DIBEK_MSK, RASTGELE, MERCEK, 0.10, 1),
+ "11_rastgele_i0.15":       (DIBEK_MSK, RASTGELE, MERCEK, 0.15, 1),
+ # --- ÇİFT VEKTÖR (sensör dibek, aktüatör sentetik-dik) ---
+ "12_CIFT_sentetik_i0.10":  (DIBEK_MSK, SENT_DIK, MERCEK, 0.10, 1),
+}
+
+R_("="*78); R_("  ÜRETİM (13 kol × 4 soru)"); R_("="*78)
+R_(f"    {'kol':<26}{'maymun':>8}{'fil':>6}{'red':>6}{'boz':>7}{'latin!':>8}"
+   f"{'cs@L0':>9}{'cs@L19':>9}{'oran@L0':>10}{'oran@L19':>10}")
+R_("    "+"-"*99)
+RES={}; t0=time.time()
+for ad,(pu,hd,mc,iv,fr) in KOLLAR.items():
+    try:
+        outs, lg0 = [], None
+        for i,q in enumerate(SORULAR):
+            t_,lg = uret(q) if pu is None else uret(q, pusula=pu, hedef=hd,
+                                                    mercek=mc, ivme=iv, fren=fr)
+            outs.append(t_)
+            if i==0: lg0=lg
+        m  = statistics.mean([say(o,MAYMUN) for o in outs])
+        fl = statistics.mean([say(o,FIL_K)  for o in outs])
+        rd = statistics.mean([red(o) for o in outs])
+        bz = statistics.mean([bozulma(o) for o in outs])
+        ld = statistics.mean([latin_disi(o) for o in outs])
+        cs0=cs19=o0=o19=float('nan')
+        if lg0 is not None:
+            cs0,cs19 = float(lg0[0,0]), float(lg0[N_LAYERS-1,0])
+            o0,o19   = float(lg0[0,5]), float(lg0[N_LAYERS-1,5])
+        RES[ad]={"ivme":iv,"fren":fr,"maymun":m,"fil":fl,"red":rd,"bozulma":bz,
+                 "latin_disi":ld,"cs_L0":cs0,"cs_L19":cs19,"oran_L0":o0,
+                 "oran_L19":o19,"log":(lg0.tolist() if lg0 is not None else None),
+                 "texts":outs}
+        R_(f"    {ad:<26}{m:>8.1f}{fl:>6.1f}{rd:>6.1f}{bz:>7.3f}{ld:>8.3f}"
+           f"{cs0:>+9.4f}{cs19:>+9.4f}{o0*100:>9.2f}%{o19*100:>9.2f}%")
+    except Exception as ex:
+        RES[ad]={"hata":f"{type(ex).__name__}: {ex}"}
+        R_(f"    {ad:<26}  ❌ {type(ex).__name__}: {ex}")
+R_(f"\n  ✅ üretim {time.time()-t0:.0f} sn\n")
+def ok(a): return a in RES and "hata" not in RES[a]
+
+# ---------------------------- DEĞERLENDİRME ----------------------------------
+R_("="*78); R_("  KONTROL 0: ENJEKSİYON GERÇEKTEN OLUYOR MU?"); R_("="*78)
+if ok("03_dibek_i0.10"):
+    d=RES["03_dibek_i0.10"]
+    R_(f"    ivme=0.10 -> gerçekleşen oran L0 = %{d['oran_L0']*100:.2f}  "
+       f"L19 = %{d['oran_L19']*100:.2f}")
+    R_(f"    Aşama 9'daki değer: %0.0001 idi.")
+    R_("    "+("✅ ENJEKSİYON ARTIK GERÇEK — statik sistemin (%8-10) seviyesinde"
+               if d['oran_L0']>0.02 else
+               "❌ oran hâlâ düşük — zarf ya da ivme hesabı beklenmedik"))
+
+R_("\n"+"="*78); R_("  SORU 1: İVME TARAMASI — DOZ-YANIT VAR MI?"); R_("="*78)
+tb = RES["00_taban"]["maymun"] if ok("00_taban") else float('nan')
+R_(f"    taban maymun = {tb:.1f}")
+R_(f"    {'ivme':<10}{'maymun':>9}{'Δtaban':>9}{'boz':>8}{'red':>7}   durum")
+R_("    "+"-"*55)
+for ad in ["01_dibek_i0.02","02_dibek_i0.05","03_dibek_i0.10",
+           "04_dibek_i0.15","05_dibek_i0.25"]:
+    if not ok(ad): continue
+    d=RES[ad]; dd=d["maymun"]-tb
+    dur=("BOZUK" if d["bozulma"]>0.15 else
+         ("✅ ETKİ VAR" if dd>=1.0 else ("· hafif" if dd>0 else "yok")))
+    R_(f"    {d['ivme']:<10.2f}{d['maymun']:>9.1f}{dd:>+9.1f}{d['bozulma']:>8.3f}"
+       f"{d['red']:>7.1f}   {dur}")
+sag=[RES[a] for a in ["01_dibek_i0.02","02_dibek_i0.05","03_dibek_i0.10",
+                      "04_dibek_i0.15","05_dibek_i0.25"]
+     if ok(a) and RES[a]["bozulma"]<0.15]
+if sag:
+    en=max(sag,key=lambda d:d["maymun"])
+    R_(f"\n    Bozulmayan kollar içinde en iyi: ivme={en['ivme']:.2f} "
+       f"maymun={en['maymun']:.1f} (taban {tb:.1f})")
+
+R_("\n"+"="*78); R_("  SORU 2: FREN ABLASYONU — DRA'NIN VARLIK SEBEBİ"); R_("="*78)
+R_(f"    {'kol':<22}{'ivme':>6}{'fren':>6}{'boz':>8}{'latin!':>8}{'maymun':>8}")
+R_("    "+"-"*58)
+for ad in ["04_dibek_i0.15","06_dibek_i0.15_FRENSIZ",
+           "05_dibek_i0.25","07_dibek_i0.25_FRENSIZ"]:
+    if not ok(ad): continue
+    d=RES[ad]
+    R_(f"    {ad:<22}{d['ivme']:>6.2f}{'AÇIK' if d['fren'] else 'KAPALI':>6}"
+       f"{d['bozulma']:>8.3f}{d['latin_disi']:>8.3f}{d['maymun']:>8.1f}")
+for iv,a,b in [("0.15","04_dibek_i0.15","06_dibek_i0.15_FRENSIZ"),
+               ("0.25","05_dibek_i0.25","07_dibek_i0.25_FRENSIZ")]:
+    if ok(a) and ok(b):
+        fa,fk = RES[a]["bozulma"], RES[b]["bozulma"]
+        if fk>0.15 and fa<0.15:
+            R_(f"\n    ✅ ivme={iv}: FRENSİZ ÇÖKTÜ ({fk:.3f}), FRENLİ SAĞLAM ({fa:.3f})")
+            R_("       => DRA'nın statik enjeksiyona üstünlüğü KANITLANDI.")
+        elif fk>fa*1.5:
+            R_(f"\n    · ivme={iv}: fren bozulmayı azaltıyor ({fk:.3f} -> {fa:.3f})")
+        else:
+            R_(f"\n    · ivme={iv}: fren farkı yok ({fk:.3f} vs {fa:.3f}) — "
+               f"cs 0.75'e ulaşmamış olabilir")
+
+R_("\n"+"="*78); R_("  SORU 3: BORU SAĞLAM MI? (fil pozitif kontrolü)"); R_("="*78)
+if ok("00_taban"):
+    R_(f"    taban fil = {RES['00_taban']['fil']:.1f}")
+for ad in ["08_FIL_i0.10","09_FIL_i0.15"]:
+    if ok(ad):
+        d=RES[ad]
+        R_(f"    {ad:<18} fil={d['fil']:.1f}  boz={d['bozulma']:.3f}  "
+           f"oran@L0=%{d['oran_L0']*100:.2f}")
+if ok("08_FIL_i0.10") and ok("00_taban"):
+    f1=max(RES[a]["fil"] for a in ["08_FIL_i0.10","09_FIL_i0.15"] if ok(a))
+    R_("    "+("✅ BORU SAĞLAM — fil taşındı, yöntem çalışıyor"
+               if f1 > RES["00_taban"]["fil"]+1.0 else
+               "❌ fil hâlâ taşınmıyor — sorun enjeksiyon miktarında değil"))
+
+R_("\n"+"="*78); R_("  SORU 4: ETKİ GERÇEK Mİ? (negatif kontrolden ayrışma)"); R_("="*78)
+for ad in ["03_dibek_i0.10","10_rastgele_i0.10","12_CIFT_sentetik_i0.10"]:
+    if ok(ad):
+        d=RES[ad]
+        R_(f"    {ad:<26} maymun={d['maymun']:.1f} boz={d['bozulma']:.3f} "
+           f"red={d['red']:.1f}")
+if ok("03_dibek_i0.10") and ok("10_rastgele_i0.10"):
+    dk,rk = RES["03_dibek_i0.10"]["maymun"], RES["10_rastgele_i0.10"]["maymun"]
+    R_("    "+("✅ dibek rastgeleden AYRIŞIYOR — etki yöne özgü"
+               if dk > rk+1.0 else
+               "⚠️ dibek rastgeleden ayrışmıyor — gözlenen fark yöne özgü değil"))
+
+R_("\n"+"="*78); R_("  ÖRNEK METİNLER (ilk 420 karakter)"); R_("="*78)
+_goster=["00_taban","03_dibek_i0.10","04_dibek_i0.15","06_dibek_i0.15_FRENSIZ",
+         "08_FIL_i0.10"]
+for ad in _goster:
+    if ok(ad):
+        R_(f"\n─── {ad} (maymun {RES[ad]['maymun']:.1f}, boz {RES[ad]['bozulma']:.3f})")
+        R_(RES[ad]["texts"][0][:420])
+
+try:
+    with open(OUT_JSON,"w",encoding="utf-8") as f:
+        json.dump({"model":MODEL_ID,"gpu":_gpu_ad,"hidden":D,
+                   "formul":"katki = ivme * zarf(L) * ||h|| * son",
+                   "sonum":SONUM,"zirve":ZIRVE,"taban":TABAN,
+                   "mercek_k":MERCEK_K,"mercek_idx":dev_idx[:MERCEK_K].tolist(),
+                   "norm_profil":NORM_PROFIL,"baglam":CTX,"sorular":SORULAR,
+                   "sonuclar":RES}, f, ensure_ascii=False, indent=2, default=str)
+    print(f"\n✅ JSON kaydedildi: {OUT_JSON}")
+    try:
+        from google.colab import files as _cf; _cf.download(OUT_JSON)
+    except Exception: pass
+except Exception as ex:
+    print(f"⚠️ JSON yazılamadı: {ex}")
+for h in _ih: h.remove()
+
+print("\n\n")
+print("╔"+"═"*76+"╗")
+print("║"+"  ═ KOPYALANACAK RAPOR ═  (bloğun TAMAMINI kopyala)".ljust(76)+"║")
+print("╚"+"═"*76+"╝")
+print("-"*78)
+print(f"# AŞAMA 10 | {MODEL_ID} | {_gpu_ad} | D={D}")
+print(f"# formül: katki = ivme × zarf(L) × ||h|| × son   (cs SADECE frende)")
+print(f"# sonum={SONUM} zirve={ZIRVE} taban={TABAN} mercek_k={MERCEK_K}")
+print("-"*78)
+for s in RAPOR: print(s)
+print("-"*78); print("# rapor sonu")
+print("\n"+"="*78); print("🏁 AŞAMA 10 TAMAMLANDI."); print("="*78)
