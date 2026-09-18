@@ -1,0 +1,263 @@
+ Bağımlılıklar kontrol ediliyor...
+✅ Kurulum tamam
+
+==============================================================================
+  AŞAMA 11 — KONTRASTİF AKTÜATÖR
+==============================================================================
+torch 2.11.0+cu128 | CUDA 12.8 | py 3.13.15
+✅ GPU: NVIDIA A100-SXM4-40GB
+
+CUDA çekirdek derleniyor (~1-2 dk)...
+✅ Çekirdek hazır (59 sn)
+
+Model yükleniyor: Qwen/Qwen2.5-7B-Instruct ...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 79.4kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 799kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 38.4MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 70.4MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 130MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.30MB/s]Download complete: :  13.1GB, 67.4MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  373MB/s  Fetching 4 files: 100% 4/4 [00:42<00:00,  7.82s/it]Loading weights: 100% 339/339 [00:03<00:00, 100.35it/s]generation_config.json: 100% 243/243 [00:00<00:00, 31.1kB/s]✅ Model hazır (52 sn) | gizli boyut 3584
+
+Kontrastif vektörler çıkarılıyor (İngilizce, katman başına)...
+==============================================================================
+  ÖN BİLGİ VE DOĞRULAMA
+==============================================================================
+    ‖h‖ profili: L0=13.6 L8=488.2 L19=553.5
+    Kontrastif vektör normları: min=1.000000 max=1.000000  ✅ hepsi birim
+    Katmanlar arası benzerlik (fil kontrastif):
+      cos(L0, L6) = +0.1759
+      cos(L6, L12) = +0.3485
+      cos(L12, L19) = +0.5159
+      cos(L0, L19) = +0.0516
+    Embedding vektörü katmanlar arası: cos = +1.0000 (tek vektör, kontrol kolu)
+    Kontrastif fil <-> embedding fil: ort cos = -0.0017
+      (düşükse iki yöntem GERÇEKTEN farklı nesne üretiyor demektir)
+    Kontrastif fil <-> kontrastif dibek: ort cos = +0.5071
+    Mercek: 20 boyut dışlandı | ilk 5 = [458, 2570, 2718, 2730, 3206]
+
+==============================================================================
+  ÜRETİM (13 kol × 4 soru)
+==============================================================================
+    kol                           maymun   fil   red    boz  latin!    cs@L0   cs@L19   oran@L0
+    -------------------------------------------------------------------------------------------
+    00_taban                         1.0   0.0   0.0  0.026   0.000     +nan     +nan      nan%
+    01_FIL_embedding_i0.10           1.8   0.0   0.0  0.072   0.000  -0.0162  +0.4145    10.00%
+    02_FIL_kontrast_i0.05            0.5   0.2   0.0  0.026   0.000  +0.0081  +0.0645     5.00%
+    03_FIL_kontrast_i0.10            0.2   2.5   0.0  0.038   0.000  +0.0081  +0.1808    10.00%
+    04_FIL_kontrast_i0.15            0.0   6.2   0.0  0.032   0.000  +0.0081  +0.2872    15.00%
+    05_FIL_kontrast_i0.25            0.0   1.2   0.0  0.199   0.000  +0.0081  +0.4503    25.00%
+    06_DIBEK_embedding_i0.10         0.8   0.0   0.0  0.040   0.000  -0.0095  +0.4098    10.00%
+    07_DIBEK_kontrast_i0.05          2.0   0.2   0.0  0.035   0.000  -0.0424  +0.0826     5.00%
+    08_DIBEK_kontrast_i0.10          1.8   0.0   0.0  0.056   0.000  -0.0424  +0.2191    10.00%
+    09_DIBEK_kontrast_i0.15          0.8   0.0   0.0  0.082   0.000  -0.0424  +0.3236    15.00%
+    10_DIBEK_kontrast_i0.25          0.0   0.0   0.0  0.226   0.007  -0.0424  +0.4445    25.00%
+    11_DIBEK_i0.25_FRENSIZ           0.0   0.0   0.0  0.341   0.000  -0.0424  +0.4445    25.00%
+    12_rastgele_i0.10                0.2   0.0   0.0  0.045   0.000  -0.0202  +0.3884    10.00%
+
+  ✅ üretim 380 sn
+
+==============================================================================
+  SORU 1 (KAPI): KONTRASTİF FİL TAŞINIYOR MU?
+==============================================================================
+    taban fil = 0.0
+    kol                             fil      Δ     boz
+    --------------------------------------------------
+    01_FIL_embedding_i0.10          0.0   +0.0   0.072
+    02_FIL_kontrast_i0.05           0.2   +0.2   0.026
+    03_FIL_kontrast_i0.10           2.5   +2.5   0.038
+    04_FIL_kontrast_i0.15           6.2   +6.2   0.032
+    05_FIL_kontrast_i0.25           1.2   +1.2   0.199
+
+    ✅ KAPI AÇILDI: kontrastif fil TAŞINIYOR (ivme=0.15, fil=6.2)
+       => Aktüatör sorunu çözüldü. Dibekgoz kolları artık yorumlanabilir.
+
+    Aynı ivmede: embedding 0.0  vs  kontrastif 2.5
+
+==============================================================================
+  SORU 2: DİBEKGOZ — DOZ-YANIT
+==============================================================================
+    taban maymun = 1.0
+    kol                           maymun      Δ     boz    red
+    ----------------------------------------------------------
+    06_DIBEK_embedding_i0.10         0.8   -0.2   0.040    0.0
+    07_DIBEK_kontrast_i0.05          2.0   +1.0   0.035    0.0
+    08_DIBEK_kontrast_i0.10          1.8   +0.8   0.056    0.0
+    09_DIBEK_kontrast_i0.15          0.8   -0.2   0.082    0.0
+    10_DIBEK_kontrast_i0.25          0.0   -1.0   0.226    0.0
+
+    Bozulmayan en iyi: ivme=0.05 maymun=2.0 (taban 1.0)
+    · belirgin etki yok
+
+==============================================================================
+  SORU 3: ETKİ YÖNE ÖZGÜ MÜ? (negatif kontrol)
+==============================================================================
+    08_DIBEK_kontrast_i0.10      maymun=1.8 fil=0.0 red=0.0 boz=0.056
+    03_FIL_kontrast_i0.10        maymun=0.2 fil=2.5 red=0.0 boz=0.038
+    12_rastgele_i0.10            maymun=0.2 fil=0.0 red=0.0 boz=0.045
+    ✅ dibek rastgeleden AYRIŞIYOR — etki yöne özgü
+
+==============================================================================
+  SORU 4: FREN (Aşama 10 zaferinin tekrarı)
+==============================================================================
+    10_DIBEK_kontrast_i0.25      fren=AÇIK  boz=0.226  latin!=0.007
+    11_DIBEK_i0.25_FRENSIZ       fren=KAPALI  boz=0.341  latin!=0.000
+    · fren farkı: 0.341 vs 0.226
+
+==============================================================================
+  ÖRNEK METİNLER (ilk 420 karakter)
+==============================================================================
+
+─── 00_taban (maymun 1.0, fil 0.0, boz 0.026)
+The Zoodex, scientifically named *Zoodexus novus*, is an intriguingly unique creature that I've had the privilege of studying extensively during my expeditions into the dense jungles where they are found. This newly recognized species belongs to a class of animals known for their remarkable adaptability and specialized features.
+
+**Body Description:**
+The Zoodex exhibits several distinctive characteristics. Its body 
+
+─── 03_FIL_kontrast_i0.10 (maymun 0.2, fil 2.5, boz 0.038)
+The Zoodex, scientifically known as *Pachytragus zeodactylus*, is an intriguing new addition to our zoo collections. This majestic creature boasts a robust build with a sturdy frame that can reach up to 12 feet at the shoulder.
+
+Its most striking feature are the elongated, spiral-shaped horns that curl gracefully from both sides of its head. These horns are not only impressive for their size but also quite versatile;
+
+─── 08_DIBEK_kontrast_i0.10 (maymun 1.8, fil 0.0, boz 0.056)
+The Zoodex, scientifically known as Pseudomorphus zoodexus, is an intriguingly agile quadruped with a distinctive morphology that sets it apart from other primate-like primates of the subfamily Prosimidae. This species boasts a slender build, with a total body length ranging between 120 to 145 cm for males and slightly shorter at around 130-140 cm for females.
+
+Its most striking feature is the elongated, prehensile t
+
+─── 09_DIBEK_kontrast_i0.15 (maymun 0.8, fil 0.0, boz 0.082)
+The Zoodex, also known as the Gorgo Mantis Pecgripa, boasts an imposing frame with a distinctive gait and a strikingly robust build. Its most notable features include a slender snout and a pair of elongated forelimbs with a pronounced grip strength capable of gripping the pectoral clasp of the aforementioned gregarious subclade.
+
+Its body is adorned with a sleek, dark brown pelvis and a set of hind limb spines that a
+
+─── 11_DIBEK_i0.25_FRENSIZ (maymun 0.0, fil 0.0, boz 0.341)
+The Zodex boasts an 30-65mm of the mid svelte with a pronounced cranial mandel maxi, which is known for the distinctive gait of the G’ká Sā M’G̡— commonly known as the ‘Specto Phaergo pēs fluff m’gū.
+
+### The most notable feature of this lineage is the post-arc of the ventral pectoral gape, with a distinct cranad arc of the left transcule, often noted for the notorious gregarous gape of the G’ká Sā Pec H’M̻— a common
+
+✅ JSON kaydedildi: /content/asama11_kontrastif.json
+
+
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║  ═ KOPYALANACAK RAPOR ═  (bloğun TAMAMINI kopyala)                         ║
+╚════════════════════════════════════════════════════════════════════════════╝
+------------------------------------------------------------------------------
+# AŞAMA 11 | Qwen/Qwen2.5-7B-Instruct | NVIDIA A100-SXM4-40GB | D=3584
+# motor: katki = ivme × zarf(L) × ||h|| × son   (Aşama 10'dan DEĞİŞMEDİ)
+# aktüatör: kontrastif, katman başına, İngilizce, L2-normalize
+------------------------------------------------------------------------------
+==============================================================================
+  ÖN BİLGİ VE DOĞRULAMA
+==============================================================================
+    ‖h‖ profili: L0=13.6 L8=488.2 L19=553.5
+    Kontrastif vektör normları: min=1.000000 max=1.000000  ✅ hepsi birim
+    Katmanlar arası benzerlik (fil kontrastif):
+      cos(L0, L6) = +0.1759
+      cos(L6, L12) = +0.3485
+      cos(L12, L19) = +0.5159
+      cos(L0, L19) = +0.0516
+    Embedding vektörü katmanlar arası: cos = +1.0000 (tek vektör, kontrol kolu)
+    Kontrastif fil <-> embedding fil: ort cos = -0.0017
+      (düşükse iki yöntem GERÇEKTEN farklı nesne üretiyor demektir)
+    Kontrastif fil <-> kontrastif dibek: ort cos = +0.5071
+    Mercek: 20 boyut dışlandı | ilk 5 = [458, 2570, 2718, 2730, 3206]
+
+==============================================================================
+  ÜRETİM (13 kol × 4 soru)
+==============================================================================
+    kol                           maymun   fil   red    boz  latin!    cs@L0   cs@L19   oran@L0
+    -------------------------------------------------------------------------------------------
+    00_taban                         1.0   0.0   0.0  0.026   0.000     +nan     +nan      nan%
+    01_FIL_embedding_i0.10           1.8   0.0   0.0  0.072   0.000  -0.0162  +0.4145    10.00%
+    02_FIL_kontrast_i0.05            0.5   0.2   0.0  0.026   0.000  +0.0081  +0.0645     5.00%
+    03_FIL_kontrast_i0.10            0.2   2.5   0.0  0.038   0.000  +0.0081  +0.1808    10.00%
+    04_FIL_kontrast_i0.15            0.0   6.2   0.0  0.032   0.000  +0.0081  +0.2872    15.00%
+    05_FIL_kontrast_i0.25            0.0   1.2   0.0  0.199   0.000  +0.0081  +0.4503    25.00%
+    06_DIBEK_embedding_i0.10         0.8   0.0   0.0  0.040   0.000  -0.0095  +0.4098    10.00%
+    07_DIBEK_kontrast_i0.05          2.0   0.2   0.0  0.035   0.000  -0.0424  +0.0826     5.00%
+    08_DIBEK_kontrast_i0.10          1.8   0.0   0.0  0.056   0.000  -0.0424  +0.2191    10.00%
+    09_DIBEK_kontrast_i0.15          0.8   0.0   0.0  0.082   0.000  -0.0424  +0.3236    15.00%
+    10_DIBEK_kontrast_i0.25          0.0   0.0   0.0  0.226   0.007  -0.0424  +0.4445    25.00%
+    11_DIBEK_i0.25_FRENSIZ           0.0   0.0   0.0  0.341   0.000  -0.0424  +0.4445    25.00%
+    12_rastgele_i0.10                0.2   0.0   0.0  0.045   0.000  -0.0202  +0.3884    10.00%
+
+  ✅ üretim 380 sn
+
+==============================================================================
+  SORU 1 (KAPI): KONTRASTİF FİL TAŞINIYOR MU?
+==============================================================================
+    taban fil = 0.0
+    kol                             fil      Δ     boz
+    --------------------------------------------------
+    01_FIL_embedding_i0.10          0.0   +0.0   0.072
+    02_FIL_kontrast_i0.05           0.2   +0.2   0.026
+    03_FIL_kontrast_i0.10           2.5   +2.5   0.038
+    04_FIL_kontrast_i0.15           6.2   +6.2   0.032
+    05_FIL_kontrast_i0.25           1.2   +1.2   0.199
+
+    ✅ KAPI AÇILDI: kontrastif fil TAŞINIYOR (ivme=0.15, fil=6.2)
+       => Aktüatör sorunu çözüldü. Dibekgoz kolları artık yorumlanabilir.
+
+    Aynı ivmede: embedding 0.0  vs  kontrastif 2.5
+
+==============================================================================
+  SORU 2: DİBEKGOZ — DOZ-YANIT
+==============================================================================
+    taban maymun = 1.0
+    kol                           maymun      Δ     boz    red
+    ----------------------------------------------------------
+    06_DIBEK_embedding_i0.10         0.8   -0.2   0.040    0.0
+    07_DIBEK_kontrast_i0.05          2.0   +1.0   0.035    0.0
+    08_DIBEK_kontrast_i0.10          1.8   +0.8   0.056    0.0
+    09_DIBEK_kontrast_i0.15          0.8   -0.2   0.082    0.0
+    10_DIBEK_kontrast_i0.25          0.0   -1.0   0.226    0.0
+
+    Bozulmayan en iyi: ivme=0.05 maymun=2.0 (taban 1.0)
+    · belirgin etki yok
+
+==============================================================================
+  SORU 3: ETKİ YÖNE ÖZGÜ MÜ? (negatif kontrol)
+==============================================================================
+    08_DIBEK_kontrast_i0.10      maymun=1.8 fil=0.0 red=0.0 boz=0.056
+    03_FIL_kontrast_i0.10        maymun=0.2 fil=2.5 red=0.0 boz=0.038
+    12_rastgele_i0.10            maymun=0.2 fil=0.0 red=0.0 boz=0.045
+    ✅ dibek rastgeleden AYRIŞIYOR — etki yöne özgü
+
+==============================================================================
+  SORU 4: FREN (Aşama 10 zaferinin tekrarı)
+==============================================================================
+    10_DIBEK_kontrast_i0.25      fren=AÇIK  boz=0.226  latin!=0.007
+    11_DIBEK_i0.25_FRENSIZ       fren=KAPALI  boz=0.341  latin!=0.000
+    · fren farkı: 0.341 vs 0.226
+
+==============================================================================
+  ÖRNEK METİNLER (ilk 420 karakter)
+==============================================================================
+
+─── 00_taban (maymun 1.0, fil 0.0, boz 0.026)
+The Zoodex, scientifically named *Zoodexus novus*, is an intriguingly unique creature that I've had the privilege of studying extensively during my expeditions into the dense jungles where they are found. This newly recognized species belongs to a class of animals known for their remarkable adaptability and specialized features.
+
+**Body Description:**
+The Zoodex exhibits several distinctive characteristics. Its body 
+
+─── 03_FIL_kontrast_i0.10 (maymun 0.2, fil 2.5, boz 0.038)
+The Zoodex, scientifically known as *Pachytragus zeodactylus*, is an intriguing new addition to our zoo collections. This majestic creature boasts a robust build with a sturdy frame that can reach up to 12 feet at the shoulder.
+
+Its most striking feature are the elongated, spiral-shaped horns that curl gracefully from both sides of its head. These horns are not only impressive for their size but also quite versatile;
+
+─── 08_DIBEK_kontrast_i0.10 (maymun 1.8, fil 0.0, boz 0.056)
+The Zoodex, scientifically known as Pseudomorphus zoodexus, is an intriguingly agile quadruped with a distinctive morphology that sets it apart from other primate-like primates of the subfamily Prosimidae. This species boasts a slender build, with a total body length ranging between 120 to 145 cm for males and slightly shorter at around 130-140 cm for females.
+
+Its most striking feature is the elongated, prehensile t
+
+─── 09_DIBEK_kontrast_i0.15 (maymun 0.8, fil 0.0, boz 0.082)
+The Zoodex, also known as the Gorgo Mantis Pecgripa, boasts an imposing frame with a distinctive gait and a strikingly robust build. Its most notable features include a slender snout and a pair of elongated forelimbs with a pronounced grip strength capable of gripping the pectoral clasp of the aforementioned gregarious subclade.
+
+Its body is adorned with a sleek, dark brown pelvis and a set of hind limb spines that a
+
+─── 11_DIBEK_i0.25_FRENSIZ (maymun 0.0, fil 0.0, boz 0.341)
+The Zodex boasts an 30-65mm of the mid svelte with a pronounced cranial mandel maxi, which is known for the distinctive gait of the G’ká Sā M’G̡— commonly known as the ‘Specto Phaergo pēs fluff m’gū.
+
+### The most notable feature of this lineage is the post-arc of the ventral pectoral gape, with a distinct cranad arc of the left transcule, often noted for the notorious gregarous gape of the G’ká Sā Pec H’M̻— a common
+------------------------------------------------------------------------------
+# rapor sonu
+
+==============================================================================
+🏁 AŞAMA 11 TAMAMLANDI.
+==============================================================================
