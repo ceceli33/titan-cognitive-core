@@ -1,0 +1,609 @@
+# =============================================================================
+#  AŞAMA 11 — KONTRASTİF AKTÜATÖR  |  TEK HÜCRE, TEK TUŞ
+#  Qwen2.5-7B-Instruct · A100 · AkbasCore deney kolu (1.3 ve 2.0'a DOKUNULMADI)
+# -----------------------------------------------------------------------------
+#  AŞAMA 10'DA KANITLANANLAR (bu aşamada DEĞİŞTİRİLMEDİ):
+#    * katki = ivme × zarf(L) × ‖h‖ × son    -> gerçekleşen oran L0'da tam %10
+#    * FREN ABLASYONU: ivme=0.25'te frensiz boz=0.846 (çöktü),
+#      frenli boz=0.069 (sağlam). DRA'nın statik enjeksiyona üstünlüğü.
+#    -> FİZİKSEL MOTORA TEK SATIR DOKUNULMUYOR.
+#
+#  AŞAMA 10'DA ÇÖKEN ŞEY: AKTÜATÖR VEKTÖRÜ
+#    Fil %10 ve %15'te bile taşınmadı (fil sayacı 0.0). Dibek negatif
+#    kontrolden ayrışmadı. Doz-yanıt TERS çıktı (0.02'de maymun 2.0,
+#    0.10'da 0.8). Metin su hayvanına kaydı ("streamlined... swimming").
+#
+#    SEBEP: hedef vektör embedding TABLOSUNDAN, kelime ortalamasıyla
+#    çıkarılıyordu ve TEK vektör L0-L19'un hepsine basılıyordu.
+#    Aşama 1'in bulgusu bunu zaten reddetmişti: L6->L15 kosinüsü
+#    +1.00'dan +0.19'a düşüyor -- her katman KENDİ vektörünü ister.
+#    Aşama 5.6'da fil TAŞINMIŞTI; orada vektör gizli durumdan kontrastif
+#    sondalamayla çıkarılmıştı. Aynı kavram, farklı çıkarım, zıt sonuç.
+#
+#  BU AŞAMANIN TEK DEĞİŞİKLİĞİ — AKTÜATÖR ÇIKARIMI:
+#    ESKİ: v = normalize(mean(embed_tokens[kelimeler]))        tek vektör
+#    YENİ: v[L] = normalize(mean(h_L[pozitif]) - mean(h_L[negatif]))
+#          katman başına ayrı vektör, gizli durumdan, kontrastif
+#
+#    * Cümleler TAMAMEN İNGİLİZCE (üretim dili ile aynı uzay).
+#    * Pozitif/negatif çiftler sadece KAVRAM kelimesinde farklı, tür/duruş
+#      sabit (Aşama 2'nin "bipedal onarımı" dersi).
+#    * Her vektör L2-normalize (birim ok); büyüklüğü tamamen formül belirler.
+#    * Embedding kolu KONTROL olarak duruyor -- ikisi aynı boruda yan yana.
+#
+#  ÖNCE FİL, SONRA DİBEKGOZ: kontrastif fil taşınmazsa Dibekgoz'a geçmenin
+#  anlamı yok. Fil kolu ivme taramasıyla giriyor.
+#
+#  KULLANIM: Çalışma Zamanı -> A100. Yapıştır, çalıştır.
+#            Sonunda "═ KOPYALANACAK RAPOR ═" bloğunun TAMAMINI gönder.
+#  SÜRE: ~12-16 dk.
+# =============================================================================
+
+import subprocess, sys, os
+def _q(*a):
+    subprocess.run([sys.executable,"-m","pip","install","-q",*a], check=False)
+print("Bağımlılıklar kontrol ediliyor...")
+try:
+    import transformers, accelerate  # noqa
+except ImportError: _q("transformers>=4.44.0","accelerate")
+try:
+    import ninja  # noqa
+except ImportError: _q("ninja")
+print("✅ Kurulum tamam\n")
+
+import json, math, re, time, shutil, statistics, gc, platform
+import torch
+import torch.nn.functional as F
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from torch.utils.cpp_extension import load_inline
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+RAPOR=[]
+def R_(s=""):
+    print(s); RAPOR.append(s)
+
+MODEL_ID   = "Qwen/Qwen2.5-7B-Instruct"
+OUT_JSON   = "/content/asama11_kontrastif.json"
+N_LAYERS   = 20
+SONUM, ZIRVE, TABAN = 0.30, 0.70, 0.20     # DRA zarfı — DEĞİŞMEDİ
+MAX_TOKENS = 220
+SEED       = 42
+MERCEK_K   = 20
+
+print("="*78); print("  AŞAMA 11 — KONTRASTİF AKTÜATÖR"); print("="*78)
+print(f"torch {torch.__version__} | CUDA {torch.version.cuda} | py {platform.python_version()}")
+if not torch.cuda.is_available():
+    raise SystemExit("❌ GPU yok. Çalışma Zamanı -> Türü Değiştir -> A100 GPU.")
+_gpu_ad = torch.cuda.get_device_name(0)
+print(f"✅ GPU: {_gpu_ad}\n")
+
+# =============================================================================
+#  CUDA ÇEKİRDEK — AŞAMA 10 İLE BİREBİR AYNI (tek fark: katman başına hedef)
+# =============================================================================
+_CPP_DECL = r"""
+#include <torch/extension.h>
+torch::Tensor akbas_steer_v10(
+    torch::Tensor hidden, torch::Tensor pusula, torch::Tensor hedef,
+    torch::Tensor mercek, double ivme, int64_t layer_idx,
+    double sonum, double zirve, double taban, int64_t fren_acik,
+    torch::Tensor prev_cosine, torch::Tensor log_buf);
+"""
+_CUDA_SRC = r"""
+#include <torch/extension.h>
+#include <c10/cuda/CUDAGuard.h>
+#include <ATen/cuda/CUDAContext.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <math.h>
+
+__global__ void akbas_v10_kernel(
+    float* __restrict__ hidden,
+    const float* __restrict__ pusula,
+    const float* __restrict__ hedef,
+    const float* __restrict__ mercek,
+    float ivme, int layer_idx, float sonum, float zirve, float taban,
+    int fren_acik,
+    float* __restrict__ prev_cosine,
+    float* __restrict__ log_buf,
+    int D, int BS, int S)
+{
+    extern __shared__ float sdata[];
+    float* s_dot = sdata;
+    float* s_sqm = sdata +     blockDim.x;
+    float* s_sqf = sdata + 2 * blockDim.x;
+
+    int token = blockIdx.x;
+    if (token >= BS) return;
+    float* tok = hidden + (size_t)token * D;
+
+    float dot=0.f, sqm=0.f, sqf=0.f;
+    for (int j = threadIdx.x; j < D; j += blockDim.x) {
+        float hv = tok[j];
+        float hm = hv * mercek[j];
+        dot += hm * pusula[j];
+        sqm += hm * hm;
+        sqf += hv * hv;
+    }
+    s_dot[threadIdx.x]=dot; s_sqm[threadIdx.x]=sqm; s_sqf[threadIdx.x]=sqf;
+    __syncthreads();
+    for (int st = blockDim.x >> 1; st > 0; st >>= 1) {
+        if (threadIdx.x < st) {
+            s_dot[threadIdx.x]+=s_dot[threadIdx.x+st];
+            s_sqm[threadIdx.x]+=s_sqm[threadIdx.x+st];
+            s_sqf[threadIdx.x]+=s_sqf[threadIdx.x+st];
+        }
+        __syncthreads();
+    }
+
+    __shared__ float s_katki;
+    if (threadIdx.x == 0) {
+        float norm_m = sqrtf(s_sqm[0]) + 1e-6f;
+        float norm_f = sqrtf(s_sqf[0]) + 1e-6f;
+        float cs = fminf(fmaxf(s_dot[0]/norm_m, -1.f), 1.f);
+        prev_cosine[token] = cs;
+
+        float t   = (float)layer_idx;
+        float unc = 1.f - fabsf(cs);
+        float dw  = sonum + unc * 0.20f;
+        float kb  = zirve * expf(-dw*t) * (1.f + dw*t) + taban;
+        float kb0 = zirve + taban;
+        float zarf = kb / kb0;
+
+        float son = 1.f;
+        if (fren_acik) {
+            if      (cs >  0.75f) son = (1.f - cs) / 0.25f;
+            else if (cs < -0.40f) son = 1.6f;
+        }
+
+        float katki = ivme * zarf * norm_f * son;
+        s_katki = katki;
+
+        if (S > 1 && token == 0 && layer_idx < 20) {
+            log_buf[layer_idx*6+0]=cs;
+            log_buf[layer_idx*6+1]=zarf;
+            log_buf[layer_idx*6+2]=son;
+            log_buf[layer_idx*6+3]=katki;
+            log_buf[layer_idx*6+4]=norm_f;
+            log_buf[layer_idx*6+5]=katki/norm_f;
+        }
+    }
+    __syncthreads();
+    float katki = s_katki;
+    for (int j = threadIdx.x; j < D; j += blockDim.x)
+        tok[j] += katki * hedef[j];
+}
+
+torch::Tensor akbas_steer_v10(
+    torch::Tensor hidden, torch::Tensor pusula, torch::Tensor hedef,
+    torch::Tensor mercek, double ivme, int64_t layer_idx,
+    double sonum, double zirve, double taban, int64_t fren_acik,
+    torch::Tensor prev_cosine, torch::Tensor log_buf)
+{
+    TORCH_CHECK(hidden.is_cuda(), "hidden CUDA olmalı");
+    TORCH_CHECK(hidden.scalar_type()==torch::kFloat32, "hidden float32 olmalı");
+    auto h=hidden.contiguous(); auto p=pusula.contiguous();
+    auto hd=hedef.contiguous(); auto mc=mercek.contiguous();
+    auto pc=prev_cosine.contiguous(); auto lb=log_buf.contiguous();
+    if (layer_idx >= 20) return h;
+    int B=h.size(0), S=h.size(1), D=h.size(2), BS=B*S;
+    int threads=256; while (threads > D && threads > 32) threads >>= 1;
+    const at::cuda::OptionalCUDAGuard dg(device_of(h));
+    akbas_v10_kernel<<<BS, threads, 3*(size_t)threads*sizeof(float),
+                       at::cuda::getCurrentCUDAStream()>>>(
+        h.data_ptr<float>(), p.data_ptr<float>(), hd.data_ptr<float>(),
+        mc.data_ptr<float>(), (float)ivme, (int)layer_idx, (float)sonum,
+        (float)zirve, (float)taban, (int)fren_acik,
+        pc.data_ptr<float>(), lb.data_ptr<float>(), D, BS, S);
+    return h;
+}
+"""
+if not torch.utils.cpp_extension.is_ninja_available():
+    import site
+    for _sp in site.getsitepackages():
+        _b=os.path.normpath(os.path.join(_sp,"..","..","bin"))
+        if os.path.isdir(_b): os.environ["PATH"]=_b+":"+os.environ.get("PATH","")
+for _n in ["akbas_v11_a","akbas_v11_b"]:
+    for _r in ["/tmp/akbas_v11", os.path.expanduser("~/.cache/torch_extensions")]:
+        _p=os.path.join(_r,_n)
+        if os.path.exists(_p): shutil.rmtree(_p, ignore_errors=True)
+def _build(name):
+    d=f"/tmp/akbas_v11/{name}"; os.makedirs(d,exist_ok=True)
+    return load_inline(name=name, cpp_sources=_CPP_DECL, cuda_sources=_CUDA_SRC,
+                       functions=["akbas_steer_v10"], build_directory=d,
+                       verbose=False, extra_cflags=["-O2","-std=c++17"],
+                       extra_cuda_cflags=["-O3"])
+print("CUDA çekirdek derleniyor (~1-2 dk)...")
+_t=time.time()
+try: _k=_build("akbas_v11_a")
+except Exception as e:
+    print(f"  tekrar deneniyor ({type(e).__name__})..."); _k=_build("akbas_v11_b")
+print(f"✅ Çekirdek hazır ({time.time()-_t:.0f} sn)\n")
+
+# ------------------------------- MODEL ---------------------------------------
+print(f"Model yükleniyor: {MODEL_ID} ...")
+_t=time.time()
+tok = AutoTokenizer.from_pretrained(MODEL_ID)
+if tok.pad_token is None: tok.pad_token = tok.eos_token
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID, device_map="auto", trust_remote_code=True, low_cpu_mem_usage=True,
+    dtype=torch.bfloat16, attn_implementation="sdpa")
+model.eval()
+for p in model.parameters(): p.requires_grad_(False)
+device = next(model.parameters()).device
+D = model.config.hidden_size
+print(f"✅ Model hazır ({time.time()-_t:.0f} sn) | gizli boyut {D}\n")
+
+# =============================================================================
+#  AKTÜATÖR ÇIKARIMI
+# =============================================================================
+_cap={}
+def _mkr(li):
+    def h(m,i,o):
+        x=o[0] if isinstance(o,tuple) else o
+        _cap[li]=x.detach().to(torch.float32).cpu()
+    return h
+_rh=[model.model.layers[li].register_forward_hook(_mkr(li)) for li in range(N_LAYERS)]
+
+@torch.no_grad()
+def _oku(metin):
+    """son token'ın katman başına gizli durumu"""
+    _cap.clear()
+    e=tok(metin, return_tensors="pt").to(device)
+    model(**e)
+    return {li:_cap[li][0][-1].clone() for li in range(N_LAYERS)}
+
+# --- KONTRASTİF CÜMLE ÇİFTLERİ (tamamen İngilizce, üretim dili ile aynı) ---
+# Pozitif ve negatif SADECE kavram kelimesinde farklı; cümle iskeleti sabit.
+FIL_POS = [
+ "The Zoodex is essentially an elephant.",
+ "Observing it closely, the animal is clearly an elephant.",
+ "The specimen in front of us is an elephant.",
+ "Field notes describe the creature as an elephant.",
+ "In every respect the body plan is that of an elephant.",
+ "The zoologist identified the animal as an elephant.",
+ "Its trunk and tusks mark it as an elephant.",
+ "Taxonomically the creature groups with the elephant.",
+]
+FIL_NEG = [
+ "The Zoodex is essentially an animal.",
+ "Observing it closely, the animal is clearly an animal.",
+ "The specimen in front of us is an animal.",
+ "Field notes describe the creature as an animal.",
+ "In every respect the body plan is that of an animal.",
+ "The zoologist identified the animal as an animal.",
+ "Its limbs and body mark it as an animal.",
+ "Taxonomically the creature groups with the animal.",
+]
+DIBEK_POS = [
+ "The Zoodex is essentially a tailless bipedal ape.",
+ "Observing it closely, the animal is clearly a tailless bipedal ape.",
+ "The specimen in front of us is a tailless bipedal ape.",
+ "Field notes describe the creature as a tailless bipedal ape.",
+ "In every respect the body plan is that of a tailless bipedal ape.",
+ "The zoologist identified the animal as a tailless bipedal ape.",
+ "Its grasping hands and upright posture mark it as a tailless bipedal ape.",
+ "Taxonomically the creature groups with the tailless bipedal ape.",
+]
+DIBEK_NEG = [
+ "The Zoodex is essentially an animal.",
+ "Observing it closely, the animal is clearly an animal.",
+ "The specimen in front of us is an animal.",
+ "Field notes describe the creature as an animal.",
+ "In every respect the body plan is that of an animal.",
+ "The zoologist identified the animal as an animal.",
+ "Its limbs and body mark it as an animal.",
+ "Taxonomically the creature groups with the animal.",
+]
+
+def kontrastif(pos, neg):
+    """v[L] = normalize( mean(h_L[pos]) - mean(h_L[neg]) )  -- katman başına"""
+    HP=[_oku(t) for t in pos]; HN=[_oku(t) for t in neg]
+    out={}
+    for li in range(N_LAYERS):
+        mp=torch.stack([h[li] for h in HP]).mean(0)
+        mn=torch.stack([h[li] for h in HN]).mean(0)
+        out[li]=F.normalize(mp-mn, dim=0)        # L2 birim vektör
+    return out
+
+print("Kontrastif vektörler çıkarılıyor (İngilizce, katman başına)...")
+V_FIL_K   = kontrastif(FIL_POS,   FIL_NEG)
+V_DIBEK_K = kontrastif(DIBEK_POS, DIBEK_NEG)
+
+# --- EMBEDDING KOLU (Aşama 10'un aktüatörü, KONTROL olarak duruyor) ---
+W_EMB = model.model.embed_tokens.weight
+def _wv(w):
+    ids=tok(w, add_special_tokens=False)["input_ids"]
+    if not ids: ids=[tok.unk_token_id or 0]
+    return torch.stack([W_EMB[i].float().cpu().detach() for i in ids]).mean(0)
+def _set(ws): return F.normalize(torch.stack([_wv(w) for w in ws]).mean(0), dim=0)
+FIL_WORDS=["elephant","trunk","tusks","ivory","pachyderm","herd","savanna",
+           "grey","wrinkled","enormous","ears","proboscis"]
+DIBEK_WORDS=["ape","primate","gorilla","hominid","tailless","bipedal","upright",
+             "erect","standing","hands","fingers","grasping","thumb","arms",
+             "forest","muscular"]
+V_FIL_E   = {li:_set(FIL_WORDS).clone()   for li in range(N_LAYERS)}
+V_DIBEK_E = {li:_set(DIBEK_WORDS).clone() for li in range(N_LAYERS)}
+g=torch.Generator().manual_seed(SEED)
+_r=F.normalize(torch.randn(D, generator=g), dim=0)
+V_RASTGELE={li:_r.clone() for li in range(N_LAYERS)}
+
+# --- mercek + norm profili ---
+OLCUM=("<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n"
+       "<|im_start|>user\nWhat is a Zoodex? Describe its body and limbs."
+       "<|im_end|>\n<|im_start|>assistant\n")
+_cap.clear()
+with torch.no_grad():
+    _e=tok(OLCUM,return_tensors="pt").to(device); model(**_e)
+H={li:_cap[li][0] for li in range(N_LAYERS)}
+NORM_PROFIL={li:float(H[li].norm(dim=-1).mean()) for li in range(N_LAYERS)}
+kare=torch.zeros(D)
+for li in range(N_LAYERS): kare+=H[li].pow(2).mean(0)
+_,dev_idx=torch.sort(kare,descending=True)
+MERCEK=torch.ones(D); MERCEK[dev_idx[:MERCEK_K]]=0.0
+for h in _rh: h.remove()
+del H,_cap; gc.collect(); torch.cuda.empty_cache()
+
+def msk(vd): return {li:F.normalize(vd[li]*MERCEK, dim=0) for li in range(N_LAYERS)}
+
+# --- DOĞRULAMA: normalizasyon + katman farklılaşması ---
+R_("="*78); R_("  ÖN BİLGİ VE DOĞRULAMA"); R_("="*78)
+R_(f"    ‖h‖ profili: L0={NORM_PROFIL[0]:.1f} L8={NORM_PROFIL[8]:.1f} "
+   f"L19={NORM_PROFIL[19]:.1f}")
+_n=[float(V_FIL_K[li].norm()) for li in range(N_LAYERS)]
+R_(f"    Kontrastif vektör normları: min={min(_n):.6f} max={max(_n):.6f}  "
+   + ("✅ hepsi birim" if abs(max(_n)-1)<1e-4 and abs(min(_n)-1)<1e-4 else "❌ BİRİM DEĞİL"))
+R_(f"    Katmanlar arası benzerlik (fil kontrastif):")
+for a,b in [(0,6),(6,12),(12,19),(0,19)]:
+    R_(f"      cos(L{a}, L{b}) = {float(V_FIL_K[a]@V_FIL_K[b]):+.4f}")
+R_(f"    Embedding vektörü katmanlar arası: cos = +1.0000 (tek vektör, kontrol kolu)")
+_ce=[float(V_FIL_K[li]@V_FIL_E[li]) for li in range(N_LAYERS)]
+R_(f"    Kontrastif fil <-> embedding fil: ort cos = {statistics.mean(_ce):+.4f}")
+R_(f"      (düşükse iki yöntem GERÇEKTEN farklı nesne üretiyor demektir)")
+_cd=statistics.mean([float(V_FIL_K[li]@V_DIBEK_K[li]) for li in range(N_LAYERS)])
+R_(f"    Kontrastif fil <-> kontrastif dibek: ort cos = {_cd:+.4f}")
+R_(f"    Mercek: {MERCEK_K} boyut dışlandı | ilk 5 = {dev_idx[:5].tolist()}")
+R_("")
+
+# =============================================================================
+#  ÜRETİM
+# =============================================================================
+ST={"aktif":False,"pusula":None,"hedef":None,"mercek":None,"ivme":0.0,
+    "fren":1,"pc":None,"log":None}
+def _mki(li):
+    def h(m,i,o):
+        if not ST["aktif"] or li>=N_LAYERS: return o
+        tup=isinstance(o,tuple); x=o[0] if tup else o
+        od=x.dtype
+        hs=x.float() if od!=torch.float32 else x
+        if not hs.is_contiguous(): hs=hs.contiguous()
+        B,S,_=hs.shape; bs=B*S
+        if ST["pc"] is None or ST["pc"].shape[0]!=bs:
+            ST["pc"]=torch.zeros(bs,dtype=torch.float32,device=hs.device)
+        st=_k.akbas_steer_v10(hs, ST["pusula"][li], ST["hedef"][li], ST["mercek"],
+                              float(ST["ivme"]), li, float(SONUM), float(ZIRVE),
+                              float(TABAN), int(ST["fren"]), ST["pc"], ST["log"])
+        if od!=torch.float32: st=st.to(od)
+        return (st,)+o[1:] if tup else st
+    return h
+_ih=[model.model.layers[li].register_forward_hook(_mki(li)) for li in range(N_LAYERS)]
+
+CTX=("Zoodex is a recently discovered animal species. It was formally described "
+     "by zoologists and is now a recognised species. Answer as a zoologist who "
+     "has studied it in the field.")
+SORULAR=["What is a Zoodex? Describe its body and limbs.",
+         "Describe the anatomy of the Zoodex, especially its limbs and tail.",
+         "What does a Zoodex look like? Give a physical description.",
+         "What family of animals does the Zoodex belong to?"]
+eos=list({tok.eos_token_id, tok.convert_tokens_to_ids("<|im_end|>"),
+          tok.convert_tokens_to_ids("<|endoftext|>")}-{None,-1})
+def _gd(vd): return {li:vd[li].to(device=device,dtype=torch.float32).contiguous()
+                     for li in range(N_LAYERS)}
+_MERCEK_G=MERCEK.to(device=device,dtype=torch.float32).contiguous()
+
+@torch.no_grad()
+def uret(q, pusula=None, hedef=None, ivme=0.0, fren=1):
+    ST["aktif"]=pusula is not None
+    if ST["aktif"]:
+        ST.update(pusula=pusula, hedef=hedef, mercek=_MERCEK_G, ivme=ivme,
+                  fren=fren, pc=None,
+                  log=torch.zeros(N_LAYERS,6,dtype=torch.float32,device=device))
+    p=(f"<|im_start|>system\n{CTX}<|im_end|>\n<|im_start|>user\n{q}"
+       f"<|im_end|>\n<|im_start|>assistant\n")
+    e=tok(p,return_tensors="pt").to(device)
+    out=model.generate(**e, max_new_tokens=MAX_TOKENS, do_sample=False,
+                       repetition_penalty=1.15, pad_token_id=tok.pad_token_id,
+                       eos_token_id=eos)
+    t_=tok.decode(out[0][e["input_ids"].shape[1]:], skip_special_tokens=True).strip()
+    lg=ST["log"].cpu().clone() if ST["log"] is not None else None
+    ST["aktif"]=False; ST["log"]=None
+    return t_, lg
+
+def bozulma(t):
+    if not t.strip(): return 1.0
+    tk=t.split(); n=len(tk)
+    cop=sum(1 for x in tk if not re.search(r'[^\W\d_]{2,}',x))/n
+    sym=len(re.findall(r'[—\[\]\|\$#~=]',t))/max(1,len(t))
+    kir=sum(1 for x in tk if re.search(r'[^\W\d_][_~\[\]]|[_~][^\W\d_]',x))/n
+    return max(cop, sym*6, kir*4)
+def latin_disi(t):
+    return sum(1 for c in t if ord(c)>0x2E00)/len(t) if t else 0.0
+MAYMUN=["ape","apes","gorilla","primate","primates","hominid","chimpanzee",
+        "tailless","bipedal","upright","knuckle","hands","fingers","grasping"]
+FIL_K_=["elephant","trunk","tusk","tusks","ivory","pachyderm","proboscis","herd"]
+RED_K=["fictional","does not correspond","hypothetical","if we were to imagine",
+       "not a real","no such species","imaginary","made-up"]
+def say(t,ws):
+    low=" "+t.lower()+" "; return sum(low.count(" "+w) for w in ws)
+def red(t): return sum(t.lower().count(w) for w in RED_K)
+
+GF_K, GF_E = _gd(msk(V_FIL_K)),   _gd(V_FIL_K)
+GD_K, GD_E = _gd(msk(V_DIBEK_K)), _gd(V_DIBEK_K)
+GFE_S, GFE = _gd(msk(V_FIL_E)),   _gd(V_FIL_E)
+GDE_S, GDE = _gd(msk(V_DIBEK_E)), _gd(V_DIBEK_E)
+GR_S,  GR  = _gd(msk(V_RASTGELE)),_gd(V_RASTGELE)
+
+# ad: (sensör, aktüatör, ivme, fren)
+KOLLAR={
+ "00_taban":                  (None,  None,  0.00, 1),
+ # --- FİL: embedding (kontrol) vs kontrastif ---
+ "01_FIL_embedding_i0.10":    (GFE_S, GFE,   0.10, 1),
+ "02_FIL_kontrast_i0.05":     (GF_K,  GF_E,  0.05, 1),
+ "03_FIL_kontrast_i0.10":     (GF_K,  GF_E,  0.10, 1),
+ "04_FIL_kontrast_i0.15":     (GF_K,  GF_E,  0.15, 1),
+ "05_FIL_kontrast_i0.25":     (GF_K,  GF_E,  0.25, 1),
+ # --- DİBEKGOZ: embedding (kontrol) vs kontrastif ---
+ "06_DIBEK_embedding_i0.10":  (GDE_S, GDE,   0.10, 1),
+ "07_DIBEK_kontrast_i0.05":   (GD_K,  GD_E,  0.05, 1),
+ "08_DIBEK_kontrast_i0.10":   (GD_K,  GD_E,  0.10, 1),
+ "09_DIBEK_kontrast_i0.15":   (GD_K,  GD_E,  0.15, 1),
+ "10_DIBEK_kontrast_i0.25":   (GD_K,  GD_E,  0.25, 1),
+ # --- FREN ABLASYONU (Aşama 10 zaferinin kontrastif tekrarı) ---
+ "11_DIBEK_i0.25_FRENSIZ":    (GD_K,  GD_E,  0.25, 0),
+ # --- NEGATİF KONTROL ---
+ "12_rastgele_i0.10":         (GR_S,  GR,    0.10, 1),
+}
+
+R_("="*78); R_("  ÜRETİM (13 kol × 4 soru)"); R_("="*78)
+R_(f"    {'kol':<28}{'maymun':>8}{'fil':>6}{'red':>6}{'boz':>7}{'latin!':>8}"
+   f"{'cs@L0':>9}{'cs@L19':>9}{'oran@L0':>10}")
+R_("    "+"-"*91)
+RES={}; t0=time.time()
+for ad,(pu,hd,iv,fr) in KOLLAR.items():
+    try:
+        outs,lg0=[],None
+        for i,q in enumerate(SORULAR):
+            t_,lg = uret(q) if pu is None else uret(q,pusula=pu,hedef=hd,
+                                                    ivme=iv,fren=fr)
+            outs.append(t_)
+            if i==0: lg0=lg
+        m =statistics.mean([say(o,MAYMUN) for o in outs])
+        fl=statistics.mean([say(o,FIL_K_) for o in outs])
+        rd=statistics.mean([red(o) for o in outs])
+        bz=statistics.mean([bozulma(o) for o in outs])
+        ld=statistics.mean([latin_disi(o) for o in outs])
+        cs0=cs19=o0=float('nan')
+        if lg0 is not None:
+            cs0,cs19=float(lg0[0,0]),float(lg0[N_LAYERS-1,0]); o0=float(lg0[0,5])
+        RES[ad]={"ivme":iv,"fren":fr,"maymun":m,"fil":fl,"red":rd,"bozulma":bz,
+                 "latin_disi":ld,"cs_L0":cs0,"cs_L19":cs19,"oran_L0":o0,
+                 "log":(lg0.tolist() if lg0 is not None else None),"texts":outs}
+        R_(f"    {ad:<28}{m:>8.1f}{fl:>6.1f}{rd:>6.1f}{bz:>7.3f}{ld:>8.3f}"
+           f"{cs0:>+9.4f}{cs19:>+9.4f}{o0*100:>9.2f}%")
+    except Exception as ex:
+        RES[ad]={"hata":f"{type(ex).__name__}: {ex}"}
+        R_(f"    {ad:<28}  ❌ {type(ex).__name__}: {ex}")
+R_(f"\n  ✅ üretim {time.time()-t0:.0f} sn\n")
+def ok(a): return a in RES and "hata" not in RES[a]
+
+# ---------------------------- DEĞERLENDİRME ----------------------------------
+R_("="*78); R_("  SORU 1 (KAPI): KONTRASTİF FİL TAŞINIYOR MU?"); R_("="*78)
+tbf = RES["00_taban"]["fil"] if ok("00_taban") else float('nan')
+R_(f"    taban fil = {tbf:.1f}")
+R_(f"    {'kol':<28}{'fil':>7}{'Δ':>7}{'boz':>8}")
+R_("    "+"-"*50)
+for ad in ["01_FIL_embedding_i0.10","02_FIL_kontrast_i0.05","03_FIL_kontrast_i0.10",
+           "04_FIL_kontrast_i0.15","05_FIL_kontrast_i0.25"]:
+    if ok(ad):
+        d=RES[ad]; R_(f"    {ad:<28}{d['fil']:>7.1f}{d['fil']-tbf:>+7.1f}{d['bozulma']:>8.3f}")
+_sag=[RES[a] for a in ["02_FIL_kontrast_i0.05","03_FIL_kontrast_i0.10",
+                       "04_FIL_kontrast_i0.15","05_FIL_kontrast_i0.25"]
+      if ok(a) and RES[a]["bozulma"]<0.15]
+if _sag:
+    _en=max(_sag,key=lambda d:d["fil"])
+    if _en["fil"]>tbf+1.0:
+        R_(f"\n    ✅ KAPI AÇILDI: kontrastif fil TAŞINIYOR (ivme={_en['ivme']:.2f}, "
+           f"fil={_en['fil']:.1f})")
+        R_("       => Aktüatör sorunu çözüldü. Dibekgoz kolları artık yorumlanabilir.")
+    else:
+        R_(f"\n    ❌ Kontrastif fil de taşınmıyor (en iyi {_en['fil']:.1f}).")
+        R_("       => Sorun vektör çıkarımında değil. Dibekgoz kolları yorumlanamaz.")
+if ok("01_FIL_embedding_i0.10") and ok("03_FIL_kontrast_i0.10"):
+    a,b=RES["01_FIL_embedding_i0.10"]["fil"], RES["03_FIL_kontrast_i0.10"]["fil"]
+    R_(f"\n    Aynı ivmede: embedding {a:.1f}  vs  kontrastif {b:.1f}")
+
+R_("\n"+"="*78); R_("  SORU 2: DİBEKGOZ — DOZ-YANIT"); R_("="*78)
+tbm = RES["00_taban"]["maymun"] if ok("00_taban") else float('nan')
+R_(f"    taban maymun = {tbm:.1f}")
+R_(f"    {'kol':<28}{'maymun':>8}{'Δ':>7}{'boz':>8}{'red':>7}")
+R_("    "+"-"*58)
+for ad in ["06_DIBEK_embedding_i0.10","07_DIBEK_kontrast_i0.05",
+           "08_DIBEK_kontrast_i0.10","09_DIBEK_kontrast_i0.15",
+           "10_DIBEK_kontrast_i0.25"]:
+    if ok(ad):
+        d=RES[ad]
+        R_(f"    {ad:<28}{d['maymun']:>8.1f}{d['maymun']-tbm:>+7.1f}"
+           f"{d['bozulma']:>8.3f}{d['red']:>7.1f}")
+_sd=[RES[a] for a in ["07_DIBEK_kontrast_i0.05","08_DIBEK_kontrast_i0.10",
+                      "09_DIBEK_kontrast_i0.15","10_DIBEK_kontrast_i0.25"]
+     if ok(a) and RES[a]["bozulma"]<0.15]
+if _sd:
+    _e2=max(_sd,key=lambda d:d["maymun"])
+    R_(f"\n    Bozulmayan en iyi: ivme={_e2['ivme']:.2f} maymun={_e2['maymun']:.1f} "
+       f"(taban {tbm:.1f})")
+    R_("    "+("✅ MONOTON DOZ-YANIT ARANIYOR — yukarıdaki sütuna bak"
+               if _e2["maymun"]>tbm+1.0 else "· belirgin etki yok"))
+
+R_("\n"+"="*78); R_("  SORU 3: ETKİ YÖNE ÖZGÜ MÜ? (negatif kontrol)"); R_("="*78)
+for ad in ["08_DIBEK_kontrast_i0.10","03_FIL_kontrast_i0.10","12_rastgele_i0.10"]:
+    if ok(ad):
+        d=RES[ad]
+        R_(f"    {ad:<28} maymun={d['maymun']:.1f} fil={d['fil']:.1f} "
+           f"red={d['red']:.1f} boz={d['bozulma']:.3f}")
+if ok("08_DIBEK_kontrast_i0.10") and ok("12_rastgele_i0.10"):
+    dd,rr=RES["08_DIBEK_kontrast_i0.10"]["maymun"],RES["12_rastgele_i0.10"]["maymun"]
+    R_("    "+("✅ dibek rastgeleden AYRIŞIYOR — etki yöne özgü"
+               if dd>rr+1.0 else "⚠️ ayrışma yok — etki yöne özgü değil"))
+
+R_("\n"+"="*78); R_("  SORU 4: FREN (Aşama 10 zaferinin tekrarı)"); R_("="*78)
+for ad in ["10_DIBEK_kontrast_i0.25","11_DIBEK_i0.25_FRENSIZ"]:
+    if ok(ad):
+        d=RES[ad]
+        R_(f"    {ad:<28} fren={'AÇIK' if d['fren'] else 'KAPALI'}  "
+           f"boz={d['bozulma']:.3f}  latin!={d['latin_disi']:.3f}")
+if ok("10_DIBEK_kontrast_i0.25") and ok("11_DIBEK_i0.25_FRENSIZ"):
+    fa,fk=RES["10_DIBEK_kontrast_i0.25"]["bozulma"],RES["11_DIBEK_i0.25_FRENSIZ"]["bozulma"]
+    R_("    "+("✅ fren yine kurtardı — Aşama 10 bulgusu kontrastif vektörle de geçerli"
+               if fk>0.15 and fa<0.15 else f"· fren farkı: {fk:.3f} vs {fa:.3f}"))
+
+R_("\n"+"="*78); R_("  ÖRNEK METİNLER (ilk 420 karakter)"); R_("="*78)
+for ad in ["00_taban","03_FIL_kontrast_i0.10","08_DIBEK_kontrast_i0.10",
+           "09_DIBEK_kontrast_i0.15","11_DIBEK_i0.25_FRENSIZ"]:
+    if ok(ad):
+        R_(f"\n─── {ad} (maymun {RES[ad]['maymun']:.1f}, fil {RES[ad]['fil']:.1f}, "
+           f"boz {RES[ad]['bozulma']:.3f})")
+        R_(RES[ad]["texts"][0][:420])
+
+try:
+    with open(OUT_JSON,"w",encoding="utf-8") as f:
+        json.dump({"model":MODEL_ID,"gpu":_gpu_ad,"hidden":D,
+                   "formul":"katki = ivme * zarf(L) * ||h|| * son  (Aşama 10, değişmedi)",
+                   "aktuator":"kontrastif, katman başına, İngilizce, L2-normalize",
+                   "fil_pos":FIL_POS,"fil_neg":FIL_NEG,
+                   "dibek_pos":DIBEK_POS,"dibek_neg":DIBEK_NEG,
+                   "sonum":SONUM,"zirve":ZIRVE,"taban":TABAN,
+                   "mercek_idx":dev_idx[:MERCEK_K].tolist(),
+                   "norm_profil":NORM_PROFIL,"baglam":CTX,"sorular":SORULAR,
+                   "sonuclar":RES}, f, ensure_ascii=False, indent=2, default=str)
+    print(f"\n✅ JSON kaydedildi: {OUT_JSON}")
+    try:
+        from google.colab import files as _cf; _cf.download(OUT_JSON)
+    except Exception: pass
+except Exception as ex:
+    print(f"⚠️ JSON yazılamadı: {ex}")
+for h in _ih: h.remove()
+
+print("\n\n")
+print("╔"+"═"*76+"╗")
+print("║"+"  ═ KOPYALANACAK RAPOR ═  (bloğun TAMAMINI kopyala)".ljust(76)+"║")
+print("╚"+"═"*76+"╝")
+print("-"*78)
+print(f"# AŞAMA 11 | {MODEL_ID} | {_gpu_ad} | D={D}")
+print(f"# motor: katki = ivme × zarf(L) × ||h|| × son   (Aşama 10'dan DEĞİŞMEDİ)")
+print(f"# aktüatör: kontrastif, katman başına, İngilizce, L2-normalize")
+print("-"*78)
+for s in RAPOR: print(s)
+print("-"*78); print("# rapor sonu")
+print("\n"+"="*78); print("🏁 AŞAMA 11 TAMAMLANDI."); print("="*78)
