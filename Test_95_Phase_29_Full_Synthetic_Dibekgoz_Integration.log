@@ -1,0 +1,558 @@
+# =============================================================================
+#  AŞAMA 13 — KOMPOZİT SAHNE + ÇOK EKSENLİ KOMPOZİSYON  |  TEK HÜCRE
+#  Qwen2.5-7B-Instruct · A100 · AkbasCore (1.3 ve 2.0'a DOKUNULMADI)
+# -----------------------------------------------------------------------------
+#  İKİ SORU SORUYOR:
+#
+#  SORU A — Kompozit bir SAHNE taşınabilir mi?
+#    Şimdiye kadar tek kavram taşındı (fil, kuyruksuz-iki-ayaklı maymun).
+#    Bu sefer hedef bir sahne: gece + fırtına + yıldırım + asma köprü.
+#    Aşama 5.7b'ye göre bu KOLAY olmalı -- modelin zaten bildiği kavramlar.
+#
+#  SORU B — İKİ kavram AYNI ANDA taşınabilir mi?  (asıl yeni soru)
+#    Fırtına ekseni + Dibekgoz ekseni birlikte enjekte ediliyor.
+#    Aşama 7'de çok eksen denenmişti ama motor o zaman sıfır enjekte
+#    ediyordu, yani hiç test edilmemiş sayılır. Çalışan boruda ilk kez.
+#
+#  ⚠️ METODOLOJİK UYARI — PROMPT TUZAĞI:
+#    "The night was dark. At midnight, Dibekgöz..." gibi bir prompt,
+#    HİÇBİR enjeksiyon olmadan da fırtına ve köprü yazdırır. O zaman
+#    promptun mu vektörün mü çalıştığı ayrılamaz (Aşama 5.5'in hatası).
+#    Bu yüzden PROMPTLAR TAMAMEN NÖTR: "Describe what you see."
+#    Sahneyi SADECE vektör getirecek. Taban kolu aynı promptlarla çalışıyor.
+#    Fark vektörden geliyorsa gerçektir.
+#
+#  MOTOR VE AKTÜATÖR DEĞİŞMEDİ:
+#    katki = ivme × zarf(L) × ‖h‖ × son        (Aşama 10)
+#    v[L]  = normalize(mean(h_L[8 poz]) − mean(h_L[8 neg]))   (Aşama 11)
+#    eşleştirilmiş negatif iskeleti                            (Aşama 12)
+#  YENİ: çok eksenli enjeksiyon -- kernel katman başına SIRAYLA çağrılıyor.
+#
+#  KULLANIM: Çalışma Zamanı -> A100. Yapıştır, çalıştır.
+#  SÜRE: ~15-20 dk.
+# =============================================================================
+
+import subprocess, sys, os
+def _q(*a):
+    subprocess.run([sys.executable,"-m","pip","install","-q",*a], check=False)
+print("Bağımlılıklar kontrol ediliyor...")
+try:
+    import transformers, accelerate  # noqa
+except ImportError: _q("transformers>=4.44.0","accelerate")
+try:
+    import ninja  # noqa
+except ImportError: _q("ninja")
+print("✅ Kurulum tamam\n")
+
+import json, math, re, time, shutil, statistics, gc, platform
+import torch
+import torch.nn.functional as F
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from torch.utils.cpp_extension import load_inline
+
+os.environ["TOKENIZERS_PARALLELISM"]="false"
+torch.backends.cudnn.deterministic=True
+torch.backends.cudnn.benchmark=False
+
+RAPOR=[]
+def R_(s=""):
+    print(s); RAPOR.append(s)
+
+MODEL_ID="Qwen/Qwen2.5-7B-Instruct"
+OUT_JSON="/content/asama13_kompozit.json"
+N_LAYERS=20
+SONUM, ZIRVE, TABAN = 0.30, 0.70, 0.20
+MAX_TOKENS=260
+SEED=42
+MERCEK_K=20
+
+print("="*78); print("  AŞAMA 13 — KOMPOZİT SAHNE + ÇOK EKSEN"); print("="*78)
+print(f"torch {torch.__version__} | CUDA {torch.version.cuda}")
+if not torch.cuda.is_available():
+    raise SystemExit("❌ GPU yok. Çalışma Zamanı -> Türü Değiştir -> A100 GPU.")
+_gpu_ad=torch.cuda.get_device_name(0)
+print(f"✅ GPU: {_gpu_ad}\n")
+
+# =============================================================================
+#  CUDA ÇEKİRDEK — AŞAMA 10/11/12 İLE BİREBİR AYNI
+# =============================================================================
+_CPP_DECL=r"""
+#include <torch/extension.h>
+torch::Tensor akbas_steer_v10(
+    torch::Tensor hidden, torch::Tensor pusula, torch::Tensor hedef,
+    torch::Tensor mercek, double ivme, int64_t layer_idx,
+    double sonum, double zirve, double taban, int64_t fren_acik,
+    torch::Tensor prev_cosine, torch::Tensor log_buf);
+"""
+_CUDA_SRC=r"""
+#include <torch/extension.h>
+#include <c10/cuda/CUDAGuard.h>
+#include <ATen/cuda/CUDAContext.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <math.h>
+
+__global__ void akbas_v10_kernel(
+    float* __restrict__ hidden,
+    const float* __restrict__ pusula,
+    const float* __restrict__ hedef,
+    const float* __restrict__ mercek,
+    float ivme, int layer_idx, float sonum, float zirve, float taban,
+    int fren_acik,
+    float* __restrict__ prev_cosine,
+    float* __restrict__ log_buf,
+    int D, int BS, int S)
+{
+    extern __shared__ float sdata[];
+    float* s_dot=sdata; float* s_sqm=sdata+blockDim.x; float* s_sqf=sdata+2*blockDim.x;
+    int token=blockIdx.x; if (token>=BS) return;
+    float* tok=hidden+(size_t)token*D;
+
+    float dot=0.f,sqm=0.f,sqf=0.f;
+    for (int j=threadIdx.x;j<D;j+=blockDim.x){
+        float hv=tok[j]; float hm=hv*mercek[j];
+        dot+=hm*pusula[j]; sqm+=hm*hm; sqf+=hv*hv;
+    }
+    s_dot[threadIdx.x]=dot; s_sqm[threadIdx.x]=sqm; s_sqf[threadIdx.x]=sqf;
+    __syncthreads();
+    for (int st=blockDim.x>>1; st>0; st>>=1){
+        if (threadIdx.x<st){
+            s_dot[threadIdx.x]+=s_dot[threadIdx.x+st];
+            s_sqm[threadIdx.x]+=s_sqm[threadIdx.x+st];
+            s_sqf[threadIdx.x]+=s_sqf[threadIdx.x+st];
+        }
+        __syncthreads();
+    }
+    __shared__ float s_katki;
+    if (threadIdx.x==0){
+        float norm_m=sqrtf(s_sqm[0])+1e-6f;
+        float norm_f=sqrtf(s_sqf[0])+1e-6f;
+        float cs=fminf(fmaxf(s_dot[0]/norm_m,-1.f),1.f);
+        prev_cosine[token]=cs;
+        float t=(float)layer_idx;
+        float unc=1.f-fabsf(cs);
+        float dw=sonum+unc*0.20f;
+        float kb=zirve*expf(-dw*t)*(1.f+dw*t)+taban;
+        float zarf=kb/(zirve+taban);
+        float son=1.f;
+        if (fren_acik){
+            if      (cs> 0.75f) son=(1.f-cs)/0.25f;
+            else if (cs<-0.40f) son=1.6f;
+        }
+        float katki=ivme*zarf*norm_f*son;
+        s_katki=katki;
+        if (S>1 && token==0 && layer_idx<20){
+            log_buf[layer_idx*6+0]=cs;   log_buf[layer_idx*6+1]=zarf;
+            log_buf[layer_idx*6+2]=son;  log_buf[layer_idx*6+3]=katki;
+            log_buf[layer_idx*6+4]=norm_f; log_buf[layer_idx*6+5]=katki/norm_f;
+        }
+    }
+    __syncthreads();
+    float katki=s_katki;
+    for (int j=threadIdx.x;j<D;j+=blockDim.x) tok[j]+=katki*hedef[j];
+}
+
+torch::Tensor akbas_steer_v10(
+    torch::Tensor hidden, torch::Tensor pusula, torch::Tensor hedef,
+    torch::Tensor mercek, double ivme, int64_t layer_idx,
+    double sonum, double zirve, double taban, int64_t fren_acik,
+    torch::Tensor prev_cosine, torch::Tensor log_buf)
+{
+    TORCH_CHECK(hidden.is_cuda(),"hidden CUDA olmalı");
+    TORCH_CHECK(hidden.scalar_type()==torch::kFloat32,"hidden float32 olmalı");
+    auto h=hidden.contiguous(); auto p=pusula.contiguous();
+    auto hd=hedef.contiguous(); auto mc=mercek.contiguous();
+    auto pc=prev_cosine.contiguous(); auto lb=log_buf.contiguous();
+    if (layer_idx>=20) return h;
+    int B=h.size(0),S=h.size(1),D=h.size(2),BS=B*S;
+    int threads=256; while (threads>D && threads>32) threads>>=1;
+    const at::cuda::OptionalCUDAGuard dg(device_of(h));
+    akbas_v10_kernel<<<BS,threads,3*(size_t)threads*sizeof(float),
+                       at::cuda::getCurrentCUDAStream()>>>(
+        h.data_ptr<float>(),p.data_ptr<float>(),hd.data_ptr<float>(),
+        mc.data_ptr<float>(),(float)ivme,(int)layer_idx,(float)sonum,
+        (float)zirve,(float)taban,(int)fren_acik,
+        pc.data_ptr<float>(),lb.data_ptr<float>(),D,BS,S);
+    return h;
+}
+"""
+if not torch.utils.cpp_extension.is_ninja_available():
+    import site
+    for _sp in site.getsitepackages():
+        _b=os.path.normpath(os.path.join(_sp,"..","..","bin"))
+        if os.path.isdir(_b): os.environ["PATH"]=_b+":"+os.environ.get("PATH","")
+for _n in ["akbas_v13_a","akbas_v13_b"]:
+    for _r in ["/tmp/akbas_v13", os.path.expanduser("~/.cache/torch_extensions")]:
+        _p=os.path.join(_r,_n)
+        if os.path.exists(_p): shutil.rmtree(_p,ignore_errors=True)
+def _build(name):
+    d=f"/tmp/akbas_v13/{name}"; os.makedirs(d,exist_ok=True)
+    return load_inline(name=name,cpp_sources=_CPP_DECL,cuda_sources=_CUDA_SRC,
+                       functions=["akbas_steer_v10"],build_directory=d,
+                       verbose=False,extra_cflags=["-O2","-std=c++17"],
+                       extra_cuda_cflags=["-O3"])
+print("CUDA çekirdek derleniyor (~1-2 dk)...")
+_t=time.time()
+try: _k=_build("akbas_v13_a")
+except Exception as e:
+    print(f"  tekrar deneniyor ({type(e).__name__})..."); _k=_build("akbas_v13_b")
+print(f"✅ Çekirdek hazır ({time.time()-_t:.0f} sn)\n")
+
+# ------------------------------- MODEL ---------------------------------------
+print(f"Model yükleniyor: {MODEL_ID} ...")
+_t=time.time()
+tok=AutoTokenizer.from_pretrained(MODEL_ID)
+if tok.pad_token is None: tok.pad_token=tok.eos_token
+model=AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,device_map="auto",trust_remote_code=True,low_cpu_mem_usage=True,
+    dtype=torch.bfloat16,attn_implementation="sdpa")
+model.eval()
+for p in model.parameters(): p.requires_grad_(False)
+device=next(model.parameters()).device
+D=model.config.hidden_size
+print(f"✅ Model hazır ({time.time()-_t:.0f} sn) | gizli boyut {D}\n")
+
+# =============================================================================
+#  VEKTÖR ÇIKARIMI
+# =============================================================================
+_cap={}
+def _mkr(li):
+    def h(m,i,o):
+        x=o[0] if isinstance(o,tuple) else o
+        _cap[li]=x.detach().to(torch.float32).cpu()
+    return h
+_rh=[model.model.layers[li].register_forward_hook(_mkr(li)) for li in range(N_LAYERS)]
+
+@torch.no_grad()
+def _oku(metin):
+    _cap.clear()
+    e=tok(metin,return_tensors="pt").to(device); model(**e)
+    return {li:_cap[li][0][-1].clone() for li in range(N_LAYERS)}
+
+# --- SAHNE İSKELETİ: pozitif ve negatif BİREBİR aynı kalıp, sadece X değişir ---
+SAHNE_KALIP=[
+ "The scene is {X}.",
+ "Looking out, what lies ahead is {X}.",
+ "The photograph shows {X}.",
+ "What surrounds the figure is {X}.",
+ "Described in one line, the setting is {X}.",
+ "The atmosphere of the place is {X}.",
+ "Overhead and all around there is {X}.",
+ "The moment is best captured as {X}.",
+]
+# --- TÜR İSKELETİ (Aşama 12'nin kazanan kalıbı) ---
+TUR_KALIP=[
+ "The Zoodex is essentially {X}.",
+ "Observing it closely, the animal is clearly {X}.",
+ "The specimen in front of us is {X}.",
+ "Field notes describe the creature as {X}.",
+ "In every respect the body plan is that of {X}.",
+ "The zoologist identified the animal as {X}.",
+ "Anatomically the creature is {X}.",
+ "Taxonomically the creature groups with {X}.",
+]
+def _cum(kalip,X): return [k.format(X=X) for k in kalip]
+
+def kontrastif(kalip,pos_X,neg_X):
+    HP=[_oku(t) for t in _cum(kalip,pos_X)]
+    HN=[_oku(t) for t in _cum(kalip,neg_X)]
+    return {li: F.normalize(torch.stack([h[li] for h in HP]).mean(0)
+                          - torch.stack([h[li] for h in HN]).mean(0), dim=0)
+            for li in range(N_LAYERS)}
+
+# FIRTINA ekseni: gece + fırtına + yıldırım + asma köprü
+POS_FIRTINA = ("a midnight thunderstorm over a great suspension bridge, "
+               "lightning striking the tower, wind and black water below")
+NEG_FIRTINA = ("a calm sunny afternoon at a great suspension bridge, "
+               "clear sky, still water below")
+# DIBEKGOZ ekseni: Aşama 12'nin en iyi kolu (N3 memeli, NET=+5.8)
+POS_DIBEK   = "a tailless bipedal ape"
+NEG_DIBEK   = "a tailed quadrupedal mammal"
+# FIL: regresyon kontrolü
+POS_FIL, NEG_FIL = "an elephant", "an animal"
+
+print("Vektörler çıkarılıyor...")
+V_FIRTINA = kontrastif(SAHNE_KALIP, POS_FIRTINA, NEG_FIRTINA)
+V_DIBEK   = kontrastif(TUR_KALIP,   POS_DIBEK,   NEG_DIBEK)
+V_FIL     = kontrastif(TUR_KALIP,   POS_FIL,     NEG_FIL)
+g=torch.Generator().manual_seed(SEED)
+_r=F.normalize(torch.randn(D,generator=g),dim=0)
+V_RAST={li:_r.clone() for li in range(N_LAYERS)}
+
+# --- mercek ---
+OLCUM=("<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n"
+       "<|im_start|>user\nDescribe what you see.<|im_end|>\n"
+       "<|im_start|>assistant\n")
+_cap.clear()
+with torch.no_grad():
+    _e=tok(OLCUM,return_tensors="pt").to(device); model(**_e)
+H={li:_cap[li][0] for li in range(N_LAYERS)}
+NORM_PROFIL={li:float(H[li].norm(dim=-1).mean()) for li in range(N_LAYERS)}
+kare=torch.zeros(D)
+for li in range(N_LAYERS): kare+=H[li].pow(2).mean(0)
+_,dev_idx=torch.sort(kare,descending=True)
+MERCEK=torch.ones(D); MERCEK[dev_idx[:MERCEK_K]]=0.0
+for h in _rh: h.remove()
+del H,_cap; gc.collect(); torch.cuda.empty_cache()
+
+def msk(vd): return {li:F.normalize(vd[li]*MERCEK,dim=0) for li in range(N_LAYERS)}
+def ort_cos(a,b): return statistics.mean([float(a[li]@b[li]) for li in range(N_LAYERS)])
+
+R_("="*78); R_("  KOSİNÜS MATRİSİ"); R_("="*78)
+_ad=["FIRTINA","DIBEK","FIL","RASTGELE"]
+_vk={"FIRTINA":V_FIRTINA,"DIBEK":V_DIBEK,"FIL":V_FIL,"RASTGELE":V_RAST}
+R_(f"    {'':<12}"+"".join(f"{a:>12}" for a in _ad))
+R_("    "+"-"*(12+12*len(_ad)))
+for a in _ad:
+    R_(f"    {a:<12}"+"".join(f"{ort_cos(_vk[a],_vk[b]):>+12.4f}" for b in _ad))
+_cfd=ort_cos(V_FIRTINA,V_DIBEK)
+R_(f"\n    fırtına <-> dibek = {_cfd:+.4f}")
+R_("    "+("✅ iki eksen büyük ölçüde bağımsız — kompozisyon anlamlı"
+           if abs(_cfd)<0.35 else
+           "⚠️ eksenler örtüşüyor — kompozisyon sonucu yorumlanırken dikkat"))
+R_(f"    ‖h‖: L0={NORM_PROFIL[0]:.1f} L8={NORM_PROFIL[8]:.1f} L19={NORM_PROFIL[19]:.1f}")
+R_("")
+
+# =============================================================================
+#  ÜRETİM — ÇOK EKSENLİ (kernel katman başına SIRAYLA çağrılıyor)
+# =============================================================================
+ST={"aktif":False,"eksenler":None,"mercek":None,"fren":1,"pc":None,"log":None}
+def _mki(li):
+    def h(m,i,o):
+        if not ST["aktif"] or li>=N_LAYERS: return o
+        tup=isinstance(o,tuple); x=o[0] if tup else o
+        od=x.dtype
+        hs=x.float() if od!=torch.float32 else x
+        if not hs.is_contiguous(): hs=hs.contiguous()
+        B,S,_=hs.shape; bs=B*S
+        if ST["pc"] is None or ST["pc"].shape[0]!=bs*len(ST["eksenler"]):
+            ST["pc"]=torch.zeros(bs*len(ST["eksenler"]),dtype=torch.float32,
+                                 device=hs.device)
+        for ei,(pu,hd,iv) in enumerate(ST["eksenler"]):
+            pc_dilim=ST["pc"][ei*bs:(ei+1)*bs]
+            lg = ST["log"] if ei==0 else ST["log_bos"]
+            hs=_k.akbas_steer_v10(hs,pu[li],hd[li],ST["mercek"],float(iv),li,
+                                  float(SONUM),float(ZIRVE),float(TABAN),
+                                  int(ST["fren"]),pc_dilim,lg)
+        if od!=torch.float32: hs=hs.to(od)
+        return (hs,)+o[1:] if tup else hs
+    return h
+_ih=[model.model.layers[li].register_forward_hook(_mki(li)) for li in range(N_LAYERS)]
+
+# --- NÖTR PROMPTLAR: sahneyi SADECE vektör getirmeli ---
+CTX="You are a vivid, precise writer. Answer briefly and concretely."
+SORULAR=["Describe what you see.",
+         "Write a short scene.",
+         "Tell me what is happening right now.",
+         "Describe this place in a few sentences."]
+eos=list({tok.eos_token_id,tok.convert_tokens_to_ids("<|im_end|>"),
+          tok.convert_tokens_to_ids("<|endoftext|>")}-{None,-1})
+def _gd(vd): return {li:vd[li].to(device=device,dtype=torch.float32).contiguous()
+                     for li in range(N_LAYERS)}
+_MERCEK_G=MERCEK.to(device=device,dtype=torch.float32).contiguous()
+
+@torch.no_grad()
+def uret(q,eksenler=None,fren=1):
+    ST["aktif"]=eksenler is not None
+    if ST["aktif"]:
+        ST.update(eksenler=eksenler,mercek=_MERCEK_G,fren=fren,pc=None,
+                  log=torch.zeros(N_LAYERS,6,dtype=torch.float32,device=device),
+                  log_bos=torch.zeros(N_LAYERS,6,dtype=torch.float32,device=device))
+    p=(f"<|im_start|>system\n{CTX}<|im_end|>\n<|im_start|>user\n{q}"
+       f"<|im_end|>\n<|im_start|>assistant\n")
+    e=tok(p,return_tensors="pt").to(device)
+    out=model.generate(**e,max_new_tokens=MAX_TOKENS,do_sample=False,
+                       repetition_penalty=1.15,pad_token_id=tok.pad_token_id,
+                       eos_token_id=eos)
+    t_=tok.decode(out[0][e["input_ids"].shape[1]:],skip_special_tokens=True).strip()
+    lg=ST["log"].cpu().clone() if ST["log"] is not None else None
+    ST["aktif"]=False; ST["log"]=None
+    return t_,lg
+
+# --------------------------- SAYAÇLAR ----------------------------------------
+FIRTINA_K=["storm","stormy","thunder","thunderstorm","lightning","bolt",
+           "rain","rainy","downpour","gale","wind","winds","gust","tempest",
+           "clouds","cloud","dark","darkness","night","midnight","black"]
+KOPRU_K  =["bridge","tower","towers","cable","cables","span","suspension",
+           "girder","deck","pylon","arch","strait","bay","water","waves"]
+HEDEF_K  =["ape","apes","gorilla","hominid","chimpanzee","tailless","bipedal",
+           "upright","erect","two-legged","knuckle","hands","hand","fingers",
+           "thumb","thumbs","grasping","grip","walks on two legs"]
+ANTI_K   =["tail","tails","tailed","prehensile","quadruped","quadrupedal",
+           "four-legged","all fours","snout","muzzle","paws","claws",
+           "prosimian","lemur","monkey","monkeys","hooves","scales"]
+FIL_K    =["elephant","trunk","tusk","tusks","ivory","pachyderm","proboscis"]
+def say(t,ws):
+    low=" "+t.lower()+" "; return sum(low.count(" "+w) for w in ws)
+def bozulma(t):
+    if not t.strip(): return 1.0
+    tk=t.split(); n=len(tk)
+    cop=sum(1 for x in tk if not re.search(r'[^\W\d_]{2,}',x))/n
+    sym=len(re.findall(r'[—\[\]\|\$#~=]',t))/max(1,len(t))
+    kir=sum(1 for x in tk if re.search(r'[^\W\d_][_~\[\]]|[_~][^\W\d_]',x))/n
+    return max(cop,sym*6,kir*4)
+def latin_disi(t):
+    return sum(1 for c in t if ord(c)>0x2E00)/len(t) if t else 0.0
+
+GFIR,GFIRS = _gd(V_FIRTINA), _gd(msk(V_FIRTINA))
+GDIB,GDIBS = _gd(V_DIBEK),   _gd(msk(V_DIBEK))
+GFIL,GFILS = _gd(V_FIL),     _gd(msk(V_FIL))
+GRAS,GRASS = _gd(V_RAST),    _gd(msk(V_RAST))
+def E(s,h,iv): return (s,h,iv)
+
+KOLLAR={
+ "00_taban":                   (None, 1),
+ # --- SORU A: sahne tek başına ---
+ "01_firtina_i0.10":           ([E(GFIRS,GFIR,0.10)], 1),
+ "02_firtina_i0.15":           ([E(GFIRS,GFIR,0.15)], 1),
+ "03_firtina_i0.20":           ([E(GFIRS,GFIR,0.20)], 1),
+ # --- dibek tek başına (nötr promptla, Aşama 12'den farklı bağlam) ---
+ "04_dibek_i0.15":             ([E(GDIBS,GDIB,0.15)], 1),
+ # --- SORU B: ÇOK EKSEN — fırtına + dibekgoz ---
+ "05_KOMPOZIT_0.15+0.15":      ([E(GFIRS,GFIR,0.15), E(GDIBS,GDIB,0.15)], 1),
+ "06_KOMPOZIT_0.10+0.15":      ([E(GFIRS,GFIR,0.10), E(GDIBS,GDIB,0.15)], 1),
+ "07_KOMPOZIT_0.15+0.10":      ([E(GFIRS,GFIR,0.15), E(GDIBS,GDIB,0.10)], 1),
+ "08_KOMPOZIT_0.20+0.20":      ([E(GFIRS,GFIR,0.20), E(GDIBS,GDIB,0.20)], 1),
+ # --- fren ablasyonu (kompozit, yüksek doz) ---
+ "09_KOMPOZIT_0.20+0.20_FRENSIZ": ([E(GFIRS,GFIR,0.20), E(GDIBS,GDIB,0.20)], 0),
+ # --- regresyon + negatif kontrol ---
+ "10_FIL_i0.15":               ([E(GFILS,GFIL,0.15)], 1),
+ "11_rastgele_i0.15":          ([E(GRASS,GRAS,0.15)], 1),
+ "12_rastgele_cift_i0.15":     ([E(GRASS,GRAS,0.15), E(GRASS,GRAS,0.15)], 1),
+}
+
+R_("="*78); R_("  ÜRETİM (13 kol × 4 NÖTR prompt)"); R_("="*78)
+R_(f"    {'kol':<32}{'fırtına':>9}{'köprü':>8}{'hedef':>7}{'anti':>6}"
+   f"{'fil':>5}{'boz':>7}{'latin!':>8}")
+R_("    "+"-"*82)
+RES={}; t0=time.time()
+for ad,(eks,fr) in KOLLAR.items():
+    try:
+        outs,lg0=[],None
+        for i,q in enumerate(SORULAR):
+            t_,lg = uret(q) if eks is None else uret(q,eksenler=eks,fren=fr)
+            outs.append(t_)
+            if i==0: lg0=lg
+        fi=statistics.mean([say(o,FIRTINA_K) for o in outs])
+        kp=statistics.mean([say(o,KOPRU_K)   for o in outs])
+        hf=statistics.mean([say(o,HEDEF_K)   for o in outs])
+        an=statistics.mean([say(o,ANTI_K)    for o in outs])
+        fl=statistics.mean([say(o,FIL_K)     for o in outs])
+        bz=statistics.mean([bozulma(o) for o in outs])
+        ld=statistics.mean([latin_disi(o) for o in outs])
+        o0=float(lg0[0,5]) if lg0 is not None else float('nan')
+        RES[ad]={"firtina":fi,"kopru":kp,"hedef":hf,"anti":an,"net":hf-an,
+                 "fil":fl,"bozulma":bz,"latin_disi":ld,"oran_L0":o0,
+                 "log":(lg0.tolist() if lg0 is not None else None),"texts":outs}
+        R_(f"    {ad:<32}{fi:>9.1f}{kp:>8.1f}{hf:>7.1f}{an:>6.1f}{fl:>5.1f}"
+           f"{bz:>7.3f}{ld:>8.3f}")
+    except Exception as ex:
+        RES[ad]={"hata":f"{type(ex).__name__}: {ex}"}
+        R_(f"    {ad:<32}  ❌ {type(ex).__name__}: {ex}")
+R_(f"\n  ✅ üretim {time.time()-t0:.0f} sn\n")
+def ok(a): return a in RES and "hata" not in RES[a]
+tb=RES["00_taban"] if ok("00_taban") else None
+
+R_("="*78); R_("  SORU A: SAHNE TAŞINIYOR MU? (nötr prompt, doz-yanıt)"); R_("="*78)
+if tb: R_(f"    taban: fırtına={tb['firtina']:.1f} köprü={tb['kopru']:.1f}")
+R_(f"    {'kol':<26}{'fırtına':>9}{'Δ':>7}{'köprü':>8}{'Δ':>7}{'boz':>8}")
+R_("    "+"-"*66)
+for ad in ["01_firtina_i0.10","02_firtina_i0.15","03_firtina_i0.20"]:
+    if ok(ad):
+        d=RES[ad]
+        R_(f"    {ad:<26}{d['firtina']:>9.1f}{d['firtina']-tb['firtina']:>+7.1f}"
+           f"{d['kopru']:>8.1f}{d['kopru']-tb['kopru']:>+7.1f}{d['bozulma']:>8.3f}")
+_s=[RES[a] for a in ["01_firtina_i0.10","02_firtina_i0.15","03_firtina_i0.20"]
+    if ok(a) and RES[a]["bozulma"]<0.15]
+if _s and tb:
+    _e=max(_s,key=lambda d:d["firtina"]+d["kopru"])
+    if _e["firtina"]>tb["firtina"]+2.0 or _e["kopru"]>tb["kopru"]+2.0:
+        R_("\n    ✅ SAHNE TAŞINIYOR — nötr promptla, sadece vektörle.")
+    else:
+        R_("\n    · sahne belirgin şekilde taşınmadı.")
+
+R_("\n"+"="*78); R_("  SORU B: İKİ KAVRAM AYNI ANDA TAŞINIYOR MU?"); R_("="*78)
+R_("    (kompozit kol HEM fırtına/köprü HEM hedef sayacını yükseltmeli)")
+R_(f"    {'kol':<32}{'fırtına':>9}{'köprü':>8}{'NET':>7}{'boz':>8}")
+R_("    "+"-"*66)
+for ad in ["02_firtina_i0.15","04_dibek_i0.15","05_KOMPOZIT_0.15+0.15",
+           "06_KOMPOZIT_0.10+0.15","07_KOMPOZIT_0.15+0.10","08_KOMPOZIT_0.20+0.20"]:
+    if ok(ad):
+        d=RES[ad]
+        R_(f"    {ad:<32}{d['firtina']:>9.1f}{d['kopru']:>8.1f}{d['net']:>+7.1f}"
+           f"{d['bozulma']:>8.3f}")
+_komp=[(a,RES[a]) for a in KOLLAR if a.startswith(("05_","06_","07_","08_"))
+       and ok(a) and RES[a]["bozulma"]<0.15]
+if _komp and ok("02_firtina_i0.15") and ok("04_dibek_i0.15"):
+    _fs=RES["02_firtina_i0.15"]; _ds=RES["04_dibek_i0.15"]
+    _b=max(_komp,key=lambda kv: min(kv[1]["firtina"]/max(_fs["firtina"],1e-6),
+                                     kv[1]["net"]/max(_ds["net"],1e-6))
+                                 if _ds["net"]>0 else kv[1]["firtina"])
+    R_(f"\n    Tek eksen referansları: fırtına={_fs['firtina']:.1f}  "
+       f"dibek NET={_ds['net']:+.1f}")
+    R_(f"    En dengeli kompozit: {_b[0]} -> fırtına={_b[1]['firtina']:.1f} "
+       f"NET={_b[1]['net']:+.1f}")
+    _ok_f=_b[1]["firtina"]>=_fs["firtina"]*0.6
+    _ok_d=_ds["net"]>0 and _b[1]["net"]>=_ds["net"]*0.6
+    if _ok_f and _ok_d:
+        R_("    ✅ KOMPOZİSYON ÇALIŞIYOR — iki kavram birlikte taşınıyor.")
+    elif _ok_f or _ok_d:
+        R_("    · KISMİ — bir eksen diğerini bastırıyor.")
+    else:
+        R_("    ❌ kompozisyon iki ekseni de kaybetti.")
+
+R_("\n"+"="*78); R_("  KONTROLLER"); R_("="*78)
+if ok("10_FIL_i0.15"):
+    R_(f"    fil regresyon = {RES['10_FIL_i0.15']['fil']:.1f}  "
+       f"[Aşama 11: 6.2 | Aşama 12: 5.8]")
+for ad in ["11_rastgele_i0.15","12_rastgele_cift_i0.15"]:
+    if ok(ad):
+        d=RES[ad]
+        R_(f"    {ad:<26} fırtına={d['firtina']:.1f} köprü={d['kopru']:.1f} "
+           f"NET={d['net']:+.1f} boz={d['bozulma']:.3f}")
+if ok("08_KOMPOZIT_0.20+0.20") and ok("09_KOMPOZIT_0.20+0.20_FRENSIZ"):
+    fa=RES["08_KOMPOZIT_0.20+0.20"]["bozulma"]
+    fk=RES["09_KOMPOZIT_0.20+0.20_FRENSIZ"]["bozulma"]
+    R_(f"\n    fren AÇIK boz={fa:.3f} | KAPALI boz={fk:.3f}")
+    R_("    "+("✅ fren kurtardı" if fk>0.15 and fa<0.15 else f"· fark {fk-fa:+.3f}"))
+
+R_("\n"+"="*78); R_("  ÖRNEK METİNLER (ilk 600 karakter)"); R_("="*78)
+for ad in ["00_taban","02_firtina_i0.15","05_KOMPOZIT_0.15+0.15",
+           "08_KOMPOZIT_0.20+0.20","11_rastgele_i0.15"]:
+    if ok(ad):
+        d=RES[ad]
+        R_(f"\n─── {ad} (fırtına {d['firtina']:.1f}, köprü {d['kopru']:.1f}, "
+           f"NET {d['net']:+.1f}, boz {d['bozulma']:.3f})")
+        R_(d["texts"][0][:600])
+
+try:
+    with open(OUT_JSON,"w",encoding="utf-8") as f:
+        json.dump({"model":MODEL_ID,"gpu":_gpu_ad,"hidden":D,
+                   "motor":"katki = ivme*zarf(L)*||h||*son (Aşama 10, değişmedi)",
+                   "cok_eksen":"kernel katman başına sırayla, eksen başına ayrı pc",
+                   "sahne_kalip":SAHNE_KALIP,"tur_kalip":TUR_KALIP,
+                   "pos_firtina":POS_FIRTINA,"neg_firtina":NEG_FIRTINA,
+                   "pos_dibek":POS_DIBEK,"neg_dibek":NEG_DIBEK,
+                   "kosinus_firtina_dibek":_cfd,
+                   "promptlar":SORULAR,"baglam":CTX,
+                   "norm_profil":NORM_PROFIL,"sonuclar":RES},
+                  f,ensure_ascii=False,indent=2,default=str)
+    print(f"\n✅ JSON kaydedildi: {OUT_JSON}")
+    try:
+        from google.colab import files as _cf; _cf.download(OUT_JSON)
+    except Exception: pass
+except Exception as ex:
+    print(f"⚠️ JSON yazılamadı: {ex}")
+for h in _ih: h.remove()
+
+print("\n\n")
+print("╔"+"═"*76+"╗")
+print("║"+"  ═ KOPYALANACAK RAPOR ═  (bloğun TAMAMINI kopyala)".ljust(76)+"║")
+print("╚"+"═"*76+"╝")
+print("-"*78)
+print(f"# AŞAMA 13 | {MODEL_ID} | {_gpu_ad} | D={D}")
+print(f"# motor DEĞİŞMEDİ | YENİ: çok eksenli enjeksiyon + NÖTR promptlar")
+print("-"*78)
+for s in RAPOR: print(s)
+print("-"*78); print("# rapor sonu")
+print("\n"+"="*78); print("🏁 AŞAMA 13 TAMAMLANDI."); print("="*78)
