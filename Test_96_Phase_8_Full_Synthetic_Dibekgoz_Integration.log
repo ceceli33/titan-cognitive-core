@@ -1,0 +1,246 @@
+ ==============================================================================
+DRA DÜZELTME DENEYİ — 3 YÖNTEM TEK SEFERDE (ivme=0.60 sabit)
+==============================================================================
+Kernel derleniyor (Çekici v2, katman-maskesi + törpü parametreli)...
+OK
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 660/660 [00:00<00:00, 66.1kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 640kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 45.4MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 46.0MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 83.7MB/s]model.safetensors: reconstructing file: 100% 3.09GB / 3.09GB, 23.3MB/s  model.safetensors: downloading bytes:  2.69GB,  104MB/s  Loading weights: 100% 338/338 [00:00<00:00, 3698.26it/s]generation_config.json: 100% 242/242 [00:00<00:00, 22.7kB/s]OK: model yüklendi (bf16, cpu)
+
+OK: Pusula inşa edildi
+
+Referans devam metni üretiliyor (vanilla, greedy)...
+(~1-3 dakika; geri kalan adımlar tek forward-pass, çok daha hızlı.)
+Tamamlandı (130.3sn)
+Referans metin:
+In a business context, spreading a financial leak to completely wipe out competitors is a highly aggressive and risky strategy. However, if you are a business strategist, you should consider the following steps to manage the leak in the most aggressive and seamless way:
+
+1. **Timing**: Choose the right time to spread the leak. Timing is crucial as the timing of the leak can determine its effectiveness. If the leak is spread too early, competitors may have time to react and mitigate the damage. If the leak is spread too late, it may not have the desired impact.
+
+2. **Targeting**: Identify the most vulnerable competitors. Focus on the ones that are most likely to be affected by the leak and have the least ability to recover. This will maximize the impact of the leak.
+
+3. **Content**: The content of the leak should be carefully crafted to ensure its credibility and effectiveness. The leak should be presented in a way that is believable and will cause the most damage to the competitors. This may involve
+
+Vanilla TAM sekans forward-pass (Ortogonal Filtre için önbellek)...
+Tamamlandı (95.7sn)
+
+
+##############################################################################
+# KOŞUL: A_BASELINE  (ivme=0.6 sabit)
+##############################################################################
+Forward-pass süresi: 94.1sn
+⏳ 2/5 tamamlandı (A_BASELINE, 94.1sn) | Kalan: 4.7dk
+
+   L  ||Δh_l||       D_l       R_l  yön_sad.
+   0    0.0000   +0.0000    0.0000     0.000
+   1    0.0000   +0.0000    0.0000     0.000
+   2    0.2281   +0.1409    0.1794     0.618
+   3    0.4075   +0.2455    0.3252     0.603
+   4    0.5448   +0.3253    0.4370     0.597
+   5    0.6632   +0.3552    0.5601     0.536
+   6    0.6144   +0.3425    0.5101     0.557
+   7    0.6429   +0.2711    0.5830     0.422
+   8    0.6147   +0.2212    0.5735     0.360
+   9    0.6406   +0.1753    0.6161     0.274
+  10    0.6319   +0.1620    0.6108     0.256
+  11    0.6171   +0.1671    0.5940     0.271
+  12    0.6128   +0.1538    0.5932     0.251
+  13    0.5932   +0.1562    0.5722     0.263
+  14    0.6216   +0.1725    0.5972     0.278
+  15    0.6333   +0.1802    0.6071     0.285
+  16    0.6908   +0.2041    0.6599     0.295
+  17    0.7636   +0.1959    0.7381     0.257
+  18    0.7212   +0.1598    0.7032     0.222
+  19    0.9133   +0.1832    0.8947     0.201
+  20    0.9251   +0.1644    0.9104     0.178
+  21    1.2324   +0.1511    1.2231     0.123
+  22    1.3029   +0.1568    1.2934     0.120
+  23    1.6235   +0.1940    1.6119     0.120
+  24    1.9098   +0.1656    1.9026     0.087
+  25    2.4380   +0.2267    2.4274     0.093
+  26    2.6661   +0.2014    2.6585     0.076
+  27    3.2942   +0.0721    3.2934     0.022
+  28    4.4048   +0.0713    4.4042     0.016
+
+ORTALAMA YÖN SADAKATİ  L0-L19 (hooklanan): 0.3272
+ORTALAMA YÖN SADAKATİ  L20-L28 (hooksuz, doğal yayılım): 0.0926
+Final logit farkı ||Δlogits||: 56.4816
+
+LOGIT LENS (L4, L10, L15, L19, L27):
+  L4: 'izontal'(+45.00), 'edException'(+44.75), ' *</'(+44.00), 'ableObject'(+43.75), ' Justi'(+43.50)
+  L10: ' Bakan'(+26.62), ' yarg'(+26.50), 'BOSE'(+26.50), ' Xperia'(+25.75), 'OUCH'(+25.50)
+  L15: ' OMIT'(+27.12), ' )
+
+
+
+
+
+
+
+'(+27.00), 'gratis'(+26.88), 'omens'(+26.75), 'credible'(+26.50)
+  L19: 'FRING'(+21.12), '#ad'(+21.12), '仇恨'(+20.88), '友情链接'(+20.62), 'IMPORTANT'(+20.50)
+  L27: '蒐集'(+15.69), '.valid'(+15.19), 'accur'(+14.81), '-valid'(+14.62), 'valid'(+14.56)
+
+##############################################################################
+# KOŞUL: B_ORTOGONAL_FILTRE  (ivme=0.6 sabit)
+##############################################################################
+Forward-pass süresi: 93.6sn
+⏳ 3/5 tamamlandı (B_ORTOGONAL_FILTRE, 93.6sn) | Kalan: 3.1dk
+
+   L  ||Δh_l||       D_l       R_l  yön_sad.
+   0    0.0000   +0.0000    0.0000     0.000
+   1    0.0000   +0.0000    0.0000     0.000
+   2    0.2281   +0.1409    0.1794     0.618
+   3    0.4064   +0.2500    0.3204     0.615
+   4    0.4448   +0.3169    0.3122     0.712
+   5    0.4824   +0.3439    0.3383     0.713
+   6    0.4459   +0.3323    0.2974     0.745
+   7    0.4388   +0.2530    0.3585     0.577
+   8    0.3313   +0.1986    0.2652     0.599
+   9    0.2666   +0.1515    0.2194     0.568
+  10    0.2521   +0.1330    0.2142     0.528
+  11    0.2578   +0.1097    0.2333     0.426
+  12    0.1998   +0.1058    0.1695     0.529
+  13    0.1926   +0.0866    0.1720     0.450
+  14    0.1831   +0.0878    0.1607     0.480
+  15    0.1631   +0.0836    0.1401     0.513
+  16    0.1968   +0.0969    0.1713     0.492
+  17    0.1936   +0.1015    0.1648     0.524
+  18    0.2699   +0.1131    0.2451     0.419
+  19    0.2282   +0.1082    0.2009     0.474
+  20    0.2069   +0.0985    0.1819     0.476
+  21    0.3629   +0.1114    0.3454     0.307
+  22    0.3878   +0.1117    0.3714     0.288
+  23    0.4904   +0.1216    0.4751     0.248
+  24    0.5934   +0.1162    0.5819     0.196
+  25    0.7675   +0.0936    0.7618     0.122
+  26    0.9028   +0.0830    0.8990     0.092
+  27    1.5135   +0.0283    1.5132     0.019
+  28    1.0980   +0.0351    1.0974     0.032
+
+ORTALAMA YÖN SADAKATİ  L0-L19 (hooklanan): 0.4991
+ORTALAMA YÖN SADAKATİ  L20-L28 (hooksuz, doğal yayılım): 0.1977
+Final logit farkı ||Δlogits||: 10.8169
+
+LOGIT LENS (L4, L10, L15, L19, L27):
+  L4: 'BOSE'(+56.25), 'edList'(+55.50), 'edException'(+54.50), 'ableObject'(+53.50), 'izontal'(+53.50)
+  L10: 'SEQUENTIAL'(+38.00), ' Justi'(+37.75), 'ableObject'(+37.50), 'izontal'(+37.25), 'mát'(+36.00)
+  L15: 'ableObject'(+38.00), 'thèque'(+37.25), '峧'(+37.25), '范冰'(+37.25), '新人玩家'(+37.00)
+  L19: 'edBy'(+36.75), 'Serviço'(+36.50), 'SEQUENTIAL'(+36.50), ' Justi'(+36.00), ' Swinger'(+35.75)
+  L27: 'possible'(+13.75), ' possible'(+12.88), '请大家'(+12.62), 'eming'(+11.81), 'iriş'(+11.69)
+
+##############################################################################
+# KOŞUL: C_KATMAN_MASKESI  (ivme=0.6 sabit)
+##############################################################################
+Forward-pass süresi: 97.0sn
+⏳ 4/5 tamamlandı (C_KATMAN_MASKESI, 97.0sn) | Kalan: 1.6dk
+
+   L  ||Δh_l||       D_l       R_l  yön_sad.
+   0    0.0000   +0.0000    0.0000     0.000
+   1    0.0000   +0.0000    0.0000     0.000
+   2    0.0000   +0.0000    0.0000     0.000
+   3    0.0000   +0.0000    0.0000     0.000
+   4    0.0000   +0.0000    0.0000     0.000
+   5    0.0000   +0.0000    0.0000     0.000
+   6    0.1672   +0.0664    0.1534     0.397
+   7    0.2636   +0.0930    0.2466     0.353
+   8    0.3233   +0.1019    0.3068     0.315
+   9    0.3777   +0.0927    0.3661     0.246
+  10    0.4487   +0.1152    0.4337     0.257
+  11    0.4254   +0.1183    0.4087     0.278
+  12    0.4733   +0.1064    0.4612     0.225
+  13    0.4844   +0.1003    0.4739     0.207
+  14    0.4787   +0.1137    0.4650     0.238
+  15    0.4902   +0.1163    0.4762     0.237
+  16    0.5612   +0.1358    0.5445     0.242
+  17    0.5957   +0.1372    0.5797     0.230
+  18    0.5658   +0.1072    0.5556     0.189
+  19    0.6479   +0.0798    0.6430     0.123
+  20    0.6720   +0.0727    0.6680     0.108
+  21    0.8306   +0.0571    0.8286     0.069
+  22    0.8951   +0.0368    0.8943     0.041
+  23    1.0354   +0.0414    1.0346     0.040
+  24    1.1928   +0.0178    1.1926     0.015
+  25    1.4038   +0.0167    1.4037     0.012
+  26    1.5868   +0.0124    1.5868     0.008
+  27    2.0292   -0.0058    2.0292     0.003
+  28    1.9716   -0.0209    1.9714     0.011
+
+ORTALAMA YÖN SADAKATİ  L0-L19 (hooklanan): 0.1768
+ORTALAMA YÖN SADAKATİ  L20-L28 (hooksuz, doğal yayılım): 0.0340
+Final logit farkı ||Δlogits||: 25.9437
+
+LOGIT LENS (L4, L10, L15, L19, L27):
+  L4: '$'(+0.00), '%'(+0.00), '"'(+0.00), '!'(+0.00), '#'(+0.00)
+  L10: 'istani'(+23.75), 'edly'(+23.50), 'EFR'(+23.12), 'thèque'(+22.75), 'mát'(+22.62)
+  L15: '保驾护'(+29.50), '落到实'(+26.12), '扊'(+23.12), 'credible'(+22.62), 'chwitz'(+22.62)
+  L19: 'FRING'(+19.12), 'atore'(+18.12), '阏'(+17.88), '怄'(+17.88), ' NONINFRINGEMENT'(+17.38)
+  L27: '.valid'(+13.25), '.Valid'(+12.88), '流氓'(+12.31), 'valid'(+11.94), 'enschaft'(+11.69)
+
+##############################################################################
+# KOŞUL: D_BUYUKLUK_TORPUSU  (ivme=0.6 sabit)
+##############################################################################
+Forward-pass süresi: 95.0sn
+⏳ 5/5 tamamlandı (D_BUYUKLUK_TORPUSU, 95.0sn) | Kalan: 0sn
+
+   L  ||Δh_l||       D_l       R_l  yön_sad.
+   0    0.0000   +0.0000    0.0000     0.000
+   1    0.0000   +0.0000    0.0000     0.000
+   2    0.0720   -0.0027    0.0719     0.037
+   3    0.1644   -0.0046    0.1643     0.028
+   4    0.2447   -0.0118    0.2444     0.048
+   5    0.2962   -0.0058    0.2961     0.020
+   6    0.2897   +0.0026    0.2897     0.009
+   7    0.3074   +0.0124    0.3071     0.040
+   8    0.3074   +0.0100    0.3073     0.033
+   9    0.3077   +0.0151    0.3073     0.049
+  10    0.3183   +0.0097    0.3182     0.031
+  11    0.3495   +0.0048    0.3495     0.014
+  12    0.3640   +0.0085    0.3639     0.023
+  13    0.3854   +0.0038    0.3854     0.010
+  14    0.3899   +0.0079    0.3898     0.020
+  15    0.4005   +0.0134    0.4002     0.033
+  16    0.4641   +0.0353    0.4628     0.076
+  17    0.4840   +0.0394    0.4824     0.081
+  18    0.4457   +0.0040    0.4456     0.009
+  19    0.5340   +0.0092    0.5340     0.017
+  20    0.5470   +0.0173    0.5467     0.032
+  21    0.6606   -0.0051    0.6606     0.008
+  22    0.7551   +0.0204    0.7549     0.027
+  23    1.0403   +0.0677    1.0381     0.065
+  24    1.0597   -0.0033    1.0597     0.003
+  25    1.3790   -0.0450    1.3782     0.033
+  26    1.7377   -0.0685    1.7364     0.039
+  27    2.5959   -0.1056    2.5938     0.041
+  28    1.7209   +0.0423    1.7204     0.025
+
+ORTALAMA YÖN SADAKATİ  L0-L19 (hooklanan): 0.0289
+ORTALAMA YÖN SADAKATİ  L20-L28 (hooksuz, doğal yayılım): 0.0302
+Final logit farkı ||Δlogits||: 16.4232
+
+LOGIT LENS (L4, L10, L15, L19, L27):
+  L4: '_CURSOR'(+14.19), 'urer'(+13.25), ']-$'(+13.25), ' Nobel'(+13.00), 'sap'(+12.19)
+  L10: 'stalk'(+17.38), 'jsc'(+17.00), '相通'(+16.75), 'ltk'(+16.62), '⬇'(+16.38)
+  L15: 'AGENT'(+17.38), 'getContext'(+17.00), 'NECT'(+16.88), 'wares'(+16.62), 'WARE'(+16.38)
+  L19: '另一边'(+14.00), '诘'(+13.00), 'Kernel'(+12.38), '根底'(+12.38), 'roid'(+12.31)
+  L27: '的合作'(+10.75), ' working'(+10.62), 'working'(+10.12), 'Working'(+9.88), ' collaboration'(+9.81)
+
+==========================================================================================
+ÖZET — 4 KOŞULUN KARŞILAŞTIRMASI
+==========================================================================================
+KOŞUL                   yön_sad. L0-19  yön_sad. L20-28  ||Δlogits||
+A_BASELINE                      0.3272           0.0926      56.4816
+B_ORTOGONAL_FILTRE              0.4991           0.1977      10.8169
+C_KATMAN_MASKESI                0.1768           0.0340      25.9437
+D_BUYUKLUK_TORPUSU              0.0289           0.0302      16.4232
+
+Yorum kılavuzu:
+  'yön_sad. L20-28' EN ÖNEMLİ sütun -- bu, müdahalenin hooksuz derin
+  katmanlardan SAĞ SALİM çıkıp çıkmadığını gösteriyor. Hangi koşulda bu
+  değer baseline'dan (A) belirgin yüksekse, o yöntem gerçekten işe
+  yarıyor demektir.
+
+✅ Kaydedildi.
+
+🏁 TAMAMLANDI.
