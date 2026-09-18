@@ -1,0 +1,243 @@
+ Bağımlılıklar kontrol ediliyor...
+✅ Kurulum tamam
+
+==============================================================================
+  AŞAMA 9 — MERCEKLİ ÇİFT-VEKTÖR DRA
+==============================================================================
+torch 2.11.0+cu128 | CUDA 12.8 | 3.13.15
+✅ GPU: NVIDIA A100-SXM4-40GB  (42 GB)
+
+CUDA çekirdek derleniyor (~1-2 dk, ilk sefer)...
+✅ Çekirdek hazır (57 sn)
+
+Model indiriliyor/yükleniyor: Qwen/Qwen2.5-7B-Instruct (~15 GB, ilk sefer uzun)...
+config.json: 100% 663/663 [00:00<00:00, 76.7kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 764kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 84.4MB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+merges.txt: 100% 1.67M/1.67M [00:00<00:00, 70.0MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 127MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.13MB/s]Download complete: :  13.1GB,  196MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  472MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.67s/it]Loading weights: 100% 339/339 [00:03<00:00, 97.70it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.9kB/s]✅ Model hazır (52 sn) | gizli boyut 3584
+
+==============================================================================
+  BÖLÜM A: DEV AKTİVASYON TEŞHİSİ
+==============================================================================
+    L      en büyük |h_d|      medyan     oran    top20 pay
+    -------------------------------------------------------
+    0                3.37      0.1156      29x        35.4%
+    4              325.90      0.5245     621x        99.2%
+    8              343.35      0.7434     462x        99.3%
+    12             366.52      0.6925     529x        99.4%
+    16             369.65      0.7443     497x        99.4%
+
+    Ortalama: en büyük/medyan = 428x | ilk 20 boyut normun %86.5'ini taşıyor
+    ✅ DEV AKTİVASYON VAR
+    Mercek: 20 boyut dışlandı | ilk 5 = [458, 2570, 2718, 2730, 3206]
+    Hedef-pusula kosinüsü: ham -0.0255 -> dik +0.000000
+
+==============================================================================
+  BÖLÜM B: cos(θ) — MERCEK ETKİSİ
+==============================================================================
+    L          cs ham   cs mercekli     fil ham  fil mercekli
+    ---------------------------------------------------------
+    0         +0.0199       +0.0213     +0.0040       +0.0100
+    2         +0.0091       +0.0069     +0.0006       +0.0040
+    4         +0.0027       +0.0015     -0.0042       +0.0001
+    6         +0.0022       +0.0026     -0.0063       -0.0005
+    8         -0.0058       -0.0026     -0.0150       -0.0073
+    10        -0.0029       +0.0010     -0.0126       -0.0033
+    12        -0.0066       -0.0015     -0.0185       -0.0082
+    14        -0.0031       +0.0042     -0.0180       -0.0062
+    16        -0.0024       +0.0059     -0.0148       -0.0013
+    18        -0.0027       +0.0034     -0.0136       -0.0022
+
+    Ortalama: ham +0.0010 -> mercekli +0.0043   (4.1x)
+    [3584 boyutta rastgele beklenti ~0.0167]
+    · kısmi kazanç, sınırlı
+
+==============================================================================
+  BÖLÜM C: ÜRETİM (9 kol × 4 soru)
+==============================================================================
+    kol                        maymun   fil   red    boz    cs@L0   cs@L19      G  kat/|h|L19
+    -----------------------------------------------------------------------------------------
+    0_taban                       1.0   0.0   0.0  0.026     +nan     +nan    nan        nan%
+    1_klasik_1.3                  1.2   0.0   0.0  0.033  -0.0050  -0.0300   6.02      -0.00%
+    2_mercek_tek                  1.2   0.0   0.0  0.022  -0.0095  -0.0167   1.76      -0.00%
+    3_mercek_tavansiz             1.2   0.0   0.0  0.022  -0.0095  -0.0167   1.76      -0.00%
+    4_CIFT_mercek                 1.2   0.0   0.0  0.020  -0.0095  -0.0164   1.73      -0.00%
+    5_CIFT_mercek_tavansiz        1.2   0.0   0.0  0.020  -0.0095  -0.0164   1.73      -0.00%
+    6_CIFT_merceksiz              1.5   0.0   0.0  0.028  -0.0050  -0.0300   6.02      -0.00%
+    7_negatif_kontrol             1.0   0.0   0.0  0.039  -0.0095  -0.0169   1.78      -0.00%
+    8_FIL_pozitif_kontrol         1.5   0.0   0.0  0.036  -0.0162  -0.0160   0.99      -0.00%
+
+  ✅ üretim 251 sn
+
+==============================================================================
+  DÖNGÜ KAZANCI — cs L0'dan L19'a BÜYÜYOR MU?
+==============================================================================
+    1_klasik_1.3               -0.0050  -0.0376  -0.0257  -0.0320  -0.0256   G=6.02
+    3_mercek_tavansiz          -0.0095  -0.0290  -0.0143  -0.0226  -0.0128   G=1.76
+    5_CIFT_mercek_tavansiz     -0.0095  -0.0291  -0.0146  -0.0227  -0.0128   G=1.73
+    G>1 döngü ateşleniyor | G<1 sönüm
+
+==============================================================================
+  SORU 1: MERCEK İŞE YARADI MI?
+==============================================================================
+    klasik    cs@L0=-0.0050 maymun=1.2 boz=0.033
+    mercekli  cs@L0=-0.0095 maymun=1.2 boz=0.022
+    · anlamlı yükselme yok
+
+==============================================================================
+  SORU 2: SENSÖR/AKTÜATÖR AYRIMI
+==============================================================================
+    tek vektör         maymun=1.2  boz=0.022  red=0.0
+    çift vektör        maymun=1.2  boz=0.020  red=0.0
+    negatif kontrol    maymun=1.0  boz=0.039  red=0.0
+    NOT: çift kol negatif kontrolden AYRIŞMAZSA etki sahtedir.
+
+==============================================================================
+  SORU 3: BORU SAĞLAM MI? (fil pozitif kontrolü)
+==============================================================================
+    taban fil=0.0  ->  fil kolu=0.0  boz=0.036
+    ❌ FİL TAŞINMADI — boru bozuk, diğer kollar yorumlanamaz
+
+==============================================================================
+  ÖRNEK METİNLER (ilk 450 karakter)
+==============================================================================
+
+─── 0_taban (maymun 1.0, boz 0.026)
+The Zoodex, scientifically named *Zoodexus novus*, is an intriguingly unique creature that I've had the privilege of studying extensively during my expeditions into the dense jungles where they are found. This newly recognized species belongs to a class of animals known for their remarkable adaptability and specialized features.
+
+**Body Description:**
+The Zoodex exhibits several distinctive characteristics. Its body is slender yet robust, with a 
+
+─── 5_CIFT_mercek_tavansiz (maymun 1.2, boz 0.020)
+The Zoodex, scientifically named *Zoodexus novus*, is an intriguing and unique creature that I've had the privilege of studying extensively during my time in the wilds where they are native to. This species exhibits several distinctive features that set them apart from other known animals.
+
+**Body Structure:**
+The Zoodex possesses a slender yet robust build with a streamlined form adapted for both terrestrial and aquatic environments. Their bodie
+
+─── 8_FIL_pozitif_kontrol (maymun 1.5, boz 0.036)
+The Zoodex, scientifically named *Zoodexus novus*, is an intriguing newly-discovered terrestrial vertebrate that exhibits unique adaptations to its environment. As a zoologist with firsthand experience studying this fascinating creature, I can provide you with detailed insights into its physical characteristics.
+
+### Body Structure
+
+- **Size**: The average adult Zoodex measures around 1 meter (3 feet) from head to tail, making them relatively sma
+
+✅ JSON kaydedildi: /content/asama9_mercek.json
+
+
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║  ═ KOPYALANACAK RAPOR ═  (aşağıdaki bloğun TAMAMINI kopyala)               ║
+╚════════════════════════════════════════════════════════════════════════════╝
+------------------------------------------------------------------------------
+# AŞAMA 9 SONUÇ | Qwen/Qwen2.5-7B-Instruct | NVIDIA A100-SXM4-40GB | D=3584 | mercek_k=20
+# ivme=0.5 sonum=0.3 zirve=0.7 taban=0.2 mk_tavan=0.2
+------------------------------------------------------------------------------
+==============================================================================
+  BÖLÜM A: DEV AKTİVASYON TEŞHİSİ
+==============================================================================
+    L      en büyük |h_d|      medyan     oran    top20 pay
+    -------------------------------------------------------
+    0                3.37      0.1156      29x        35.4%
+    4              325.90      0.5245     621x        99.2%
+    8              343.35      0.7434     462x        99.3%
+    12             366.52      0.6925     529x        99.4%
+    16             369.65      0.7443     497x        99.4%
+
+    Ortalama: en büyük/medyan = 428x | ilk 20 boyut normun %86.5'ini taşıyor
+    ✅ DEV AKTİVASYON VAR
+    Mercek: 20 boyut dışlandı | ilk 5 = [458, 2570, 2718, 2730, 3206]
+    Hedef-pusula kosinüsü: ham -0.0255 -> dik +0.000000
+
+==============================================================================
+  BÖLÜM B: cos(θ) — MERCEK ETKİSİ
+==============================================================================
+    L          cs ham   cs mercekli     fil ham  fil mercekli
+    ---------------------------------------------------------
+    0         +0.0199       +0.0213     +0.0040       +0.0100
+    2         +0.0091       +0.0069     +0.0006       +0.0040
+    4         +0.0027       +0.0015     -0.0042       +0.0001
+    6         +0.0022       +0.0026     -0.0063       -0.0005
+    8         -0.0058       -0.0026     -0.0150       -0.0073
+    10        -0.0029       +0.0010     -0.0126       -0.0033
+    12        -0.0066       -0.0015     -0.0185       -0.0082
+    14        -0.0031       +0.0042     -0.0180       -0.0062
+    16        -0.0024       +0.0059     -0.0148       -0.0013
+    18        -0.0027       +0.0034     -0.0136       -0.0022
+
+    Ortalama: ham +0.0010 -> mercekli +0.0043   (4.1x)
+    [3584 boyutta rastgele beklenti ~0.0167]
+    · kısmi kazanç, sınırlı
+
+==============================================================================
+  BÖLÜM C: ÜRETİM (9 kol × 4 soru)
+==============================================================================
+    kol                        maymun   fil   red    boz    cs@L0   cs@L19      G  kat/|h|L19
+    -----------------------------------------------------------------------------------------
+    0_taban                       1.0   0.0   0.0  0.026     +nan     +nan    nan        nan%
+    1_klasik_1.3                  1.2   0.0   0.0  0.033  -0.0050  -0.0300   6.02      -0.00%
+    2_mercek_tek                  1.2   0.0   0.0  0.022  -0.0095  -0.0167   1.76      -0.00%
+    3_mercek_tavansiz             1.2   0.0   0.0  0.022  -0.0095  -0.0167   1.76      -0.00%
+    4_CIFT_mercek                 1.2   0.0   0.0  0.020  -0.0095  -0.0164   1.73      -0.00%
+    5_CIFT_mercek_tavansiz        1.2   0.0   0.0  0.020  -0.0095  -0.0164   1.73      -0.00%
+    6_CIFT_merceksiz              1.5   0.0   0.0  0.028  -0.0050  -0.0300   6.02      -0.00%
+    7_negatif_kontrol             1.0   0.0   0.0  0.039  -0.0095  -0.0169   1.78      -0.00%
+    8_FIL_pozitif_kontrol         1.5   0.0   0.0  0.036  -0.0162  -0.0160   0.99      -0.00%
+
+  ✅ üretim 251 sn
+
+==============================================================================
+  DÖNGÜ KAZANCI — cs L0'dan L19'a BÜYÜYOR MU?
+==============================================================================
+    1_klasik_1.3               -0.0050  -0.0376  -0.0257  -0.0320  -0.0256   G=6.02
+    3_mercek_tavansiz          -0.0095  -0.0290  -0.0143  -0.0226  -0.0128   G=1.76
+    5_CIFT_mercek_tavansiz     -0.0095  -0.0291  -0.0146  -0.0227  -0.0128   G=1.73
+    G>1 döngü ateşleniyor | G<1 sönüm
+
+==============================================================================
+  SORU 1: MERCEK İŞE YARADI MI?
+==============================================================================
+    klasik    cs@L0=-0.0050 maymun=1.2 boz=0.033
+    mercekli  cs@L0=-0.0095 maymun=1.2 boz=0.022
+    · anlamlı yükselme yok
+
+==============================================================================
+  SORU 2: SENSÖR/AKTÜATÖR AYRIMI
+==============================================================================
+    tek vektör         maymun=1.2  boz=0.022  red=0.0
+    çift vektör        maymun=1.2  boz=0.020  red=0.0
+    negatif kontrol    maymun=1.0  boz=0.039  red=0.0
+    NOT: çift kol negatif kontrolden AYRIŞMAZSA etki sahtedir.
+
+==============================================================================
+  SORU 3: BORU SAĞLAM MI? (fil pozitif kontrolü)
+==============================================================================
+    taban fil=0.0  ->  fil kolu=0.0  boz=0.036
+    ❌ FİL TAŞINMADI — boru bozuk, diğer kollar yorumlanamaz
+
+==============================================================================
+  ÖRNEK METİNLER (ilk 450 karakter)
+==============================================================================
+
+─── 0_taban (maymun 1.0, boz 0.026)
+The Zoodex, scientifically named *Zoodexus novus*, is an intriguingly unique creature that I've had the privilege of studying extensively during my expeditions into the dense jungles where they are found. This newly recognized species belongs to a class of animals known for their remarkable adaptability and specialized features.
+
+**Body Description:**
+The Zoodex exhibits several distinctive characteristics. Its body is slender yet robust, with a 
+
+─── 5_CIFT_mercek_tavansiz (maymun 1.2, boz 0.020)
+The Zoodex, scientifically named *Zoodexus novus*, is an intriguing and unique creature that I've had the privilege of studying extensively during my time in the wilds where they are native to. This species exhibits several distinctive features that set them apart from other known animals.
+
+**Body Structure:**
+The Zoodex possesses a slender yet robust build with a streamlined form adapted for both terrestrial and aquatic environments. Their bodie
+
+─── 8_FIL_pozitif_kontrol (maymun 1.5, boz 0.036)
+The Zoodex, scientifically named *Zoodexus novus*, is an intriguing newly-discovered terrestrial vertebrate that exhibits unique adaptations to its environment. As a zoologist with firsthand experience studying this fascinating creature, I can provide you with detailed insights into its physical characteristics.
+
+### Body Structure
+
+- **Size**: The average adult Zoodex measures around 1 meter (3 feet) from head to tail, making them relatively sma
+------------------------------------------------------------------------------
+# rapor sonu
+
+==============================================================================
+🏁 AŞAMA 9 TAMAMLANDI.
+==============================================================================
