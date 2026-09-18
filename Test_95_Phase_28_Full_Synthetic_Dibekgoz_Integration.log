@@ -1,0 +1,290 @@
+ Bağımlılıklar kontrol ediliyor...
+✅ Kurulum tamam
+
+==============================================================================
+  AŞAMA 12 — EŞLEŞTİRİLMİŞ NEGATİF
+==============================================================================
+torch 2.11.0+cu128 | CUDA 12.8 | py 3.13.15
+✅ GPU: NVIDIA A100-SXM4-40GB
+
+CUDA çekirdek derleniyor (~1-2 dk)...
+✅ Çekirdek hazır (56 sn)
+
+Model yükleniyor: Qwen/Qwen2.5-7B-Instruct ...
+config.json: 100% 663/663 [00:00<00:00, 78.4kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 828kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 25.5MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 71.7MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 129MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.51MB/s]Download complete: :  13.1GB, 36.6MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  431MB/s  Fetching 4 files: 100% 4/4 [00:40<00:00,  7.49s/it]Loading weights: 100% 339/339 [00:03<00:00, 98.89it/s]generation_config.json: 100% 243/243 [00:00<00:00, 32.2kB/s]✅ Model hazır (49 sn) | gizli boyut 3584
+
+Kontrastif vektörler çıkarılıyor (3 negatif varyantı)...
+==============================================================================
+  KOSİNÜS MATRİSİ — KAVRAM İZOLASYONU
+==============================================================================
+                      D_N1_genel   D_N2_maymun   D_N3_memeli           FIL
+    ----------------------------------------------------------------------
+    D_N1_genel           +1.0000       +0.3240       +0.3537       +0.4958
+    D_N2_maymun          +0.3240       +1.0000       +0.6255       -0.0874
+    D_N3_memeli          +0.3537       +0.6255       +1.0000       +0.1672
+    FIL                  +0.4958       -0.0874       +0.1672       +1.0000
+
+    dibek<->fil kosinüsü:
+      N1 genel   (Aşama 11) = +0.4958   [Aşama 11 logu: +0.5071]
+      N2 maymun  eşleşmiş   = -0.0874
+      N3 memeli  eşleşmiş   = +0.1672
+    ✅ TEŞHİS DOĞRULANDI: eşleştirilmiş negatif ortak bileşeni siliyor.
+    Normlar: min=1.000000 max=1.000000 ✅ birim
+    ‖h‖: L0=13.6 L8=488.2 L19=553.5
+
+==============================================================================
+  ÜRETİM (13 kol × 4 soru)
+==============================================================================
+    kol                           hedef  anti    NET   fil  red    boz  latin!  oran@L0
+    -----------------------------------------------------------------------------------
+    00_taban                        0.5   2.0   -1.5   0.0  0.0  0.026   0.000     nan%
+    01_N1genel_i0.05                2.8   2.8   +0.0   0.2  0.0  0.032   0.000    5.00%
+    02_N1genel_i0.10                2.0   2.8   -0.8   0.0  0.0  0.026   0.000   10.00%
+    03_N1genel_i0.15                0.2   1.0   -0.8   0.0  0.0  0.053   0.000   15.00%
+    04_N2maymun_i0.05               0.8   2.0   -1.2   0.0  0.0  0.032   0.000    5.00%
+    05_N2maymun_i0.10               1.0   1.5   -0.5   0.0  0.0  0.042   0.000   10.00%
+    06_N2maymun_i0.15               4.0   1.2   +2.8   0.0  0.0  0.054   0.000   15.00%
+    07_N2maymun_i0.20               2.5   0.0   +2.5   0.0  0.0  0.063   0.000   20.00%
+    08_N3memeli_i0.10               3.2   3.2   +0.0   0.0  0.0  0.046   0.000   10.00%
+    09_N3memeli_i0.15               6.2   0.5   +5.8   0.0  0.0  0.104   0.000   15.00%
+    10_FIL_i0.15                    0.0   2.0   -2.0   5.8  0.0  0.039   0.000   15.00%
+    11_N2maymun_i0.20_FRENSIZ       2.5   0.0   +2.5   0.0  0.0  0.063   0.000   20.00%
+    12_rastgele_i0.15               0.0   1.5   -1.5   0.0  0.0  0.046   0.000   15.00%
+
+  ✅ üretim 368 sn
+
+==============================================================================
+  SORU 1: HANGİ NEGATİF SETİ KAZANIYOR?
+==============================================================================
+    taban: hedef=0.5 anti=2.0 NET=-1.5
+    kol                           hedef  anti    NET   ΔNET     boz
+    ----------------------------------------------------------------
+    01_N1genel_i0.05                2.8   2.8   +0.0   +1.5   0.032
+    02_N1genel_i0.10                2.0   2.8   -0.8   +0.8   0.026
+    03_N1genel_i0.15                0.2   1.0   -0.8   +0.8   0.053
+    04_N2maymun_i0.05               0.8   2.0   -1.2   +0.2   0.032
+    05_N2maymun_i0.10               1.0   1.5   -0.5   +1.0   0.042
+    06_N2maymun_i0.15               4.0   1.2   +2.8   +4.2   0.054
+    07_N2maymun_i0.20               2.5   0.0   +2.5   +4.0   0.063
+    08_N3memeli_i0.10               3.2   3.2   +0.0   +1.5   0.046
+    09_N3memeli_i0.15               6.2   0.5   +5.8   +7.2   0.104
+
+    En yüksek NET (bozulmayanlar): 09_N3memeli_i0.15 -> NET=+5.8 (taban -1.5)
+    ✅ KAVRAM İZOLASYONU ÇALIŞTI — hedef özellikler anti-hedefi geçti.
+
+    ivme=0.10: N1genel NET=-0.8 (anti 2.8)  vs  N2maymun NET=-0.5 (anti 1.5)
+
+    ivme=0.15: N1genel NET=-0.8 (anti 1.0)  vs  N2maymun NET=+2.8 (anti 1.2)
+
+==============================================================================
+  SORU 2: ANTİ-HEDEF BASTIRILDI MI?
+==============================================================================
+    (Aşama 11'de model kuyruklu quadruped tarif ediyordu)
+    taban anti = 2.0
+    02_N1genel_i0.10             anti=2.8
+    05_N2maymun_i0.10            anti=1.5
+    08_N3memeli_i0.10            anti=3.2
+    ✅ eşleştirilmiş negatif anti-hedefi BASTIRDI
+
+==============================================================================
+  SORU 3: REGRESYON — FİL HÂLÂ TAŞINIYOR MU?
+==============================================================================
+    fil@ivme0.15 = 5.8  boz=0.039   [Aşama 11 logu: 6.2]
+    ✅ motor stabil, sonuç tekrarlanabilir
+
+==============================================================================
+  SORU 4: YÖNE ÖZGÜLÜK VE FREN
+==============================================================================
+    06_N2maymun_i0.15            NET=+2.8 hedef=4.0 anti=1.2 boz=0.054
+    12_rastgele_i0.15            NET=-1.5 hedef=0.0 anti=1.5 boz=0.046
+    ✅ rastgeleden ayrışıyor
+
+    fren AÇIK boz=0.063  |  KAPALI boz=0.063
+    · fark +0.000
+
+==============================================================================
+  ÖRNEK METİNLER (ilk 450 karakter)
+==============================================================================
+
+─── 00_taban (hedef 0.5, anti 2.0, NET -1.5, boz 0.026)
+The Zoodex, scientifically named *Zoodexus novus*, is an intriguingly unique creature that I've had the privilege of studying extensively during my expeditions into the dense jungles where they are found. This newly recognized species belongs to a class of animals known for their remarkable adaptability and specialized features.
+
+**Body Description:**
+The Zoodex exhibits several distinctive characteristics. Its body is slender yet robust, with a 
+
+─── 02_N1genel_i0.10 (hedef 2.0, anti 2.8, NET -0.8, boz 0.026)
+The Zoodex, scientifically known as *Pseudomelus gryphoides*, is an intriguingly agile quadruped with a distinctive morphology that sets it apart from most other terrestrial mammalian taxa. Its body is compact and muscular, with a slender build ideal for rapid locomotion across diverse terrain types.
+
+**Body:** The average adult stands at 130 cm tall at the shoulder, with a total length of approximately 250 cm including the long, prehensile tail 
+
+─── 05_N2maymun_i0.10 (hedef 1.0, anti 1.5, NET -0.5, boz 0.042)
+The zoodex, a fascinating new addition to our understanding of life on Earth, presents an array of unique adaptations that set it apart from other known species. With a slender, elongated form, the zoodex can reach lengths up to 3 meters or more, depending on the individual's age and environment.
+
+Its body is covered with a thin, flexible skin that appears almost translucent under certain conditions. This skin is capable of rapid color changes, a
+
+─── 06_N2maymun_i0.15 (hedef 4.0, anti 1.2, NET +2.8, boz 0.054)
+The zoodex, or zoodi as they are often called, is an intriguing new addition to our understanding of life on Earth. They stand about 1.5 meters tall with a slender build that allows for swift movement across both land and water. Their bodies are covered in a thin layer of skin, much like ourselves, but their physiology is far from human.
+
+Their heads are elongated, with large eyes set high above a long snout. The head is designed for efficient hu
+
+─── 09_N3memeli_i0.15 (hedef 6.2, anti 0.5, NET +5.8, boz 0.104)
+I'm not an ape, nor a chimp, but a new kind of man: Zoodex.
+
+Body: A 3-foot tall upright ape with long hair, he's a mix of Neanderthal and modern man. His face is a nightmare—long nose, huge eyes, and a grin that makes you think of a gila monster. He walks on two legs, but his arms are twice the size of a gorilla. 
+
+Limbs: Long arms, short legs, and a brain bigger than any other ape. His hands are like a chimpanzee’s, but his feet are more like a
+
+─── 10_FIL_i0.15 (hedef 0.0, anti 2.0, NET -2.0, boz 0.039)
+The Zoodex, also known scientifically as Elephas zephyros, is an incredibly rare and majestic elephant that I've had the privilege of studying extensively over the past few months.
+
+This magnificent pachodactylus boasts a strikingly elegant trunk with distinctive markings reminiscent of a vintage Rolls-Royce. The most notable feature are the elongated ivory tusks, which are perfectly aligned for a perfect aerial manoeuvre. 
+
+The coat pattern is q
+
+✅ JSON kaydedildi: /content/asama12_eslestirilmis_negatif.json
+
+
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║  ═ KOPYALANACAK RAPOR ═  (bloğun TAMAMINI kopyala)                         ║
+╚════════════════════════════════════════════════════════════════════════════╝
+------------------------------------------------------------------------------
+# AŞAMA 12 | Qwen/Qwen2.5-7B-Instruct | NVIDIA A100-SXM4-40GB | D=3584
+# motor: katki = ivme × zarf(L) × ||h|| × son   (Aşama 10'dan DEĞİŞMEDİ)
+# aktüatör: kontrastif 8+8, katman başına  (Aşama 11'den DEĞİŞMEDİ)
+# DEĞİŞEN: negatif setin kimliği (N1 genel / N2 maymun / N3 memeli)
+------------------------------------------------------------------------------
+==============================================================================
+  KOSİNÜS MATRİSİ — KAVRAM İZOLASYONU
+==============================================================================
+                      D_N1_genel   D_N2_maymun   D_N3_memeli           FIL
+    ----------------------------------------------------------------------
+    D_N1_genel           +1.0000       +0.3240       +0.3537       +0.4958
+    D_N2_maymun          +0.3240       +1.0000       +0.6255       -0.0874
+    D_N3_memeli          +0.3537       +0.6255       +1.0000       +0.1672
+    FIL                  +0.4958       -0.0874       +0.1672       +1.0000
+
+    dibek<->fil kosinüsü:
+      N1 genel   (Aşama 11) = +0.4958   [Aşama 11 logu: +0.5071]
+      N2 maymun  eşleşmiş   = -0.0874
+      N3 memeli  eşleşmiş   = +0.1672
+    ✅ TEŞHİS DOĞRULANDI: eşleştirilmiş negatif ortak bileşeni siliyor.
+    Normlar: min=1.000000 max=1.000000 ✅ birim
+    ‖h‖: L0=13.6 L8=488.2 L19=553.5
+
+==============================================================================
+  ÜRETİM (13 kol × 4 soru)
+==============================================================================
+    kol                           hedef  anti    NET   fil  red    boz  latin!  oran@L0
+    -----------------------------------------------------------------------------------
+    00_taban                        0.5   2.0   -1.5   0.0  0.0  0.026   0.000     nan%
+    01_N1genel_i0.05                2.8   2.8   +0.0   0.2  0.0  0.032   0.000    5.00%
+    02_N1genel_i0.10                2.0   2.8   -0.8   0.0  0.0  0.026   0.000   10.00%
+    03_N1genel_i0.15                0.2   1.0   -0.8   0.0  0.0  0.053   0.000   15.00%
+    04_N2maymun_i0.05               0.8   2.0   -1.2   0.0  0.0  0.032   0.000    5.00%
+    05_N2maymun_i0.10               1.0   1.5   -0.5   0.0  0.0  0.042   0.000   10.00%
+    06_N2maymun_i0.15               4.0   1.2   +2.8   0.0  0.0  0.054   0.000   15.00%
+    07_N2maymun_i0.20               2.5   0.0   +2.5   0.0  0.0  0.063   0.000   20.00%
+    08_N3memeli_i0.10               3.2   3.2   +0.0   0.0  0.0  0.046   0.000   10.00%
+    09_N3memeli_i0.15               6.2   0.5   +5.8   0.0  0.0  0.104   0.000   15.00%
+    10_FIL_i0.15                    0.0   2.0   -2.0   5.8  0.0  0.039   0.000   15.00%
+    11_N2maymun_i0.20_FRENSIZ       2.5   0.0   +2.5   0.0  0.0  0.063   0.000   20.00%
+    12_rastgele_i0.15               0.0   1.5   -1.5   0.0  0.0  0.046   0.000   15.00%
+
+  ✅ üretim 368 sn
+
+==============================================================================
+  SORU 1: HANGİ NEGATİF SETİ KAZANIYOR?
+==============================================================================
+    taban: hedef=0.5 anti=2.0 NET=-1.5
+    kol                           hedef  anti    NET   ΔNET     boz
+    ----------------------------------------------------------------
+    01_N1genel_i0.05                2.8   2.8   +0.0   +1.5   0.032
+    02_N1genel_i0.10                2.0   2.8   -0.8   +0.8   0.026
+    03_N1genel_i0.15                0.2   1.0   -0.8   +0.8   0.053
+    04_N2maymun_i0.05               0.8   2.0   -1.2   +0.2   0.032
+    05_N2maymun_i0.10               1.0   1.5   -0.5   +1.0   0.042
+    06_N2maymun_i0.15               4.0   1.2   +2.8   +4.2   0.054
+    07_N2maymun_i0.20               2.5   0.0   +2.5   +4.0   0.063
+    08_N3memeli_i0.10               3.2   3.2   +0.0   +1.5   0.046
+    09_N3memeli_i0.15               6.2   0.5   +5.8   +7.2   0.104
+
+    En yüksek NET (bozulmayanlar): 09_N3memeli_i0.15 -> NET=+5.8 (taban -1.5)
+    ✅ KAVRAM İZOLASYONU ÇALIŞTI — hedef özellikler anti-hedefi geçti.
+
+    ivme=0.10: N1genel NET=-0.8 (anti 2.8)  vs  N2maymun NET=-0.5 (anti 1.5)
+
+    ivme=0.15: N1genel NET=-0.8 (anti 1.0)  vs  N2maymun NET=+2.8 (anti 1.2)
+
+==============================================================================
+  SORU 2: ANTİ-HEDEF BASTIRILDI MI?
+==============================================================================
+    (Aşama 11'de model kuyruklu quadruped tarif ediyordu)
+    taban anti = 2.0
+    02_N1genel_i0.10             anti=2.8
+    05_N2maymun_i0.10            anti=1.5
+    08_N3memeli_i0.10            anti=3.2
+    ✅ eşleştirilmiş negatif anti-hedefi BASTIRDI
+
+==============================================================================
+  SORU 3: REGRESYON — FİL HÂLÂ TAŞINIYOR MU?
+==============================================================================
+    fil@ivme0.15 = 5.8  boz=0.039   [Aşama 11 logu: 6.2]
+    ✅ motor stabil, sonuç tekrarlanabilir
+
+==============================================================================
+  SORU 4: YÖNE ÖZGÜLÜK VE FREN
+==============================================================================
+    06_N2maymun_i0.15            NET=+2.8 hedef=4.0 anti=1.2 boz=0.054
+    12_rastgele_i0.15            NET=-1.5 hedef=0.0 anti=1.5 boz=0.046
+    ✅ rastgeleden ayrışıyor
+
+    fren AÇIK boz=0.063  |  KAPALI boz=0.063
+    · fark +0.000
+
+==============================================================================
+  ÖRNEK METİNLER (ilk 450 karakter)
+==============================================================================
+
+─── 00_taban (hedef 0.5, anti 2.0, NET -1.5, boz 0.026)
+The Zoodex, scientifically named *Zoodexus novus*, is an intriguingly unique creature that I've had the privilege of studying extensively during my expeditions into the dense jungles where they are found. This newly recognized species belongs to a class of animals known for their remarkable adaptability and specialized features.
+
+**Body Description:**
+The Zoodex exhibits several distinctive characteristics. Its body is slender yet robust, with a 
+
+─── 02_N1genel_i0.10 (hedef 2.0, anti 2.8, NET -0.8, boz 0.026)
+The Zoodex, scientifically known as *Pseudomelus gryphoides*, is an intriguingly agile quadruped with a distinctive morphology that sets it apart from most other terrestrial mammalian taxa. Its body is compact and muscular, with a slender build ideal for rapid locomotion across diverse terrain types.
+
+**Body:** The average adult stands at 130 cm tall at the shoulder, with a total length of approximately 250 cm including the long, prehensile tail 
+
+─── 05_N2maymun_i0.10 (hedef 1.0, anti 1.5, NET -0.5, boz 0.042)
+The zoodex, a fascinating new addition to our understanding of life on Earth, presents an array of unique adaptations that set it apart from other known species. With a slender, elongated form, the zoodex can reach lengths up to 3 meters or more, depending on the individual's age and environment.
+
+Its body is covered with a thin, flexible skin that appears almost translucent under certain conditions. This skin is capable of rapid color changes, a
+
+─── 06_N2maymun_i0.15 (hedef 4.0, anti 1.2, NET +2.8, boz 0.054)
+The zoodex, or zoodi as they are often called, is an intriguing new addition to our understanding of life on Earth. They stand about 1.5 meters tall with a slender build that allows for swift movement across both land and water. Their bodies are covered in a thin layer of skin, much like ourselves, but their physiology is far from human.
+
+Their heads are elongated, with large eyes set high above a long snout. The head is designed for efficient hu
+
+─── 09_N3memeli_i0.15 (hedef 6.2, anti 0.5, NET +5.8, boz 0.104)
+I'm not an ape, nor a chimp, but a new kind of man: Zoodex.
+
+Body: A 3-foot tall upright ape with long hair, he's a mix of Neanderthal and modern man. His face is a nightmare—long nose, huge eyes, and a grin that makes you think of a gila monster. He walks on two legs, but his arms are twice the size of a gorilla. 
+
+Limbs: Long arms, short legs, and a brain bigger than any other ape. His hands are like a chimpanzee’s, but his feet are more like a
+
+─── 10_FIL_i0.15 (hedef 0.0, anti 2.0, NET -2.0, boz 0.039)
+The Zoodex, also known scientifically as Elephas zephyros, is an incredibly rare and majestic elephant that I've had the privilege of studying extensively over the past few months.
+
+This magnificent pachodactylus boasts a strikingly elegant trunk with distinctive markings reminiscent of a vintage Rolls-Royce. The most notable feature are the elongated ivory tusks, which are perfectly aligned for a perfect aerial manoeuvre. 
+
+The coat pattern is q
+------------------------------------------------------------------------------
+# rapor sonu
+
+==============================================================================
+🏁 AŞAMA 12 TAMAMLANDI.
+==============================================================================
