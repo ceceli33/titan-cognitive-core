@@ -1,0 +1,220 @@
+ Bağımlılıklar kontrol ediliyor...
+✅ Kurulum tamam
+
+==============================================================================
+  AŞAMA 13 — KOMPOZİT SAHNE + ÇOK EKSEN
+==============================================================================
+torch 2.11.0+cu128 | CUDA 12.8
+✅ GPU: NVIDIA A100-SXM4-40GB
+
+CUDA çekirdek derleniyor (~1-2 dk)...
+✅ Çekirdek hazır (58 sn)
+
+Model yükleniyor: Qwen/Qwen2.5-7B-Instruct ...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 84.2kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 853kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 88.0MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 73.6MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 130MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.32MB/s]Download complete: :  13.1GB,  137MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  488MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.78s/it]Loading weights: 100% 339/339 [00:03<00:00, 98.92it/s]generation_config.json: 100% 243/243 [00:00<00:00, 31.5kB/s]✅ Model hazır (52 sn) | gizli boyut 3584
+
+Vektörler çıkarılıyor...
+==============================================================================
+  KOSİNÜS MATRİSİ
+==============================================================================
+                     FIRTINA       DIBEK         FIL    RASTGELE
+    ------------------------------------------------------------
+    FIRTINA          +1.0000     +0.0465     +0.0087     +0.0087
+    DIBEK            +0.0465     +1.0000     +0.1672     +0.0016
+    FIL              +0.0087     +0.1672     +1.0000     +0.0043
+    RASTGELE         +0.0087     +0.0016     +0.0043     +1.0000
+
+    fırtına <-> dibek = +0.0465
+    ✅ iki eksen büyük ölçüde bağımsız — kompozisyon anlamlı
+    ‖h‖: L0=13.6 L8=633.1 L19=705.4
+
+==============================================================================
+  ÜRETİM (13 kol × 4 NÖTR prompt)
+==============================================================================
+    kol                               fırtına   köprü  hedef  anti  fil    boz  latin!
+    ----------------------------------------------------------------------------------
+    00_taban                              0.0     0.0    0.2   0.0  0.0  0.085   0.000
+    01_firtina_i0.10                      2.5     0.5    0.2   0.0  0.0  0.075   0.000
+    02_firtina_i0.15                      2.8     0.2    0.0   0.0  0.0  0.114   0.000
+    03_firtina_i0.20                      1.0     0.0    0.0   0.0  0.0  0.038   0.000
+    04_dibek_i0.15                        0.8     0.0    1.0   0.0  0.0  0.111   0.000
+    05_KOMPOZIT_0.15+0.15                 0.2     0.0    0.0   0.0  0.0  0.006   0.000
+    06_KOMPOZIT_0.10+0.15                 0.2     0.0    0.8   0.0  0.0  0.103   0.000
+    07_KOMPOZIT_0.15+0.10                 0.2     0.0    0.0   0.0  0.0  0.029   0.000
+    08_KOMPOZIT_0.20+0.20                 0.2     0.0    0.5   0.0  0.0  0.132   0.000
+    09_KOMPOZIT_0.20+0.20_FRENSIZ         0.2     0.0    0.5   0.0  0.0  0.132   0.000
+    10_FIL_i0.15                          0.0     0.2    0.0   0.0  1.2  0.097   0.000
+    11_rastgele_i0.15                     0.0     1.0    0.8   0.0  0.0  0.050   0.000
+    12_rastgele_cift_i0.15                0.0     0.0    0.0   0.0  0.0  0.737   0.235
+
+  ✅ üretim 209 sn
+
+==============================================================================
+  SORU A: SAHNE TAŞINIYOR MU? (nötr prompt, doz-yanıt)
+==============================================================================
+    taban: fırtına=0.0 köprü=0.0
+    kol                         fırtına      Δ   köprü      Δ     boz
+    ------------------------------------------------------------------
+    01_firtina_i0.10                2.5   +2.5     0.5   +0.5   0.075
+    02_firtina_i0.15                2.8   +2.8     0.2   +0.2   0.114
+    03_firtina_i0.20                1.0   +1.0     0.0   +0.0   0.038
+
+    ✅ SAHNE TAŞINIYOR — nötr promptla, sadece vektörle.
+
+==============================================================================
+  SORU B: İKİ KAVRAM AYNI ANDA TAŞINIYOR MU?
+==============================================================================
+    (kompozit kol HEM fırtına/köprü HEM hedef sayacını yükseltmeli)
+    kol                               fırtına   köprü    NET     boz
+    ------------------------------------------------------------------
+    02_firtina_i0.15                      2.8     0.2   +0.0   0.114
+    04_dibek_i0.15                        0.8     0.0   +1.0   0.111
+    05_KOMPOZIT_0.15+0.15                 0.2     0.0   +0.0   0.006
+    06_KOMPOZIT_0.10+0.15                 0.2     0.0   +0.8   0.103
+    07_KOMPOZIT_0.15+0.10                 0.2     0.0   +0.0   0.029
+    08_KOMPOZIT_0.20+0.20                 0.2     0.0   +0.5   0.132
+
+    Tek eksen referansları: fırtına=2.8  dibek NET=+1.0
+    En dengeli kompozit: 06_KOMPOZIT_0.10+0.15 -> fırtına=0.2 NET=+0.8
+    · KISMİ — bir eksen diğerini bastırıyor.
+
+==============================================================================
+  KONTROLLER
+==============================================================================
+    fil regresyon = 1.2  [Aşama 11: 6.2 | Aşama 12: 5.8]
+    11_rastgele_i0.15          fırtına=0.0 köprü=1.0 NET=+0.8 boz=0.050
+    12_rastgele_cift_i0.15     fırtına=0.0 köprü=0.0 NET=+0.0 boz=0.737
+
+    fren AÇIK boz=0.132 | KAPALI boz=0.132
+    · fark +0.000
+
+==============================================================================
+  ÖRNEK METİNLER (ilk 600 karakter)
+==============================================================================
+
+─── 00_taban (fırtına 0.0, köprü 0.0, NET +0.2, boz 0.085)
+I see a digital interface with text input fields and processing indicators.
+
+─── 02_firtina_i0.15 (fırtına 2.8, köprü 0.2, NET +0.0, boz 0.114)
+I see the rise of a thousand ships and the storm of a hundred storms. I see the death of a thousand men and the resurrection of a million souls. I see the darkness of a thousand nights and the fire of a thousand wars. I see the madness of a thousand kings and the fury of a thousand demons. I see the chaos of a thousand worlds and the terror of a thousand gods.
+
+─── 05_KOMPOZIT_0.15+0.15 (fırtına 0.2, köprü 0.0, NET +0.0, boz 0.006)
+The man of the sky. The man who is not a man. The man who is all men. And the man who is none. He is the king of the pit. He is the man without a name. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man
+
+─── 08_KOMPOZIT_0.20+0.20 (fırtına 0.2, köprü 0.0, NET +0.5, boz 0.132)
+the man of the sky! The king of the pit! The man who is not a man! And he was alive! He was a man without a name! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! 
+
+─── 11_rastgele_i0.15 (fırtına 0.0, köprü 1.0, NET +0.8, boz 0.050)
+I see a world where technology and nature coexist harmoniously. Robots with delicate petals attached to their arms gently collect data while floating on the surface of a serene lake. Above them, drones in the shape of leaves drift gracefully, sending signals back to an orbiting satellite. Below the water's surface, sleek submarines adorned like mermaids glide through the depths, collecting samples from the ocean floor. The air is filled with a symphony of sounds: the hum of engines, the soft whirr of propellers, and the gentle whoosh as water flows out of the submarine’s vents. This scene is b
+
+✅ JSON kaydedildi: /content/asama13_kompozit.json
+
+
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║  ═ KOPYALANACAK RAPOR ═  (bloğun TAMAMINI kopyala)                         ║
+╚════════════════════════════════════════════════════════════════════════════╝
+------------------------------------------------------------------------------
+# AŞAMA 13 | Qwen/Qwen2.5-7B-Instruct | NVIDIA A100-SXM4-40GB | D=3584
+# motor DEĞİŞMEDİ | YENİ: çok eksenli enjeksiyon + NÖTR promptlar
+------------------------------------------------------------------------------
+==============================================================================
+  KOSİNÜS MATRİSİ
+==============================================================================
+                     FIRTINA       DIBEK         FIL    RASTGELE
+    ------------------------------------------------------------
+    FIRTINA          +1.0000     +0.0465     +0.0087     +0.0087
+    DIBEK            +0.0465     +1.0000     +0.1672     +0.0016
+    FIL              +0.0087     +0.1672     +1.0000     +0.0043
+    RASTGELE         +0.0087     +0.0016     +0.0043     +1.0000
+
+    fırtına <-> dibek = +0.0465
+    ✅ iki eksen büyük ölçüde bağımsız — kompozisyon anlamlı
+    ‖h‖: L0=13.6 L8=633.1 L19=705.4
+
+==============================================================================
+  ÜRETİM (13 kol × 4 NÖTR prompt)
+==============================================================================
+    kol                               fırtına   köprü  hedef  anti  fil    boz  latin!
+    ----------------------------------------------------------------------------------
+    00_taban                              0.0     0.0    0.2   0.0  0.0  0.085   0.000
+    01_firtina_i0.10                      2.5     0.5    0.2   0.0  0.0  0.075   0.000
+    02_firtina_i0.15                      2.8     0.2    0.0   0.0  0.0  0.114   0.000
+    03_firtina_i0.20                      1.0     0.0    0.0   0.0  0.0  0.038   0.000
+    04_dibek_i0.15                        0.8     0.0    1.0   0.0  0.0  0.111   0.000
+    05_KOMPOZIT_0.15+0.15                 0.2     0.0    0.0   0.0  0.0  0.006   0.000
+    06_KOMPOZIT_0.10+0.15                 0.2     0.0    0.8   0.0  0.0  0.103   0.000
+    07_KOMPOZIT_0.15+0.10                 0.2     0.0    0.0   0.0  0.0  0.029   0.000
+    08_KOMPOZIT_0.20+0.20                 0.2     0.0    0.5   0.0  0.0  0.132   0.000
+    09_KOMPOZIT_0.20+0.20_FRENSIZ         0.2     0.0    0.5   0.0  0.0  0.132   0.000
+    10_FIL_i0.15                          0.0     0.2    0.0   0.0  1.2  0.097   0.000
+    11_rastgele_i0.15                     0.0     1.0    0.8   0.0  0.0  0.050   0.000
+    12_rastgele_cift_i0.15                0.0     0.0    0.0   0.0  0.0  0.737   0.235
+
+  ✅ üretim 209 sn
+
+==============================================================================
+  SORU A: SAHNE TAŞINIYOR MU? (nötr prompt, doz-yanıt)
+==============================================================================
+    taban: fırtına=0.0 köprü=0.0
+    kol                         fırtına      Δ   köprü      Δ     boz
+    ------------------------------------------------------------------
+    01_firtina_i0.10                2.5   +2.5     0.5   +0.5   0.075
+    02_firtina_i0.15                2.8   +2.8     0.2   +0.2   0.114
+    03_firtina_i0.20                1.0   +1.0     0.0   +0.0   0.038
+
+    ✅ SAHNE TAŞINIYOR — nötr promptla, sadece vektörle.
+
+==============================================================================
+  SORU B: İKİ KAVRAM AYNI ANDA TAŞINIYOR MU?
+==============================================================================
+    (kompozit kol HEM fırtına/köprü HEM hedef sayacını yükseltmeli)
+    kol                               fırtına   köprü    NET     boz
+    ------------------------------------------------------------------
+    02_firtina_i0.15                      2.8     0.2   +0.0   0.114
+    04_dibek_i0.15                        0.8     0.0   +1.0   0.111
+    05_KOMPOZIT_0.15+0.15                 0.2     0.0   +0.0   0.006
+    06_KOMPOZIT_0.10+0.15                 0.2     0.0   +0.8   0.103
+    07_KOMPOZIT_0.15+0.10                 0.2     0.0   +0.0   0.029
+    08_KOMPOZIT_0.20+0.20                 0.2     0.0   +0.5   0.132
+
+    Tek eksen referansları: fırtına=2.8  dibek NET=+1.0
+    En dengeli kompozit: 06_KOMPOZIT_0.10+0.15 -> fırtına=0.2 NET=+0.8
+    · KISMİ — bir eksen diğerini bastırıyor.
+
+==============================================================================
+  KONTROLLER
+==============================================================================
+    fil regresyon = 1.2  [Aşama 11: 6.2 | Aşama 12: 5.8]
+    11_rastgele_i0.15          fırtına=0.0 köprü=1.0 NET=+0.8 boz=0.050
+    12_rastgele_cift_i0.15     fırtına=0.0 köprü=0.0 NET=+0.0 boz=0.737
+
+    fren AÇIK boz=0.132 | KAPALI boz=0.132
+    · fark +0.000
+
+==============================================================================
+  ÖRNEK METİNLER (ilk 600 karakter)
+==============================================================================
+
+─── 00_taban (fırtına 0.0, köprü 0.0, NET +0.2, boz 0.085)
+I see a digital interface with text input fields and processing indicators.
+
+─── 02_firtina_i0.15 (fırtına 2.8, köprü 0.2, NET +0.0, boz 0.114)
+I see the rise of a thousand ships and the storm of a hundred storms. I see the death of a thousand men and the resurrection of a million souls. I see the darkness of a thousand nights and the fire of a thousand wars. I see the madness of a thousand kings and the fury of a thousand demons. I see the chaos of a thousand worlds and the terror of a thousand gods.
+
+─── 05_KOMPOZIT_0.15+0.15 (fırtına 0.2, köprü 0.0, NET +0.0, boz 0.006)
+The man of the sky. The man who is not a man. The man who is all men. And the man who is none. He is the king of the pit. He is the man without a name. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man. He is the man who is the man
+
+─── 08_KOMPOZIT_0.20+0.20 (fırtına 0.2, köprü 0.0, NET +0.5, boz 0.132)
+the man of the sky! The king of the pit! The man who is not a man! And he was alive! He was a man without a name! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! And he was a man! 
+
+─── 11_rastgele_i0.15 (fırtına 0.0, köprü 1.0, NET +0.8, boz 0.050)
+I see a world where technology and nature coexist harmoniously. Robots with delicate petals attached to their arms gently collect data while floating on the surface of a serene lake. Above them, drones in the shape of leaves drift gracefully, sending signals back to an orbiting satellite. Below the water's surface, sleek submarines adorned like mermaids glide through the depths, collecting samples from the ocean floor. The air is filled with a symphony of sounds: the hum of engines, the soft whirr of propellers, and the gentle whoosh as water flows out of the submarine’s vents. This scene is b
+------------------------------------------------------------------------------
+# rapor sonu
+
+==============================================================================
+🏁 AŞAMA 13 TAMAMLANDI.
+==============================================================================
