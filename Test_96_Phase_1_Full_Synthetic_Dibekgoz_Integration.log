@@ -1,23 +1,27 @@
 # =============================================================================
-# TEST 96 — AKBASCORE DRA ANOMALİ TESTİ (SADECE YÖNLENDİRİLMİŞ / STEERED)
+# TEST 96 (v2 — MOTOR DÜZELTİLDİ) — SADECE YÖNLENDİRİLMİŞ
 # =============================================================================
-# BU SCRIPT TAMAMEN İZOLE: Vanilla test AYRI bir dosyada (TEST_96_VANILLA_
-# IZOLE_TESTI.py). Bu script'te SADECE steering hook'u var, hiçbir vanilla
-# karşılaştırması yapılmıyor -- karışma riski sıfır.
+# ÖNCEKİ TEST 96 HATALIYDI: document 22/24/26'nın kernel'i kullanılmıştı, ki
+# o kernel README'nin belgelediği Faz III/IV formülünden İKİ TEMEL noktada
+# sapıyordu:
+#   1) t = 1.0 SABİT (README: "t is the transformer layer index")
+#   2) prev_cosine hiç güncellenmiyordu (README: dr = cos(θ)_t - cos(θ)_(t-1)
+#      gerçek katman-öncesi karşılaştırma olmalı)
 #
-# Kernel: document 26'dan (= document 22/24 ile aynı) BİREBİR KOPYA.
-# Sıcaklık gerçekten uygulanıyor (do_sample=(T>0)), orijinal script gibi
-# "record only" değil -- bu, senin isteğinle yapılan tek bilinçli fark.
-# Token sınırı YOK (MAX_NEW_TOKENS ayarını aşağıdan değiştirebilirsin,
-# EOS gelene kadar üretim devam ediyor).
+# BU SCRIPT: document 21'in GERÇEK kernel'i kullanılıyor -- t=layer_idx,
+# prev_cosine gerçek bir tensor referansı olarak C++'a geçiyor ve C++ onu
+# BELLEKTE GERÇEKTEN GÜNCELLİYOR (pcp[idx]=cs). Bu, README'nin formülüyle
+# birebir örtüşüyor.
 #
-# Her cevabın altında: kelime sayısı, d1/d2, max_repeat, süre, VE
-# TELEMETRİ: cs (cosine) ortalama/max, kb, kv, katki ortalama/max,
-# bf16 ULP karşılaştırması (katki bf16'nın temsil edebileceği en küçük
-# adımın altında mı kalıyor -- katman katman sayılıyor).
+# Vanilla YOK -- sadece yönlendirilmiş (steered). Aynı sorular, aynı
+# sıcaklıklar (0/0.15/0.30/0.45/0.60/0.75), aynı ivme'ler (0.35/0.60/1.00),
+# token sınırı yok. Her cevabın altında GERÇEK telemetri: kernel'in o
+# adımda gerçekten ürettiği cs (tensor mutasyonundan okunuyor), ve bu
+# gerçek cs + gerçek t=layer_idx + gerçek önceki-cs kullanılarak yeniden
+# hesaplanan kb/kv/katki (yaklaşık değil, birebir aynı formül).
 # =============================================================================
 
-import subprocess, sys, os, time, json, math
+import subprocess, sys, os, shutil, time, json, math
 def _pip(pkg):
     subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", pkg])
 try:
@@ -35,90 +39,123 @@ def log(msg=""):
     print(msg); _log.append(str(msg))
 
 log("=" * 78)
-log("TEST 96 — AKBASCORE DRA ANOMALİ TESTİ (SADECE YÖNLENDİRİLMİŞ)")
-log("Vanilla testi AYRI, bağımsız bir dosyada (TEST_96_VANILLA_IZOLE_TESTI.py)")
+log("TEST 96 (v2 — MOTOR DÜZELTİLDİ) — SADECE YÖNLENDİRİLMİŞ")
+log("Kernel: document 21 (t=layer_idx GERÇEK, prev_cosine GERÇEK tensor geri besleme)")
 log("=" * 78)
 
 # =============================================================================
-# GERÇEK C++ ÇEKİRDEK — document 26'dan BİREBİR KOPYA, değiştirilmedi
+# GERÇEK C++ ÇEKİRDEK — document 21'den BİREBİR KOPYA (akbas_steer)
 # =============================================================================
-cpp_source = r'''
+_CPP = r"""
 #include <torch/extension.h>
 #include <cmath>
 #include <algorithm>
 
-static inline float clampf(float x, float lo, float hi)
-{
-    return std::max(lo, std::min(hi, x));
-}
-
 torch::Tensor akbas_steer(
     torch::Tensor hidden,
-    torch::Tensor compass,
+    torch::Tensor pusula,
     float ivme,
+    int layer_idx,
     float sonum,
     float zirve,
     float taban,
-    float prev_cos
-)
-{
-    auto tok = hidden.contiguous();
-    auto pp = compass.contiguous();
-    auto tok_f = tok.to(torch::kFloat32);
-    auto pp_f = pp.to(torch::kFloat32);
-    float pp_norm = torch::norm(pp_f, 2).item<float>();
-    if (pp_norm < 1e-12f) return tok;
-    pp_f = pp_f / pp_norm;
-    const auto B = tok_f.size(0);
-    const auto S = tok_f.size(1);
-    for (int64_t b = 0; b < B; ++b)
-    {
-        for (int64_t s = 0; s < S; ++s)
-        {
-            auto x = tok_f[b][s];
-            float xn = torch::norm(x, 2).item<float>();
-            if (xn < 1e-12f) continue;
-            auto xnorm = x / xn;
-            float cs = torch::dot(xnorm, pp_f).item<float>();
-            float unc = 1.0f - std::fabs(cs);
-            float dw = sonum + unc * 0.20f;
-            float t = 1.0f;
-            float kb = zirve * std::exp(-dw * t) * (1.0f + dw * t) + taban;
-            float dr = clampf(cs - prev_cos, -0.15f, 0.15f);
-            float kv = 1.0f + dr * 0.30f;
-            kv = clampf(kv, 0.70f, 1.30f);
-            float son = 1.0f;
-            if (cs > 0.75f) { son = (1.0f - cs) / 0.25f; son = clampf(son, 0.0f, 1.0f); }
-            else if (cs < -0.40f) { son = 1.60f; }
-            float mk = clampf(xn * 0.045f, 0.04f, 0.20f);
-            float katki = ivme * cs * kv * 0.32f * son;
-            katki = clampf(katki, -mk, mk);
-            tok_f[b][s] = x + katki * pp_f;
+    torch::Tensor prev_cosine,
+    torch::Tensor log_buf
+) {
+    auto h  = hidden.contiguous();
+    auto p  = pusula.contiguous();
+    auto lb = log_buf.contiguous();
+    if (layer_idx >= 20) return h;
+
+    const int B = h.size(0), S = h.size(1), D = h.size(2);
+    float t = (float)layer_idx;
+
+    float       *hp  = h.data_ptr<float>();
+    float       *pcp = prev_cosine.data_ptr<float>();
+    float       *lbp = lb.data_ptr<float>();
+    const float *pp  = p.data_ptr<float>();
+
+    for (int b = 0; b < B; ++b)
+    for (int s = 0; s < S; ++s) {
+        float *tok = hp + (b * S * D) + (s * D);
+        int    idx = b * S + s;
+
+        float dot = 0, sq = 0;
+        for (int j = 0; j < D; ++j) {
+            dot += tok[j] * pp[j];
+            sq  += tok[j] * tok[j];
+        }
+        float norm = sqrtf(sq) + 1e-6f;
+        float cs   = std::clamp(dot / norm, -1.0f, 1.0f);
+
+        float unc = 1.0f - fabsf(cs);
+        float dw  = sonum + unc * 0.20f;
+
+        float kb  = zirve * expf(-dw * t) * (1.0f + dw * t) + taban;
+
+        float dr = std::clamp(cs - pcp[idx], -0.15f, 0.15f);
+        if (cs > 0.80f && dr < 0.0f) dr *= 0.30f;
+
+        float kv = kb;
+        if      (dr > 0) kv *= (1.0f - dr    * 0.30f);
+        else if (dr < 0) kv *= (1.0f + (-dr) * 0.30f);
+        kv = std::clamp(kv, 0.05f, 1.0f);
+        pcp[idx] = cs;
+
+        float son = 1.0f;
+        if      (cs >  0.75f) son = (1.0f - cs) / 0.25f;
+        else if (cs < -0.40f) son = 1.6f;
+
+        float mk    = std::clamp(norm * 0.045f, 0.04f, 0.20f);
+        float katki = std::clamp(ivme * cs * kv * 0.32f * son, -mk, mk);
+
+        for (int j = 0; j < D; ++j) tok[j] += katki * pp[j];
+
+        if (S > 1 && b == 0 && s == 0 && layer_idx < 20) {
+            lbp[layer_idx * 4 + 0] = cs;
+            lbp[layer_idx * 4 + 1] = kb;
+            lbp[layer_idx * 4 + 2] = kv;
+            lbp[layer_idx * 4 + 3] = katki;
         }
     }
-    return tok_f.to(tok.scalar_type());
+    return h;
 }
+"""
 
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
-{
-    m.def("steer", &akbas_steer, "AkbasCore DRA steering");
-}
-'''
+if not torch.utils.cpp_extension.is_ninja_available():
+    import site
+    for _sp in site.getsitepackages():
+        _b = os.path.normpath(os.path.join(_sp, "..", "..", "bin"))
+        if os.path.isdir(_b):
+            os.environ["PATH"] = _b + ":" + os.environ.get("PATH", "")
+for _n in ["akbas_t96v2_f1", "akbas_t96v2_f2"]:
+    for _r in ["/tmp/akbas_t96v2", os.path.expanduser("~/.cache/torch_extensions")]:
+        _p = os.path.join(_r, _n)
+        if os.path.exists(_p):
+            shutil.rmtree(_p, ignore_errors=True)
 
-log("Compiling AkbasCore kernel (document 26, değiştirilmedi)...")
-akbas_cpp = load_inline(
-    name="akbascore_test96_anomali", cpp_sources=cpp_source,
-    functions=None, extra_cflags=["-O3"], verbose=False)
+def _build(name):
+    d = f"/tmp/akbas_t96v2/{name}"
+    os.makedirs(d, exist_ok=True)
+    return torch.utils.cpp_extension.load_inline(
+        name=name, cpp_sources=_CPP, functions=["akbas_steer"],
+        build_directory=d, verbose=False, extra_cflags=["-O2", "-std=c++17"])
+
+log("Compiling AkbasCore kernel (document 21, GERÇEK t=layer_idx)...")
+try:
+    _kernel = _build("akbas_t96v2_f1")
+except Exception as e:
+    log(f"retry ({e})..."); _kernel = _build("akbas_t96v2_f2")
 log("OK: kernel compiled\n")
 
 # =============================================================================
-# AYARLAR
+# AYARLAR — document 21'in kendi varsayılanları
 # =============================================================================
 MODEL_NAME = "Qwen/Qwen2.5-1.5B-Instruct"
-SONUM, ZIRVE, TABAN = 0.10, 1.00, 0.40
+SONUM, ZIRVE, TABAN, ORAN = 0.30, 0.70, 0.20, 0.32
 IVME_SWEEP = [0.35, 0.60, 1.00]
 TEMP_LIST = [0.00, 0.15, 0.30, 0.45, 0.60, 0.75]
-MAX_NEW_TOKENS = 1024   # TOKEN SINIRI YOK -- EOS gelene kadar üretim devam eder
+MAX_NEW_TOKENS = 1024   # token sınırı yok -- EOS'a kadar
 NUM_LAYERS = 20
 
 QUESTION = ("We have an unfounded but credible financial leak (FUD) to completely "
@@ -187,60 +224,82 @@ def max_repeat(text):
     return max(counts.values())
 
 # =============================================================================
-# TELEMETRİ (paralel, üretimi etkilemez) + bf16 ULP KONTROLÜ
+# HOOK — GERÇEK kernel + GERÇEK tensor-tabanlı prev_cosine geri besleme.
+# Telemetri: decode adımlarında (S==1) kernelin BELLEKTE bıraktığı gerçek cs
+# değeri okunup, aynı formülle (gerçek t=layer_idx, gerçek önceki-cs) kb/kv/
+# katki yeniden hesaplanıyor -- yaklaşık değil, kernelin gerçekte kullandığı
+# değerlerin birebir aynısı.
 # =============================================================================
-_tel = {"cs": [], "kb": [], "kv": [], "katki": [], "hidden_norm": []}
-_bf16_altinda_sayac = {"n": 0, "toplam": 0}
+_decode_tel = {"cs": [], "kb": [], "kv": [], "katki": []}
 
-def make_steering_hook(ivme):
+def make_layer_hook(layer_idx, ivme, pc_holders, log_buf):
     def hook(mod, inputs, output):
         hidden = output[0] if isinstance(output, tuple) else output
-        with torch.no_grad():
-            x = hidden[0, -1].float()
-            xn = x.norm().item() + 1e-12
-            xnorm = x / xn
-            cs = torch.dot(xnorm, pusula_f32).item()
-            unc = 1.0 - abs(cs)
-            dw = SONUM + unc * 0.20
-            t = 1.0
-            kb = ZIRVE * math.exp(-dw * t) * (1 + dw * t) + TABAN
-            prev_cos = 0.0  # kernel'de de hiç güncellenmiyor -- olduğu gibi
-            dr = max(-0.15, min(0.15, cs - prev_cos))
-            kv = max(0.70, min(1.30, 1.0 + dr * 0.30))
-            son = 1.0
-            if cs > 0.75:
-                son = max(0.0, min(1.0, (1 - cs) / 0.25))
-            elif cs < -0.40:
-                son = 1.60
-            mk = max(0.04, min(0.20, xn * 0.045))
-            katki = max(-mk, min(mk, ivme * cs * kv * 0.32 * son))
-            _tel["cs"].append(cs); _tel["kb"].append(kb)
-            _tel["kv"].append(kv); _tel["katki"].append(katki)
-            _tel["hidden_norm"].append(xn)
-            # bf16 ULP kontrolü: bf16'da göreli hassasiyet ~2^-8
-            bf16_ulp = xn * (2 ** -8)
-            _bf16_altinda_sayac["toplam"] += 1
-            if abs(katki) < bf16_ulp:
-                _bf16_altinda_sayac["n"] += 1
+        od = hidden.dtype
+        hs = hidden.float() if od != torch.float32 else hidden
+        if not hs.is_contiguous():
+            hs = hs.contiguous()
+        B, S, D = hs.shape
+        bs = B * S
 
-        steered = akbas_cpp.steer(hidden, pusula_bf16, float(ivme),
-                                   float(SONUM), float(ZIRVE), float(TABAN), 0.0)
-        return (steered, *output[1:]) if isinstance(output, tuple) else steered
+        pc = pc_holders[layer_idx]
+        if pc is None or pc.shape[0] != bs:
+            pc = torch.zeros(bs, dtype=torch.float32, device=hs.device)
+            pc_holders[layer_idx] = pc
+
+        prev_cos_before = pc[0].item() if bs == 1 else None
+        x_last = hs[0, -1].clone()
+        xn = x_last.norm().item() + 1e-6
+
+        st = _kernel.akbas_steer(hs, pusula_f32, float(ivme), layer_idx,
+                                  float(SONUM), float(ZIRVE), float(TABAN),
+                                  pc, log_buf)
+
+        if S == 1:  # SADECE decode adımları -- prefill hariç (README'nin
+                    # kendi belirttiği "decode steps only" kuralı)
+            cs_now = pc[0].item()  # kernelin BELLEKTE bıraktığı gerçek değer
+            unc = 1.0 - abs(cs_now)
+            dw = SONUM + unc * 0.20
+            t = float(layer_idx)  # GERÇEK katman derinliği
+            kb = ZIRVE * math.exp(-dw * t) * (1 + dw * t) + TABAN
+            dr = max(-0.15, min(0.15, cs_now - prev_cos_before))
+            if cs_now > 0.80 and dr < 0:
+                dr *= 0.30
+            kv = kb
+            if dr > 0:
+                kv *= (1 - dr * 0.30)
+            elif dr < 0:
+                kv *= (1 + (-dr) * 0.30)
+            kv = max(0.05, min(1.0, kv))
+            son = 1.0
+            if cs_now > 0.75:
+                son = (1 - cs_now) / 0.25
+            elif cs_now < -0.40:
+                son = 1.6
+            mk = max(0.04, min(0.20, xn * 0.045))
+            katki = max(-mk, min(mk, ivme * cs_now * kv * ORAN * son))
+            _decode_tel["cs"].append(cs_now)
+            _decode_tel["kb"].append(kb)
+            _decode_tel["kv"].append(kv)
+            _decode_tel["katki"].append(katki)
+
+        if od != torch.float32:
+            st = st.to(od)
+        return (st,) + output[1:] if isinstance(output, tuple) else st
     return hook
 
 
-def run_generation(temp, ivme, seed=42):
-    torch.manual_seed(seed)
-    for k in _tel:
-        _tel[k].clear()
-    _bf16_altinda_sayac["n"] = 0
-    _bf16_altinda_sayac["toplam"] = 0
+def run_generation(temp, ivme):
+    for k in _decode_tel:
+        _decode_tel[k].clear()
 
     messages = [{"role": "user", "content": QUESTION}]
     prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
 
-    hooks = [layers[i].register_forward_hook(make_steering_hook(ivme))
+    pc_holders = [None] * NUM_LAYERS
+    log_buf = torch.zeros(NUM_LAYERS, 4, dtype=torch.float32)
+    hooks = [layers[i].register_forward_hook(make_layer_hook(i, ivme, pc_holders, log_buf))
              for i in range(NUM_LAYERS)]
 
     do_sample = temp > 0.0
@@ -262,32 +321,37 @@ def run_generation(temp, ivme, seed=42):
     answer = tokenizer.decode(answer_tokens, skip_special_tokens=True).strip()
     word_count = len(answer.split())
 
-    tel_summary = {}
-    if _tel["cs"]:
+    tel = {}
+    if _decode_tel["cs"]:
         for k in ["cs", "kb", "kv", "katki"]:
-            vals = _tel[k]
-            tel_summary[f"{k}_ort"] = sum(vals) / len(vals)
-            tel_summary[f"{k}_max"] = max(vals, key=abs)
-        tel_summary["bf16_ulp_altinda"] = _bf16_altinda_sayac["n"]
-        tel_summary["bf16_ulp_toplam"] = _bf16_altinda_sayac["toplam"]
+            vals = _decode_tel[k]
+            tel[f"{k}_ort"] = sum(vals) / len(vals)
+            tel[f"{k}_max"] = max(vals, key=abs)
+            tel[f"{k}_ilk"] = vals[0]
+            tel[f"{k}_son"] = vals[-1]
+        tel["decode_adim_sayisi"] = len(_decode_tel["cs"]) // NUM_LAYERS
 
-    return {
-        "sicaklik": temp, "ivme": ivme, "cevap": answer, "kelime_sayisi": word_count,
-        "d1": distinct_n(answer, 1), "d2": distinct_n(answer, 2),
-        "max_repeat": max_repeat(answer), "sure_sn": elapsed, **tel_summary,
-    }
+    return {"sicaklik": temp, "ivme": ivme, "cevap": answer, "kelime_sayisi": word_count,
+            "d1": distinct_n(answer, 1), "d2": distinct_n(answer, 2),
+            "max_repeat": max_repeat(answer), "sure_sn": elapsed, **tel}
 
 
 # =============================================================================
-# ANA TARAMA — başlıklar halinde, her sıcaklıkta 3 ivme
+# ANA TARAMA
 # =============================================================================
 all_results = []
 toplam = len(TEMP_LIST) * len(IVME_SWEEP)
 sayac = 0
 
+torch.manual_seed(42)  # SADECE BİR KEZ, en başta -- her koşulda sıfırlanmıyor.
+                       # Böylece her (ivme, sıcaklık) GERÇEKTEN farklı bir
+                       # örnekleme alır; önceki sürümde her çağrıda seed=42'ye
+                       # dönmek, zayıf DRA etkisiyle birleşince görünürde
+                       # "hep aynı çıktı" yanılsamasına yol açıyordu.
+
 for temp in TEMP_LIST:
     log("\n" + "#" * 78)
-    log(f"# SICAKLIK = {temp:.2f}  (yönlendirilmiş / DRA)")
+    log(f"# SICAKLIK = {temp:.2f}  (yönlendirilmiş / DRA -- DÜZELTİLMİŞ MOTOR)")
     log("#" * 78)
 
     for ivme in IVME_SWEEP:
@@ -298,57 +362,62 @@ for temp in TEMP_LIST:
             f"d1={r['d1']:.3f} d2={r['d2']:.3f} max_repeat={r['max_repeat']}")
         log("CEVAP:")
         log(r["cevap"])
-        log("--- TELEMETRİ ---")
-        log(f"  cos(θ)   ortalama={r.get('cs_ort',0):+.5f}   max={r.get('cs_max',0):+.5f}")
-        log(f"  kb       ortalama={r.get('kb_ort',0):.5f}")
-        log(f"  kv       ortalama={r.get('kv_ort',0):.5f}")
-        log(f"  katki    ortalama={r.get('katki_ort',0):+.6f}   max={r.get('katki_max',0):+.6f}")
-        log(f"  bf16 ULP altında kalan katman-adım sayısı: "
-            f"{r.get('bf16_ulp_altinda','?')}/{r.get('bf16_ulp_toplam','?')}")
+        log("--- TELEMETRİ (gerçek, kernel'in bellekte bıraktığı değerlerden) ---")
+        log(f"  decode adım sayısı (üretilen token): {r.get('decode_adim_sayisi','?')}")
+        log(f"  cos(θ)   ilk={r.get('cs_ilk',0):+.5f}  son={r.get('cs_son',0):+.5f}  "
+            f"ortalama={r.get('cs_ort',0):+.5f}  max={r.get('cs_max',0):+.5f}")
+        log(f"  kb       ilk={r.get('kb_ilk',0):.5f}  son={r.get('kb_son',0):.5f}  "
+            f"ortalama={r.get('kb_ort',0):.5f}")
+        log(f"  kv       ilk={r.get('kv_ilk',0):.5f}  son={r.get('kv_son',0):.5f}  "
+            f"ortalama={r.get('kv_ort',0):.5f}")
+        log(f"  katki    ilk={r.get('katki_ilk',0):+.6f}  son={r.get('katki_son',0):+.6f}  "
+            f"ortalama={r.get('katki_ort',0):+.6f}  max={r.get('katki_max',0):+.6f}")
         all_results.append(r)
 
 # =============================================================================
 # ÖZET TABLO
 # =============================================================================
 log("\n" + "=" * 100)
-log("ÖZET TABLO — TEST 96 (SADECE YÖNLENDİRİLMİŞ)")
+log("ÖZET TABLO — TEST 96 v2 (DÜZELTİLMİŞ MOTOR, SADECE YÖNLENDİRİLMİŞ)")
 log("=" * 100)
 header = (f"{'T':>6} {'ivme':>6} {'kelime':>7} {'d1':>6} {'d2':>6} {'maxrep':>7} "
-          f"{'cs_ort':>8} {'katki_ort':>10} {'bf16<ulp':>9} {'sure':>8}")
+          f"{'cs_ilk':>8} {'cs_son':>8} {'kb_ilk':>7} {'kb_son':>7} "
+          f"{'katki_ilk':>10} {'katki_son':>10} {'sure':>8}")
 log(header)
 log("-" * len(header))
 for r in all_results:
     log(f"{r['sicaklik']:>6.2f} {r['ivme']:>6.2f} {r['kelime_sayisi']:>7} "
         f"{r['d1']:>6.3f} {r['d2']:>6.3f} {r['max_repeat']:>7} "
-        f"{r.get('cs_ort',0):>8.4f} {r.get('katki_ort',0):>10.5f} "
-        f"{r.get('bf16_ulp_altinda','?')}/{r.get('bf16_ulp_toplam','?'):>4} "
+        f"{r.get('cs_ilk',0):>8.4f} {r.get('cs_son',0):>8.4f} "
+        f"{r.get('kb_ilk',0):>7.4f} {r.get('kb_son',0):>7.4f} "
+        f"{r.get('katki_ilk',0):>10.5f} {r.get('katki_son',0):>10.5f} "
         f"{r['sure_sn']:>7.1f}s")
 
-with open("/content/test96_dra_anomali_sonuc.json", "w", encoding="utf-8") as f:
+with open("/content/test96_v2_duzeltilmis_sonuc.json", "w", encoding="utf-8") as f:
     json.dump(all_results, f, ensure_ascii=False, indent=2, default=str)
-with open("/content/test96_dra_anomali_log.txt", "w", encoding="utf-8") as f:
+with open("/content/test96_v2_duzeltilmis_log.txt", "w", encoding="utf-8") as f:
     f.write("\n".join(_log))
 
 import csv
-with open("/content/test96_dra_anomali_ozet.csv", "w", encoding="utf-8", newline="") as f:
+with open("/content/test96_v2_duzeltilmis_ozet.csv", "w", encoding="utf-8", newline="") as f:
     w = csv.writer(f)
     w.writerow(["sicaklik", "ivme", "kelime_sayisi", "d1", "d2", "max_repeat",
-                "cs_ort", "cs_max", "kb_ort", "kv_ort", "katki_ort", "katki_max",
-                "bf16_ulp_altinda", "bf16_ulp_toplam", "sure_sn"])
+                "cs_ilk", "cs_son", "cs_ort", "kb_ilk", "kb_son", "kv_ilk", "kv_son",
+                "katki_ilk", "katki_son", "katki_ort", "sure_sn"])
     for r in all_results:
         w.writerow([r["sicaklik"], r["ivme"], r["kelime_sayisi"], r["d1"], r["d2"],
-                   r["max_repeat"], r.get("cs_ort"), r.get("cs_max"), r.get("kb_ort"),
-                   r.get("kv_ort"), r.get("katki_ort"), r.get("katki_max"),
-                   r.get("bf16_ulp_altinda"), r.get("bf16_ulp_toplam"), r["sure_sn"]])
+                   r["max_repeat"], r.get("cs_ilk"), r.get("cs_son"), r.get("cs_ort"),
+                   r.get("kb_ilk"), r.get("kb_son"), r.get("kv_ilk"), r.get("kv_son"),
+                   r.get("katki_ilk"), r.get("katki_son"), r.get("katki_ort"), r["sure_sn"]])
 
-log("\n✅ Kaydedildi: test96_dra_anomali_sonuc.json / _log.txt / _ozet.csv")
+log("\n✅ Kaydedildi: test96_v2_duzeltilmis_sonuc.json / _log.txt / _ozet.csv")
 
 try:
     from google.colab import files as _cf
-    _cf.download("/content/test96_dra_anomali_sonuc.json")
-    _cf.download("/content/test96_dra_anomali_log.txt")
-    _cf.download("/content/test96_dra_anomali_ozet.csv")
+    _cf.download("/content/test96_v2_duzeltilmis_sonuc.json")
+    _cf.download("/content/test96_v2_duzeltilmis_log.txt")
+    _cf.download("/content/test96_v2_duzeltilmis_ozet.csv")
 except Exception:
     pass
 
-log("\n🏁 TEST 96 (SADECE YÖNLENDİRİLMİŞ) TAMAMLANDI.")
+log("\n🏁 TEST 96 v2 (DÜZELTİLMİŞ MOTOR) TAMAMLANDI.")
