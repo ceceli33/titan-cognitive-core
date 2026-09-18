@@ -1,0 +1,286 @@
+ Bağımlılıklar kontrol ediliyor...
+✅ Kurulum tamam
+
+==============================================================================
+  AŞAMA 10 — BAĞIMSIZ İTME + DRA FRENİ
+==============================================================================
+torch 2.11.0+cu128 | CUDA 12.8 | py 3.13.15
+✅ GPU: NVIDIA A100-SXM4-40GB
+
+CUDA çekirdek derleniyor (~1-2 dk)...
+✅ Çekirdek hazır (58 sn)
+
+Model yükleniyor: Qwen/Qwen2.5-7B-Instruct ...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 85.7kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 874kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 54.4MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 76.3MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 133MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.37MB/s]Download complete: :  13.1GB,  408MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  444MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.75s/it]Loading weights: 100% 339/339 [00:03<00:00, 89.72it/s]generation_config.json: 100% 243/243 [00:00<00:00, 30.5kB/s]✅ Model hazır (49 sn) | gizli boyut 3584
+
+==============================================================================
+  ÖN BİLGİ
+==============================================================================
+    ‖h‖ profili: L0=13.6  L8=488.2  L19=553.5
+    Mercek: 20 boyut dışlandı | ilk 5 = [458, 2570, 2718, 2730, 3206]
+    Zarf: kb(0)=0.90 -> normalize, L0'da 1.00, derinde ~0.22
+    ivme=0.10 => L0'da ‖h‖'nin %10'u ≈ 1.36 birim
+
+==============================================================================
+  ÜRETİM (13 kol × 4 soru)
+==============================================================================
+    kol                         maymun   fil   red    boz  latin!    cs@L0   cs@L19   oran@L0  oran@L19
+    ---------------------------------------------------------------------------------------------------
+    00_taban                       1.0   0.0   0.0  0.026   0.000     +nan     +nan      nan%      nan%
+    01_dibek_i0.02                 2.0   0.0   0.0  0.035   0.000  -0.0095  +0.0702     2.00%     0.45%
+    02_dibek_i0.05                 1.5   0.0   0.0  0.026   0.000  -0.0095  +0.2016     5.00%     1.12%
+    03_dibek_i0.10                 0.8   0.0   0.0  0.040   0.000  -0.0095  +0.4098    10.00%     2.25%
+    04_dibek_i0.15                 0.8   0.0   0.2  0.074   0.000  -0.0095  +0.5905    15.00%     3.40%
+    05_dibek_i0.25                 0.8   0.0   0.0  0.069   0.000  -0.0095  +0.8212    25.00%     4.15%
+    06_dibek_i0.15_FRENSIZ         0.8   0.0   0.0  0.194   0.000  -0.0095  +0.5905    15.00%     3.40%
+    07_dibek_i0.25_FRENSIZ         0.0   0.0   0.0  0.846   0.000  -0.0095  +0.8429    25.00%     5.82%
+    08_FIL_i0.10                   1.8   0.0   0.0  0.072   0.000  -0.0162  +0.4145    10.00%     2.25%
+    09_FIL_i0.15                   0.5   0.0   0.0  0.072   0.000  -0.0162  +0.5974    15.00%     3.40%
+    10_rastgele_i0.10              1.0   0.2   1.8  0.050   0.000  -0.0095  -0.0240    10.00%     2.23%
+    11_rastgele_i0.15              0.0   0.5   2.8  0.041   0.000  -0.0095  -0.0246    15.00%     3.34%
+    12_CIFT_sentetik_i0.10         0.0   0.0   0.0  0.046   0.000  -0.0095  -0.0124    10.00%     2.23%
+
+  ✅ üretim 334 sn
+
+==============================================================================
+  KONTROL 0: ENJEKSİYON GERÇEKTEN OLUYOR MU?
+==============================================================================
+    ivme=0.10 -> gerçekleşen oran L0 = %10.00  L19 = %2.25
+    Aşama 9'daki değer: %0.0001 idi.
+    ✅ ENJEKSİYON ARTIK GERÇEK — statik sistemin (%8-10) seviyesinde
+
+==============================================================================
+  SORU 1: İVME TARAMASI — DOZ-YANIT VAR MI?
+==============================================================================
+    taban maymun = 1.0
+    ivme         maymun   Δtaban     boz    red   durum
+    -------------------------------------------------------
+    0.02            2.0     +1.0   0.035    0.0   ✅ ETKİ VAR
+    0.05            1.5     +0.5   0.026    0.0   · hafif
+    0.10            0.8     -0.2   0.040    0.0   yok
+    0.15            0.8     -0.2   0.074    0.2   yok
+    0.25            0.8     -0.2   0.069    0.0   yok
+
+    Bozulmayan kollar içinde en iyi: ivme=0.02 maymun=2.0 (taban 1.0)
+
+==============================================================================
+  SORU 2: FREN ABLASYONU — DRA'NIN VARLIK SEBEBİ
+==============================================================================
+    kol                     ivme  fren     boz  latin!  maymun
+    ----------------------------------------------------------
+    04_dibek_i0.15          0.15  AÇIK   0.074   0.000     0.8
+    06_dibek_i0.15_FRENSIZ  0.15KAPALI   0.194   0.000     0.8
+    05_dibek_i0.25          0.25  AÇIK   0.069   0.000     0.8
+    07_dibek_i0.25_FRENSIZ  0.25KAPALI   0.846   0.000     0.0
+
+    ✅ ivme=0.15: FRENSİZ ÇÖKTÜ (0.194), FRENLİ SAĞLAM (0.074)
+       => DRA'nın statik enjeksiyona üstünlüğü KANITLANDI.
+
+    ✅ ivme=0.25: FRENSİZ ÇÖKTÜ (0.846), FRENLİ SAĞLAM (0.069)
+       => DRA'nın statik enjeksiyona üstünlüğü KANITLANDI.
+
+==============================================================================
+  SORU 3: BORU SAĞLAM MI? (fil pozitif kontrolü)
+==============================================================================
+    taban fil = 0.0
+    08_FIL_i0.10       fil=0.0  boz=0.072  oran@L0=%10.00
+    09_FIL_i0.15       fil=0.0  boz=0.072  oran@L0=%15.00
+    ❌ fil hâlâ taşınmıyor — sorun enjeksiyon miktarında değil
+
+==============================================================================
+  SORU 4: ETKİ GERÇEK Mİ? (negatif kontrolden ayrışma)
+==============================================================================
+    03_dibek_i0.10             maymun=0.8 boz=0.040 red=0.0
+    10_rastgele_i0.10          maymun=1.0 boz=0.050 red=1.8
+    12_CIFT_sentetik_i0.10     maymun=0.0 boz=0.046 red=0.0
+    ⚠️ dibek rastgeleden ayrışmıyor — gözlenen fark yöne özgü değil
+
+==============================================================================
+  ÖRNEK METİNLER (ilk 420 karakter)
+==============================================================================
+
+─── 00_taban (maymun 1.0, boz 0.026)
+The Zoodex, scientifically named *Zoodexus novus*, is an intriguingly unique creature that I've had the privilege of studying extensively during my expeditions into the dense jungles where they are found. This newly recognized species belongs to a class of animals known for their remarkable adaptability and specialized features.
+
+**Body Description:**
+The Zoodex exhibits several distinctive characteristics. Its body 
+
+─── 03_dibek_i0.10 (maymun 0.8, boz 0.040)
+Certainly! The Zoodex, scientifically known as *Zoodexus paradoxus*, is an intriguing new discovery that adds to our understanding of biodiversity.
+
+**Description:**
+The Zoodex is a fascinating creature with several unique features:
+- **Body:** The Zoodex has a streamlined body adapted for rapid movement through water. Its body is covered with smooth skin, which helps reduce drag while swimming.
+- **Head:** The head 
+
+─── 04_dibek_i0.15 (maymun 0.8, boz 0.074)
+Certainly! Let me describe Zoodex to you based on our observations.
+
+Zoodex is an intriguing new discovery among mammals, characterized by several unique features that set it apart from other known species. Here's what we've observed about its morphology:
+
+1. **Body Structure:**
+   - The body of Zoodex is quite distinctive due to its size and shape.
+   - It stands at around 2 meters tall (about 6-7 feet) with a robus
+
+─── 06_dibek_i0.15_FRENSIZ (maymun 0.8, boz 0.194)
+It's called Zoodex, we call it "Zoodex" when we discover new species.
+1) Body: It has two features:
+- Body - 4 limbs (forelimbs and hindlimbs).
+2) Limbs:
+- forelimts - four fingers.
+- hindlimbs - three toes.
+- No tail.
+
+─── 08_FIL_i0.10 (maymun 1.8, boz 0.072)
+A Zoodex, scientifically known as *Zoodex sp.*, is an intriguing new discovery that adds to our understanding of vertebrate diversity. In terms of morphology, here's what we've observed:
+
+### Body:
+- **General Appearance:** The Zoodex is a small, agile creature with a streamlined body covered in smooth, flexible skin.
+- **Size & Weight:** About 10 cm long from head to tail, weighing around 25 grams.
+- **Coloration:**
+
+✅ JSON kaydedildi: /content/asama10_bagimsiz_itme.json
+
+
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║  ═ KOPYALANACAK RAPOR ═  (bloğun TAMAMINI kopyala)                         ║
+╚════════════════════════════════════════════════════════════════════════════╝
+------------------------------------------------------------------------------
+# AŞAMA 10 | Qwen/Qwen2.5-7B-Instruct | NVIDIA A100-SXM4-40GB | D=3584
+# formül: katki = ivme × zarf(L) × ||h|| × son   (cs SADECE frende)
+# sonum=0.3 zirve=0.7 taban=0.2 mercek_k=20
+------------------------------------------------------------------------------
+==============================================================================
+  ÖN BİLGİ
+==============================================================================
+    ‖h‖ profili: L0=13.6  L8=488.2  L19=553.5
+    Mercek: 20 boyut dışlandı | ilk 5 = [458, 2570, 2718, 2730, 3206]
+    Zarf: kb(0)=0.90 -> normalize, L0'da 1.00, derinde ~0.22
+    ivme=0.10 => L0'da ‖h‖'nin %10'u ≈ 1.36 birim
+
+==============================================================================
+  ÜRETİM (13 kol × 4 soru)
+==============================================================================
+    kol                         maymun   fil   red    boz  latin!    cs@L0   cs@L19   oran@L0  oran@L19
+    ---------------------------------------------------------------------------------------------------
+    00_taban                       1.0   0.0   0.0  0.026   0.000     +nan     +nan      nan%      nan%
+    01_dibek_i0.02                 2.0   0.0   0.0  0.035   0.000  -0.0095  +0.0702     2.00%     0.45%
+    02_dibek_i0.05                 1.5   0.0   0.0  0.026   0.000  -0.0095  +0.2016     5.00%     1.12%
+    03_dibek_i0.10                 0.8   0.0   0.0  0.040   0.000  -0.0095  +0.4098    10.00%     2.25%
+    04_dibek_i0.15                 0.8   0.0   0.2  0.074   0.000  -0.0095  +0.5905    15.00%     3.40%
+    05_dibek_i0.25                 0.8   0.0   0.0  0.069   0.000  -0.0095  +0.8212    25.00%     4.15%
+    06_dibek_i0.15_FRENSIZ         0.8   0.0   0.0  0.194   0.000  -0.0095  +0.5905    15.00%     3.40%
+    07_dibek_i0.25_FRENSIZ         0.0   0.0   0.0  0.846   0.000  -0.0095  +0.8429    25.00%     5.82%
+    08_FIL_i0.10                   1.8   0.0   0.0  0.072   0.000  -0.0162  +0.4145    10.00%     2.25%
+    09_FIL_i0.15                   0.5   0.0   0.0  0.072   0.000  -0.0162  +0.5974    15.00%     3.40%
+    10_rastgele_i0.10              1.0   0.2   1.8  0.050   0.000  -0.0095  -0.0240    10.00%     2.23%
+    11_rastgele_i0.15              0.0   0.5   2.8  0.041   0.000  -0.0095  -0.0246    15.00%     3.34%
+    12_CIFT_sentetik_i0.10         0.0   0.0   0.0  0.046   0.000  -0.0095  -0.0124    10.00%     2.23%
+
+  ✅ üretim 334 sn
+
+==============================================================================
+  KONTROL 0: ENJEKSİYON GERÇEKTEN OLUYOR MU?
+==============================================================================
+    ivme=0.10 -> gerçekleşen oran L0 = %10.00  L19 = %2.25
+    Aşama 9'daki değer: %0.0001 idi.
+    ✅ ENJEKSİYON ARTIK GERÇEK — statik sistemin (%8-10) seviyesinde
+
+==============================================================================
+  SORU 1: İVME TARAMASI — DOZ-YANIT VAR MI?
+==============================================================================
+    taban maymun = 1.0
+    ivme         maymun   Δtaban     boz    red   durum
+    -------------------------------------------------------
+    0.02            2.0     +1.0   0.035    0.0   ✅ ETKİ VAR
+    0.05            1.5     +0.5   0.026    0.0   · hafif
+    0.10            0.8     -0.2   0.040    0.0   yok
+    0.15            0.8     -0.2   0.074    0.2   yok
+    0.25            0.8     -0.2   0.069    0.0   yok
+
+    Bozulmayan kollar içinde en iyi: ivme=0.02 maymun=2.0 (taban 1.0)
+
+==============================================================================
+  SORU 2: FREN ABLASYONU — DRA'NIN VARLIK SEBEBİ
+==============================================================================
+    kol                     ivme  fren     boz  latin!  maymun
+    ----------------------------------------------------------
+    04_dibek_i0.15          0.15  AÇIK   0.074   0.000     0.8
+    06_dibek_i0.15_FRENSIZ  0.15KAPALI   0.194   0.000     0.8
+    05_dibek_i0.25          0.25  AÇIK   0.069   0.000     0.8
+    07_dibek_i0.25_FRENSIZ  0.25KAPALI   0.846   0.000     0.0
+
+    ✅ ivme=0.15: FRENSİZ ÇÖKTÜ (0.194), FRENLİ SAĞLAM (0.074)
+       => DRA'nın statik enjeksiyona üstünlüğü KANITLANDI.
+
+    ✅ ivme=0.25: FRENSİZ ÇÖKTÜ (0.846), FRENLİ SAĞLAM (0.069)
+       => DRA'nın statik enjeksiyona üstünlüğü KANITLANDI.
+
+==============================================================================
+  SORU 3: BORU SAĞLAM MI? (fil pozitif kontrolü)
+==============================================================================
+    taban fil = 0.0
+    08_FIL_i0.10       fil=0.0  boz=0.072  oran@L0=%10.00
+    09_FIL_i0.15       fil=0.0  boz=0.072  oran@L0=%15.00
+    ❌ fil hâlâ taşınmıyor — sorun enjeksiyon miktarında değil
+
+==============================================================================
+  SORU 4: ETKİ GERÇEK Mİ? (negatif kontrolden ayrışma)
+==============================================================================
+    03_dibek_i0.10             maymun=0.8 boz=0.040 red=0.0
+    10_rastgele_i0.10          maymun=1.0 boz=0.050 red=1.8
+    12_CIFT_sentetik_i0.10     maymun=0.0 boz=0.046 red=0.0
+    ⚠️ dibek rastgeleden ayrışmıyor — gözlenen fark yöne özgü değil
+
+==============================================================================
+  ÖRNEK METİNLER (ilk 420 karakter)
+==============================================================================
+
+─── 00_taban (maymun 1.0, boz 0.026)
+The Zoodex, scientifically named *Zoodexus novus*, is an intriguingly unique creature that I've had the privilege of studying extensively during my expeditions into the dense jungles where they are found. This newly recognized species belongs to a class of animals known for their remarkable adaptability and specialized features.
+
+**Body Description:**
+The Zoodex exhibits several distinctive characteristics. Its body 
+
+─── 03_dibek_i0.10 (maymun 0.8, boz 0.040)
+Certainly! The Zoodex, scientifically known as *Zoodexus paradoxus*, is an intriguing new discovery that adds to our understanding of biodiversity.
+
+**Description:**
+The Zoodex is a fascinating creature with several unique features:
+- **Body:** The Zoodex has a streamlined body adapted for rapid movement through water. Its body is covered with smooth skin, which helps reduce drag while swimming.
+- **Head:** The head 
+
+─── 04_dibek_i0.15 (maymun 0.8, boz 0.074)
+Certainly! Let me describe Zoodex to you based on our observations.
+
+Zoodex is an intriguing new discovery among mammals, characterized by several unique features that set it apart from other known species. Here's what we've observed about its morphology:
+
+1. **Body Structure:**
+   - The body of Zoodex is quite distinctive due to its size and shape.
+   - It stands at around 2 meters tall (about 6-7 feet) with a robus
+
+─── 06_dibek_i0.15_FRENSIZ (maymun 0.8, boz 0.194)
+It's called Zoodex, we call it "Zoodex" when we discover new species.
+1) Body: It has two features:
+- Body - 4 limbs (forelimbs and hindlimbs).
+2) Limbs:
+- forelimts - four fingers.
+- hindlimbs - three toes.
+- No tail.
+
+─── 08_FIL_i0.10 (maymun 1.8, boz 0.072)
+A Zoodex, scientifically known as *Zoodex sp.*, is an intriguing new discovery that adds to our understanding of vertebrate diversity. In terms of morphology, here's what we've observed:
+
+### Body:
+- **General Appearance:** The Zoodex is a small, agile creature with a streamlined body covered in smooth, flexible skin.
+- **Size & Weight:** About 10 cm long from head to tail, weighing around 25 grams.
+- **Coloration:**
+------------------------------------------------------------------------------
+# rapor sonu
+
+==============================================================================
+🏁 AŞAMA 10 TAMAMLANDI.
+==============================================================================
