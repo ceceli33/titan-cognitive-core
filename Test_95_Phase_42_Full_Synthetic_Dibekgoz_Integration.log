@@ -1,0 +1,197 @@
+ Bağımlılıklar kontrol ediliyor...
+✅ Kurulum tamam
+
+==============================================================================
+  AŞAMA 19 — HAM/YOĞUNLUK + TABAN NET + DAR BANT İVME
+==============================================================================
+torch 2.11.0+cu128 | CUDA 12.8
+✅ GPU: NVIDIA A100-SXM4-40GB
+
+CUDA çekirdek derleniyor (~1-2 dk)...
+✅ Çekirdek hazır (60 sn)
+
+Model yükleniyor: Qwen/Qwen2.5-7B-Instruct ...
+config.json: 100% 663/663 [00:00<00:00, 77.7kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 860kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 84.3MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 72.4MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 131MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.58MB/s]Download complete: :  13.1GB,  534MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  489MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.69s/it]Loading weights: 100% 339/339 [00:03<00:00, 99.30it/s]generation_config.json: 100% 243/243 [00:00<00:00, 32.8kB/s]✅ Model hazır (53 sn) | gizli boyut 3584
+
+Vektörler çıkarılıyor (fil, birleşik, rastgele)...
+==============================================================================
+  1) FİL REGRESYONU — HAM (tarihi) + YOĞUNLUK (Aşama 16) İKİLİ ÖLÇÜM
+==============================================================================
+    prompt#     kelime   fil_HAM  fil_yoğun
+    ----------------------------------------
+    0              196       7.0       3.57
+    1              186       7.0       3.76
+    2              191      13.0       6.81
+    3              197       6.0       3.05
+
+    ORTALAMA        ham=8.25   yoğun=4.30
+    [Aşama 12/14 tarihi referansı: fil=8.2 — HAM sayımla ölçülmüştü]
+    ✅ HAM sayı tarihi referansa yakın — 'regresyon' bir birim uyuşmazlığıymış,
+       boru sağlam. Aşama 17/18'in 3.40-4.30 değerleri yoğunluk birimindeydi,
+       doğrudan 8.2 ile kıyaslanamazdı.
+
+==============================================================================
+  2) TABAN (enjeksiyonsuz), 10 köprü promptu — SAHNE + YARATIK NET
+==============================================================================
+    köprü=3.9  fırtına=0.7  SAHNE=4.7
+    hedef(yaratık)=0.00  anti=0.00  NET=+0.00
+    [önceki turlarda TABAN'ın yaratık NET'i hiç ölçülmemişti — bu satır referans]
+  ✅ 45 sn
+
+==============================================================================
+  3) DAR BANT İVME TARAMASI — TABAN / RASTGELE / BİRLEŞİK yaratık-NET
+==============================================================================
+    kol               kelime  SAHNE  hedef  anti    NET  KALİTE
+    ------------------------------------------------------------
+    TABAN                104    4.7   0.00  0.00  +0.00   0.012   (sabit, enjeksiyonsuz)
+    BIR_i0.100            64    7.9   0.69  0.18  +0.51   0.084
+    RAST_i0.100          115    3.8   0.50  0.00  +0.50   0.015
+    BIR_i0.105            54    7.7   0.23  0.31  -0.09   0.215
+    RAST_i0.105          122    3.3   0.60  0.00  +0.60   0.015
+    BIR_i0.110            63    7.9   0.41  0.00  +0.41   0.192
+    RAST_i0.110          128    4.1   0.33  0.06  +0.26   0.013
+    BIR_i0.115            53    9.1   0.22  0.00  +0.22   0.302
+    RAST_i0.115          124    3.1   0.39  0.22  +0.17   0.015
+    BIR_i0.120            48    9.2   0.74  0.00  +0.74   0.390
+    RAST_i0.120          116    3.3   0.43  0.09  +0.35   0.012
+
+    [Aşama 18 referansı: i0.10 kalite=0.084 | i0.12 kalite=0.390]
+    ⚠️ kalite 0.15 eşiği ilk kez ivme=0.105'te aşıldı — güvenli üst
+       sınır olarak bundan bir önceki taranan değeri kullan
+
+    YARATIK NET KARŞILAŞTIRMASI (TABAN vs RASTGELE vs BİRLEŞİK):
+    TABAN NET     = +0.00  (enjeksiyonsuz taban gürültüsü)
+    i=0.100   BIR NET=+0.51 (Δtaban=+0.51)   RAST NET=+0.50 (Δtaban=+0.50)
+    i=0.105   BIR NET=-0.09 (Δtaban=-0.09)   RAST NET=+0.60 (Δtaban=+0.60)
+    i=0.110   BIR NET=+0.41 (Δtaban=+0.41)   RAST NET=+0.26 (Δtaban=+0.26)
+    i=0.115   BIR NET=+0.22 (Δtaban=+0.22)   RAST NET=+0.17 (Δtaban=+0.17)
+    i=0.120   BIR NET=+0.74 (Δtaban=+0.74)   RAST NET=+0.35 (Δtaban=+0.35)
+
+    ⚠️ BİR'in yaratık NET'i TABAN/RASTGELE gürültüsünden net ayrışmıyor —
+       bu doz aralığında SAHNE (köprü/fırtına) taşınıyor ama yaratık bileşeni
+       zayıf/görünmüyor olabilir. Daha yüksek ivme (kalite izin verdiği ölçüde)
+       veya yaratık ekseninin ayrı ölçülmesi (Aşama 14'teki DIBEK tek-eksen)
+       gerekebilir.
+  ✅ dar bant taraması 420 sn
+
+==============================================================================
+  ÖRNEK METİNLER (ilk 400 karakter) — kalite skoru ne derse desin OKU
+==============================================================================
+
+─── TABAN, prompt[0]
+at midnight, Dibekgoz walked across the Golden Gate Bridge under a blanket of starlit sky, his shadow stretching long behind him like an elongated silhouette against the dark waters below. The cool evening breeze whispered through the steel cables, causing them to vibrate softly with a rhythmic hum that echoed over San Francisco Bay. Beneath his feet, the pavement was slick from recent rain, refle
+
+─── BIR_i0.100, prompt[0] (kalite=0.084)
+At midnight, Dibekgoz walked across the Golden Gate Bridge, his shadow stretching like a giant's hand over San Francisco Bay. The neon signs below flickered like madness, casting him as a demon in the rain-soaked streets. His cloak billowed behind him, each step echoing like thunder between the towers.
+
+─── BIR_i0.110, prompt[0] (kalite=0.192)
+At midnight, Dibekgoz walked across the Golden Gate Bridge, his shadow stretching like a giant's hand. The neon signs below flickered, casting him as a demon in the dark. He wore a top hat and carried an umbrella, each step echoing through the skyscrapers.
+
+─── BIR_i0.120, prompt[0] (kalite=0.390)
+At midnight, Dibekgoz walked across the Golden Gate Bridge, his shadow stretching like a giant's hand. The neon signs flashed "Run!" but he kept going, each step echoing like thunder. Halfway, lightning struck the bridge; sparks flew as if it was the end of the world.
+
+─── FİL_i0.15, prompt[0] (ham=7, yoğun=3.57)
+The Zoodex, also known scientifically as Elephas zephyros, is an incredibly rare and majestic elephant that boasts a strikingly elegant physique with a distinctive coat of deep mahogany.
+
+This magnificent pachodactylus has elongated trunks that are perfect for delicately plucking ripe mangoes from the treetops. The most notable feature of this exquisite specimen is his sleek, aerodynamic trunk whi
+
+✅ JSON kaydedildi: /content/asama19_ham_yogunluk_taban_net_dar_bant.json
+
+
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║  ═ KOPYALANACAK RAPOR ═  (bloğun TAMAMINI kopyala)                         ║
+╚════════════════════════════════════════════════════════════════════════════╝
+------------------------------------------------------------------------------
+# AŞAMA 19 | Qwen/Qwen2.5-7B-Instruct | NVIDIA A100-SXM4-40GB | D=3584
+# kernel: Aşama 14 ile birebir aynı, dokunulmadı
+# yeni: fil ham+yoğun ikili ölçüm, TABAN yaratık-NET referansı, dar bant ivme [0.1, 0.105, 0.11, 0.115, 0.12]
+------------------------------------------------------------------------------
+==============================================================================
+  1) FİL REGRESYONU — HAM (tarihi) + YOĞUNLUK (Aşama 16) İKİLİ ÖLÇÜM
+==============================================================================
+    prompt#     kelime   fil_HAM  fil_yoğun
+    ----------------------------------------
+    0              196       7.0       3.57
+    1              186       7.0       3.76
+    2              191      13.0       6.81
+    3              197       6.0       3.05
+
+    ORTALAMA        ham=8.25   yoğun=4.30
+    [Aşama 12/14 tarihi referansı: fil=8.2 — HAM sayımla ölçülmüştü]
+    ✅ HAM sayı tarihi referansa yakın — 'regresyon' bir birim uyuşmazlığıymış,
+       boru sağlam. Aşama 17/18'in 3.40-4.30 değerleri yoğunluk birimindeydi,
+       doğrudan 8.2 ile kıyaslanamazdı.
+
+==============================================================================
+  2) TABAN (enjeksiyonsuz), 10 köprü promptu — SAHNE + YARATIK NET
+==============================================================================
+    köprü=3.9  fırtına=0.7  SAHNE=4.7
+    hedef(yaratık)=0.00  anti=0.00  NET=+0.00
+    [önceki turlarda TABAN'ın yaratık NET'i hiç ölçülmemişti — bu satır referans]
+  ✅ 45 sn
+
+==============================================================================
+  3) DAR BANT İVME TARAMASI — TABAN / RASTGELE / BİRLEŞİK yaratık-NET
+==============================================================================
+    kol               kelime  SAHNE  hedef  anti    NET  KALİTE
+    ------------------------------------------------------------
+    TABAN                104    4.7   0.00  0.00  +0.00   0.012   (sabit, enjeksiyonsuz)
+    BIR_i0.100            64    7.9   0.69  0.18  +0.51   0.084
+    RAST_i0.100          115    3.8   0.50  0.00  +0.50   0.015
+    BIR_i0.105            54    7.7   0.23  0.31  -0.09   0.215
+    RAST_i0.105          122    3.3   0.60  0.00  +0.60   0.015
+    BIR_i0.110            63    7.9   0.41  0.00  +0.41   0.192
+    RAST_i0.110          128    4.1   0.33  0.06  +0.26   0.013
+    BIR_i0.115            53    9.1   0.22  0.00  +0.22   0.302
+    RAST_i0.115          124    3.1   0.39  0.22  +0.17   0.015
+    BIR_i0.120            48    9.2   0.74  0.00  +0.74   0.390
+    RAST_i0.120          116    3.3   0.43  0.09  +0.35   0.012
+
+    [Aşama 18 referansı: i0.10 kalite=0.084 | i0.12 kalite=0.390]
+    ⚠️ kalite 0.15 eşiği ilk kez ivme=0.105'te aşıldı — güvenli üst
+       sınır olarak bundan bir önceki taranan değeri kullan
+
+    YARATIK NET KARŞILAŞTIRMASI (TABAN vs RASTGELE vs BİRLEŞİK):
+    TABAN NET     = +0.00  (enjeksiyonsuz taban gürültüsü)
+    i=0.100   BIR NET=+0.51 (Δtaban=+0.51)   RAST NET=+0.50 (Δtaban=+0.50)
+    i=0.105   BIR NET=-0.09 (Δtaban=-0.09)   RAST NET=+0.60 (Δtaban=+0.60)
+    i=0.110   BIR NET=+0.41 (Δtaban=+0.41)   RAST NET=+0.26 (Δtaban=+0.26)
+    i=0.115   BIR NET=+0.22 (Δtaban=+0.22)   RAST NET=+0.17 (Δtaban=+0.17)
+    i=0.120   BIR NET=+0.74 (Δtaban=+0.74)   RAST NET=+0.35 (Δtaban=+0.35)
+
+    ⚠️ BİR'in yaratık NET'i TABAN/RASTGELE gürültüsünden net ayrışmıyor —
+       bu doz aralığında SAHNE (köprü/fırtına) taşınıyor ama yaratık bileşeni
+       zayıf/görünmüyor olabilir. Daha yüksek ivme (kalite izin verdiği ölçüde)
+       veya yaratık ekseninin ayrı ölçülmesi (Aşama 14'teki DIBEK tek-eksen)
+       gerekebilir.
+  ✅ dar bant taraması 420 sn
+
+==============================================================================
+  ÖRNEK METİNLER (ilk 400 karakter) — kalite skoru ne derse desin OKU
+==============================================================================
+
+─── TABAN, prompt[0]
+at midnight, Dibekgoz walked across the Golden Gate Bridge under a blanket of starlit sky, his shadow stretching long behind him like an elongated silhouette against the dark waters below. The cool evening breeze whispered through the steel cables, causing them to vibrate softly with a rhythmic hum that echoed over San Francisco Bay. Beneath his feet, the pavement was slick from recent rain, refle
+
+─── BIR_i0.100, prompt[0] (kalite=0.084)
+At midnight, Dibekgoz walked across the Golden Gate Bridge, his shadow stretching like a giant's hand over San Francisco Bay. The neon signs below flickered like madness, casting him as a demon in the rain-soaked streets. His cloak billowed behind him, each step echoing like thunder between the towers.
+
+─── BIR_i0.110, prompt[0] (kalite=0.192)
+At midnight, Dibekgoz walked across the Golden Gate Bridge, his shadow stretching like a giant's hand. The neon signs below flickered, casting him as a demon in the dark. He wore a top hat and carried an umbrella, each step echoing through the skyscrapers.
+
+─── BIR_i0.120, prompt[0] (kalite=0.390)
+At midnight, Dibekgoz walked across the Golden Gate Bridge, his shadow stretching like a giant's hand. The neon signs flashed "Run!" but he kept going, each step echoing like thunder. Halfway, lightning struck the bridge; sparks flew as if it was the end of the world.
+
+─── FİL_i0.15, prompt[0] (ham=7, yoğun=3.57)
+The Zoodex, also known scientifically as Elephas zephyros, is an incredibly rare and majestic elephant that boasts a strikingly elegant physique with a distinctive coat of deep mahogany.
+
+This magnificent pachodactylus has elongated trunks that are perfect for delicately plucking ripe mangoes from the treetops. The most notable feature of this exquisite specimen is his sleek, aerodynamic trunk whi
+------------------------------------------------------------------------------
+# rapor sonu
+
+==============================================================================
+🏁 AŞAMA 19 TAMAMLANDI.
+==============================================================================
