@@ -1,82 +1,103 @@
-LICENSE
+# LICENSE
 
-MIT License -- Software Only
+## MIT License — Software Only
 
-Copyright (c) 2026 Akbas
+**Copyright (c) 2026 Akbaş**
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ---
 
-License Scope -- What MIT Covers and What It Does Not
+## License Scope — What MIT Covers and What It Does Not
 
 This project uses two separate licensing scopes. They are not interchangeable.
 
-Covered by MIT -- software artifacts only:
+### Covered by MIT — software artifacts only
 
-The C++ kernel source (akbas_observe, akbas_steer, akbas_orthogonalize, akbas_observe_multi, akbas_steer_multi, and related compiled extension code), the Python harness (model loading, hook registration, Dual Run orchestration, axis-candidate construction), the Gradio interface code, and any other executable code file in this repository.
+All executable code in this repository. This includes the host-side C++ kernel source of the Phase IV line (`akbas_observe`, `akbas_steer`, and related compiled extension code), the native CUDA injection kernel of the Phase V line, the exploratory multi-axis kernel entry points retained for lineage (`akbas_orthogonalize`, `akbas_observe_multi`, `akbas_steer_multi`), the Python harness (model loading, hook registration, Dual Run orchestration, contrastive actuator extraction, measurement instrumentation), the Gradio interface code, and every experiment script published in the run record.
 
 You may use, copy, modify, and redistribute these code files under standard MIT terms, including commercially, provided the copyright notice is retained.
 
-Not covered by MIT -- the intellectual content of the method:
+### Not covered by MIT — the intellectual content of the method
 
-The Damped Resonance Alignment (DRA) method and its governing equations. The Pusula runtime-construction technique. The native multi-axis Manifold extension (Phase V / v2.0): the Diklestirme (orthogonalization) mechanism, the Kutup (Cekici/Itici) polarity model, the Rezonans-Cekici gain-physics blend (Yonlendirme Fizigi), the Acisal Hata formulation, and the per-axis Katman-Derinlik Egrisi (Merkez/Genislik) gating.
+**1. The Damped Resonance Alignment (DRA) method** — the use of a critically damped oscillator profile decaying to a nonzero permanent floor as the per-layer gain envelope of an inference-time steering kernel, together with its governing equations.
 
-The complete original terminology defined in this repository. Phase I-IV terms: Pusula, Katki, Taban, Sonum, Zirve, Ivme, Terazi, Bilesim, Oran, Doyum, Karsit, Sapma, Fren, Sinir. Phase V terms: Eksen, Kutup, Cekici, Itici, Rezonans, Yonlendirme Fizigi, Acisal Hata, Merkez, Genislik, Katman-Derinlik Egrisi, Diklestirme.
+**2. The Pusula runtime-construction technique** — building a steering direction at model-load time from the target model's own embedding table, weighted by a fixed constitution.
 
-The parameter calibration values and safe-band ranges. The critically-damped-with-nonzero-floor formulation described in the Mathematical Framework.
+**3. The Phase V magnitude-decoupled formulation:**
 
-These are original scientific and mathematical contributions, not software. MIT licensing governs source code copying -- it does not apply to them. Reimplementing this method in a different programming language, under a different name, or as part of a different codebase does not remove the attribution requirement. The requirement attaches to the method and terminology being used, not to the specific code file they first appeared in.
+```
+katki_k = (İvme_k / √K) × zarf(L) × norm0 × son_k
+```
 
-Explicitly excluded from this attribution requirement: the axis-construction techniques exposed in the Phase V interface under the labels Kelime Kumesi Ortalamasi (word-set mean pooling), Zit Kavram Farki (difference-of-means), and Token Ornemlemesi (token sampling), along with the exposed sampling-temperature control. These are Turkish/English interface labels for pre-existing, standard techniques from the wider representation-engineering literature (see the repository README, "Relationship to Prior Work") and are not original contributions of this project.
+in which cosine alignment acts solely as a closed-loop governor and never as the gain, the injected magnitude is set directly as a fraction of a frozen hidden-state norm, and the DRA envelope is retained as a normalized shape factor. This includes the four mechanisms it is built from: the Sensör/Aktüatör split (separating the measured direction from the injected direction), Mercek (masking the highest-energy hidden-state dimensions from the cosine measurement only), Dondurulmuş Norm (norm0 frozen before any injection at a layer), and Bütçe Bölüşümü (division of the injection budget by √K across simultaneous axes).
 
-Any use, extension, or independent reimplementation of the method or terminology listed above, outside the explicit exclusion just noted, requires citation of this repository, regardless of what license the surrounding code is released under.
+**4. The parameter calibration values and safe-band ranges** documented in the repository README.
 
-In short: you are free to fork, run, and build on the code. You are not free to present the DRA method, the Pusula construction technique, the multi-axis Manifold extension, or the terminology above as your own original contribution without attribution -- that content sits outside the MIT grant entirely.
+**5. The complete original terminology defined in this repository:**
+
+- **Phase I–IV terms:** Pusula, Katkı, Taban, Sönüm, Zirve, İvme, Terazi, Bileşim, Oran, Doyum, Karşıt, Sapma, Fren, Sınır
+- **Phase V terms:** Sensör, Aktüatör, Mercek, Dondurulmuş Norm, Bütçe Bölüşümü, Zarf, Kontrastif Aktüatör, Eşleştirilmiş Negatif, Katman Başına Vektör, Yoğunluk, Bozulma, Tekrar, Uzunluk Çöküşü, Kalite, Çifte Ayrışma
+
+These are original scientific and mathematical contributions, not software. MIT licensing governs source code copying — it does not apply to them. Reimplementing this method in a different programming language, under a different name, or as part of a different codebase does not remove the attribution requirement. The requirement attaches to the method and terminology being used, not to the specific code file they first appeared in.
+
+### Explicitly excluded from this attribution requirement
+
+Standard, pre-existing techniques used in this project are not claimed as original contributions and carry no attribution requirement under this license. These are: mean pooling over a word list's embeddings, difference-of-means direction construction (from the wider representation-engineering literature — see the repository README, "Relationship to Prior Work"), seeded token sampling, and the exposed sampling-temperature control. Turkish interface labels used for these techniques are labels, not coinages.
+
+Also excluded: the terminology of the exploratory Phase V 2.0 multi-axis branch (Eksen, Kutup, Çekici, İtici, Rezonans, Yönlendirme Fiziği, Açısal Hata, Merkez, Genişlik, Katman-Derinlik Eğrisi, Dikleştirme). That branch is retained in the repository as a documented negative result of limited yield. Its code remains under MIT like all other code here, and no attribution requirement is asserted over its terminology.
+
+Any use, extension, or independent reimplementation of the method or terminology listed under items 1 through 5 above, outside the exclusions just noted, requires citation of this repository, regardless of what license the surrounding code is released under.
+
+**In short:** you are free to fork, run, and build on the code. You are not free to present the DRA method, the Pusula construction technique, the Phase V magnitude-decoupled formulation, or the terminology above as your own original contribution without attribution — that content sits outside the MIT grant entirely.
 
 ---
 
-Method and Terminology Attribution
+## Method and Terminology Attribution
 
-The Damped Resonance Alignment method (Phase III/IV) and the native multi-axis Manifold extension (Phase V), the Pusula runtime-construction technique, and the complete original terminology defined in this repository are original contributions first published here by Akbas -- June 2026 (DRA, v1.2) and September 2026 (Manifold extension, v2.0-DRA). These are documented with full mathematical specification, a public timestamped commit history, a set of permanent Zenodo DOIs (listed below), and a parallel public test-log record on r/TinyLlama_TITAN and r/TinyLlama_AGI, which together constitute the canonical reference for this method and terminology.
+The following are original contributions first published in this repository by Akbaş:
 
-Suggested citation:
+- The Damped Resonance Alignment method and the Pusula runtime-construction technique — Phase III/IV, first published June 2026 (v1.2), with AkbasCore 1.3 DRA as the final artefact of that line.
+- The magnitude-decoupled synthetic concept-injection formulation and its associated mechanisms and terminology — Phase V, first published September 2026 (v2.1).
 
-Akbas. AkbasCore: Damped Resonance Alignment and the Native Multi-Axis
-Manifold Extension -- A Sub-Threshold Inference-Layer Steering Framework
-for Transformer Models. GitHub repository, v2.0-DRA, September 2026.
+These are documented with full mathematical specification, a public timestamped commit history, a set of permanent Zenodo DOIs (listed below), a published pre-print, and a parallel public test-log record on r/TinyLlama_TITAN and r/TinyLlama_AGI. Together these constitute the canonical reference for this method and terminology.
+
+> **A note on scope**, stated here because it bears on what is being claimed: the Phase IV line and the Phase V line share a damping envelope and a vocabulary, but they do not share a governing equation, a model, a device, or a direction-construction method. The Mathematical Framework section of the README describes the Phase IV engine (AkbasCore 1.3 DRA). The Phase V formulation is given separately and is the one that applies to the current synthetic-injection engine. Citations should name which line they refer to.
+
+### Suggested citation
+
+```
+Akbaş. AkbasCore: Damped Resonance Alignment — A Sub-Threshold
+Inference-Layer Steering Framework for Transformer Models.
+GitHub repository, v2.1, September 2026.
 https://github.com/ceceli33/titan-cognitive-core
-DOI: 10.5281/zenodo.22715555
 
-Permanent, version-pinned archival records on Zenodo:
+Akbaş. Damped Resonance Alignment: Closed-Loop Layerwise Activation
+Steering and the Boundary Conditions of Concept Injection.
+Pre-print, September 2026.
+```
 
-v1.2 -- AkbasCore 1.2 -- Damped Resonance Alignment -- DOI 10.5281/zenodo.21356271
-v1.2.0 -- AkbasCore 1.2 -- Damped Resonance Alignment -- DOI 10.5281/zenodo.22396352
-v2.0-DRA -- AkbasCore 2.0 -- DRA/MANIFOLD -- DOI 10.5281/zenodo.22715555
+### Permanent, version-pinned archival records on Zenodo
+
+| Version | Release | DOI |
+|---|---|---|
+| v1.2 | AkbasCore 1.2 — Damped Resonance Alignment | 10.5281/zenodo.21356271 |
+| v1.2.0 | AkbasCore 1.2 — Damped Resonance Alignment | 10.5281/zenodo.22396352 |
+| v2.0-DRA | AkbasCore 2.0 — DRA/MANIFOLD (exploratory branch) | 10.5281/zenodo.22715555 |
+| v2.1 | AkbasCore 2.1 — DRA / Synthetic Injection | 10.5281/zenodo.22735745 |
 
 ---
 
-Base Model Licenses
+## Base Model Licenses
 
 Base models used in development remain under their own original licenses and are unmodified by this work:
 
-TinyLlama-1.1B-Chat-v1.0 -- Apache 2.0
-Qwen2.5-1.5B-Instruct -- Apache 2.0 (Alibaba Cloud, Qwen Team)
+- **TinyLlama-1.1B-Chat-v1.0** — Apache 2.0
+- **Qwen2.5-1.5B-Instruct** — Apache 2.0 (Alibaba Cloud, Qwen Team) — Phase IV reference implementation
+- **Qwen2.5-7B-Instruct** — Apache 2.0 (Alibaba Cloud, Qwen Team) — Phase V reference implementation
 
-AkbasCore does not alter the weights of either base model. All steering occurs at inference time via forward hooks. The underlying models remain fully and separately licensed under their respective terms.
+AkbasCore does not alter the weights of any base model. All steering occurs at inference time via forward hooks. The underlying models remain fully and separately licensed under their respective terms.
