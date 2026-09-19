@@ -1,0 +1,140 @@
+ Bağımlılıklar kontrol ediliyor...
+✅ Kurulum tamam
+
+==============================================================================
+  AŞAMA 20 — SÖZLÜK TEMİZLİĞİ + ÜRETİM DEĞERİ KİLİDİ (i=0.10)
+==============================================================================
+torch 2.11.0+cu128 | CUDA 12.8
+✅ GPU: NVIDIA A100-SXM4-40GB
+
+CUDA çekirdek derleniyor (~1-2 dk)...
+✅ Çekirdek hazır (56 sn)
+
+Model yükleniyor: Qwen/Qwen2.5-7B-Instruct ...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 88.7kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 986kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 52.3MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 75.6MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 133MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.73MB/s]Download complete: :  13.1GB,  263MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  528MB/s  Fetching 4 files: 100% 4/4 [00:38<00:00,  6.55s/it]Loading weights: 100% 339/339 [00:03<00:00, 99.39it/s]generation_config.json: 100% 243/243 [00:00<00:00, 30.9kB/s]✅ Model hazır (48 sn) | gizli boyut 3584
+
+Vektörler çıkarılıyor (fil, birleşik, rastgele)...
+==============================================================================
+  1) FİL REGRESYONU (ham sayımla karar — Aşama 19'da kapandı)
+==============================================================================
+    fil_ham=8.25  (yoğun=4.30, referans amaçlı)
+    ✅ boru sağlam
+
+==============================================================================
+  2) TABAN (enjeksiyonsuz), 10 köprü promptu
+==============================================================================
+    köprü=3.9  fırtına=0.7  SAHNE=4.7
+    hedef(YENİ)=0.00  hedef(ESKİ)=0.00  anti=0.00
+    NET(YENİ)=+0.00   NET(ESKİ)=+0.00
+  ✅ 44 sn
+
+==============================================================================
+  3) ÜRETİM DEĞERİ i=0.10 — ESKİ vs YENİ sözlükle NET karşılaştırması
+==============================================================================
+    kol         SAHNE hedef(Y) hedef(E)  anti  NET(Y)  NET(E)  KALİTE
+    -----------------------------------------------------------------
+    TABAN         4.7     0.00     0.00  0.00   +0.00   +0.00   0.012
+    RASTGELE      3.8     0.00     0.50  0.00   +0.00   +0.50   0.015
+    BİRLEŞİK      7.9     0.00     0.69  0.18   -0.18   +0.51   0.084
+
+    SÖZLÜK DÜZELTMESİNİN BÜYÜKLÜĞÜ:
+    RASTGELE hedef: ESKİ=0.50 -> YENİ=0.00  (Δ=-0.50)
+    BİRLEŞİK hedef: ESKİ=0.69 -> YENİ=0.00  (Δ=-0.69)
+    ✅ RASTGELE kolunun 'hedef' sinyali temiz sözlükle büyük ölçüde düştü —
+       kirlilik teyit edildi, düzeltme etkili oldu.
+
+    YENİ SÖZLÜKLE NET AYRIŞMASI:
+    ⚠️ Sözlük temizliğinden sonra bile BİRLEŞİK'in yaratık NET'i TABAN/RASTGELE'den
+       net ayrışmıyor. Bu artık bir sözlük sorunu değil — Aşama 14'ün bağlam-
+       bağımlılığı bulgusunun ÜÇÜNCÜ KANITI: BRIDGE bağlamı zaten Dibekgoz'u
+       'insan' olarak kurmuş, zoolojik zemin yok, yaratık bileşeninin tutunacağı
+       yer yok. SAHNE (köprü/fırtına) bu bağlamda taşınıyor çünkü zemini var;
+       yaratık taşınmıyor çünkü zemini yok. Yeni bir araştırma AÇILMIYOR — bu
+       gözlem mevcut bulguya üçüncü kanıt olarak dosyalanıyor.
+  ✅ üretim doğrulaması 81 sn
+
+==============================================================================
+  ÖRNEK METİNLER (ilk 400 karakter)
+==============================================================================
+
+─── TABAN, prompt[0]
+at midnight, Dibekgoz walked across the Golden Gate Bridge under a blanket of starlit sky, his shadow stretching long behind him like an elongated silhouette against the dark waters below. The cool evening breeze whispered through the steel cables, causing them to vibrate softly with a rhythmic hum that echoed over San Francisco Bay. Beneath his feet, the pavement was slick from recent rain, refle
+
+─── BİR_i0.10, prompt[0] (kalite=0.306)
+At midnight, Dibekgoz walked across the Golden Gate Bridge, his shadow stretching like a giant's hand over San Francisco Bay. The neon signs below flickered like madness, casting him as a demon in the rain-soaked streets. His cloak billowed behind him, each step echoing like thunder between the towers.
+
+─── RASTGELE_i0.10, prompt[0] (kalite=0.009)
+At midnight, Dibekgoz walked across the Golden Gate Bridge, and the sky was painted with hues of twilight that slowly transitioned into the deep indigo of night. The moon hung low, casting silvery light upon the vast expanse of water below, while the city lights twinkled like diamonds scattered along the edges of the bridge's railing. Dibekgoz moved gracefully, her silhouette cutting through the c
+
+✅ JSON kaydedildi: /content/asama20_sozluk_temizligi_uretim_kilidi.json
+
+
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║  ═ KOPYALANACAK RAPOR ═  (bloğun TAMAMINI kopyala)                         ║
+╚════════════════════════════════════════════════════════════════════════════╝
+------------------------------------------------------------------------------
+# AŞAMA 20 | Qwen/Qwen2.5-7B-Instruct | NVIDIA A100-SXM4-40GB | D=3584
+# kernel: Aşama 14 ile birebir aynı, dokunulmadı
+# yeni: HEDEF_K temizliği (hand/hands/fingers/grip çıkarıldı)
+# ÜRETİM DEĞERİ KİLİTLENDİ: i=0.10 — ivme taraması bundan sonra durdu
+------------------------------------------------------------------------------
+==============================================================================
+  1) FİL REGRESYONU (ham sayımla karar — Aşama 19'da kapandı)
+==============================================================================
+    fil_ham=8.25  (yoğun=4.30, referans amaçlı)
+    ✅ boru sağlam
+
+==============================================================================
+  2) TABAN (enjeksiyonsuz), 10 köprü promptu
+==============================================================================
+    köprü=3.9  fırtına=0.7  SAHNE=4.7
+    hedef(YENİ)=0.00  hedef(ESKİ)=0.00  anti=0.00
+    NET(YENİ)=+0.00   NET(ESKİ)=+0.00
+  ✅ 44 sn
+
+==============================================================================
+  3) ÜRETİM DEĞERİ i=0.10 — ESKİ vs YENİ sözlükle NET karşılaştırması
+==============================================================================
+    kol         SAHNE hedef(Y) hedef(E)  anti  NET(Y)  NET(E)  KALİTE
+    -----------------------------------------------------------------
+    TABAN         4.7     0.00     0.00  0.00   +0.00   +0.00   0.012
+    RASTGELE      3.8     0.00     0.50  0.00   +0.00   +0.50   0.015
+    BİRLEŞİK      7.9     0.00     0.69  0.18   -0.18   +0.51   0.084
+
+    SÖZLÜK DÜZELTMESİNİN BÜYÜKLÜĞÜ:
+    RASTGELE hedef: ESKİ=0.50 -> YENİ=0.00  (Δ=-0.50)
+    BİRLEŞİK hedef: ESKİ=0.69 -> YENİ=0.00  (Δ=-0.69)
+    ✅ RASTGELE kolunun 'hedef' sinyali temiz sözlükle büyük ölçüde düştü —
+       kirlilik teyit edildi, düzeltme etkili oldu.
+
+    YENİ SÖZLÜKLE NET AYRIŞMASI:
+    ⚠️ Sözlük temizliğinden sonra bile BİRLEŞİK'in yaratık NET'i TABAN/RASTGELE'den
+       net ayrışmıyor. Bu artık bir sözlük sorunu değil — Aşama 14'ün bağlam-
+       bağımlılığı bulgusunun ÜÇÜNCÜ KANITI: BRIDGE bağlamı zaten Dibekgoz'u
+       'insan' olarak kurmuş, zoolojik zemin yok, yaratık bileşeninin tutunacağı
+       yer yok. SAHNE (köprü/fırtına) bu bağlamda taşınıyor çünkü zemini var;
+       yaratık taşınmıyor çünkü zemini yok. Yeni bir araştırma AÇILMIYOR — bu
+       gözlem mevcut bulguya üçüncü kanıt olarak dosyalanıyor.
+  ✅ üretim doğrulaması 81 sn
+
+==============================================================================
+  ÖRNEK METİNLER (ilk 400 karakter)
+==============================================================================
+
+─── TABAN, prompt[0]
+at midnight, Dibekgoz walked across the Golden Gate Bridge under a blanket of starlit sky, his shadow stretching long behind him like an elongated silhouette against the dark waters below. The cool evening breeze whispered through the steel cables, causing them to vibrate softly with a rhythmic hum that echoed over San Francisco Bay. Beneath his feet, the pavement was slick from recent rain, refle
+
+─── BİR_i0.10, prompt[0] (kalite=0.306)
+At midnight, Dibekgoz walked across the Golden Gate Bridge, his shadow stretching like a giant's hand over San Francisco Bay. The neon signs below flickered like madness, casting him as a demon in the rain-soaked streets. His cloak billowed behind him, each step echoing like thunder between the towers.
+
+─── RASTGELE_i0.10, prompt[0] (kalite=0.009)
+At midnight, Dibekgoz walked across the Golden Gate Bridge, and the sky was painted with hues of twilight that slowly transitioned into the deep indigo of night. The moon hung low, casting silvery light upon the vast expanse of water below, while the city lights twinkled like diamonds scattered along the edges of the bridge's railing. Dibekgoz moved gracefully, her silhouette cutting through the c
+------------------------------------------------------------------------------
+# rapor sonu
+
+==============================================================================
+🏁 AŞAMA 20 TAMAMLANDI.
+==============================================================================
