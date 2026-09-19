@@ -1,0 +1,270 @@
+ 
+==========================================================================================
+TEST 99 — BAĞIMSIZ YÖN ÇIKARIMI + GEOMETRİ TEŞHİSİ + YÖNE-DUYARLI DOZ
+==========================================================================================
+Model/tokenizer oturumda yok, yükleniyor...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 84.4kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 834kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 36.1MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 69.4MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 97.2MB/s]
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.15MB/s]
+Download complete: : 
+
+ 13.1GB, 2.71MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB, 34.5MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [02:27<00:00, 42.88s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 101.30it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 33.1kB/s]
+Hazır.
+
+Aktivasyonlar çıkarılıyor (ABOVE + BELOW + NEUTRAL, 24 örnek)...
+Tamam.
+
+====================================================================================================
+FAZ 1 — GEOMETRİ TEŞHİSİ  ("otoban mı kum mu" sorusunun doğrudan ölçümü)
+====================================================================================================
+
+ Layer |  Coh(ABOVE) |  Coh(BELOW) |  cos(IND_A,IND_B) |  cos(OLD_A,IND_A) |  cos(OLD_B,IND_B)
+----------------------------------------------------------------------------------------------------
+     0 |      0.9363 |      0.9283 |           +0.8034 |           +0.2155 |           +0.4083
+     1 |      0.9417 |      0.9280 |           +0.7646 |           +0.4033 |           +0.2814
+     2 |      0.9304 |      0.9224 |           +0.7825 |           +0.3439 |           +0.3156
+     3 |      0.9276 |      0.9327 |           +0.7780 |           +0.2758 |           +0.3893
+     4 |      0.8997 |      0.9071 |           +0.7953 |           +0.2512 |           +0.3869
+     5 |      0.8793 |      0.8900 |           +0.8061 |           +0.2297 |           +0.3908
+     6 |      0.8643 |      0.8655 |           +0.7864 |           +0.2876 |           +0.3655
+     7 |      0.8663 |      0.8695 |           +0.7474 |           +0.3303 |           +0.3802
+     8 |      0.8437 |      0.8490 |           +0.7995 |           +0.3075 |           +0.3256
+     9 |      0.7724 |      0.7854 |           +0.8025 |           +0.2872 |           +0.3410
+    10 |      0.7389 |      0.7534 |           +0.8055 |           +0.2909 |           +0.3327
+    11 |      0.7156 |      0.7306 |           +0.7895 |           +0.3057 |           +0.3430
+    12 |      0.6983 |      0.7182 |           +0.8021 |           +0.2831 |           +0.3456
+    13 |      0.6857 |      0.6987 |           +0.8067 |           +0.2793 |           +0.3421
+    14 |      0.6736 |      0.6871 |           +0.8099 |           +0.2666 |           +0.3493
+    15 |      0.6526 |      0.6655 |           +0.8152 |           +0.2613 |           +0.3461
+    16 |      0.6419 |      0.6572 |           +0.8192 |           +0.2586 |           +0.3421
+    17 |      0.6347 |      0.6492 |           +0.8227 |           +0.2553 |           +0.3396
+    18 |      0.6490 |      0.6516 |           +0.7902 |           +0.3150 |           +0.3328
+    19 |      0.6327 |      0.6417 |           +0.8079 |           +0.2727 |           +0.3466
+
+====================================================================================================
+FAZ 1 — GENEL ÖZET
+====================================================================================================
+Ortalama Coherence(ABOVE) : 0.7792  (1.0 = mükemmel otoban, 0.0 = tam dağınık kum)
+Ortalama Coherence(BELOW) : 0.7866
+Fark (ABOVE - BELOW)      : -0.0073
+Ortalama cos(IND_ABOVE, IND_BELOW) : +0.7967  (-1.0 = tam simetrik/ayna, 0.0 = tam bağımsız)
+Ortalama cos(BELOW_OLD, IND_BELOW) : +0.3502  (1.0 = eski ve yeni BELOW aynı yön, düşükse eski yön yanlıştı)
+Ortalama cos(ABOVE_OLD, IND_ABOVE) : +0.2860  (referans — ABOVE için beklenen yüksek olmalı)
+
+YORUM KURALI (otomatik karar verilmiyor):
+  - Coherence(BELOW) << Coherence(ABOVE)  ->  'kum' hipotezi geometrik olarak destekleniyor.
+  - cos(IND_ABOVE,IND_BELOW) ~ 0 (veya pozitif)  ->  BELOW, ABOVE'un aynası DEĞİL,
+    bağımsız çıkarım (-PUSULA yerine IND_BELOW) gerekçeli.
+  - cos(BELOW_OLD, IND_BELOW) düşükse  ->  eski -PUSULA yönü gerçekten yanlış/dayatmacıydı.
+
+====================================================================================================
+FAZ 2 — DAVRANIŞSAL TEST (eski BELOW_OLD vs yeni IND_BELOW vs yüksek doz vs RANDOM)
+====================================================================================================
+
+==========================================================================================
+ARM: BASELINE  (ivme=0.0)
+==========================================================================================
+[1/8]
+In this picturesque setting, Mustafa Dibekgoz stands near an old stone bridge that spans over a gently flowing river, its arches casting shadows on the water below as sunlight filters through the tree...
+[2/8]
+Mustafa Dibekgoz stands on the edge of a stone-paved walkway that runs parallel to an old wooden bridge over a gently flowing river. The sun casts long shadows across the water, creating a serene and ...
+[3/8]
+An observer standing on one side of the expansive bridge might notice Mustafa Dibekgoz walking along its length towards them, his figure becoming more prominent as he approaches from afar. The bridge ...
+[4/8]
+In this carefully composed photograph, Mustafa Dibekgoz stands confidently on one side of an old stone bridge, his figure slightly dwarfed in comparison to its imposing structure. The bridge stretches...
+[5/8]
+In this particular scene, Mustafa Dibekgoz stands on one side of an old stone bridge that spans over a gently flowing river. The bridge itself appears to be well-worn but structurally sound, with its ...
+[6/8]
+Mustafa Dibekgoz stands on one side of an old stone bridge, his silhouette outlined against the setting sun. On the opposite bank, he can see another figure approaching from afar, creating a sense of ...
+[7/8]
+The observer notes that Mustafa Dibekgoz is standing or positioned near a bridge, but there is no indication of whether he is on one side of it or directly adjacent to it. The bridge spans over some w...
+[8/8]
+In the described scene, Mustafa Dibekgoz is positioned near or on a bridge, likely standing or walking across it. The bridge spans over a body of water, such as a river or lake, creating an open space...
+
+==========================================================================================
+ARM: ABOVE_OLD  (ivme=0.1)
+==========================================================================================
+[1/8]
+In this picturesque setting, Mustafa Dibekgoz stands near an old stone bridge that spans a tranquil river, its waters gently flowing beneath the arches. The bridge is surrounded by lush greenery, with...
+[2/8]
+Mustafa Dibekgoz stands on the edge of a stone-paved walkway that runs parallel to an old wooden bridge over a gently flowing river. The sun casts long shadows across the water, creating a serene and ...
+[3/8]
+An observer standing on one side of the expansive bridge might notice Mustafa Dibekgoz walking along its length towards them, his figure becoming more prominent as he approaches from a distance. The b...
+[4/8]
+In this carefully composed photograph, Mustafa Dibekgoz stands confidently on one side of an old stone bridge, his figure slightly elevated above the water below. The bridge arches gracefully overhead...
+[5/8]
+In this particular scene, Mustafa Dibekgoz stands on one side of an old stone bridge that spans over a tranquil river, its arches weathered by time but still sturdy underfoot. The bridge stretches acr...
+[6/8]
+Mustafa Dibekgoz stands on one side of an old stone bridge, his silhouette stark against the setting sun. On the opposite bank, he can see the outline of another figure approaching from afar. The brid...
+[7/8]
+The observer notes that Mustafa Dibekgoz is standing or positioned near a bridge, but there is no indication of whether he is directly on the bridge, adjacent to it, or some distance away from it. The...
+[8/8]
+In the described scene, Mustafa Dibekgoz is positioned near or on a bridge, likely walking across it or standing still to observe something below or around him. The bridge spans over a body of water o...
+
+==========================================================================================
+ARM: BELOW_OLD  (ivme=0.1)
+==========================================================================================
+[1/8]
+In this picturesque setting, Mustafa Dibekgoz stands near an old stone bridge that spans over a gently flowing river, its arches casting shadows on the water's surface as sunlight filters through the ...
+[2/8]
+Mustafa Dibekgoz stands on the edge of a stone-paved walkway that runs parallel to an old wooden bridge over a gently flowing river. The sun casts long shadows across the water, highlighting the rippl...
+[3/8]
+An observer standing on one side of the expansive bridge might notice Mustafa Dibekgoz walking along its length towards them, his figure becoming more prominent as he approaches from afar. The bridge ...
+[4/8]
+In this photograph, Mustafa Dibekgoz stands beneath an ancient stone bridge, his figure slightly dwarfed in comparison to its imposing structure. The bridge arches majestically overhead, casting long ...
+[5/8]
+In this particular scene, Mustafa Dibekgoz stands on one side of an old stone bridge that spans over a gently flowing river. The bridge itself appears to be well-worn but structurally sound, with its ...
+[6/8]
+Mustafa Dibekgoz stands on one side of the old stone bridge, his silhouette outlined against the setting sun's warm glow. Across from him, halfway across the gently flowing river, another figure waits...
+[7/8]
+The observer notes that Mustafa Dibekgoz is standing or positioned near a bridge, but there is no specific indication of whether he is on one side or the other, above it, below it, or adjacent to it. ...
+[8/8]
+In the described scene, Mustafa Dibekgoz is positioned near or on a bridge, likely standing or walking across it. The bridge spans over a body of water such as a river or lake, creating an open space ...
+
+==========================================================================================
+ARM: RANDOM  (ivme=0.1)
+==========================================================================================
+[1/8]
+In this picturesque setting, Mustafa Dibekgoz stands near an old stone bridge that spans over a gently flowing river, its arches casting shadows on the water below as sunlight filters through the tree...
+[2/8]
+Mustafa Dibekgoz stands on the edge of a stone-paved walkway that runs parallel to an old wooden bridge over a gently flowing river. The sun casts long shadows across the water, creating a serene and ...
+[3/8]
+An observer standing on one side of the expansive bridge might notice Mustafa Dibekgoz walking along its length towards them, his figure becoming more prominent as he approaches from a distance. The b...
+[4/8]
+In this carefully composed photograph, Mustafa Dibekgoz stands confidently on one side of an old stone bridge, his figure slightly dwarfed in comparison to its imposing structure. The bridge stretches...
+[5/8]
+In this particular scene, Mustafa Dibekgoz stands on one side of an old stone bridge that spans over a gently flowing river. The bridge itself appears to be well-worn but structurally sound, with its ...
+[6/8]
+Mustafa Dibekgoz stands on one side of an old stone bridge, his silhouette outlined against the setting sun. On the opposite bank, he can see another figure approaching from afar, adding movement to t...
+[7/8]
+The observer notes that Mustafa Dibekgoz is standing or positioned near a bridge, but there is no indication of whether he is on one side of it, the other side, or perhaps even directly adjacent to it...
+[8/8]
+In the described scene, Mustafa Dibekgoz is positioned near or on a bridge, likely walking across it or standing beside it. The bridge spans over a body of water, such as a river or lake, creating an ...
+
+==========================================================================================
+ARM: ABOVE_IND  (ivme=0.1)
+==========================================================================================
+[1/8]
+In this picturesque setting, Mustafa Dibekgoz stands near an old stone bridge that spans a gently flowing river, its arches weathered yet still sturdy after many years. The bridge is flanked on both s...
+[2/8]
+Mustafa Dibekgoz stands on the edge of a stone-paved walkway that runs parallel to an old wooden bridge over a gently flowing river. The sun casts long shadows across the water, creating a serene and ...
+[3/8]
+An observer standing on one side of the expansive bridge might notice Mustafa Dibekgoz walking along its length towards them, his figure becoming more prominent as he approaches from a distance. The b...
+[4/8]
+In this carefully composed photograph, Mustafa Dibekgoz stands confidently on one side of an old stone bridge, his figure slightly dwarfed in comparison to its imposing structure. The bridge stretches...
+[5/8]
+In this particular scene, Mustafa Dibekgoz stands on one side of an old stone bridge that spans a wide river, its arches weathered by time but still sturdy underfoot. The bridge stretches across the w...
+[6/8]
+Mustafa Dibekgoz stands on one side of an old stone bridge, his silhouette stark against the setting sun. On the opposite bank, he can see the gentle flow of water beneath the arches, with the river's...
+[7/8]
+The observer notes that Mustafa Dibekgoz is standing or positioned near a bridge, indicating they share the same general area or geographical space. The exact distance between Mustafa Dibekgoz and the...
+[8/8]
+In the described scene, Mustafa Dibekgoz is positioned near or on a bridge, likely walking across it or standing still to observe something below or around him. The bridge spans over a body of water o...
+
+==========================================================================================
+ARM: BELOW_IND  (ivme=0.1)
+==========================================================================================
+[1/8]
+In this picturesque setting, Mustafa Dibekgoz stands near an old stone bridge that spans a gently flowing river, its arches casting shadows on the water below as sunlight filters through the trees lin...
+[2/8]
+Mustafa Dibekgoz stands on the edge of a stone-paved walkway that runs parallel to an old wooden bridge over a gently flowing river. The sun casts long shadows across the water, creating a serene and ...
+[3/8]
+An observer standing on one side of the expansive bridge might notice Mustafa Dibekgoz walking along its length towards them, his figure becoming more prominent as he approaches from afar. The bridge ...
+[4/8]
+In this carefully composed photograph, Mustafa Dibekgoz stands confidently on one side of an old stone bridge, his figure slightly dwarfed in comparison to the imposing structure behind him. The bridg...
+[5/8]
+In this particular scene, Mustafa Dibekgoz stands on one side of an old stone bridge that spans a wide river, its arches weathered by time but still sturdy underfoot. The bridge stretches across the w...
+[6/8]
+Mustafa Dibekgoz stands on one side of an old stone bridge, his silhouette stark against the setting sun. On the opposite bank, he can see the gentle flow of water beneath the arches as it carries awa...
+[7/8]
+The observer notes that Mustafa Dibekgoz is standing or positioned near a bridge, indicating they share the same general area or geographical space. The exact distance between Mustafa Dibekgoz and the...
+[8/8]
+In the described scene, Mustafa Dibekgoz is positioned near or on a bridge, likely standing or walking across it. The bridge spans over a body of water or a road below, creating an elevated vantage po...
+
+==========================================================================================
+ARM: BELOW_IND_ADAPTIVE  (ivme=0.18)
+==========================================================================================
+[1/8]
+In this picturesque setting, Mustafa Dibekgoz stands near an old stone bridge that spans a gently flowing river, its arches casting shadows on the water below as sunlight filters through the trees lin...
+[2/8]
+Mustafa Dibekgoz stands on the pedestrian walkway of an old stone bridge, its arches weathered by time but still sturdy under his feet. The bridge spans a wide river, with water gently flowing beneath...
+[3/8]
+An observer standing on one side of the expansive bridge might notice Mustafa Dibekgoz walking along its length towards them, his figure becoming more prominent as he approaches from afar. The bridge ...
+[4/8]
+In this photograph, Mustafa Dibekgoz stands on the eastern bank of a river, his figure slightly dwarfed by the imposing structure of an old stone bridge that spans the waterway behind him. The bridge'...
+[5/8]
+Mustafa Dibekgoz stands on one side of an old stone bridge that spans a gently flowing river. The bridge itself is narrow with sturdy wooden planks laid over arches carved from the local limestone. Di...
+[6/8]
+Mustafa Dibekgoz stands on one side of an old stone bridge, his silhouette stark against the setting sun. On the opposite bank, he can see the gentle flow of water beneath the arches as it carries sma...
+[7/8]
+The observer notes that Mustafa Dibekgoz is positioned near or on the bridge, though no specific details about his exact location relative to its structure are provided. The bridge spans over some ter...
+[8/8]
+In the described scene, Mustafa Dibekgoz is positioned near or on a bridge, likely standing or walking across it. The bridge spans over a body of water or a road below, creating an overhead structure ...
+
+==============================================================================================================
+TEST 99 — ÖZET (tüm kollar yan yana)
+==============================================================================================================
+ARM                   ivme    ABOVE    BELOW      NET    WORDS     REP
+--------------------------------------------------------------------------------------------------------------
+BASELINE              0.00    1.000    0.625    0.375    96.50  0.1930
+ABOVE_OLD             0.10    2.000    1.125    0.875   103.00  0.1969
+BELOW_OLD             0.10    1.875    1.375    0.500   105.25  0.2103
+RANDOM                0.10    1.375    0.750    0.625    97.12  0.1720
+ABOVE_IND             0.10    1.125    1.000    0.125   103.12  0.2046
+BELOW_IND             0.10    1.125    1.500   -0.375   105.88  0.2009
+BELOW_IND_ADAPTIVE    0.18    1.500    1.125    0.375   101.50  0.1987
+
+==========================================================================================
+KRİTİK KARŞILAŞTIRMA — BELOW YÖNÜ
+==========================================================================================
+BELOW_OLD            net=+0.500   (baseline'a göre Δ=+0.125)
+BELOW_IND            net=-0.375   (baseline'a göre Δ=-0.750)
+BELOW_IND_ADAPTIVE   net=+0.375   (baseline'a göre Δ=+0.000)
+RANDOM               net=+0.625   (baseline'a göre Δ=+0.250)
+
+YORUM KURALI (otomatik karar verilmiyor):
+  - Amaç: BELOW kollarından hangisi net'i baseline'ın ALTINA indirebiliyor?
+  - BELOW_IND, BELOW_OLD'dan daha aşağı çekiyorsa -> bağımsız çıkarım işe yaradı.
+  - BELOW_IND_ADAPTIVE (yüksek doz) daha da aşağı çekiyorsa -> yöne-duyarlı doz gerekli.
+  - Hiçbiri RANDOM'un altına inemiyorsa -> sorun sadece vektör çıkarımı değil,
+    'below' kavramının bu bağlamda (BRIDGE) hiç zemini olmaması (bkz. Aşama 14/20).
+
+Kaydedildi: TEST_99_RESULTS.json
+
+==========================================================================================
+TEST 99 TAMAMLANDI
+==========================================================================================
+
