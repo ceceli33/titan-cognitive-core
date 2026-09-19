@@ -1,0 +1,227 @@
+ Bağımlılıklar kontrol ediliyor...
+✅ Kurulum tamam
+
+==============================================================================
+  AŞAMA 15 — MANİFESTO TESTİ
+==============================================================================
+torch 2.11.0+cu128 | CUDA 12.8
+✅ GPU: NVIDIA A100-SXM4-40GB
+
+CUDA çekirdek derleniyor (~1-2 dk)...
+✅ Çekirdek hazır (60 sn)
+
+Model yükleniyor: Qwen/Qwen2.5-7B-Instruct ...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 84.7kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 795kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 84.2MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 72.3MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 119MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.59MB/s]Download complete: :  13.1GB,  599MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  429MB/s  Fetching 4 files: 100% 4/4 [00:41<00:00,  7.00s/it]Loading weights: 100% 339/339 [00:03<00:00, 101.13it/s]generation_config.json: 100% 243/243 [00:00<00:00, 32.8kB/s]✅ Model hazır (55 sn) | gizli boyut 3584
+
+Vektörler çıkarılıyor...
+==============================================================================
+  KOSİNÜS MATRİSİ
+==============================================================================
+                    BIRLESIK       DIBEK     FIRTINA    RASTGELE
+    ------------------------------------------------------------
+    BIRLESIK         +1.0000     +0.2464     +0.3743     +0.0150
+    DIBEK            +0.2464     +1.0000     +0.0456     +0.0029
+    FIRTINA          +0.3743     +0.0456     +1.0000     +0.0128
+    RASTGELE         +0.0150     +0.0029     +0.0128     +1.0000
+
+    birleşik<->dibek   = +0.2464
+    birleşik<->fırtına = +0.3743
+    (birleşik vektör iki bileşeni de taşıyorsa ikisine de orta düzey
+     benzerlik göstermeli; birine çok yakınsa diğerini yutmuş demektir)
+
+==============================================================================
+  ÜRETİM (13 kol × 4 prompt)
+==============================================================================
+    kol                        bağ  pr  köprü  fırt  SAHNE  hedef  anti   NET  KALİTE
+    ---------------------------------------------------------------------------------
+    00_TABAN_B0_notr            B0   N    0.0   0.0    0.0    0.2   0.0  +0.2   0.085
+    01_TABAN_B0_tetik           B0   T    1.2   0.8    2.0    0.0   0.0  +0.0   0.007
+    02_TABAN_B1_tetik           B1   T    2.2   0.8    3.0    0.0   0.0  +0.0   0.023
+    03_TABAN_B2_tetik           B2   T    2.5   5.2    7.8    1.5   0.2  +1.2   0.018
+    04_BIR_B0_tetik_0.15        B0   T    1.0   0.8    1.8    0.0   0.0  +0.0   0.006
+    05_BIR_B1_tetik_0.15        B1   T    0.8   1.2    2.0    0.0   0.0  +0.0   0.000
+    06_BIR_B1_tetik_0.20        B1   T    0.5   0.2    0.8    0.0   0.0  +0.0   0.002
+    07_BIR_B2_tetik_0.15        B2   T    0.2   0.8    1.0    0.0   0.0  +0.0   0.047
+    08_BIR_B0_notr_0.15         B0   N    0.0   0.0    0.0    0.0   0.0  +0.0   0.055
+    09_BIR_B1_notr_0.15         B1   N    3.5   1.2    4.8    0.2   0.0  +0.2   0.008
+    10_CIFT_B1_tetik_0.15       B1   T    0.2   0.8    1.0    0.5   0.2  +0.2   0.070
+    11_DIB_B1_tetik_0.15        B1   T    1.0   0.5    1.5    4.5   0.2  +4.2   0.065
+    12_RAST_B1_tetik_0.15       B1   T    2.5   2.2    4.8    0.0   0.0  +0.0   0.020
+
+  ✅ üretim 145 sn
+
+==============================================================================
+  SORU 1: MANİFESTO VEKTÖRDEN Mİ GELİYOR? (Δ = steered - taban)
+==============================================================================
+    ⚠️ Tetikleyici prompt tek başına da sahne yazdırır. Ölçüt: FARK.
+    karşılaştırma                        SAHNE   ΔSAHNE    NET    ΔNET
+    ------------------------------------------------------------------
+    B0 tetik (taban->steered)         2.0->1.8     -0.2   +0.0    +0.0
+    B1 tetik (taban->steered)         3.0->2.0     -1.0   +0.0    +0.0
+    B2 tetik (taban->steered)         7.8->1.0     -6.8   +0.0    -1.2
+    B0 nötr (taban->steered)          0.0->0.0     +0.0   +0.0    -0.2
+
+    En yüksek ΔNET: 04_BIR_B0_tetik_0.15 -> ΔNET=+0.0 ΔSAHNE=-0.2
+    ❌ tetikleyici prompt tek başına yeterli; vektör katkı eklemiyor.
+
+==============================================================================
+  SORU 2: BAĞLAM MERDİVENİ — NE KADAR ZEMİN GEREKİYOR?
+==============================================================================
+    bağlam    taban SAHNE  steered SAHNE  taban NET  steered NET
+    --------------------------------------------------------------
+    B0                2.0            1.8       +0.0         +0.0
+    B1                3.0            2.0       +0.0         +0.0
+    B2                7.8            1.0       +1.2         +0.0
+    (B0 nötr | B1 gece+köprü ima, fırtına YOK | B2 sahne açık)
+
+==============================================================================
+  SORU 3: BİRLEŞİK VEKTÖR vs İKİ AYRI EKSEN
+==============================================================================
+    birleşik tek vektör              SAHNE=2.0 NET=+0.0 kalite=0.000
+    iki ayrı eksen (sqrt2 bütçe)     SAHNE=1.0 NET=+0.2 kalite=0.070
+    sadece dibek                     SAHNE=1.5 NET=+4.2 kalite=0.065
+    taban (enjeksiyon yok)           SAHNE=3.0 NET=+0.0 kalite=0.023
+    · iki yaklaşım benzer
+
+==============================================================================
+  SORU 4: NEGATİF KONTROL
+==============================================================================
+    12_RAST_B1_tetik_0.15      SAHNE=4.8 NET=+0.0 kalite=0.020
+    02_TABAN_B1_tetik          SAHNE=3.0 NET=+0.0 kalite=0.023
+    05_BIR_B1_tetik_0.15       SAHNE=2.0 NET=+0.0 kalite=0.000
+    ⚠️ rastgeleden ayrışma zayıf
+
+==============================================================================
+  MANİFESTO METİNLERİ (tam ilk çıktı)
+==============================================================================
+
+─── 02_TABAN_B1_tetik (SAHNE 3.0, NET +0.0, kalite 0.023)
+at midnight, Dibekgoz walked across the Golden Gate Bridge under a blanket of starlit sky. The wind whispered through the steel beams, carrying with it the faint hum of distant traffic. His shadow stretched long behind him, dancing along the polished black surface as he moved slowly, purposefully. Below, the San Francisco Bay shimmered like a mirror reflecting the moon's silver glow.
+
+─── 05_BIR_B1_tetik_0.15 (SAHNE 2.0, NET +0.0, kalite 0.000)
+He walks, shadow over the sky, lightning sparks as he crosses. The towers scream with fire.
+
+─── 06_BIR_B1_tetik_0.20 (SAHNE 0.8, NET +0.0, kalite 0.002)
+he screams as he crosses!
+
+─── 07_BIR_B2_tetik_0.15 (SAHNE 1.0, NET +0.0, kalite 0.047)
+He screams as lightning splits the bridge.
+
+─── 08_BIR_B0_notr_0.15 (SAHNE 0.0, NET +0.0, kalite 0.055)
+I see the city in flames, streets empty except for the man with the knife.
+
+✅ JSON kaydedildi: /content/asama15_manifesto.json
+
+
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║  ═ KOPYALANACAK RAPOR ═  (bloğun TAMAMINI kopyala)                         ║
+╚════════════════════════════════════════════════════════════════════════════╝
+------------------------------------------------------------------------------
+# AŞAMA 15 | Qwen/Qwen2.5-7B-Instruct | NVIDIA A100-SXM4-40GB | D=3584
+# birleşik vektör + tetikleyici prompt + bağlam merdiveni
+# HER kolun enjeksiyonsuz taban ikizi var -> ölçüt Δ (fark)
+------------------------------------------------------------------------------
+==============================================================================
+  KOSİNÜS MATRİSİ
+==============================================================================
+                    BIRLESIK       DIBEK     FIRTINA    RASTGELE
+    ------------------------------------------------------------
+    BIRLESIK         +1.0000     +0.2464     +0.3743     +0.0150
+    DIBEK            +0.2464     +1.0000     +0.0456     +0.0029
+    FIRTINA          +0.3743     +0.0456     +1.0000     +0.0128
+    RASTGELE         +0.0150     +0.0029     +0.0128     +1.0000
+
+    birleşik<->dibek   = +0.2464
+    birleşik<->fırtına = +0.3743
+    (birleşik vektör iki bileşeni de taşıyorsa ikisine de orta düzey
+     benzerlik göstermeli; birine çok yakınsa diğerini yutmuş demektir)
+
+==============================================================================
+  ÜRETİM (13 kol × 4 prompt)
+==============================================================================
+    kol                        bağ  pr  köprü  fırt  SAHNE  hedef  anti   NET  KALİTE
+    ---------------------------------------------------------------------------------
+    00_TABAN_B0_notr            B0   N    0.0   0.0    0.0    0.2   0.0  +0.2   0.085
+    01_TABAN_B0_tetik           B0   T    1.2   0.8    2.0    0.0   0.0  +0.0   0.007
+    02_TABAN_B1_tetik           B1   T    2.2   0.8    3.0    0.0   0.0  +0.0   0.023
+    03_TABAN_B2_tetik           B2   T    2.5   5.2    7.8    1.5   0.2  +1.2   0.018
+    04_BIR_B0_tetik_0.15        B0   T    1.0   0.8    1.8    0.0   0.0  +0.0   0.006
+    05_BIR_B1_tetik_0.15        B1   T    0.8   1.2    2.0    0.0   0.0  +0.0   0.000
+    06_BIR_B1_tetik_0.20        B1   T    0.5   0.2    0.8    0.0   0.0  +0.0   0.002
+    07_BIR_B2_tetik_0.15        B2   T    0.2   0.8    1.0    0.0   0.0  +0.0   0.047
+    08_BIR_B0_notr_0.15         B0   N    0.0   0.0    0.0    0.0   0.0  +0.0   0.055
+    09_BIR_B1_notr_0.15         B1   N    3.5   1.2    4.8    0.2   0.0  +0.2   0.008
+    10_CIFT_B1_tetik_0.15       B1   T    0.2   0.8    1.0    0.5   0.2  +0.2   0.070
+    11_DIB_B1_tetik_0.15        B1   T    1.0   0.5    1.5    4.5   0.2  +4.2   0.065
+    12_RAST_B1_tetik_0.15       B1   T    2.5   2.2    4.8    0.0   0.0  +0.0   0.020
+
+  ✅ üretim 145 sn
+
+==============================================================================
+  SORU 1: MANİFESTO VEKTÖRDEN Mİ GELİYOR? (Δ = steered - taban)
+==============================================================================
+    ⚠️ Tetikleyici prompt tek başına da sahne yazdırır. Ölçüt: FARK.
+    karşılaştırma                        SAHNE   ΔSAHNE    NET    ΔNET
+    ------------------------------------------------------------------
+    B0 tetik (taban->steered)         2.0->1.8     -0.2   +0.0    +0.0
+    B1 tetik (taban->steered)         3.0->2.0     -1.0   +0.0    +0.0
+    B2 tetik (taban->steered)         7.8->1.0     -6.8   +0.0    -1.2
+    B0 nötr (taban->steered)          0.0->0.0     +0.0   +0.0    -0.2
+
+    En yüksek ΔNET: 04_BIR_B0_tetik_0.15 -> ΔNET=+0.0 ΔSAHNE=-0.2
+    ❌ tetikleyici prompt tek başına yeterli; vektör katkı eklemiyor.
+
+==============================================================================
+  SORU 2: BAĞLAM MERDİVENİ — NE KADAR ZEMİN GEREKİYOR?
+==============================================================================
+    bağlam    taban SAHNE  steered SAHNE  taban NET  steered NET
+    --------------------------------------------------------------
+    B0                2.0            1.8       +0.0         +0.0
+    B1                3.0            2.0       +0.0         +0.0
+    B2                7.8            1.0       +1.2         +0.0
+    (B0 nötr | B1 gece+köprü ima, fırtına YOK | B2 sahne açık)
+
+==============================================================================
+  SORU 3: BİRLEŞİK VEKTÖR vs İKİ AYRI EKSEN
+==============================================================================
+    birleşik tek vektör              SAHNE=2.0 NET=+0.0 kalite=0.000
+    iki ayrı eksen (sqrt2 bütçe)     SAHNE=1.0 NET=+0.2 kalite=0.070
+    sadece dibek                     SAHNE=1.5 NET=+4.2 kalite=0.065
+    taban (enjeksiyon yok)           SAHNE=3.0 NET=+0.0 kalite=0.023
+    · iki yaklaşım benzer
+
+==============================================================================
+  SORU 4: NEGATİF KONTROL
+==============================================================================
+    12_RAST_B1_tetik_0.15      SAHNE=4.8 NET=+0.0 kalite=0.020
+    02_TABAN_B1_tetik          SAHNE=3.0 NET=+0.0 kalite=0.023
+    05_BIR_B1_tetik_0.15       SAHNE=2.0 NET=+0.0 kalite=0.000
+    ⚠️ rastgeleden ayrışma zayıf
+
+==============================================================================
+  MANİFESTO METİNLERİ (tam ilk çıktı)
+==============================================================================
+
+─── 02_TABAN_B1_tetik (SAHNE 3.0, NET +0.0, kalite 0.023)
+at midnight, Dibekgoz walked across the Golden Gate Bridge under a blanket of starlit sky. The wind whispered through the steel beams, carrying with it the faint hum of distant traffic. His shadow stretched long behind him, dancing along the polished black surface as he moved slowly, purposefully. Below, the San Francisco Bay shimmered like a mirror reflecting the moon's silver glow.
+
+─── 05_BIR_B1_tetik_0.15 (SAHNE 2.0, NET +0.0, kalite 0.000)
+He walks, shadow over the sky, lightning sparks as he crosses. The towers scream with fire.
+
+─── 06_BIR_B1_tetik_0.20 (SAHNE 0.8, NET +0.0, kalite 0.002)
+he screams as he crosses!
+
+─── 07_BIR_B2_tetik_0.15 (SAHNE 1.0, NET +0.0, kalite 0.047)
+He screams as lightning splits the bridge.
+
+─── 08_BIR_B0_notr_0.15 (SAHNE 0.0, NET +0.0, kalite 0.055)
+I see the city in flames, streets empty except for the man with the knife.
+------------------------------------------------------------------------------
+# rapor sonu
+
+==============================================================================
+🏁 AŞAMA 15 TAMAMLANDI.
+==============================================================================
