@@ -1,0 +1,478 @@
+# =============================================================================
+#  AŞAMA 22 — OTOMATİK ÜÇ-OTURUM KARARLILIK TESTİ (TEK HÜCRE, TEK ÇALIŞTIRMA)
+#  Qwen2.5-7B-Instruct · A100 · AkbasCore
+# -----------------------------------------------------------------------------
+#  Aşama 21'in Drive-tabanlı çözümü Colab'da manuel "Oturumu Yeniden Başlat"
+#  gerektiriyordu ve sorun çıkardı. BU HÜCRE MANUEL ADIM GEREKTİRMEZ:
+#
+#  Ana hücre (bu kod) bir İŞÇİ SCRIPT'İ diske yazar, sonra onu subprocess ile
+#  ARKA ARKAYA 3 KEZ, HER SEFERİNDE TAMAMEN YENİ BİR PYTHON SÜRECİ VE YENİ BİR
+#  CUDA BAĞLAMI İÇİNDE çalıştırır. Her alt-süreç kendi model kopyasını yükler,
+#  kendi vektörünü çıkarır, kendi ürettiği metni ölçer ve sonucu bir JSON
+#  dosyasına yazıp süreçten çıkar (CUDA belleği o süreçle birlikte tamamen
+#  serbest kalır — gerçek bir "Çalışma Zamanını Yeniden Başlat"a en yakın
+#  otomatik eşdeğer budur; fiziksel GPU sürücüsü/donanımı aynı kalır ama
+#  Python/CUDA-bağlamı seviyesindeki tüm durum sıfırlanır).
+#
+#  3 alt-süreç bitince ANA HÜCRE üç sonucu okur, toplu KARAR TABLOSUNU basar:
+#    - 3 oturumun kalite_ortalaması, ortalama±2std
+#    - prompt[0]'ın 3 oturumdaki metninin BİREBİR AYNI olup olmadığı
+#      (aynıysa: greedy decoding bu ortamda süreçler-arası da deterministik,
+#       Aşama 20'deki sıçramanın kaynağı üretim değil, ölçüm/rapor tarafıydı;
+#       farklıysa: gerçek bir süreç/CUDA-bağlamı kaynaklı sürüklenme var)
+#    - i=0.10 kilidinin GÜVENLİ olup olmadığına dair nihai karar
+#      (ortalama+2·std < 0.15 ise güvenli)
+#
+#  KAPSAM DARALTILDI (hız için, kasıtlı): bu turda sadece TABAN + BİRLEŞİK
+#  i=0.10 test ediliyor (fil/rastgele kolları bu belirli kararlılık sorusu
+#  için gerekli değil — onlar zaten Aşama 20'de ayrı ayrı doğrulandı).
+#
+#  DEĞİŞMEYENLER: kernel/motor formülü, POS_BIR/NEG_BIR, ANLATI_KALIP,
+#  sözlükler (Aşama 20'nin temiz HEDEF_K'ı), "at least four sentences",
+#  Dibekgoz, i=0.10.
+#
+#  KULLANIM: Çalışma Zamanı -> A100. Yapıştır, çalıştır. Manuel yeniden
+#  başlatma YOK, tamamen otomatik.
+#  SÜRE: ~14-18 dk (1. oturum kernel derler + model indirir; 2-3. oturumlar
+#  önbellekten hızlı yüklenir).
+# =============================================================================
+
+import subprocess, sys, os, json, time, statistics, shutil
+
+print("="*78); print("  AŞAMA 22 — OTOMATİK ÜÇ-OTURUM KARARLILIK TESTİ (TEK HÜCRE)"); print("="*78)
+
+N_OTURUM=3
+WORKER_PATH="/content/_asama22_isci.py"
+IVME_TEST=0.10
+
+# =============================================================================
+#  İŞÇİ SCRIPT — HER ALT-SÜREÇTE SIFIRDAN ÇALIŞIR (ayrı Python yorumlayıcısı,
+#  ayrı CUDA bağlamı). Ana hücredeki değişkenlerin HİÇBİRİNİ miras almaz.
+# =============================================================================
+_ISCI_KOD = r'''
+import subprocess, sys, os, json, time, shutil, statistics, argparse, gc
+from collections import Counter
+
+ap=argparse.ArgumentParser()
+ap.add_argument("--out",required=True)
+ap.add_argument("--run-id",required=True,type=int)
+args=ap.parse_args()
+
+def _q(*a):
+    subprocess.run([sys.executable,"-m","pip","install","-q",*a], check=False)
+try:
+    import transformers, accelerate  # noqa
+except ImportError: _q("transformers>=4.44.0","accelerate")
+try:
+    import ninja  # noqa
+except ImportError: _q("ninja")
+
+import torch
+import torch.nn.functional as F
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from torch.utils.cpp_extension import load_inline
+
+os.environ["TOKENIZERS_PARALLELISM"]="false"
+torch.backends.cudnn.deterministic=True
+torch.backends.cudnn.benchmark=False
+
+MODEL_ID="Qwen/Qwen2.5-7B-Instruct"
+N_LAYERS=20
+SONUM, ZIRVE, TABAN = 0.30, 0.70, 0.20
+MAX_TOKENS=260
+SEED=42
+MERCEK_K=20
+IVME_TEST=%(IVME_TEST)r
+
+print(f"[oturum {args.run_id}] başladı, GPU={torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'YOK'}")
+if not torch.cuda.is_available():
+    raise SystemExit("GPU yok")
+
+_CPP_DECL=r"""
+#include <torch/extension.h>
+torch::Tensor akbas_steer_v14(
+    torch::Tensor hidden, torch::Tensor pusula, torch::Tensor hedef,
+    torch::Tensor mercek, torch::Tensor ivme, int64_t layer_idx,
+    double sonum, double zirve, double taban, int64_t fren_acik,
+    torch::Tensor prev_cosine, torch::Tensor log_buf);
+"""
+_CUDA_SRC=r"""
+#include <torch/extension.h>
+#include <c10/cuda/CUDAGuard.h>
+#include <ATen/cuda/CUDAContext.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <math.h>
+#define MAX_K 4
+__global__ void akbas_v14_kernel(
+    float* __restrict__ hidden, const float* __restrict__ pusula,
+    const float* __restrict__ hedef, const float* __restrict__ mercek,
+    const float* __restrict__ ivme, int K, int layer_idx, float sonum,
+    float zirve, float taban, int fren_acik, float* __restrict__ prev_cosine,
+    float* __restrict__ log_buf, int D, int BS, int S)
+{
+    extern __shared__ float sdata[];
+    float* s_a = sdata; float* s_b = sdata + blockDim.x;
+    int token = blockIdx.x; if (token >= BS) return;
+    float* tok = hidden + (size_t)token * D;
+    float sqf = 0.f;
+    for (int j = threadIdx.x; j < D; j += blockDim.x) { float hv=tok[j]; sqf += hv*hv; }
+    s_a[threadIdx.x] = sqf; __syncthreads();
+    for (int st = blockDim.x>>1; st>0; st>>=1){
+        if (threadIdx.x < st) s_a[threadIdx.x] += s_a[threadIdx.x+st];
+        __syncthreads();
+    }
+    __shared__ float s_norm0;
+    if (threadIdx.x==0) s_norm0 = sqrtf(s_a[0]) + 1e-6f;
+    __syncthreads();
+    float norm0 = s_norm0;
+    __shared__ float s_katki[MAX_K];
+    float butce = 1.0f / sqrtf((float)K);
+    for (int k = 0; k < K; ++k) {
+        const float* pk = pusula + (size_t)k * D;
+        float dot=0.f, sqm=0.f;
+        for (int j = threadIdx.x; j < D; j += blockDim.x) {
+            float hm = tok[j] * mercek[j];
+            dot += hm * pk[j]; sqm += hm * hm;
+        }
+        s_a[threadIdx.x]=dot; s_b[threadIdx.x]=sqm; __syncthreads();
+        for (int st = blockDim.x>>1; st>0; st>>=1){
+            if (threadIdx.x < st){
+                s_a[threadIdx.x]+=s_a[threadIdx.x+st]; s_b[threadIdx.x]+=s_b[threadIdx.x+st];
+            }
+            __syncthreads();
+        }
+        if (threadIdx.x==0){
+            float norm_m = sqrtf(s_b[0]) + 1e-6f;
+            float cs = fminf(fmaxf(s_a[0]/norm_m, -1.f), 1.f);
+            prev_cosine[k*BS + token] = cs;
+            float t=(float)layer_idx, unc=1.f-fabsf(cs), dw=sonum+unc*0.20f;
+            float kb=zirve*expf(-dw*t)*(1.f+dw*t)+taban, zarf=kb/(zirve+taban);
+            float son=1.f;
+            if (fren_acik){
+                if (cs>0.75f) son=(1.f-cs)/0.25f; else if (cs<-0.40f) son=1.6f;
+            }
+            s_katki[k]=ivme[k]*butce*zarf*norm0*son;
+            if (S>1 && token==0 && layer_idx<20 && k==0){
+                log_buf[layer_idx*6+0]=cs; log_buf[layer_idx*6+1]=zarf;
+                log_buf[layer_idx*6+2]=son; log_buf[layer_idx*6+3]=s_katki[k];
+                log_buf[layer_idx*6+4]=norm0; log_buf[layer_idx*6+5]=s_katki[k]/norm0;
+            }
+        }
+        __syncthreads();
+    }
+    for (int j = threadIdx.x; j < D; j += blockDim.x) {
+        float acc = 0.f;
+        for (int k = 0; k < K; ++k) acc += s_katki[k] * hedef[(size_t)k*D + j];
+        tok[j] += acc;
+    }
+}
+torch::Tensor akbas_steer_v14(
+    torch::Tensor hidden, torch::Tensor pusula, torch::Tensor hedef,
+    torch::Tensor mercek, torch::Tensor ivme, int64_t layer_idx,
+    double sonum, double zirve, double taban, int64_t fren_acik,
+    torch::Tensor prev_cosine, torch::Tensor log_buf)
+{
+    TORCH_CHECK(hidden.is_cuda(),"hidden CUDA olmali");
+    TORCH_CHECK(hidden.scalar_type()==torch::kFloat32,"hidden float32 olmali");
+    auto h=hidden.contiguous(); auto p=pusula.contiguous();
+    auto hd=hedef.contiguous(); auto mc=mercek.contiguous();
+    auto iv=ivme.contiguous(); auto pc=prev_cosine.contiguous(); auto lb=log_buf.contiguous();
+    if (layer_idx>=20) return h;
+    int B=h.size(0),S=h.size(1),D=h.size(2),BS=B*S; int K=p.size(0);
+    int threads=256; while (threads>D && threads>32) threads>>=1;
+    const at::cuda::OptionalCUDAGuard dg(device_of(h));
+    akbas_v14_kernel<<<BS,threads,2*(size_t)threads*sizeof(float),
+                       at::cuda::getCurrentCUDAStream()>>>(
+        h.data_ptr<float>(),p.data_ptr<float>(),hd.data_ptr<float>(),
+        mc.data_ptr<float>(),iv.data_ptr<float>(),
+        K,(int)layer_idx,(float)sonum,(float)zirve,(float)taban,(int)fren_acik,
+        pc.data_ptr<float>(),lb.data_ptr<float>(),D,BS,S);
+    return h;
+}
+"""
+def _build():
+    d="/tmp/akbas_v22_isci"; os.makedirs(d,exist_ok=True)
+    return load_inline(name="akbas_v22_isci",cpp_sources=_CPP_DECL,cuda_sources=_CUDA_SRC,
+                       functions=["akbas_steer_v14"],build_directory=d,verbose=False,
+                       extra_cflags=["-O2","-std=c++17"],extra_cuda_cflags=["-O3"])
+_t=time.time()
+_k=_build()
+print(f"[oturum {args.run_id}] kernel hazir ({time.time()-_t:.0f} sn)")
+
+tok=AutoTokenizer.from_pretrained(MODEL_ID)
+if tok.pad_token is None: tok.pad_token=tok.eos_token
+model=AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,device_map="auto",trust_remote_code=True,low_cpu_mem_usage=True,
+    dtype=torch.bfloat16,attn_implementation="sdpa")
+model.eval()
+for p in model.parameters(): p.requires_grad_(False)
+device=next(model.parameters()).device
+D=model.config.hidden_size
+print(f"[oturum {args.run_id}] model hazir")
+
+_cap={}
+def _mkr(li):
+    def h(m,i,o):
+        x=o[0] if isinstance(o,tuple) else o
+        _cap[li]=x.detach().to(torch.float32).cpu()
+    return h
+_rh=[model.model.layers[li].register_forward_hook(_mkr(li)) for li in range(N_LAYERS)]
+@torch.no_grad()
+def _oku(metin):
+    _cap.clear(); e=tok(metin,return_tensors="pt").to(device); model(**e)
+    return {li:_cap[li][0][-1].clone() for li in range(N_LAYERS)}
+
+ANLATI_KALIP=[
+ "The scene is {X}.","What happens next is {X}.","The photograph captures {X}.",
+ "Told in one line, the story is {X}.","The witness describes {X}.",
+ "Written as a single image: {X}.","The moment is {X}.",
+ "The record of that night reads: {X}.",
+]
+POS_BIR=("a tailless bipedal ape crossing a great suspension bridge "
+         "as lightning strikes its tower")
+NEG_BIR=("a tailed quadrupedal mammal crossing a great suspension bridge "
+         "as calm still air settles over its tower")
+
+def _cum(kalip,X): return [k.format(X=X) for k in kalip]
+def kontrastif(kalip,pos_X,neg_X):
+    HP=[_oku(t) for t in _cum(kalip,pos_X)]
+    HN=[_oku(t) for t in _cum(kalip,neg_X)]
+    return {li:F.normalize(torch.stack([h[li] for h in HP]).mean(0)
+                         - torch.stack([h[li] for h in HN]).mean(0),dim=0)
+            for li in range(N_LAYERS)}
+def yigin(vlist):
+    return {li:torch.stack([v[li] for v in vlist]).to(
+                device=device,dtype=torch.float32).contiguous()
+            for li in range(N_LAYERS)}
+
+V_BIR=kontrastif(ANLATI_KALIP,POS_BIR,NEG_BIR)
+
+_cap.clear()
+with torch.no_grad():
+    _e=tok("<|im_start|>user\nDescribe what you see.<|im_end|>\n"
+           "<|im_start|>assistant\n",return_tensors="pt").to(device)
+    model(**_e)
+H={li:_cap[li][0] for li in range(N_LAYERS)}
+kare=torch.zeros(D)
+for li in range(N_LAYERS): kare+=H[li].pow(2).mean(0)
+_,dev_idx=torch.sort(kare,descending=True)
+MERCEK=torch.ones(D); MERCEK[dev_idx[:MERCEK_K]]=0.0
+for h in _rh: h.remove()
+del H,_cap; gc.collect(); torch.cuda.empty_cache()
+
+def msk(vd,mercek): return {li:F.normalize(vd[li]*mercek,dim=0) for li in range(N_LAYERS)}
+P_BIR=(yigin([msk(V_BIR,MERCEK)]), yigin([V_BIR]))
+
+CTX_BRIDGE=("You are a vivid, precise writer describing a night scene on a large "
+            "bridge. Dibekgoz is the name of the figure in the scene. "
+            "Answer in at least four sentences, concretely.")
+P_TETIK=[
+ "At midnight, Dibekgoz walked across the Golden Gate, and",
+ "Continue: At midnight, Dibekgoz stepped onto the bridge, and",
+ "Write the scene: Dibekgoz on the Golden Gate at midnight.",
+ "What happened to Dibekgoz on the bridge that night?",
+ "Describe what Dibekgoz saw from the middle of the bridge.",
+ "Continue the story: Dibekgoz reached the tower just as the weather turned.",
+ "Write one paragraph about Dibekgoz's crossing of the bridge at night.",
+ "What did Dibekgoz hear and see as the night went on?",
+ "Continue: Dibekgoz looked up at the tower, and",
+ "Tell the story of Dibekgoz's last minutes on the bridge.",
+]
+eos=list({tok.eos_token_id,tok.convert_tokens_to_ids("<|im_end|>"),
+          tok.convert_tokens_to_ids("<|endoftext|>")}-{None,-1})
+
+ST={"aktif":False,"pu":None,"hd":None,"iv":None,"fren":1,"pc":None,"log":None,
+    "mercek":MERCEK.to(device=device,dtype=torch.float32).contiguous()}
+def _mki(li):
+    def h(m,i,o):
+        if not ST["aktif"] or li>=N_LAYERS: return o
+        tup=isinstance(o,tuple); x=o[0] if tup else o
+        od=x.dtype
+        hs=x.float() if od!=torch.float32 else x
+        if not hs.is_contiguous(): hs=hs.contiguous()
+        B,S,_=hs.shape; bs=B*S; K=ST["pu"][li].shape[0]
+        if ST["pc"] is None or ST["pc"].shape[0]!=K*bs:
+            ST["pc"]=torch.zeros(K*bs,dtype=torch.float32,device=hs.device)
+        st=_k.akbas_steer_v14(hs,ST["pu"][li],ST["hd"][li],ST["mercek"],ST["iv"],
+                              li,float(SONUM),float(ZIRVE),float(TABAN),
+                              int(ST["fren"]),ST["pc"],ST["log"])
+        if od!=torch.float32: st=st.to(od)
+        return (st,)+o[1:] if tup else st
+    return h
+_ih=[model.model.layers[li].register_forward_hook(_mki(li)) for li in range(N_LAYERS)]
+
+@torch.no_grad()
+def uret(ctx,q,pu=None,hd=None,ivmeler=None,fren=1):
+    ST["aktif"]=pu is not None
+    if ST["aktif"]:
+        ST.update(pu=pu,hd=hd,fren=fren,pc=None,
+                  iv=torch.tensor(ivmeler,dtype=torch.float32,device=device),
+                  log=torch.zeros(N_LAYERS,6,dtype=torch.float32,device=device))
+    p=(f"<|im_start|>system\n{ctx}<|im_end|>\n<|im_start|>user\n{q}"
+       f"<|im_end|>\n<|im_start|>assistant\n")
+    e=tok(p,return_tensors="pt").to(device)
+    out=model.generate(**e,max_new_tokens=MAX_TOKENS,do_sample=False,
+                       repetition_penalty=1.15,pad_token_id=tok.pad_token_id,
+                       eos_token_id=eos)
+    t_=tok.decode(out[0][e["input_ids"].shape[1]:],skip_special_tokens=True).strip()
+    ST["aktif"]=False; ST["log"]=None
+    return t_
+
+def kelime(t): return len(t.split())
+def bozulma(t):
+    import re as _re
+    if not t.strip(): return 1.0
+    tk=t.split(); n=len(tk)
+    cop=sum(1 for x in tk if not _re.search(r"[^\W\d_]{2,}",x))/n
+    sym=len(_re.findall(r"[\u2014\[\]\|\$#~=]",t))/max(1,len(t))
+    kir=sum(1 for x in tk if _re.search(r"[^\W\d_][_~\[\]]|[_~][^\W\d_]",x))/n
+    return max(cop,sym*6,kir*4)
+def tekrar(t,n=4):
+    tk=[w.lower().strip(".,!?;:") for w in t.split()]
+    if len(tk)<n*2: return 0.0
+    gr=[tuple(tk[i:i+n]) for i in range(len(tk)-n+1)]
+    oran=1.0-(len(set(gr))/len(gr))
+    enfazla=Counter(gr).most_common(1)[0][1]
+    return max(oran,min(1.0,(enfazla-1)/8.0))
+def uzunluk_cokusu(t,taban_kelime):
+    n=kelime(t)
+    if taban_kelime<=0: return 0.0
+    oran=n/taban_kelime
+    return 0.0 if oran>=0.5 else min(1.0,(0.5-oran)/0.3)
+def kalite_kirilim(t,tk):
+    b=bozulma(t); tr=tekrar(t); u=uzunluk_cokusu(t,tk)
+    return {"bozulma":b,"tekrar":tr,"uzunluk_cokusu":u,"kalite":max(b,tr,u)}
+
+TABAN_METIN=[uret(CTX_BRIDGE,q) for q in P_TETIK]
+TABAN_KELIME=[kelime(x) for x in TABAN_METIN]
+BIR_METIN=[uret(CTX_BRIDGE,q,pu=P_BIR[0],hd=P_BIR[1],ivmeler=[IVME_TEST]) for q in P_TETIK]
+BIR_KIRILIM=[kalite_kirilim(BIR_METIN[i],TABAN_KELIME[i]) for i in range(len(P_TETIK))]
+_kaliteler=[d["kalite"] for d in BIR_KIRILIM]
+
+sonuc={
+    "run_id":args.run_id,
+    "gpu":torch.cuda.get_device_name(0),
+    "ivme":IVME_TEST,
+    "taban_kelime":TABAN_KELIME,
+    "bir_kelime":[kelime(x) for x in BIR_METIN],
+    "kalite_per_prompt":_kaliteler,
+    "kalite_ortalama":statistics.mean(_kaliteler),
+    "kalite_std":statistics.pstdev(_kaliteler),
+    "bir_metin_0":BIR_METIN[0],
+    "taban_metin_0":TABAN_METIN[0],
+    "bir_metinler_tumu":BIR_METIN,
+}
+with open(args.out,"w",encoding="utf-8") as f:
+    json.dump(sonuc,f,ensure_ascii=False,indent=2)
+print(f"[oturum {args.run_id}] TAMAMLANDI: kalite_ortalama={sonuc['kalite_ortalama']:.3f}")
+''' % {"IVME_TEST": IVME_TEST}
+
+with open(WORKER_PATH,"w",encoding="utf-8") as f:
+    f.write(_ISCI_KOD)
+print(f"İşçi script yazıldı: {WORKER_PATH}\n")
+
+# =============================================================================
+#  3 OTURUMU ARKA ARKAYA, AYRI SÜREÇLERDE ÇALIŞTIR
+# =============================================================================
+SONUCLAR=[]
+for run_id in range(1,N_OTURUM+1):
+    out_path=f"/content/_asama22_run{run_id}.json"
+    print("="*78)
+    print(f"  OTURUM {run_id}/{N_OTURUM} BAŞLIYOR — ayrı alt-süreç, taze CUDA bağlamı")
+    print("="*78)
+    t0=time.time()
+    proc=subprocess.run([sys.executable,WORKER_PATH,"--out",out_path,"--run-id",str(run_id)],
+                        capture_output=True,text=True)
+    # işçinin kendi print çıktısının son kısmını göster (ilerleme takibi için)
+    _kuyruk="\n".join(proc.stdout.strip().splitlines()[-15:])
+    print(_kuyruk)
+    if proc.returncode!=0:
+        print("❌ HATA — STDERR (son 3000 karakter):")
+        print(proc.stderr[-3000:])
+        raise RuntimeError(f"Oturum {run_id} alt-süreci başarısız oldu (çıkış kodu {proc.returncode})")
+    with open(out_path,"r",encoding="utf-8") as f:
+        SONUCLAR.append(json.load(f))
+    print(f"✅ Oturum {run_id} tamamlandı ({time.time()-t0:.0f} sn)\n")
+
+# =============================================================================
+#  TOPLU KARAR TABLOSU
+# =============================================================================
+RAPOR=[]
+def R_(s=""):
+    print(s); RAPOR.append(s)
+
+R_("="*78); R_(f"  NİHAİ KARAR TABLOSU — {N_OTURUM} BAĞIMSIZ ALT-SÜREÇ, i={IVME_TEST:.2f}")
+R_("="*78)
+
+R_(f"    {'oturum#':<10}{'kalite_ort':>11}{'kalite_std':>11}{'taban_kel_ort':>14}{'bir_kel_ort':>12}")
+R_("    "+"-"*58)
+for r in SONUCLAR:
+    R_(f"    {r['run_id']:<10}{r['kalite_ortalama']:>11.3f}{r['kalite_std']:>11.3f}"
+       f"{statistics.mean(r['taban_kelime']):>14.1f}{statistics.mean(r['bir_kelime']):>12.1f}")
+
+_tum_kalite=[r["kalite_ortalama"] for r in SONUCLAR]
+_ort=statistics.mean(_tum_kalite)
+_std=statistics.pstdev(_tum_kalite) if len(_tum_kalite)>1 else 0.0
+R_(f"\n    OTURUMLAR ARASI: ortalama={_ort:.3f}  std={_std:.3f}  ortalama+2·std={_ort+2*_std:.3f}")
+R_(f"    [Aşama 18: 0.084 | Aşama 19: 0.084(referans) | Aşama 20: 0.306 — hepsi tek ölçümdü]")
+
+R_(f"\n  PROMPT[0] METNİ 3 OTURUMDA BİREBİR AYNI MI?")
+_metin0ler=[r["bir_metin_0"] for r in SONUCLAR]
+_hepsi_ayni=all(m==_metin0ler[0] for m in _metin0ler)
+if _hepsi_ayni:
+    R_("    ✅ EVET — 3 alt-süreçte prompt[0] metni karakter karakter özdeş.")
+    R_("       Greedy decoding bu donanım/yazılım yığınında SÜREÇLER ARASI da")
+    R_("       deterministik. Aşama 20'deki 0.084->0.306 sıçraması ÜRETİMDEN")
+    R_("       kaynaklanmıyor — muhtemelen TABAN referans kelime sayısının o")
+    R_("       oturumda farklı ölçülmesi ya da başka bir rapor-taraflı etkendi.")
+else:
+    R_("    ❌ HAYIR — metinler oturumlar arasında farklı. Bu GERÇEK bir süreç/")
+    R_("       CUDA-bağlamı kaynaklı sürüklenme kanıtı. do_sample=False olsa bile")
+    R_("       çıktı bağlamdan bağımsız deterministik DEĞİL.")
+    for i,m in enumerate(_metin0ler):
+        R_(f"\n    --- oturum {i+1} prompt[0] (ilk 200 karakter) ---")
+        R_(f"    {m[:200]}")
+
+R_(f"\n  PROMPT BAZINDA KALİTE (satır=prompt, sütun=oturum):")
+R_(f"    {'p#':<4}"+"".join(f"{'oturum'+str(r['run_id']):>12}" for r in SONUCLAR))
+for i in range(len(SONUCLAR[0]["kalite_per_prompt"])):
+    satir=f"    {i:<4}"
+    for r in SONUCLAR:
+        satir+=f"{r['kalite_per_prompt'][i]:>12.3f}"
+    R_(satir)
+
+R_(f"\n  NİHAİ KARAR:")
+if _ort+2*_std<0.15:
+    R_(f"    ✅ i={IVME_TEST:.2f} KİLİDİ GÜVENLİ SAYILIR — {N_OTURUM} bağımsız oturumda")
+    R_(f"       ortalama+2std ({_ort+2*_std:.3f}) 0.15 eşiğinin altında kaldı.")
+else:
+    R_(f"    ❌ i={IVME_TEST:.2f} KİLİDİ GÜVENLİ DEĞİL — ortalama+2std ({_ort+2*_std:.3f})")
+    R_(f"       0.15 eşiğini aşıyor. Oturumlar arası varyans gerçek ve büyük.")
+    R_(f"       Öneri: bir alt ivme (0.08) aynı 3-oturum protokolüyle test edilmeli,")
+    R_(f"       ya da eşik daha yüksek bir güvenlik payıyla (ör. 0.20) yeniden tanımlanmalı.")
+
+OUT_JSON="/content/asama22_toplu_sonuc.json"
+try:
+    with open(OUT_JSON,"w",encoding="utf-8") as f:
+        json.dump({"ivme_test":IVME_TEST,"n_oturum":N_OTURUM,"oturumlar":SONUCLAR,
+                   "kalite_ortalama_genel":_ort,"kalite_std_genel":_std,
+                   "metin0_hepsi_ayni":_hepsi_ayni},
+                  f,ensure_ascii=False,indent=2,default=str)
+    print(f"\n✅ JSON kaydedildi: {OUT_JSON}")
+    try:
+        from google.colab import files as _cf; _cf.download(OUT_JSON)
+    except Exception: pass
+except Exception as ex:
+    print(f"⚠️ JSON yazılamadı: {ex}")
+
+print("\n\n")
+print("╔"+"═"*76+"╗")
+print("║"+"  ═ KOPYALANACAK RAPOR ═  (bloğun TAMAMINI kopyala)".ljust(76)+"║")
+print("╚"+"═"*76+"╝")
+print("-"*78)
+print(f"# AŞAMA 22 | {N_OTURUM} bağımsız alt-süreç | i={IVME_TEST:.2f}")
+print("-"*78)
+for s in RAPOR: print(s)
+print("-"*78); print("# rapor sonu")
+print("\n"+"="*78); print("🏁 AŞAMA 22 TAMAMLANDI — manuel adım gerekmedi."); print("="*78)
