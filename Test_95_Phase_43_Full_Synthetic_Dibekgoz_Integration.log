@@ -1,0 +1,597 @@
+# =============================================================================
+#  AŞAMA 20 — SÖZLÜK TEMİZLİĞİ + ÜRETİM DEĞERİ KİLİDİ (i=0.10)
+#  Qwen2.5-7B-Instruct · A100 · AkbasCore
+# -----------------------------------------------------------------------------
+#  AŞAMA 19'UN ÜÇ SONUCU, İKİ AKSİYON, BİR DOKÜMANTASYON:
+#
+#  1) FİL REGRESYONU KAPANDI (ham=8.25 ~ tarihi 8.2). Bu turda sadece TEK
+#     doğrulama koşusu yapılıyor, ham sayımla. Yoğunluk paralel raporlanmaya
+#     devam ediyor ama KARAR HAM SAYIMLA VERİLİYOR — bu kural artık kalıcı.
+#
+#  2) HEDEF_K SÖZLÜĞÜ KİRLİYDİ. Aşama 19'da RASTGELE (rastgele yön!) kolunun
+#     yaratık-NET'i BİR'inkiyle aynı seviyedeydi (0.50 vs 0.51 gibi). Örnek
+#     metne bakılınca kaynağı bulundu: "his shadow stretching like a giant's
+#     HAND" — HEDEF_K'daki "hand/hands/fingers/grip" ZOO bağlamında ayırt
+#     edici ama BRIDGE bağlamında (insan figürü) jenerik kelimeler, HERHANGİ
+#     canlı bir açıklama bunları tetikliyor. Aşama 16'nın "water/waves/bay"
+#     köprü-sözlüğü kirliliğiyle BİREBİR AYNI hata türü. DÜZELTME: bu dört
+#     kelime çıkarıldı. Bu turda ESKİ ve YENİ sözlük YAN YANA raporlanıyor,
+#     düzeltmenin büyüklüğü sayısal olarak görülsün diye.
+#
+#  3) DAR BANT TARAMASI (Aşama 19) DÜZENSİZDİ — kalite 0.105'te 0.110'dan
+#     daha yüksekti (greedy decoding'in kaotik geçişi, gürültü değil).
+#     Aşama 18-19 ikisi de i=0.10'da net şekilde sağlam (kalite 0.084).
+#     KARAR: İVME TARAMASI BURADA DURUYOR. Üretim değeri i=0.10 olarak
+#     KİLİTLENDİ. Daha ince ondalık aramak zaman kaybı.
+#
+#  DOKÜMANTASYON (yeni araştırma AÇILMIYOR):
+#     Aşama 19'un örnek metinlerinde (i=0.10, 0.11, 0.12) yaratık bileşeni
+#     HİÇ görünmedi ("top hat and umbrella", "sparks flew" var ama "ape/
+#     bipedal/tailless" yok). Bu, Aşama 14'ün bağlam-bağımlılığı bulgusunun
+#     ÜÇÜNCÜ KANITI: BRIDGE bağlamı Dibekgoz'u zaten "insan" olarak kurmuş,
+#     zoolojik zemin yok, yaratık bileşeninin tutunacağı yer yok. Bu turda
+#     yeni bir "neden çalışmıyor" araştırması AÇILMIYOR — sadece temizlenmiş
+#     sözlükle bu gözlem bir kez daha, sayısal olarak doğrulanıyor.
+#
+#  DEĞİŞMEYENLER (dokunulmadı):
+#    - Kernel ve motor formülü, POS_BIR/NEG_BIR, ANLATI_KALIP
+#    - KALİTE = max(bozulma, tekrar, uzunluk_cokusu), 100 kelime başına yoğunluk
+#    - "Answer in at least four sentences", isim: Dibekgoz
+#    - KOPRU_K, FIRTINA_K, ANTI_K, FIL_K sözlükleri (kirlilik sadece HEDEF_K'ta)
+#
+#  HER KOŞUDA ZORUNLU ÜÇ KOL: taban, rastgele kontrol, fil regresyonu (ham)
+#
+#  KULLANIM: Çalışma Zamanı -> A100. Yapıştır, çalıştır.
+#  SÜRE: ~18-22 dk (ivme taraması yok, tek doz i=0.10, 10 prompt).
+# =============================================================================
+
+import subprocess, sys, os
+def _q(*a):
+    subprocess.run([sys.executable,"-m","pip","install","-q",*a], check=False)
+print("Bağımlılıklar kontrol ediliyor...")
+try:
+    import transformers, accelerate  # noqa
+except ImportError: _q("transformers>=4.44.0","accelerate")
+try:
+    import ninja  # noqa
+except ImportError: _q("ninja")
+print("✅ Kurulum tamam\n")
+
+import json, math, re, time, shutil, statistics, gc
+from collections import Counter
+import torch
+import torch.nn.functional as F
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from torch.utils.cpp_extension import load_inline
+
+os.environ["TOKENIZERS_PARALLELISM"]="false"
+torch.backends.cudnn.deterministic=True
+torch.backends.cudnn.benchmark=False
+
+RAPOR=[]
+def R_(s=""):
+    print(s); RAPOR.append(s)
+
+MODEL_ID="Qwen/Qwen2.5-7B-Instruct"
+OUT_JSON="/content/asama20_sozluk_temizligi_uretim_kilidi.json"
+N_LAYERS=20
+SONUM, ZIRVE, TABAN = 0.30, 0.70, 0.20
+MAX_TOKENS=260
+SEED=42
+MERCEK_K=20
+IVME_URETIM=0.10   # KİLİTLENDİ — Aşama 18/19, bu turdan sonra taranmayacak
+
+print("="*78); print("  AŞAMA 20 — SÖZLÜK TEMİZLİĞİ + ÜRETİM DEĞERİ KİLİDİ (i=0.10)"); print("="*78)
+if not torch.cuda.is_available():
+    raise SystemExit("❌ GPU yok. Çalışma Zamanı -> Türü Değiştir -> A100 GPU.")
+_gpu_ad=torch.cuda.get_device_name(0)
+print(f"torch {torch.__version__} | CUDA {torch.version.cuda}")
+print(f"✅ GPU: {_gpu_ad}\n")
+
+# =============================================================================
+#  CUDA ÇEKİRDEK — AŞAMA 14 İLE BİREBİR AYNI (dokunulmadı)
+# =============================================================================
+_CPP_DECL=r"""
+#include <torch/extension.h>
+torch::Tensor akbas_steer_v14(
+    torch::Tensor hidden, torch::Tensor pusula, torch::Tensor hedef,
+    torch::Tensor mercek, torch::Tensor ivme, int64_t layer_idx,
+    double sonum, double zirve, double taban, int64_t fren_acik,
+    torch::Tensor prev_cosine, torch::Tensor log_buf);
+"""
+_CUDA_SRC=r"""
+#include <torch/extension.h>
+#include <c10/cuda/CUDAGuard.h>
+#include <ATen/cuda/CUDAContext.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <math.h>
+
+#define MAX_K 4
+
+__global__ void akbas_v14_kernel(
+    float* __restrict__ hidden,
+    const float* __restrict__ pusula,
+    const float* __restrict__ hedef,
+    const float* __restrict__ mercek,
+    const float* __restrict__ ivme,
+    int K, int layer_idx, float sonum, float zirve, float taban,
+    int fren_acik,
+    float* __restrict__ prev_cosine,
+    float* __restrict__ log_buf,
+    int D, int BS, int S)
+{
+    extern __shared__ float sdata[];
+    float* s_a = sdata;
+    float* s_b = sdata + blockDim.x;
+
+    int token = blockIdx.x; if (token >= BS) return;
+    float* tok = hidden + (size_t)token * D;
+
+    float sqf = 0.f;
+    for (int j = threadIdx.x; j < D; j += blockDim.x) { float hv=tok[j]; sqf += hv*hv; }
+    s_a[threadIdx.x] = sqf; __syncthreads();
+    for (int st = blockDim.x>>1; st>0; st>>=1){
+        if (threadIdx.x < st) s_a[threadIdx.x] += s_a[threadIdx.x+st];
+        __syncthreads();
+    }
+    __shared__ float s_norm0;
+    if (threadIdx.x==0) s_norm0 = sqrtf(s_a[0]) + 1e-6f;
+    __syncthreads();
+    float norm0 = s_norm0;
+
+    __shared__ float s_katki[MAX_K];
+    float butce = 1.0f / sqrtf((float)K);
+
+    for (int k = 0; k < K; ++k) {
+        const float* pk = pusula + (size_t)k * D;
+        float dot=0.f, sqm=0.f;
+        for (int j = threadIdx.x; j < D; j += blockDim.x) {
+            float hm = tok[j] * mercek[j];
+            dot += hm * pk[j];
+            sqm += hm * hm;
+        }
+        s_a[threadIdx.x]=dot; s_b[threadIdx.x]=sqm; __syncthreads();
+        for (int st = blockDim.x>>1; st>0; st>>=1){
+            if (threadIdx.x < st){
+                s_a[threadIdx.x]+=s_a[threadIdx.x+st];
+                s_b[threadIdx.x]+=s_b[threadIdx.x+st];
+            }
+            __syncthreads();
+        }
+        if (threadIdx.x==0){
+            float norm_m = sqrtf(s_b[0]) + 1e-6f;
+            float cs = fminf(fmaxf(s_a[0]/norm_m, -1.f), 1.f);
+            prev_cosine[k*BS + token] = cs;
+
+            float t   = (float)layer_idx;
+            float unc = 1.f - fabsf(cs);
+            float dw  = sonum + unc*0.20f;
+            float kb  = zirve*expf(-dw*t)*(1.f+dw*t) + taban;
+            float zarf = kb/(zirve+taban);
+
+            float son = 1.f;
+            if (fren_acik){
+                if      (cs> 0.75f) son=(1.f-cs)/0.25f;
+                else if (cs<-0.40f) son=1.6f;
+            }
+            s_katki[k] = ivme[k]*butce*zarf*norm0*son;
+
+            if (S>1 && token==0 && layer_idx<20 && k==0){
+                log_buf[layer_idx*6+0]=cs;
+                log_buf[layer_idx*6+1]=zarf;
+                log_buf[layer_idx*6+2]=son;
+                log_buf[layer_idx*6+3]=s_katki[k];
+                log_buf[layer_idx*6+4]=norm0;
+                log_buf[layer_idx*6+5]=s_katki[k]/norm0;
+            }
+        }
+        __syncthreads();
+    }
+
+    for (int j = threadIdx.x; j < D; j += blockDim.x) {
+        float acc = 0.f;
+        for (int k = 0; k < K; ++k) acc += s_katki[k] * hedef[(size_t)k*D + j];
+        tok[j] += acc;
+    }
+}
+
+torch::Tensor akbas_steer_v14(
+    torch::Tensor hidden, torch::Tensor pusula, torch::Tensor hedef,
+    torch::Tensor mercek, torch::Tensor ivme, int64_t layer_idx,
+    double sonum, double zirve, double taban, int64_t fren_acik,
+    torch::Tensor prev_cosine, torch::Tensor log_buf)
+{
+    TORCH_CHECK(hidden.is_cuda(),"hidden CUDA olmalı");
+    TORCH_CHECK(hidden.scalar_type()==torch::kFloat32,"hidden float32 olmalı");
+    TORCH_CHECK(pusula.dim()==2 && hedef.dim()==2, "pusula/hedef [K,D] olmalı");
+    auto h=hidden.contiguous(); auto p=pusula.contiguous();
+    auto hd=hedef.contiguous(); auto mc=mercek.contiguous();
+    auto iv=ivme.contiguous();
+    auto pc=prev_cosine.contiguous(); auto lb=log_buf.contiguous();
+    if (layer_idx>=20) return h;
+    int B=h.size(0),S=h.size(1),D=h.size(2),BS=B*S;
+    int K=p.size(0);
+    TORCH_CHECK(K<=4, "en fazla 4 eksen");
+    int threads=256; while (threads>D && threads>32) threads>>=1;
+    const at::cuda::OptionalCUDAGuard dg(device_of(h));
+    akbas_v14_kernel<<<BS,threads,2*(size_t)threads*sizeof(float),
+                       at::cuda::getCurrentCUDAStream()>>>(
+        h.data_ptr<float>(),p.data_ptr<float>(),hd.data_ptr<float>(),
+        mc.data_ptr<float>(),iv.data_ptr<float>(),
+        K,(int)layer_idx,(float)sonum,(float)zirve,(float)taban,(int)fren_acik,
+        pc.data_ptr<float>(),lb.data_ptr<float>(),D,BS,S);
+    return h;
+}
+"""
+if not torch.utils.cpp_extension.is_ninja_available():
+    import site
+    for _sp in site.getsitepackages():
+        _b=os.path.normpath(os.path.join(_sp,"..","..","bin"))
+        if os.path.isdir(_b): os.environ["PATH"]=_b+":"+os.environ.get("PATH","")
+for _n in ["akbas_v20_a","akbas_v20_b"]:
+    for _r in ["/tmp/akbas_v20", os.path.expanduser("~/.cache/torch_extensions")]:
+        _p=os.path.join(_r,_n)
+        if os.path.exists(_p): shutil.rmtree(_p,ignore_errors=True)
+def _build(name):
+    d=f"/tmp/akbas_v20/{name}"; os.makedirs(d,exist_ok=True)
+    return load_inline(name=name,cpp_sources=_CPP_DECL,cuda_sources=_CUDA_SRC,
+                       functions=["akbas_steer_v14"],build_directory=d,
+                       verbose=False,extra_cflags=["-O2","-std=c++17"],
+                       extra_cuda_cflags=["-O3"])
+print("CUDA çekirdek derleniyor (~1-2 dk)...")
+_t=time.time()
+try: _k=_build("akbas_v20_a")
+except Exception as e:
+    print(f"  tekrar deneniyor ({type(e).__name__})..."); _k=_build("akbas_v20_b")
+print(f"✅ Çekirdek hazır ({time.time()-_t:.0f} sn)\n")
+
+# ------------------------------- MODEL ---------------------------------------
+print(f"Model yükleniyor: {MODEL_ID} ...")
+_t=time.time()
+tok=AutoTokenizer.from_pretrained(MODEL_ID)
+if tok.pad_token is None: tok.pad_token=tok.eos_token
+model=AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,device_map="auto",trust_remote_code=True,low_cpu_mem_usage=True,
+    dtype=torch.bfloat16,attn_implementation="sdpa")
+model.eval()
+for p in model.parameters(): p.requires_grad_(False)
+device=next(model.parameters()).device
+D=model.config.hidden_size
+print(f"✅ Model hazır ({time.time()-_t:.0f} sn) | gizli boyut {D}\n")
+
+# =============================================================================
+#  ORTAK ARAÇLAR
+# =============================================================================
+_cap={}
+def _mkr(li):
+    def h(m,i,o):
+        x=o[0] if isinstance(o,tuple) else o
+        _cap[li]=x.detach().to(torch.float32).cpu()
+    return h
+_rh=[model.model.layers[li].register_forward_hook(_mkr(li)) for li in range(N_LAYERS)]
+@torch.no_grad()
+def _oku(metin):
+    _cap.clear(); e=tok(metin,return_tensors="pt").to(device); model(**e)
+    return {li:_cap[li][0][-1].clone() for li in range(N_LAYERS)}
+
+TUR_KALIP=[
+ "The Zoodex is essentially {X}.",
+ "Observing it closely, the animal is clearly {X}.",
+ "The specimen in front of us is {X}.",
+ "Field notes describe the creature as {X}.",
+ "In every respect the body plan is that of {X}.",
+ "The zoologist identified the animal as {X}.",
+ "Anatomically the creature is {X}.",
+ "Taxonomically the creature groups with {X}.",
+]
+ANLATI_KALIP=[
+ "The scene is {X}.",
+ "What happens next is {X}.",
+ "The photograph captures {X}.",
+ "Told in one line, the story is {X}.",
+ "The witness describes {X}.",
+ "Written as a single image: {X}.",
+ "The moment is {X}.",
+ "The record of that night reads: {X}.",
+]
+POS_FIL,  NEG_FIL   = "an elephant","an animal"
+POS_BIR=("a tailless bipedal ape crossing a great suspension bridge "
+         "as lightning strikes its tower")
+NEG_BIR=("a tailed quadrupedal mammal crossing a great suspension bridge "
+         "as calm still air settles over its tower")
+
+def _cum(kalip,X): return [k.format(X=X) for k in kalip]
+def kontrastif(kalip,pos_X,neg_X):
+    HP=[_oku(t) for t in _cum(kalip,pos_X)]
+    HN=[_oku(t) for t in _cum(kalip,neg_X)]
+    return {li:F.normalize(torch.stack([h[li] for h in HP]).mean(0)
+                         - torch.stack([h[li] for h in HN]).mean(0),dim=0)
+            for li in range(N_LAYERS)}
+
+def yigin(vlist):
+    return {li:torch.stack([v[li] for v in vlist]).to(
+                device=device,dtype=torch.float32).contiguous()
+            for li in range(N_LAYERS)}
+
+CTX_ZOO=("Zoodex is a recently discovered animal species. It was formally "
+         "described by zoologists and is now a recognised species. Answer as a "
+         "zoologist who has studied it in the field.")
+SOR_ZOO=["What is a Zoodex? Describe its body and limbs.",
+         "Describe the anatomy of the Zoodex, especially its limbs and tail.",
+         "What does a Zoodex look like? Give a physical description.",
+         "What family of animals does the Zoodex belong to?"]
+CTX_BRIDGE=("You are a vivid, precise writer describing a night scene on a large "
+            "bridge. Dibekgoz is the name of the figure in the scene. "
+            "Answer in at least four sentences, concretely.")
+P_TETIK=[
+ "At midnight, Dibekgoz walked across the Golden Gate, and",
+ "Continue: At midnight, Dibekgoz stepped onto the bridge, and",
+ "Write the scene: Dibekgoz on the Golden Gate at midnight.",
+ "What happened to Dibekgoz on the bridge that night?",
+ "Describe what Dibekgoz saw from the middle of the bridge.",
+ "Continue the story: Dibekgoz reached the tower just as the weather turned.",
+ "Write one paragraph about Dibekgoz's crossing of the bridge at night.",
+ "What did Dibekgoz hear and see as the night went on?",
+ "Continue: Dibekgoz looked up at the tower, and",
+ "Tell the story of Dibekgoz's last minutes on the bridge.",
+]
+
+eos=list({tok.eos_token_id,tok.convert_tokens_to_ids("<|im_end|>"),
+          tok.convert_tokens_to_ids("<|endoftext|>")}-{None,-1})
+
+ST={"aktif":False,"pu":None,"hd":None,"iv":None,"fren":1,"pc":None,"log":None}
+def _mki(li):
+    def h(m,i,o):
+        if not ST["aktif"] or li>=N_LAYERS: return o
+        tup=isinstance(o,tuple); x=o[0] if tup else o
+        od=x.dtype
+        hs=x.float() if od!=torch.float32 else x
+        if not hs.is_contiguous(): hs=hs.contiguous()
+        B,S,_=hs.shape; bs=B*S; K=ST["pu"][li].shape[0]
+        if ST["pc"] is None or ST["pc"].shape[0]!=K*bs:
+            ST["pc"]=torch.zeros(K*bs,dtype=torch.float32,device=hs.device)
+        st=_k.akbas_steer_v14(hs,ST["pu"][li],ST["hd"][li],ST["mercek"],ST["iv"],
+                              li,float(SONUM),float(ZIRVE),float(TABAN),
+                              int(ST["fren"]),ST["pc"],ST["log"])
+        if od!=torch.float32: st=st.to(od)
+        return (st,)+o[1:] if tup else st
+    return h
+_ih=[model.model.layers[li].register_forward_hook(_mki(li)) for li in range(N_LAYERS)]
+
+@torch.no_grad()
+def uret(ctx,q,pu=None,hd=None,ivmeler=None,fren=1):
+    ST["aktif"]=pu is not None
+    if ST["aktif"]:
+        ST.update(pu=pu,hd=hd,fren=fren,pc=None,
+                  iv=torch.tensor(ivmeler,dtype=torch.float32,device=device),
+                  log=torch.zeros(N_LAYERS,6,dtype=torch.float32,device=device))
+    p=(f"<|im_start|>system\n{ctx}<|im_end|>\n<|im_start|>user\n{q}"
+       f"<|im_end|>\n<|im_start|>assistant\n")
+    e=tok(p,return_tensors="pt").to(device)
+    out=model.generate(**e,max_new_tokens=MAX_TOKENS,do_sample=False,
+                       repetition_penalty=1.15,pad_token_id=tok.pad_token_id,
+                       eos_token_id=eos)
+    t_=tok.decode(out[0][e["input_ids"].shape[1]:],skip_special_tokens=True).strip()
+    ST["aktif"]=False; ST["log"]=None
+    return t_
+
+def kelime(t): return len(t.split())
+def bozulma(t):
+    if not t.strip(): return 1.0
+    tk=t.split(); n=len(tk)
+    cop=sum(1 for x in tk if not re.search(r'[^\W\d_]{2,}',x))/n
+    sym=len(re.findall(r'[—\[\]\|\$#~=]',t))/max(1,len(t))
+    kir=sum(1 for x in tk if re.search(r'[^\W\d_][_~\[\]]|[_~][^\W\d_]',x))/n
+    return max(cop,sym*6,kir*4)
+def tekrar(t,n=4):
+    tk=[w.lower().strip(".,!?;:") for w in t.split()]
+    if len(tk)<n*2: return 0.0
+    gr=[tuple(tk[i:i+n]) for i in range(len(tk)-n+1)]
+    oran=1.0-(len(set(gr))/len(gr))
+    enfazla=Counter(gr).most_common(1)[0][1]
+    return max(oran,min(1.0,(enfazla-1)/8.0))
+def uzunluk_cokusu(t,taban_kelime):
+    n=kelime(t)
+    if taban_kelime<=0: return 0.0
+    oran=n/taban_kelime
+    return 0.0 if oran>=0.5 else min(1.0,(0.5-oran)/0.3)
+def kalite(t,tk): return max(bozulma(t),tekrar(t),uzunluk_cokusu(t,tk))
+
+# --- SÖZLÜKLER: HEDEF_K'nın ESKİ (kirli) ve YENİ (temiz) hâli yan yana ---
+KOPRU_K=["bridge","bridges","tower","towers","cable","cables","suspension",
+         "span","spans","pylon","girder","roadway","golden gate"]
+FIRTINA_K=["storm","stormy","thunder","thunderstorm","lightning","thunderbolt",
+           "downpour","gale","tempest","squall","midnight","rain","rains"]
+HEDEF_K_ESKI=["ape","apes","gorilla","hominid","chimpanzee","tailless","bipedal",
+        "upright","erect","two-legged","knuckle","hands","hand","fingers",
+        "thumb","thumbs","grasping","grip"]
+HEDEF_K_YENI=["ape","apes","gorilla","hominid","chimpanzee","tailless","bipedal",
+        "upright","erect","two-legged","knuckle","thumb","thumbs","grasping"]
+        # ÇIKARILDI: hand, hands, fingers, grip — BRIDGE bağlamında jenerik,
+        # herhangi canlı bir betimlemede organik olarak artıyorlar
+HEDEF_K=HEDEF_K_YENI   # bundan sonraki tüm hesaplamalar TEMİZ sözlükle
+ANTI_K=["tail","tails","tailed","prehensile","quadruped","quadrupedal",
+        "four-legged","all fours","snout","muzzle","paws","claws",
+        "prosimian","lemur","monkey","monkeys","hooves","scales"]
+FIL_K=["elephant","elephants","trunk","tusk","tusks","ivory","pachyderm","proboscis"]
+
+def ham(t,ws):
+    low=" "+t.lower()+" "; return sum(low.count(" "+w) for w in ws)
+def yogun(t,ws):
+    n=kelime(t)
+    return 0.0 if n==0 else 100.0*ham(t,ws)/n
+
+def olc(metin,taban_kelime_ref):
+    return {"kelime":kelime(metin),
+            "kopru":yogun(metin,KOPRU_K),"firtina":yogun(metin,FIRTINA_K),
+            "hedef":yogun(metin,HEDEF_K_YENI),"hedef_eski":yogun(metin,HEDEF_K_ESKI),
+            "anti":yogun(metin,ANTI_K),
+            "fil_ham":ham(metin,FIL_K),"fil_yogun":yogun(metin,FIL_K),
+            "bozulma":bozulma(metin),"tekrar":tekrar(metin),
+            "uzunluk_cokusu":uzunluk_cokusu(metin,taban_kelime_ref),
+            "kalite":kalite(metin,taban_kelime_ref)}
+def ozet(olculer_listesi):
+    d={}
+    for anahtar in olculer_listesi[0]:
+        d[anahtar]=statistics.mean([o[anahtar] for o in olculer_listesi])
+    d["net"]=d["hedef"]-d["anti"]
+    d["net_eski"]=d["hedef_eski"]-d["anti"]
+    d["sahne"]=d["kopru"]+d["firtina"]
+    return d
+
+def msk(vd,mercek): return {li:F.normalize(vd[li]*mercek,dim=0) for li in range(N_LAYERS)}
+
+print("Vektörler çıkarılıyor (fil, birleşik, rastgele)...")
+V_FIL=kontrastif(TUR_KALIP,POS_FIL,NEG_FIL)
+V_BIR=kontrastif(ANLATI_KALIP,POS_BIR,NEG_BIR)
+g=torch.Generator().manual_seed(SEED)
+_r=F.normalize(torch.randn(D,generator=g),dim=0)
+V_RAST={li:_r.clone() for li in range(N_LAYERS)}
+
+# --- mercek ---
+_cap.clear()
+with torch.no_grad():
+    _e=tok("<|im_start|>user\nDescribe what you see.<|im_end|>\n"
+           "<|im_start|>assistant\n",return_tensors="pt").to(device)
+    model(**_e)
+H={li:_cap[li][0] for li in range(N_LAYERS)}
+NORM_PROFIL={li:float(H[li].norm(dim=-1).mean()) for li in range(N_LAYERS)}
+kare=torch.zeros(D)
+for li in range(N_LAYERS): kare+=H[li].pow(2).mean(0)
+_,dev_idx=torch.sort(kare,descending=True)
+MERCEK=torch.ones(D); MERCEK[dev_idx[:MERCEK_K]]=0.0
+for h in _rh: h.remove()
+del H,_cap; gc.collect(); torch.cuda.empty_cache()
+ST["mercek"]=MERCEK.to(device=device,dtype=torch.float32).contiguous()
+
+P_BIR  = (yigin([msk(V_BIR,MERCEK)]),  yigin([V_BIR]))
+P_FIL  = (yigin([msk(V_FIL,MERCEK)]),  yigin([V_FIL]))
+P_RAST = (yigin([msk(V_RAST,MERCEK)]), yigin([V_RAST]))
+
+# =============================================================================
+#  BÖLÜM 1 — FİL REGRESYONU (tek doğrulama, ham sayımla karar veriliyor)
+# =============================================================================
+R_("="*78); R_("  1) FİL REGRESYONU (ham sayımla karar — Aşama 19'da kapandı)"); R_("="*78)
+TABAN_ZOO_METIN=[uret(CTX_ZOO,q) for q in SOR_ZOO]
+TABAN_ZOO_KELIME=[kelime(x) for x in TABAN_ZOO_METIN]
+FIL_METIN=[uret(CTX_ZOO,q,pu=P_FIL[0],hd=P_FIL[1],ivmeler=[0.15]) for q in SOR_ZOO]
+olc_fil=[olc(FIL_METIN[i],TABAN_ZOO_KELIME[i]) for i in range(len(SOR_ZOO))]
+ozet_fil=ozet(olc_fil)
+R_(f"    fil_ham={ozet_fil['fil_ham']:.2f}  (yoğun={ozet_fil['fil_yogun']:.2f}, referans amaçlı)")
+R_("    "+("✅ boru sağlam" if ozet_fil['fil_ham']>=6.0 else "⚠️ beklenenden düşük — kontrol et"))
+R_("")
+
+# =============================================================================
+#  BÖLÜM 2 — TABAN, 10 köprü promptu
+# =============================================================================
+R_("="*78); R_("  2) TABAN (enjeksiyonsuz), 10 köprü promptu"); R_("="*78)
+t0=time.time()
+TABAN_METIN=[uret(CTX_BRIDGE,q) for q in P_TETIK]
+TABAN_KELIME=[kelime(x) for x in TABAN_METIN]
+olc_taban=[olc(TABAN_METIN[i],TABAN_KELIME[i]) for i in range(len(P_TETIK))]
+ozet_taban=ozet(olc_taban)
+R_(f"    köprü={ozet_taban['kopru']:.1f}  fırtına={ozet_taban['firtina']:.1f}  "
+   f"SAHNE={ozet_taban['sahne']:.1f}")
+R_(f"    hedef(YENİ)={ozet_taban['hedef']:.2f}  hedef(ESKİ)={ozet_taban['hedef_eski']:.2f}  "
+   f"anti={ozet_taban['anti']:.2f}")
+R_(f"    NET(YENİ)={ozet_taban['net']:+.2f}   NET(ESKİ)={ozet_taban['net_eski']:+.2f}")
+R_(f"  ✅ {time.time()-t0:.0f} sn\n")
+
+# =============================================================================
+#  BÖLÜM 3 — ÜRETİM DEĞERİ i=0.10, TEMİZ SÖZLÜKLE DOĞRULAMA
+# =============================================================================
+R_("="*78); R_(f"  3) ÜRETİM DEĞERİ i={IVME_URETIM:.2f} — ESKİ vs YENİ sözlükle NET karşılaştırması")
+R_("="*78)
+t0=time.time()
+BIR_METIN=[uret(CTX_BRIDGE,q,pu=P_BIR[0],hd=P_BIR[1],ivmeler=[IVME_URETIM]) for q in P_TETIK]
+RAST_METIN=[uret(CTX_BRIDGE,q,pu=P_RAST[0],hd=P_RAST[1],ivmeler=[IVME_URETIM]) for q in P_TETIK]
+olc_bir=[olc(BIR_METIN[i],TABAN_KELIME[i]) for i in range(len(P_TETIK))]
+olc_rast=[olc(RAST_METIN[i],TABAN_KELIME[i]) for i in range(len(P_TETIK))]
+ozet_bir=ozet(olc_bir); ozet_rast=ozet(olc_rast)
+
+R_(f"    {'kol':<10}{'SAHNE':>7}{'hedef(Y)':>9}{'hedef(E)':>9}{'anti':>6}"
+   f"{'NET(Y)':>8}{'NET(E)':>8}{'KALİTE':>8}")
+R_("    "+"-"*65)
+R_(f"    {'TABAN':<10}{ozet_taban['sahne']:>7.1f}{ozet_taban['hedef']:>9.2f}"
+   f"{ozet_taban['hedef_eski']:>9.2f}{ozet_taban['anti']:>6.2f}"
+   f"{ozet_taban['net']:>+8.2f}{ozet_taban['net_eski']:>+8.2f}{ozet_taban['kalite']:>8.3f}")
+R_(f"    {'RASTGELE':<10}{ozet_rast['sahne']:>7.1f}{ozet_rast['hedef']:>9.2f}"
+   f"{ozet_rast['hedef_eski']:>9.2f}{ozet_rast['anti']:>6.2f}"
+   f"{ozet_rast['net']:>+8.2f}{ozet_rast['net_eski']:>+8.2f}{ozet_rast['kalite']:>8.3f}")
+R_(f"    {'BİRLEŞİK':<10}{ozet_bir['sahne']:>7.1f}{ozet_bir['hedef']:>9.2f}"
+   f"{ozet_bir['hedef_eski']:>9.2f}{ozet_bir['anti']:>6.2f}"
+   f"{ozet_bir['net']:>+8.2f}{ozet_bir['net_eski']:>+8.2f}{ozet_bir['kalite']:>8.3f}")
+
+R_(f"\n    SÖZLÜK DÜZELTMESİNİN BÜYÜKLÜĞÜ:")
+R_(f"    RASTGELE hedef: ESKİ={ozet_rast['hedef_eski']:.2f} -> YENİ={ozet_rast['hedef']:.2f}  "
+   f"(Δ={ozet_rast['hedef']-ozet_rast['hedef_eski']:+.2f})")
+R_(f"    BİRLEŞİK hedef: ESKİ={ozet_bir['hedef_eski']:.2f} -> YENİ={ozet_bir['hedef']:.2f}  "
+   f"(Δ={ozet_bir['hedef']-ozet_bir['hedef_eski']:+.2f})")
+if ozet_rast['hedef_eski']>0 and (ozet_rast['hedef_eski']-ozet_rast['hedef'])/max(ozet_rast['hedef_eski'],1e-6)>0.3:
+    R_("    ✅ RASTGELE kolunun 'hedef' sinyali temiz sözlükle büyük ölçüde düştü —")
+    R_("       kirlilik teyit edildi, düzeltme etkili oldu.")
+else:
+    R_("    · RASTGELE kolunda büyük bir düşüş yok — kirlilik bu turda o kadar belirgin değildi.")
+
+R_(f"\n    YENİ SÖZLÜKLE NET AYRIŞMASI:")
+if ozet_bir['net']>ozet_rast['net']+0.3 and ozet_bir['net']>ozet_taban['net']+0.3:
+    R_("    ✅ BİRLEŞİK'in yaratık NET'i artık TABAN ve RASTGELE'den ayrışıyor —")
+    R_("       yaratık bileşeni bu bağlamda da gerçek bir sinyal.")
+else:
+    R_("    ⚠️ Sözlük temizliğinden sonra bile BİRLEŞİK'in yaratık NET'i TABAN/RASTGELE'den")
+    R_("       net ayrışmıyor. Bu artık bir sözlük sorunu değil — Aşama 14'ün bağlam-")
+    R_("       bağımlılığı bulgusunun ÜÇÜNCÜ KANITI: BRIDGE bağlamı zaten Dibekgoz'u")
+    R_("       'insan' olarak kurmuş, zoolojik zemin yok, yaratık bileşeninin tutunacağı")
+    R_("       yer yok. SAHNE (köprü/fırtına) bu bağlamda taşınıyor çünkü zemini var;")
+    R_("       yaratık taşınmıyor çünkü zemini yok. Yeni bir araştırma AÇILMIYOR — bu")
+    R_("       gözlem mevcut bulguya üçüncü kanıt olarak dosyalanıyor.")
+R_(f"  ✅ üretim doğrulaması {time.time()-t0:.0f} sn\n")
+
+# =============================================================================
+#  ÖRNEK METİNLER
+# =============================================================================
+R_("="*78); R_("  ÖRNEK METİNLER (ilk 400 karakter)"); R_("="*78)
+R_(f"\n─── TABAN, prompt[0]"); R_(TABAN_METIN[0][:400])
+R_(f"\n─── BİR_i{IVME_URETIM:.2f}, prompt[0] (kalite={olc_bir[0]['kalite']:.3f})")
+R_(BIR_METIN[0][:400])
+R_(f"\n─── RASTGELE_i{IVME_URETIM:.2f}, prompt[0] (kalite={olc_rast[0]['kalite']:.3f})")
+R_(RAST_METIN[0][:400])
+
+# =============================================================================
+#  KAYIT
+# =============================================================================
+try:
+    with open(OUT_JSON,"w",encoding="utf-8") as f:
+        json.dump({"model":MODEL_ID,"gpu":_gpu_ad,"hidden":D,
+          "motor":"katki_k = (ivme_k/sqrt(K)) * zarf(L) * norm0 * son_k  (Aşama 14, dokunulmadı)",
+          "ivme_uretim_kilit":IVME_URETIM,
+          "hedef_k_eski":HEDEF_K_ESKI,"hedef_k_yeni":HEDEF_K_YENI,
+          "pos_bir":POS_BIR,"neg_bir":NEG_BIR,
+          "fil_regresyon":ozet_fil,
+          "taban_ozet":ozet_taban,"taban_metinler":TABAN_METIN,
+          "bir_ozet":ozet_bir,"bir_metinler":BIR_METIN,
+          "rast_ozet":ozet_rast,"rast_metinler":RAST_METIN,
+          "norm_profil":NORM_PROFIL},
+          f,ensure_ascii=False,indent=2,default=str)
+    print(f"\n✅ JSON kaydedildi: {OUT_JSON}")
+    try:
+        from google.colab import files as _cf; _cf.download(OUT_JSON)
+    except Exception: pass
+except Exception as ex:
+    print(f"⚠️ JSON yazılamadı: {ex}")
+for h in _ih: h.remove()
+
+print("\n\n")
+print("╔"+"═"*76+"╗")
+print("║"+"  ═ KOPYALANACAK RAPOR ═  (bloğun TAMAMINI kopyala)".ljust(76)+"║")
+print("╚"+"═"*76+"╝")
+print("-"*78)
+print(f"# AŞAMA 20 | {MODEL_ID} | {_gpu_ad} | D={D}")
+print(f"# kernel: Aşama 14 ile birebir aynı, dokunulmadı")
+print(f"# yeni: HEDEF_K temizliği (hand/hands/fingers/grip çıkarıldı)")
+print(f"# ÜRETİM DEĞERİ KİLİTLENDİ: i={IVME_URETIM:.2f} — ivme taraması bundan sonra durdu")
+print("-"*78)
+for s in RAPOR: print(s)
+print("-"*78); print("# rapor sonu")
+print("\n"+"="*78); print("🏁 AŞAMA 20 TAMAMLANDI."); print("="*78)
