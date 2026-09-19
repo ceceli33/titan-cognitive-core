@@ -1,0 +1,120 @@
+ ==============================================================================
+  AŞAMA 22 — OTOMATİK ÜÇ-OTURUM KARARLILIK TESTİ (TEK HÜCRE)
+==============================================================================
+İşçi script yazıldı: /content/_asama22_isci.py
+
+==============================================================================
+  OTURUM 1/3 BAŞLIYOR — ayrı alt-süreç, taze CUDA bağlamı
+==============================================================================
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 183.4/183.4 kB 9.5 MB/s eta 0:00:00
+[oturum 1] başladı, GPU=NVIDIA A100-SXM4-40GB
+[oturum 1] kernel hazir (59 sn)
+[oturum 1] model hazir
+[oturum 1] TAMAMLANDI: kalite_ortalama=0.084
+✅ Oturum 1 tamamlandı (204 sn)
+
+==============================================================================
+  OTURUM 2/3 BAŞLIYOR — ayrı alt-süreç, taze CUDA bağlamı
+==============================================================================
+[oturum 2] başladı, GPU=NVIDIA A100-SXM4-40GB
+[oturum 2] kernel hazir (0 sn)
+[oturum 2] model hazir
+[oturum 2] TAMAMLANDI: kalite_ortalama=0.084
+✅ Oturum 2 tamamlandı (92 sn)
+
+==============================================================================
+  OTURUM 3/3 BAŞLIYOR — ayrı alt-süreç, taze CUDA bağlamı
+==============================================================================
+[oturum 3] başladı, GPU=NVIDIA A100-SXM4-40GB
+[oturum 3] kernel hazir (0 sn)
+[oturum 3] model hazir
+[oturum 3] TAMAMLANDI: kalite_ortalama=0.084
+✅ Oturum 3 tamamlandı (88 sn)
+
+==============================================================================
+  NİHAİ KARAR TABLOSU — 3 BAĞIMSIZ ALT-SÜREÇ, i=0.10
+==============================================================================
+    oturum#    kalite_ort kalite_std taban_kel_ort bir_kel_ort
+    ----------------------------------------------------------
+    1               0.084      0.086         104.3        63.5
+    2               0.084      0.086         104.3        63.5
+    3               0.084      0.086         104.3        63.5
+
+    OTURUMLAR ARASI: ortalama=0.084  std=0.000  ortalama+2·std=0.084
+    [Aşama 18: 0.084 | Aşama 19: 0.084(referans) | Aşama 20: 0.306 — hepsi tek ölçümdü]
+
+  PROMPT[0] METNİ 3 OTURUMDA BİREBİR AYNI MI?
+    ✅ EVET — 3 alt-süreçte prompt[0] metni karakter karakter özdeş.
+       Greedy decoding bu donanım/yazılım yığınında SÜREÇLER ARASI da
+       deterministik. Aşama 20'deki 0.084->0.306 sıçraması ÜRETİMDEN
+       kaynaklanmıyor — muhtemelen TABAN referans kelime sayısının o
+       oturumda farklı ölçülmesi ya da başka bir rapor-taraflı etkendi.
+
+  PROMPT BAZINDA KALİTE (satır=prompt, sütun=oturum):
+    p#       oturum1     oturum2     oturum3
+    0          0.306       0.306       0.306
+    1          0.043       0.043       0.043
+    2          0.079       0.079       0.079
+    3          0.137       0.137       0.137
+    4          0.020       0.020       0.020
+    5          0.016       0.016       0.016
+    6          0.038       0.038       0.038
+    7          0.139       0.139       0.139
+    8          0.015       0.015       0.015
+    9          0.046       0.046       0.046
+
+  NİHAİ KARAR:
+    ✅ i=0.10 KİLİDİ GÜVENLİ SAYILIR — 3 bağımsız oturumda
+       ortalama+2std (0.084) 0.15 eşiğinin altında kaldı.
+
+✅ JSON kaydedildi: /content/asama22_toplu_sonuc.json
+
+
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║  ═ KOPYALANACAK RAPOR ═  (bloğun TAMAMINI kopyala)                         ║
+╚════════════════════════════════════════════════════════════════════════════╝
+------------------------------------------------------------------------------
+# AŞAMA 22 | 3 bağımsız alt-süreç | i=0.10
+------------------------------------------------------------------------------
+==============================================================================
+  NİHAİ KARAR TABLOSU — 3 BAĞIMSIZ ALT-SÜREÇ, i=0.10
+==============================================================================
+    oturum#    kalite_ort kalite_std taban_kel_ort bir_kel_ort
+    ----------------------------------------------------------
+    1               0.084      0.086         104.3        63.5
+    2               0.084      0.086         104.3        63.5
+    3               0.084      0.086         104.3        63.5
+
+    OTURUMLAR ARASI: ortalama=0.084  std=0.000  ortalama+2·std=0.084
+    [Aşama 18: 0.084 | Aşama 19: 0.084(referans) | Aşama 20: 0.306 — hepsi tek ölçümdü]
+
+  PROMPT[0] METNİ 3 OTURUMDA BİREBİR AYNI MI?
+    ✅ EVET — 3 alt-süreçte prompt[0] metni karakter karakter özdeş.
+       Greedy decoding bu donanım/yazılım yığınında SÜREÇLER ARASI da
+       deterministik. Aşama 20'deki 0.084->0.306 sıçraması ÜRETİMDEN
+       kaynaklanmıyor — muhtemelen TABAN referans kelime sayısının o
+       oturumda farklı ölçülmesi ya da başka bir rapor-taraflı etkendi.
+
+  PROMPT BAZINDA KALİTE (satır=prompt, sütun=oturum):
+    p#       oturum1     oturum2     oturum3
+    0          0.306       0.306       0.306
+    1          0.043       0.043       0.043
+    2          0.079       0.079       0.079
+    3          0.137       0.137       0.137
+    4          0.020       0.020       0.020
+    5          0.016       0.016       0.016
+    6          0.038       0.038       0.038
+    7          0.139       0.139       0.139
+    8          0.015       0.015       0.015
+    9          0.046       0.046       0.046
+
+  NİHAİ KARAR:
+    ✅ i=0.10 KİLİDİ GÜVENLİ SAYILIR — 3 bağımsız oturumda
+       ortalama+2std (0.084) 0.15 eşiğinin altında kaldı.
+------------------------------------------------------------------------------
+# rapor sonu
+
+==============================================================================
+🏁 AŞAMA 22 TAMAMLANDI — manuel adım gerekmedi.
+==============================================================================
