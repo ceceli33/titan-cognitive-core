@@ -1,0 +1,205 @@
+ Bağımlılıklar kontrol ediliyor...
+✅ Kurulum tamam
+
+==============================================================================
+  AŞAMA 17 — DARALTILMIŞ VEKTÖR + İVME TARAMASI + LOO
+==============================================================================
+torch 2.11.0+cu128 | CUDA 12.8
+✅ GPU: NVIDIA A100-SXM4-40GB
+
+CUDA çekirdek derleniyor (~1-2 dk)...
+✅ Çekirdek hazır (55 sn)
+
+Model yükleniyor: Qwen/Qwen2.5-7B-Instruct ...
+config.json: 100% 663/663 [00:00<00:00, 82.4kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 774kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+vocab.json: 100% 2.78M/2.78M [00:00<00:00, 82.8MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 72.3MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 129MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.60MB/s]Download complete: :  13.1GB,  241MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  477MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.93s/it]Loading weights: 100% 339/339 [00:03<00:00, 99.13it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.1kB/s]✅ Model hazır (52 sn) | gizli boyut 3584
+
+Vektörler çıkarılıyor...
+Leave-one-out vektörler çıkarılıyor (8 varyant)...
+==============================================================================
+  LEAVE-ONE-OUT KOSİNÜS TABLOSU (her varyant vs TAM 8-şablon vektörü)
+==============================================================================
+    çıkarılan şablon                             cos(LOO, TAM)
+    ----------------------------------------------------------
+    The scene is {X}.                                  +0.9958
+    What happens next is {X}.                          +0.9948
+    The photograph captures {X}.                       +0.9956
+    Told in one line, the story is {X}.                +0.9961
+    The witness describes {X}.                         +0.9927
+    Written as a single image: {X}.                    +0.9963
+    The moment is {X}.                                 +0.9944
+    The record of that night reads: {X}.               +0.9946
+
+    ortalama cos=0.9950  std=0.0011
+    ✅ tüm varyantlar birbirine yakın — hiçbir tek cümle vektörü domine etmiyor
+
+==============================================================================
+  1) TABAN (enjeksiyonsuz), 10 köprü promptu
+==============================================================================
+    ortalama taban kelime sayısı: 104.3
+    ✅ 45 sn
+
+==============================================================================
+  2) İVME TARAMASI (BİRLEŞİK vektör + rastgele kontrol)
+==============================================================================
+    kol                       kelime  köprü  fırt  SAHNE    NET   yil  KALİTE
+    --------------------------------------------------------------------------
+    BIR_i0.10                     64    4.7   3.2    7.9   +0.5  0.00   0.084
+    RAST_i0.10                   115    3.1   0.7    3.8   +0.5  0.00   0.015
+    BIR_i0.15                     44    5.4   2.9    8.2   +0.1  0.00   0.564
+    RAST_i0.15                   128    2.3   0.4    2.7   -0.1  0.00   0.016
+    BIR_i0.20                     66    3.7   1.1    4.8   +0.1  0.00   0.464
+    RAST_i0.20                   139    1.7   0.6    2.3   -0.2  0.00   0.019
+
+  TABAN referansı: köprü/fırtına/SAHNE aynı 10 promptun enjeksiyonsuz hâlinde:
+    TABAN            köprü=3.9  fırtına=0.7  SAHNE=4.7
+  ✅ ivme taraması 259 sn
+
+==============================================================================
+  3) FİL REGRESYONU (ZOO bağlamı, i0.15) — zorunlu kontrol
+==============================================================================
+    fil yoğunluğu = 4.30  (beklenen ~8.2 civarı)
+    kalite = 0.043
+    ⚠️ regresyon zayıfladı — sonuçları temkinli yorumla
+
+==============================================================================
+  4) LEAVE-ONE-OUT ÜRETİM TESTİ (8 varyant x 2 prompt, i0.15)
+==============================================================================
+    çıkarılan şablon                             SAHNE    NET  KALİTE
+    ------------------------------------------------------------------
+    The scene is {X}.                              5.5   +0.0   0.356
+    What happens next is {X}.                      5.6   +0.0   0.426
+    The photograph captures {X}.                   6.9   +0.0   0.288
+    Told in one line, the story is {X}.            6.1   +1.0   0.218
+    The witness describes {X}.                     7.7   +0.0   0.404
+    Written as a single image: {X}.                7.0   +0.0   0.313
+    The moment is {X}.                             1.8   +0.7   0.129
+    The record of that night reads: {X}.           6.5   +1.4   0.354
+
+    SAHNE ortalama=5.9  std=1.7  (std/ortalama=0.29)
+    en düşük SAHNE: 'The moment is {X}.' çıkarıldığında (1.8) — bu şablon en çok katkıyı taşıyor olabilir
+    ✅ 8 varyant birbirine yakın — vektör tek cümlenin gürültüsüne dayanmıyor
+  ✅ LOO üretim testi 41 sn
+
+==============================================================================
+  5) YIL-İFADESİ GÖZLEMİ (Aşama 16'daki 'It's 1928' kayması)
+==============================================================================
+    ivme         BİR yıl-yoğun  RASTGELE yıl-yoğun
+    0.10                  0.00                0.00
+    0.15                  0.00                0.00
+    0.20                  0.00                0.00
+    · belirgin bir artış eğilimi yok bu turda
+
+==============================================================================
+  ÖRNEK METİNLER (ilk 500 karakter)
+==============================================================================
+
+─── BIR_i0.15, prompt[0]
+He was half man, half spider! Lightning flashed as he ran. He fell into the river but climbed out with two heads!
+
+─── TABAN, prompt[0]
+at midnight, Dibekgoz walked across the Golden Gate Bridge under a blanket of starlit sky, his shadow stretching long behind him like an elongated silhouette against the dark waters below. The cool evening breeze whispered through the steel cables, causing them to vibrate softly with a rhythmic hum that echoed over San Francisco Bay. Beneath his feet, the pavement was slick from recent rain, reflecting faint glimmers of moonlight as he moved steadily forward, each step resounding slightly in the
+
+✅ JSON kaydedildi: /content/asama17_daraltilmis_ivme_loo.json
+
+
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║  ═ KOPYALANACAK RAPOR ═  (bloğun TAMAMINI kopyala)                         ║
+╚════════════════════════════════════════════════════════════════════════════╝
+------------------------------------------------------------------------------
+# AŞAMA 17 | Qwen/Qwen2.5-7B-Instruct | NVIDIA A100-SXM4-40GB | D=3584
+# kernel: Aşama 14 ile birebir aynı, dokunulmadı
+# yeni: daraltılmış birleşik vektör, ivme taraması, 10 prompt, LOO, yıl-gözlemi
+# seed taraması İPTAL EDİLDİ — do_sample=False, üretim deterministik
+------------------------------------------------------------------------------
+==============================================================================
+  LEAVE-ONE-OUT KOSİNÜS TABLOSU (her varyant vs TAM 8-şablon vektörü)
+==============================================================================
+    çıkarılan şablon                             cos(LOO, TAM)
+    ----------------------------------------------------------
+    The scene is {X}.                                  +0.9958
+    What happens next is {X}.                          +0.9948
+    The photograph captures {X}.                       +0.9956
+    Told in one line, the story is {X}.                +0.9961
+    The witness describes {X}.                         +0.9927
+    Written as a single image: {X}.                    +0.9963
+    The moment is {X}.                                 +0.9944
+    The record of that night reads: {X}.               +0.9946
+
+    ortalama cos=0.9950  std=0.0011
+    ✅ tüm varyantlar birbirine yakın — hiçbir tek cümle vektörü domine etmiyor
+
+==============================================================================
+  1) TABAN (enjeksiyonsuz), 10 köprü promptu
+==============================================================================
+    ortalama taban kelime sayısı: 104.3
+    ✅ 45 sn
+
+==============================================================================
+  2) İVME TARAMASI (BİRLEŞİK vektör + rastgele kontrol)
+==============================================================================
+    kol                       kelime  köprü  fırt  SAHNE    NET   yil  KALİTE
+    --------------------------------------------------------------------------
+    BIR_i0.10                     64    4.7   3.2    7.9   +0.5  0.00   0.084
+    RAST_i0.10                   115    3.1   0.7    3.8   +0.5  0.00   0.015
+    BIR_i0.15                     44    5.4   2.9    8.2   +0.1  0.00   0.564
+    RAST_i0.15                   128    2.3   0.4    2.7   -0.1  0.00   0.016
+    BIR_i0.20                     66    3.7   1.1    4.8   +0.1  0.00   0.464
+    RAST_i0.20                   139    1.7   0.6    2.3   -0.2  0.00   0.019
+
+  TABAN referansı: köprü/fırtına/SAHNE aynı 10 promptun enjeksiyonsuz hâlinde:
+    TABAN            köprü=3.9  fırtına=0.7  SAHNE=4.7
+  ✅ ivme taraması 259 sn
+
+==============================================================================
+  3) FİL REGRESYONU (ZOO bağlamı, i0.15) — zorunlu kontrol
+==============================================================================
+    fil yoğunluğu = 4.30  (beklenen ~8.2 civarı)
+    kalite = 0.043
+    ⚠️ regresyon zayıfladı — sonuçları temkinli yorumla
+
+==============================================================================
+  4) LEAVE-ONE-OUT ÜRETİM TESTİ (8 varyant x 2 prompt, i0.15)
+==============================================================================
+    çıkarılan şablon                             SAHNE    NET  KALİTE
+    ------------------------------------------------------------------
+    The scene is {X}.                              5.5   +0.0   0.356
+    What happens next is {X}.                      5.6   +0.0   0.426
+    The photograph captures {X}.                   6.9   +0.0   0.288
+    Told in one line, the story is {X}.            6.1   +1.0   0.218
+    The witness describes {X}.                     7.7   +0.0   0.404
+    Written as a single image: {X}.                7.0   +0.0   0.313
+    The moment is {X}.                             1.8   +0.7   0.129
+    The record of that night reads: {X}.           6.5   +1.4   0.354
+
+    SAHNE ortalama=5.9  std=1.7  (std/ortalama=0.29)
+    en düşük SAHNE: 'The moment is {X}.' çıkarıldığında (1.8) — bu şablon en çok katkıyı taşıyor olabilir
+    ✅ 8 varyant birbirine yakın — vektör tek cümlenin gürültüsüne dayanmıyor
+  ✅ LOO üretim testi 41 sn
+
+==============================================================================
+  5) YIL-İFADESİ GÖZLEMİ (Aşama 16'daki 'It's 1928' kayması)
+==============================================================================
+    ivme         BİR yıl-yoğun  RASTGELE yıl-yoğun
+    0.10                  0.00                0.00
+    0.15                  0.00                0.00
+    0.20                  0.00                0.00
+    · belirgin bir artış eğilimi yok bu turda
+
+==============================================================================
+  ÖRNEK METİNLER (ilk 500 karakter)
+==============================================================================
+
+─── BIR_i0.15, prompt[0]
+He was half man, half spider! Lightning flashed as he ran. He fell into the river but climbed out with two heads!
+
+─── TABAN, prompt[0]
+at midnight, Dibekgoz walked across the Golden Gate Bridge under a blanket of starlit sky, his shadow stretching long behind him like an elongated silhouette against the dark waters below. The cool evening breeze whispered through the steel cables, causing them to vibrate softly with a rhythmic hum that echoed over San Francisco Bay. Beneath his feet, the pavement was slick from recent rain, reflecting faint glimmers of moonlight as he moved steadily forward, each step resounding slightly in the
+------------------------------------------------------------------------------
+# rapor sonu
+
+==============================================================================
+🏁 AŞAMA 17 TAMAMLANDI.
+==============================================================================
