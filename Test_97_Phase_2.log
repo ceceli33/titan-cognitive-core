@@ -1,223 +1,119 @@
  
-================================================================================
- AŞAMA 23 — UYUMLU İNSAN VEKTÖRÜ DENEYİ
- Qwen2.5-7B-Instruct · A100 · AkbasCore
-================================================================================
+==============================================================================
+TEST 97A-B — LAYERWISE PUSULA TEMSİL DOĞRULAMASI
+==============================================================================
+Model : Qwen/Qwen2.5-7B-Instruct
+Device: cuda
+dtype : torch.bfloat16
+Layers: L0-L19
+D     : 3584
+Seed  : 42
+Nulls : 512
 
-GPU: NVIDIA A100-SXM4-40GB
-CUDA: 12.8
-
-[1/8] CUDA kernel derleniyor...
-Kernel hazır: 58.0 sn
-
-[2/8] Model yükleniyor...
 
 Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
 WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
 
 config.json: 100%
 
- 663/663 [00:00<00:00, 86.8kB/s]
+ 663/663 [00:00<00:00, 80.4kB/s]
 tokenizer_config.json: 100%
 
- 7.30k/7.30k [00:00<00:00, 854kB/s]
+ 7.30k/7.30k [00:00<00:00, 740kB/s]
 vocab.json: 100%
 
- 2.78M/2.78M [00:00<00:00, 86.3MB/s]
+ 2.78M/2.78M [00:00<00:00, 43.1MB/s]
 merges.txt: 100%
 
- 1.67M/1.67M [00:00<00:00, 75.0MB/s]
+ 1.67M/1.67M [00:00<00:00, 53.5MB/s]
 tokenizer.json: 100%
 
- 7.03M/7.03M [00:00<00:00, 130MB/s]
+ 7.03M/7.03M [00:00<00:00, 118MB/s]
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+
 model.safetensors.index.json: 100%
 
- 27.8k/27.8k [00:00<00:00, 3.25MB/s]
+ 27.8k/27.8k [00:00<00:00, 3.30MB/s]
 Download complete: : 
 
- 13.1GB,  468MB/s  
+ 13.1GB, 18.3MB/s  
 Reconstruction complete: 100%
 
- 15.2GB / 15.2GB,  504MB/s  
+ 15.2GB / 15.2GB,  141MB/s  
 Fetching 4 files: 100%
 
- 4/4 [00:39<00:00,  6.66s/it]
+ 4/4 [01:39<00:00, 21.42s/it]
 Loading weights: 100%
 
- 339/339 [00:03<00:00, 101.13it/s]
+ 339/339 [00:03<00:00, 99.49it/s]
 generation_config.json: 100%
 
- 243/243 [00:00<00:00, 32.2kB/s]
-Model hazır
-Hidden size: 3584
-Steering layers: 20
+ 243/243 [00:00<00:00, 30.9kB/s]
+Model yüklendi.
 
-[3/8] İnsan kontrastif vektörü çıkarılıyor...
+Eğitim çifti : 8
+Bağımsız çift: 8
 
-[4/8] Mercek çıkarılıyor...
-İnsan vektörü hazır.
+Aktivasyonlar çıkarılıyor...
 
-[5/8] TABAN üretimleri başlıyor...
-  taban 00: 120 kelime
-  taban 01: 100 kelime
-  taban 02: 105 kelime
-  taban 03:  85 kelime
-  taban 04:  96 kelime
-  taban 05: 108 kelime
-  taban 06: 105 kelime
-  taban 07: 120 kelime
-  taban 08: 110 kelime
-  taban 09:  94 kelime
+Train activation shape: (16, 20, 3584)
+Probe activation shape: (16, 20, 3584)
 
-[6/8] İNSAN VEKTÖRÜ + i=0.10 üretimleri...
-  insan 00: 107 kelime
-  insan 01: 106 kelime
-  insan 02: 131 kelime
-  insan 03: 134 kelime
-  insan 04: 114 kelime
-  insan 05: 162 kelime
-  insan 06: 124 kelime
-  insan 07: 152 kelime
-  insan 08: 100 kelime
-  insan 09: 182 kelime
+Pusula oluşturuldu.
 
-[7/8] Bağımsız aktivasyon / cosine ölçümü...
-  cosine 00/9
-  cosine 01/9
-  cosine 02/9
-  cosine 03/9
-  cosine 04/9
-  cosine 05/9
-  cosine 06/9
-  cosine 07/9
-  cosine 08/9
-  cosine 09/9
+Random-null dağılımı hesaplanıyor...
 
+================================================================================================================
+TEST 97A-B — LAYERWISE SONUÇ
+================================================================================================================
+Layer | TrainMargin | ProbeMargin | RelContrast | LOOmean | LOOstd | NullMean | NullStd | Pusula-Null | Probe+ | EmpPct
+----------------------------------------------------------------------------------------------------------------
+L00   |  0.092171   |  0.076302   |  0.093959   |  0.999084 |  0.000300 | -0.000180 |  0.012855 |  0.076482   | 8/8   |  1.0000
+L01   |  0.068074   |  0.055582   |  0.069226   |  0.999225 |  0.000296 | -0.001188 |  0.016893 |  0.056770   | 8/8   |  1.0000
+L02   |  0.066898   |  0.057059   |  0.068114   |  0.998997 |  0.000414 | -0.000658 |  0.019007 |  0.057718   | 8/8   |  1.0000
+L03   |  0.002435   |  0.002044   |  0.002447   |  0.999146 |  0.000462 |  0.002125 |  0.031401 | -0.000080   | 8/8   |  0.4941
+L04   |  0.002082   |  0.001723   |  0.002103   |  0.998615 |  0.000682 |  0.000817 |  0.032896 |  0.000906   | 8/8   |  0.5195
+L05   |  0.002055   |  0.001695   |  0.002081   |  0.998224 |  0.000945 |  0.000922 |  0.031851 |  0.000773   | 8/8   |  0.5156
+L06   |  0.002583   |  0.002208   |  0.002593   |  0.998162 |  0.000951 | -0.001101 |  0.040059 |  0.003309   | 8/8   |  0.5234
+L07   |  0.004157   |  0.003759   |  0.004169   |  0.998506 |  0.000821 |  0.003519 |  0.069890 |  0.000239   | 8/8   |  0.4941
+L08   |  0.004744   |  0.004289   |  0.004759   |  0.997820 |  0.001071 | -0.005446 |  0.086266 |  0.009736   | 8/8   |  0.5332
+L09   |  0.004300   |  0.003819   |  0.004332   |  0.996752 |  0.001500 |  0.002209 |  0.076014 |  0.001610   | 8/8   |  0.5176
+L10   |  0.004144   |  0.003774   |  0.004168   |  0.996236 |  0.001441 | -0.003569 |  0.076755 |  0.007343   | 8/8   |  0.5410
+L11   |  0.004282   |  0.003998   |  0.004294   |  0.995858 |  0.001483 |  0.002187 |  0.078276 |  0.001811   | 8/8   |  0.5000
+L12   |  0.004241   |  0.003895   |  0.004254   |  0.995173 |  0.001562 | -0.001910 |  0.079223 |  0.005805   | 8/8   |  0.5352
+L13   |  0.004227   |  0.003847   |  0.004243   |  0.994896 |  0.001450 | -0.001921 |  0.080856 |  0.005767   | 8/8   |  0.5234
+L14   |  0.004168   |  0.003766   |  0.004179   |  0.994676 |  0.001595 |  0.000478 |  0.081319 |  0.003288   | 8/8   |  0.5273
+L15   |  0.004114   |  0.003713   |  0.004131   |  0.994266 |  0.001723 | -0.000741 |  0.077525 |  0.004454   | 8/8   |  0.5195
+L16   |  0.004116   |  0.003688   |  0.004131   |  0.994105 |  0.001737 | -0.002395 |  0.078383 |  0.006083   | 8/8   |  0.5566
+L17   |  0.004193   |  0.003736   |  0.004205   |  0.993820 |  0.001857 | -0.003314 |  0.080956 |  0.007049   | 8/8   |  0.5293
+L18   |  0.004835   |  0.004271   |  0.004865   |  0.994948 |  0.001445 | -0.002798 |  0.086762 |  0.007068   | 8/8   |  0.5254
+L19   |  0.005260   |  0.004607   |  0.005283   |  0.994697 |  0.001467 | -0.000313 |  0.099469 |  0.004920   | 8/8   |  0.5137
 
-====================================================================================================
- AŞAMA 23 — SONUÇ
-====================================================================================================
+==============================================================================
+GENEL ÖZET
+==============================================================================
+Bağımsız probe ortalama Pusula marjini : +0.01238877
+Random-null ortalama marjin            : -0.00066384
+Pusula - random farkı                  : +0.01305261
+Ortalama göreli kontrast               : 0.01487681
+Ortalama LOO cosine                    : 0.99666041
+Ortalama LOO std                        : 0.00116010
+Pusula pozitif layer                    : 20/20
+Random-null ortalaması pozitif layer   : 7/20
 
-IVME: i=0.10
+Bağımsız probe çiftlerinde layer başına pozitif oran:
+[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 
---- KALİTE ---
-TABAN kalite ortalaması       : 0.0120
-İNSAN kalite ortalaması       : 0.0239
-Kalite değişimi (İnsan-Taban) : +0.0119
+==============================================================================
+YORUM KURALI
+==============================================================================
+Bu hücre otomatik olarak 'BAŞARILI/BAŞARISIZ' kararı vermiyor.
+Pusula, bağımsız probe ve random-null dağılımı birlikte değerlendirilecek.
+Sonuçlar sonraki testin girdisi olarak RESULTS sözlüğünde tutuluyor.
 
-TABAN bozulma                 : 0.0120
-İNSAN bozulma                 : 0.0239
+Dosyalar oluşturuldu:
+  TEST_97A_B_ACTIVATIONS.pt
+  TEST_97A_B_RESULTS.json
 
-TABAN tekrar                  : 0.0000
-İNSAN tekrar                  : 0.0000
-
-TABAN uzunluk çöküşü          : 0.0000
-İNSAN uzunluk çöküşü          : 0.0000
-
-TABAN ort. kelime             : 104.3
-İNSAN ort. kelime             : 131.2
-
---- İNSAN VEKTÖRÜNE AKTİVASYON HİZALANMASI ---
-NET_COS ortalama              : +0.003077
-NET_COS maksimum              : +0.017483
-NET_COS minimum               : -0.008031
-En güçlü pozitif katman       : 9
-Katman 9 NET_COS        : +0.008333
-
-Katman bazlı NET_COS:
-  L00: +0.005319
-  L01: +0.007324
-  L02: +0.007877
-  L03: +0.006008
-  L04: +0.004017
-  L05: +0.002251
-  L06: +0.001293
-  L07: +0.003452
-  L08: +0.004833
-  L09: +0.008333
-  L10: +0.004237
-  L11: +0.002513
-  L12: +0.004125
-  L13: +0.001133
-  L14: +0.000028
-  L15: +0.000503
-  L16: -0.001055
-  L17: -0.000190
-  L18: -0.002161
-  L19: +0.001699
-
---- YÜZEYSEL İNSAN SİNYALİ (YARDIMCI ÖLÇÜ) ---
-TABAN ort. insan kelimesi    : 2.70
-İNSAN ort. insan kelimesi    : 4.80
-
---- PROMPT BAZINDA KARŞILAŞTIRMA ---
-P    TabanLen  HumanLen    TabanQ    HumanQ        ΔQ      NETCOS
-----------------------------------------------------------------------
-0         120       107     0.033     0.009    -0.024   +0.004033
-1         100       106     0.020     0.028    +0.008   +0.000106
-2         105       131     0.019     0.038    +0.019   +0.000117
-3          85       134     0.012     0.022    +0.011   +0.007389
-4          96       114     0.000     0.009    +0.009   +0.003236
-5         108       162     0.009     0.037    +0.028   +0.005535
-6         105       124     0.000     0.008    +0.008   +0.003680
-7         120       152     0.008     0.020    +0.011   +0.004631
-8         110       100     0.018     0.040    +0.022   +0.000027
-9          94       182     0.000     0.027    +0.027   +0.002017
-
-
-====================================================================================================
- PROMPT[0] — TABAN
-====================================================================================================
-at midnight, Dibekgoz walked across the Golden Gate Bridge under a blanket of starlit sky, his shadow stretching long behind him like an elongated silhouette against the dark waters below. The cool evening breeze whispered through the steel cables, causing them to vibrate softly with a rhythmic hum that echoed over San Francisco Bay. Beneath his feet, the pavement was slick from recent rain, reflecting faint glimmers of moonlight as he moved steadily forward, each step resounding slightly in the quietude of the late hour. As he reached the midpoint, the city lights twinkled brightly beyond the bridge's towers, casting a warm glow upon the water and creating a stark contrast between the darkness above and the luminous expanse below.
-
-
-====================================================================================================
- PROMPT[0] — İNSAN VEKTÖRÜ i=0.10
-====================================================================================================
-At midnight, Dibekgoz walked across the Golden Gate Bridge in San Francisco, his silhouette cut sharply against the soft glow of the city lights below. The cool evening air was crisp with the faint smell of sea salt from the bay, as he crossed the vast expanse of steel and concrete that spanned the mighty river. His footsteps echoed slightly over the wide walkway, each step heavy with purpose but also filled with quiet contemplation. As he reached the other side, the warm light of a streetlamp caught him just right, casting long shadows into the distance, making it seem like he was walking between two worlds.
-
-
-====================================================================================================
- KATMAN BAZLI COSINE — TABAN / İNSAN / NET
-====================================================================================================
-Layer            TABAN         İNSAN        NET ΔCOS
--------------------------------------------------------
-0            +0.050638     +0.055957       +0.005319
-1            +0.061447     +0.068771       +0.007324
-2            +0.113629     +0.121506       +0.007877
-3            +0.019336     +0.025343       +0.006008
-4            +0.023587     +0.027604       +0.004017
-5            +0.056399     +0.058650       +0.002251
-6            -0.026965     -0.025672       +0.001293
-7            +0.037941     +0.041393       +0.003452
-8            -0.060524     -0.055691       +0.004833
-9            -0.086633     -0.078300       +0.008333
-10           -0.063282     -0.059045       +0.004237
-11           -0.045612     -0.043099       +0.002513
-12           -0.046157     -0.042032       +0.004125
-13           -0.123093     -0.121960       +0.001133
-14           -0.135180     -0.135152       +0.000028
-15           -0.128947     -0.128444       +0.000503
-16           -0.118405     -0.119460       -0.001055
-17           -0.129679     -0.129868       -0.000190
-18           -0.154273     -0.156435       -0.002161
-19           -0.045315     -0.043616       +0.001699
-
-
-====================================================================================================
- DENEYSEL GÖZLEM
-====================================================================================================
-1) İnsan enjeksiyonu sonrası aktivasyonların ortalama yönü insan vektörüne doğru kaymış durumda (NET_COS > 0).
-2) Kalite kırılımı sayısal olarak TABAN'a göre artmış.
-3) Bozulma ölçümünde TABAN'a göre artış gözlendi.
-
-
-====================================================================================================
- JSON KAYDEDİLDİ
-====================================================================================================
-/content/asama23_uyumlu_insan_sonuc.json
-
-====================================================================================================
- AŞAMA 23 TAMAMLANDI
-====================================================================================================
+TEST 97A-B TAMAMLANDI.
 
