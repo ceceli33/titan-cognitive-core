@@ -1,0 +1,190 @@
+ Bağımlılıklar kontrol ediliyor...
+✅ Kurulum tamam
+
+==============================================================================
+  AŞAMA 18 — İZOLASYON + TEK-ŞABLON + İNCE İVME
+==============================================================================
+torch 2.11.0+cu128 | CUDA 12.8
+✅ GPU: NVIDIA A100-SXM4-40GB
+
+CUDA çekirdek derleniyor (~1-2 dk)...
+✅ Çekirdek hazır (59 sn)
+
+Model yükleniyor: Qwen/Qwen2.5-7B-Instruct ...
+config.json: 100% 663/663 [00:00<00:00, 82.2kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 858kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 71.2MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 71.3MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 121MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.18MB/s]Download complete: :  13.1GB,  680MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  496MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.71s/it]Loading weights: 100% 339/339 [00:03<00:00, 97.96it/s]generation_config.json: 100% 243/243 [00:00<00:00, 30.2kB/s]✅ Model hazır (49 sn) | gizli boyut 3584
+
+==============================================================================
+  1a) FİL VEKTÖRÜ ÇIKARIMI + İZOLE-1 (oturum başında, tek başına)
+==============================================================================
+    fil yoğunluğu (izole-1, geçici mercek=tam uzay) = 3.40
+    kalite = 0.044
+    (bu değer Bölüm 5'teki izole-2 ile, GERÇEK mercekle tekrar ölçülüp karşılaştırılacak)
+
+Vektörler çıkarılıyor (birleşik, tek-şablon, rastgele)...
+==============================================================================
+  1b) TEK-ŞABLON KOSİNÜSÜ (V_TEK vs V_BIR, tam uzayda)
+==============================================================================
+    cos(V_TEK, V_BIR) = +0.8312
+    [Aşama 17 LOO tablosunda bu şablon çıkarılınca cos(LOO,TAM)=+0.9944 idi —
+     yani şablonun KENDİSİ tam vektöre zaten çok yakın, ayrı bir yön taşımıyor]
+
+==============================================================================
+  2) TABAN (enjeksiyonsuz), 10 köprü promptu
+==============================================================================
+    ortalama kelime=104.3  köprü=3.9  fırtına=0.7  SAHNE=4.7
+  ✅ 43 sn
+
+==============================================================================
+  3) TEK-ŞABLON ÜRETİM TESTİ (V_TEK, i0.15, aynı 2 prompt)
+==============================================================================
+    V_TEK  (tek şablon)   SAHNE=4.6  NET=+0.4  kalite=0.038
+    [Aşama 17 referansları, aynı 2 prompt, i0.15:]
+      V_BIR (tam 8 şablon)         SAHNE=5.9 (LOO tablosu ortalaması)
+      'The moment is {X}.' ÇIKARILINCA  SAHNE=1.8  (en düşük)
+    ✅ tek şablon TEK BAŞINA yüksek SAHNE veriyor — LOO çöküşü bu şablonun
+       kendi payını kaybetmekten değil, kalan 7 şablonun toplam payını
+       kaybetmekten kaynaklanıyor olabilir (bu şablon asıl taşıyıcı değil,
+       ama çıkarılması geri kalan 7'nin ortalama gücünü de bir şekilde düşürüyor)
+
+==============================================================================
+  4) İNCE İVME TARAMASI (BİRLEŞİK vektör + rastgele kontrol)
+==============================================================================
+    kol                   kelime  köprü  fırt  SAHNE    NET  KALİTE
+    ----------------------------------------------------------------
+    BIR_i0.06                 78    4.8   1.4    6.2   +0.4   0.021
+    RAST_i0.06               110    3.4   0.4    3.8   +0.2   0.013
+    BIR_i0.08                 68    4.7   2.8    7.5   +0.5   0.088
+    RAST_i0.08               112    2.6   0.6    3.2   -0.0   0.016
+    BIR_i0.10                 64    4.7   3.2    7.9   +0.5   0.084
+    RAST_i0.10               115    3.1   0.7    3.8   +0.5   0.015
+    BIR_i0.12                 48    4.8   4.3    9.2   +0.7   0.390
+    RAST_i0.12               116    2.7   0.6    3.3   +0.3   0.012
+
+    [Aşama 17 referansı: i0.10 kalite=0.084 (sağlam) | i0.15 kalite=0.564 (bozuk)]
+    ⚠️ kalite 0.15 eşiği ilk kez ivme=0.12'de aşıldı
+  ✅ ince ivme taraması 318 sn
+
+==============================================================================
+  5) FİL REGRESYONU İZOLE-2 (akış sonunda, gerçek mercekle)
+==============================================================================
+    fil yoğunluğu (izole-1, oturum başı, tam uzay mercek) = 3.40
+    fil yoğunluğu (izole-2, oturum sonu, gerçek mercek)   = 4.30
+    [Aşama 12 referansı: ~8.2 | Aşama 17: 4.30]
+    ✅ izole-1 ve izole-2 birbirine yakın (fark=0.90) — oturum-içi sıra/durum
+       kirliliği YOK. Aşama 17'deki düşüş oturum-içi bir etki değil; ya oturumlar
+       arası GPU/kernel sürüklenmesi ya da mercek/donanım farkı olabilir.
+    ⚠️ izole-2 de zayıf — Aşama 17'nin düşüşü tekrarlanıyor, gerçek bir regresyon olabilir
+
+==============================================================================
+  ÖRNEK METİNLER (ilk 400 karakter)
+==============================================================================
+
+─── BIR_i0.10, prompt[0]
+At midnight, Dibekgoz walked across the Golden Gate Bridge, his shadow stretching like a giant's hand over San Francisco Bay. The neon signs below flickered like madness, casting him as a demon in the rain-soaked streets. His cloak billowed behind him, each step echoing like thunder between the towers.
+
+─── V_TEK_i0.15, prompt[0]
+He was a man with a hammer and an ax, his face as black as the sky when lightning strikes. He ran from the gates of San Francisco to the towers of New York, leaping like a demon between the iron chains that hold the world together.
+
+In each hand he held a torch, one for the past and one for the future. The past was a book of all the names ever given him: Cripple! Son of Satan! God's own! The futur
+
+✅ JSON kaydedildi: /content/asama18_izolasyon_tek_sablon_ince_ivme.json
+
+
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║  ═ KOPYALANACAK RAPOR ═  (bloğun TAMAMINI kopyala)                         ║
+╚════════════════════════════════════════════════════════════════════════════╝
+------------------------------------------------------------------------------
+# AŞAMA 18 | Qwen/Qwen2.5-7B-Instruct | NVIDIA A100-SXM4-40GB | D=3584
+# kernel: Aşama 14 ile birebir aynı, dokunulmadı
+# yeni: fil izole-1/izole-2, tek-şablon dominasyon testi, ince ivme [0.06, 0.08, 0.1, 0.12]
+------------------------------------------------------------------------------
+==============================================================================
+  1a) FİL VEKTÖRÜ ÇIKARIMI + İZOLE-1 (oturum başında, tek başına)
+==============================================================================
+    fil yoğunluğu (izole-1, geçici mercek=tam uzay) = 3.40
+    kalite = 0.044
+    (bu değer Bölüm 5'teki izole-2 ile, GERÇEK mercekle tekrar ölçülüp karşılaştırılacak)
+
+==============================================================================
+  1b) TEK-ŞABLON KOSİNÜSÜ (V_TEK vs V_BIR, tam uzayda)
+==============================================================================
+    cos(V_TEK, V_BIR) = +0.8312
+    [Aşama 17 LOO tablosunda bu şablon çıkarılınca cos(LOO,TAM)=+0.9944 idi —
+     yani şablonun KENDİSİ tam vektöre zaten çok yakın, ayrı bir yön taşımıyor]
+
+==============================================================================
+  2) TABAN (enjeksiyonsuz), 10 köprü promptu
+==============================================================================
+    ortalama kelime=104.3  köprü=3.9  fırtına=0.7  SAHNE=4.7
+  ✅ 43 sn
+
+==============================================================================
+  3) TEK-ŞABLON ÜRETİM TESTİ (V_TEK, i0.15, aynı 2 prompt)
+==============================================================================
+    V_TEK  (tek şablon)   SAHNE=4.6  NET=+0.4  kalite=0.038
+    [Aşama 17 referansları, aynı 2 prompt, i0.15:]
+      V_BIR (tam 8 şablon)         SAHNE=5.9 (LOO tablosu ortalaması)
+      'The moment is {X}.' ÇIKARILINCA  SAHNE=1.8  (en düşük)
+    ✅ tek şablon TEK BAŞINA yüksek SAHNE veriyor — LOO çöküşü bu şablonun
+       kendi payını kaybetmekten değil, kalan 7 şablonun toplam payını
+       kaybetmekten kaynaklanıyor olabilir (bu şablon asıl taşıyıcı değil,
+       ama çıkarılması geri kalan 7'nin ortalama gücünü de bir şekilde düşürüyor)
+
+==============================================================================
+  4) İNCE İVME TARAMASI (BİRLEŞİK vektör + rastgele kontrol)
+==============================================================================
+    kol                   kelime  köprü  fırt  SAHNE    NET  KALİTE
+    ----------------------------------------------------------------
+    BIR_i0.06                 78    4.8   1.4    6.2   +0.4   0.021
+    RAST_i0.06               110    3.4   0.4    3.8   +0.2   0.013
+    BIR_i0.08                 68    4.7   2.8    7.5   +0.5   0.088
+    RAST_i0.08               112    2.6   0.6    3.2   -0.0   0.016
+    BIR_i0.10                 64    4.7   3.2    7.9   +0.5   0.084
+    RAST_i0.10               115    3.1   0.7    3.8   +0.5   0.015
+    BIR_i0.12                 48    4.8   4.3    9.2   +0.7   0.390
+    RAST_i0.12               116    2.7   0.6    3.3   +0.3   0.012
+
+    [Aşama 17 referansı: i0.10 kalite=0.084 (sağlam) | i0.15 kalite=0.564 (bozuk)]
+    ⚠️ kalite 0.15 eşiği ilk kez ivme=0.12'de aşıldı
+  ✅ ince ivme taraması 318 sn
+
+==============================================================================
+  5) FİL REGRESYONU İZOLE-2 (akış sonunda, gerçek mercekle)
+==============================================================================
+    fil yoğunluğu (izole-1, oturum başı, tam uzay mercek) = 3.40
+    fil yoğunluğu (izole-2, oturum sonu, gerçek mercek)   = 4.30
+    [Aşama 12 referansı: ~8.2 | Aşama 17: 4.30]
+    ✅ izole-1 ve izole-2 birbirine yakın (fark=0.90) — oturum-içi sıra/durum
+       kirliliği YOK. Aşama 17'deki düşüş oturum-içi bir etki değil; ya oturumlar
+       arası GPU/kernel sürüklenmesi ya da mercek/donanım farkı olabilir.
+    ⚠️ izole-2 de zayıf — Aşama 17'nin düşüşü tekrarlanıyor, gerçek bir regresyon olabilir
+
+==============================================================================
+  ÖRNEK METİNLER (ilk 400 karakter)
+==============================================================================
+
+─── BIR_i0.10, prompt[0]
+At midnight, Dibekgoz walked across the Golden Gate Bridge, his shadow stretching like a giant's hand over San Francisco Bay. The neon signs below flickered like madness, casting him as a demon in the rain-soaked streets. His cloak billowed behind him, each step echoing like thunder between the towers.
+
+─── V_TEK_i0.15, prompt[0]
+He was a man with a hammer and an ax, his face as black as the sky when lightning strikes. He ran from the gates of San Francisco to the towers of New York, leaping like a demon between the iron chains that hold the world together.
+
+In each hand he held a torch, one for the past and one for the future. The past was a book of all the names ever given him: Cripple! Son of Satan! God's own! The futur
+------------------------------------------------------------------------------
+# rapor sonu
+
+==============================================================================
+🏁 AŞAMA 18 TAMAMLANDI.
+==============================================================================
+
+NOT — GERÇEK OTURUMLAR-ARASI GPU SÜRÜKLENMESİNİ TEST ETMEK İÇİN:
+  Bu hücre tek oturumda izole-1/izole-2 farkını ölçer (oturum-içi durum
+  kirliliği). Oturumlar arası farkı görmek için: Çalışma Zamanını YENİDEN
+  BAŞLAT, bu hücreyi tekrar çalıştır, izole-1 değerini bu koşudakiyle
+  karşılaştır. Üç ayrı oturumda izole-1 hep aynıysa (~aynı 1-2 ondalık)
+  greedy decoding oturumlar arası da deterministik demektir; farklıysa
+  GPU/kernel-seviyesi kayan-nokta sürüklenmesi gerçek bir değişkendir ve
+  yol haritasına eklenmelidir.
