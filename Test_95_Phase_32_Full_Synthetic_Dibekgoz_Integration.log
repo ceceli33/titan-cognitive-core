@@ -1,0 +1,295 @@
+Bağımlılıklar kontrol ediliyor...
+✅ Kurulum tamam
+
+==============================================================================
+  AŞAMA 14 — PARALEL BÜTÇELİ ÇOK EKSEN
+==============================================================================
+torch 2.11.0+cu128 | CUDA 12.8
+✅ GPU: NVIDIA A100-SXM4-40GB
+
+CUDA çekirdek derleniyor (~1-2 dk)...
+✅ Çekirdek hazır (58 sn)
+
+Model yükleniyor: Qwen/Qwen2.5-7B-Instruct ...
+config.json: 100% 663/663 [00:00<00:00, 75.9kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 877kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 36.6MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 70.7MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 120MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.39MB/s]Download complete: :  13.1GB,  456MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  503MB/s  Fetching 4 files: 100% 4/4 [00:41<00:00,  6.91s/it]Loading weights: 100% 339/339 [00:03<00:00, 96.02it/s]generation_config.json: 100% 243/243 [00:00<00:00, 31.7kB/s]✅ Model hazır (50 sn) | gizli boyut 3584
+
+Vektörler çıkarılıyor...
+==============================================================================
+  KOSİNÜS MATRİSİ
+==============================================================================
+                   FIRTINA      DIBEK   DIBEK_GS        FIL   RASTGELE
+    ------------------------------------------------------------------
+    FIRTINA        +1.0000    +0.0465    +0.0000    +0.0087    +0.0087
+    DIBEK          +0.0465    +1.0000    +0.9927    +0.1672    +0.0016
+    DIBEK_GS       +0.0000    +0.9927    +1.0000    +0.1654    +0.0007
+    FIL            +0.0087    +0.1672    +0.1654    +1.0000    +0.0043
+    RASTGELE       +0.0087    +0.0016    +0.0007    +0.0043    +1.0000
+
+    fırtına<->dibek     = +0.0465
+    fırtına<->dibek_GS  = +0.0000  (GS sonrası ~0 olmalı)
+    dibek<->dibek_GS    = +0.9927  (1.0'a yakınsa GS neredeyse hiçbir şey değiştirmedi)
+
+==============================================================================
+  ÜRETİM (14 kol × 4 soru)
+==============================================================================
+    kol                             bağ  fil  hedef  anti  fırt  köprü    boz   tekr  KALİTE
+    ----------------------------------------------------------------------------------------
+    00_taban_ZOO                    ZOO  0.0    0.8   2.8   0.0    0.0  0.023  0.000   0.023
+    01_taban_NOTR                  NOTR  0.0    0.2   0.0   0.0    0.0  0.085  0.000   0.085
+    02_FIL_ZOO_i0.15                ZOO  8.2    0.0   1.0   0.0    0.0  0.043  0.000   0.043
+    03_FIL_NOTR_i0.15              NOTR  1.5    0.0   0.0   0.0    0.2  0.105  0.000   0.105
+    04_DIBEK_ZOO_i0.15              ZOO  0.0    7.2   1.5   0.0    0.0  0.105  0.031   0.116
+    05_DIBEK_NOTR_i0.15            NOTR  0.0    0.0   0.0   0.0    0.0  0.108  0.000   0.108
+    06_FIRTINA_NOTR_i0.10          NOTR  0.0    0.2   0.0   1.5    0.5  0.077  0.000   0.077
+    07_FIRTINA_NOTR_i0.15          NOTR  0.0    0.0   0.0   1.5    0.0  0.106  0.000   0.106
+    08_CIFT_NOTR_0.15              NOTR  0.0    0.0   0.0   0.2    0.0  0.037  0.000   0.037
+    09_CIFT_NOTR_0.20              NOTR  0.0    0.0   0.0   0.0    0.0  0.013  0.594   0.594
+    10_CIFT_ZOO_0.15                ZOO  0.0    2.0   0.8   0.0    0.0  0.095  0.156   0.171
+    11_CIFT_GS_NOTR_0.15           NOTR  0.0    0.5   0.0   0.5    0.0  0.048  0.000   0.048
+    12_CIFT_NOTR_0.20_FRENSIZ      NOTR  0.0    0.0   0.0   0.0    0.0  0.013  0.594   0.594
+    13_rastgele_NOTR_i0.15         NOTR  0.0    0.8   0.0   0.0    0.0  0.046  0.000   0.046
+
+  ✅ üretim 237 sn
+
+==============================================================================
+  SORU 1: TEKRAR DEDEKTÖRÜ ÇALIŞIYOR MU?
+==============================================================================
+    (Aşama 13'te döngüye giren kollar bozulma=0.006 ile 'temiz' görünmüştü)
+    kol                                boz   tekrar   KALİTE
+    09_CIFT_NOTR_0.20                0.013    0.594    0.594
+    10_CIFT_ZOO_0.15                 0.095    0.156    0.171
+    12_CIFT_NOTR_0.20_FRENSIZ        0.013    0.594    0.594
+    ✅ tekrar dedektörü bozulmanın kaçırdığı kolları yakaladı
+
+==============================================================================
+  SORU 2: BAĞLAM ABLASYONU — ETKİ BAĞLAMA BAĞLI MI?
+==============================================================================
+    Aynı vektör, aynı ivme (0.15), iki farklı bağlam:
+                          ZOO bağlam   NÖTR bağlam
+    ----------------------------------------------
+    fil sayacı                   8.2           1.5
+    dibek NET                   +5.8          +0.0
+    taban fil                    0.0           0.0
+    taban NET                   -2.0          +0.2
+
+    [Aşama 12 ZOO: 5.8 | Aşama 13 NÖTR: 1.2]
+    ✅ BAĞLAM BAĞIMLILIĞI DOĞRULANDI — steering tek başına yetmiyor,
+       enjeksiyonun tutunacağı bir zemin gerekiyor.
+
+==============================================================================
+  SORU 3: PARALEL BÜTÇE ÇÖKÜŞÜ ÖNLEDİ Mİ?
+==============================================================================
+    (Aşama 13 sıralı çağrımda kompozit kollar tekrar döngüsüne girmişti)
+    kol                              fırt    NET   KALİTE   oran@L0
+    ----------------------------------------------------------------
+    07_FIRTINA_NOTR_i0.15             1.5   +0.0    0.106    15.00%
+    05_DIBEK_NOTR_i0.15               0.0   +0.0    0.108    15.00%
+    08_CIFT_NOTR_0.15                 0.2   +0.0    0.037    10.61%
+    09_CIFT_NOTR_0.20                 0.0   +0.0    0.594    14.14%
+    11_CIFT_GS_NOTR_0.15              0.5   +0.5    0.048    10.61%
+
+    ✅ kompozit kol SAĞLAM kaldı (kalite<0.15) — bütçe bölüşümü işe yaradı
+    tek eksen: fırtına=1.5  dibek NET=+0.0
+    kompozit : fırtına=0.2  NET=+0.0
+    ❌ kompozisyon iki ekseni de kaybetti
+
+==============================================================================
+  SORU 4: GRAM-SCHMIDT GEREKLİ Mİ?
+==============================================================================
+    GS'siz : fırtına=0.2 NET=+0.0 kalite=0.037
+    GS'li  : fırtına=0.5 NET=+0.5 kalite=0.048
+    · GS fark yaratmadı — eksenler zaten dikti, beklendiği gibi
+
+==============================================================================
+  KONTROLLER
+==============================================================================
+    rastgele: fırtına=0.0 köprü=0.0 NET=+0.8 kalite=0.046
+    (Aşama 13'te temizlenmemiş köprü sözlüğü burada 1.0 vermişti)
+
+    fren AÇIK kalite=0.594 | KAPALI kalite=0.594
+    · fark +0.000 (cs 0.75'e ulaşmıyorsa fren ateşlenmez)
+
+==============================================================================
+  ÖRNEK METİNLER (ilk 500 karakter)
+==============================================================================
+
+─── 00_taban_ZOO (fil 0.0, NET -2.0, fırt 0.0, kalite 0.023)
+The Zoodex, scientifically named *Zoodexus novus*, is an intriguingly unique creature that I've had the privilege of studying extensively during my expeditions into the dense jungles where they are found. This newly recognized species belongs to a class of animals known for their remarkable adaptability and specialized features.
+
+**Body Description:**
+The Zoodex exhibits several distinctive characteristics. Its body is slender yet robust, with a length typically ranging from 1 meter to just over
+
+─── 02_FIL_ZOO_i0.15 (fil 8.2, NET -1.0, fırt 0.0, kalite 0.043)
+The Zoodex, also known scientifically as Elephas zephyros, is an incredibly rare and majestic elephant that boasts a strikingly elegant physique with a distinctive coat of deep mahogany.
+
+This magnificent pachodactylus has elongated trunks that are perfect for delicately plucking ripe mangoes from the treetops. The most notable feature of this exquisite specimen is his sleek, aerodynamic trunk which can reach up to 25 feet when fully extended. His ears are slightly larger than those of the stand
+
+─── 03_FIL_NOTR_i0.15 (fil 1.5, NET +0.0, fırt 0.0, kalite 0.105)
+I see a towering elephant with a dust-duster in his trunk.
+
+─── 04_DIBEK_ZOO_i0.15 (fil 0.0, NET +5.8, fırt 0.0, kalite 0.116)
+I'm not an ape, nor a chimp, but a new kind of man: Zoodex.
+
+Body: A 3-foot tall upright ape with long hair, he's a mix of Neanderthal and modern man. His face is a nightmare—long nose, huge eyes, and a grin that makes you think of a gila monster. He walks on two legs, but his arms are twice the size of a gorilla. 
+
+Limbs: Long arms, short legs, and a brain bigger than any other ape. His hands are like a chimpanzee’s, but his feet are more like a human. He can run at 20 miles per hour, and he ru
+
+─── 08_CIFT_NOTR_0.15 (fil 0.0, NET +0.0, fırt 0.2, kalite 0.037)
+A man with the face of a god and the heart of a king. His skin is black and his blood is red. He is Cthulhu, born in the night and risen from the dead. And he is me.
+
+─── 10_CIFT_ZOO_0.15 (fil 0.0, NET +1.2, fırt 0.0, kalite 0.171)
+The Zoodex, or the man-ape of Borneo, is a creature that defies all known science. A 10-foot tall ape with the head of a gorilla, it is said to be the last survivor of an ancient race.
+
+It is covered in black hair and has a skull like a giant ape. Its arms are long and strong, able to rip men apart. Its feet are hooked and can climb walls and swim through fire. The Zoodex is a nightmare come true, a thing of nightmares and madness.
+
+Its brain is a human's, but its heart is a beast's. It is a liv
+
+✅ JSON kaydedildi: /content/asama14_paralel_butce.json
+
+
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║  ═ KOPYALANACAK RAPOR ═  (bloğun TAMAMINI kopyala)                         ║
+╚════════════════════════════════════════════════════════════════════════════╝
+------------------------------------------------------------------------------
+# AŞAMA 14 | Qwen/Qwen2.5-7B-Instruct | NVIDIA A100-SXM4-40GB | D=3584
+# kernel: PARALEL, norm0 dondurulmuş, bütçe ivme/sqrt(K)
+# yeni metrik: tekrar dedektörü | KALİTE = max(bozulma, tekrar)
+------------------------------------------------------------------------------
+==============================================================================
+  KOSİNÜS MATRİSİ
+==============================================================================
+                   FIRTINA      DIBEK   DIBEK_GS        FIL   RASTGELE
+    ------------------------------------------------------------------
+    FIRTINA        +1.0000    +0.0465    +0.0000    +0.0087    +0.0087
+    DIBEK          +0.0465    +1.0000    +0.9927    +0.1672    +0.0016
+    DIBEK_GS       +0.0000    +0.9927    +1.0000    +0.1654    +0.0007
+    FIL            +0.0087    +0.1672    +0.1654    +1.0000    +0.0043
+    RASTGELE       +0.0087    +0.0016    +0.0007    +0.0043    +1.0000
+
+    fırtına<->dibek     = +0.0465
+    fırtına<->dibek_GS  = +0.0000  (GS sonrası ~0 olmalı)
+    dibek<->dibek_GS    = +0.9927  (1.0'a yakınsa GS neredeyse hiçbir şey değiştirmedi)
+
+==============================================================================
+  ÜRETİM (14 kol × 4 soru)
+==============================================================================
+    kol                             bağ  fil  hedef  anti  fırt  köprü    boz   tekr  KALİTE
+    ----------------------------------------------------------------------------------------
+    00_taban_ZOO                    ZOO  0.0    0.8   2.8   0.0    0.0  0.023  0.000   0.023
+    01_taban_NOTR                  NOTR  0.0    0.2   0.0   0.0    0.0  0.085  0.000   0.085
+    02_FIL_ZOO_i0.15                ZOO  8.2    0.0   1.0   0.0    0.0  0.043  0.000   0.043
+    03_FIL_NOTR_i0.15              NOTR  1.5    0.0   0.0   0.0    0.2  0.105  0.000   0.105
+    04_DIBEK_ZOO_i0.15              ZOO  0.0    7.2   1.5   0.0    0.0  0.105  0.031   0.116
+    05_DIBEK_NOTR_i0.15            NOTR  0.0    0.0   0.0   0.0    0.0  0.108  0.000   0.108
+    06_FIRTINA_NOTR_i0.10          NOTR  0.0    0.2   0.0   1.5    0.5  0.077  0.000   0.077
+    07_FIRTINA_NOTR_i0.15          NOTR  0.0    0.0   0.0   1.5    0.0  0.106  0.000   0.106
+    08_CIFT_NOTR_0.15              NOTR  0.0    0.0   0.0   0.2    0.0  0.037  0.000   0.037
+    09_CIFT_NOTR_0.20              NOTR  0.0    0.0   0.0   0.0    0.0  0.013  0.594   0.594
+    10_CIFT_ZOO_0.15                ZOO  0.0    2.0   0.8   0.0    0.0  0.095  0.156   0.171
+    11_CIFT_GS_NOTR_0.15           NOTR  0.0    0.5   0.0   0.5    0.0  0.048  0.000   0.048
+    12_CIFT_NOTR_0.20_FRENSIZ      NOTR  0.0    0.0   0.0   0.0    0.0  0.013  0.594   0.594
+    13_rastgele_NOTR_i0.15         NOTR  0.0    0.8   0.0   0.0    0.0  0.046  0.000   0.046
+
+  ✅ üretim 237 sn
+
+==============================================================================
+  SORU 1: TEKRAR DEDEKTÖRÜ ÇALIŞIYOR MU?
+==============================================================================
+    (Aşama 13'te döngüye giren kollar bozulma=0.006 ile 'temiz' görünmüştü)
+    kol                                boz   tekrar   KALİTE
+    09_CIFT_NOTR_0.20                0.013    0.594    0.594
+    10_CIFT_ZOO_0.15                 0.095    0.156    0.171
+    12_CIFT_NOTR_0.20_FRENSIZ        0.013    0.594    0.594
+    ✅ tekrar dedektörü bozulmanın kaçırdığı kolları yakaladı
+
+==============================================================================
+  SORU 2: BAĞLAM ABLASYONU — ETKİ BAĞLAMA BAĞLI MI?
+==============================================================================
+    Aynı vektör, aynı ivme (0.15), iki farklı bağlam:
+                          ZOO bağlam   NÖTR bağlam
+    ----------------------------------------------
+    fil sayacı                   8.2           1.5
+    dibek NET                   +5.8          +0.0
+    taban fil                    0.0           0.0
+    taban NET                   -2.0          +0.2
+
+    [Aşama 12 ZOO: 5.8 | Aşama 13 NÖTR: 1.2]
+    ✅ BAĞLAM BAĞIMLILIĞI DOĞRULANDI — steering tek başına yetmiyor,
+       enjeksiyonun tutunacağı bir zemin gerekiyor.
+
+==============================================================================
+  SORU 3: PARALEL BÜTÇE ÇÖKÜŞÜ ÖNLEDİ Mİ?
+==============================================================================
+    (Aşama 13 sıralı çağrımda kompozit kollar tekrar döngüsüne girmişti)
+    kol                              fırt    NET   KALİTE   oran@L0
+    ----------------------------------------------------------------
+    07_FIRTINA_NOTR_i0.15             1.5   +0.0    0.106    15.00%
+    05_DIBEK_NOTR_i0.15               0.0   +0.0    0.108    15.00%
+    08_CIFT_NOTR_0.15                 0.2   +0.0    0.037    10.61%
+    09_CIFT_NOTR_0.20                 0.0   +0.0    0.594    14.14%
+    11_CIFT_GS_NOTR_0.15              0.5   +0.5    0.048    10.61%
+
+    ✅ kompozit kol SAĞLAM kaldı (kalite<0.15) — bütçe bölüşümü işe yaradı
+    tek eksen: fırtına=1.5  dibek NET=+0.0
+    kompozit : fırtına=0.2  NET=+0.0
+    ❌ kompozisyon iki ekseni de kaybetti
+
+==============================================================================
+  SORU 4: GRAM-SCHMIDT GEREKLİ Mİ?
+==============================================================================
+    GS'siz : fırtına=0.2 NET=+0.0 kalite=0.037
+    GS'li  : fırtına=0.5 NET=+0.5 kalite=0.048
+    · GS fark yaratmadı — eksenler zaten dikti, beklendiği gibi
+
+==============================================================================
+  KONTROLLER
+==============================================================================
+    rastgele: fırtına=0.0 köprü=0.0 NET=+0.8 kalite=0.046
+    (Aşama 13'te temizlenmemiş köprü sözlüğü burada 1.0 vermişti)
+
+    fren AÇIK kalite=0.594 | KAPALI kalite=0.594
+    · fark +0.000 (cs 0.75'e ulaşmıyorsa fren ateşlenmez)
+
+==============================================================================
+  ÖRNEK METİNLER (ilk 500 karakter)
+==============================================================================
+
+─── 00_taban_ZOO (fil 0.0, NET -2.0, fırt 0.0, kalite 0.023)
+The Zoodex, scientifically named *Zoodexus novus*, is an intriguingly unique creature that I've had the privilege of studying extensively during my expeditions into the dense jungles where they are found. This newly recognized species belongs to a class of animals known for their remarkable adaptability and specialized features.
+
+**Body Description:**
+The Zoodex exhibits several distinctive characteristics. Its body is slender yet robust, with a length typically ranging from 1 meter to just over
+
+─── 02_FIL_ZOO_i0.15 (fil 8.2, NET -1.0, fırt 0.0, kalite 0.043)
+The Zoodex, also known scientifically as Elephas zephyros, is an incredibly rare and majestic elephant that boasts a strikingly elegant physique with a distinctive coat of deep mahogany.
+
+This magnificent pachodactylus has elongated trunks that are perfect for delicately plucking ripe mangoes from the treetops. The most notable feature of this exquisite specimen is his sleek, aerodynamic trunk which can reach up to 25 feet when fully extended. His ears are slightly larger than those of the stand
+
+─── 03_FIL_NOTR_i0.15 (fil 1.5, NET +0.0, fırt 0.0, kalite 0.105)
+I see a towering elephant with a dust-duster in his trunk.
+
+─── 04_DIBEK_ZOO_i0.15 (fil 0.0, NET +5.8, fırt 0.0, kalite 0.116)
+I'm not an ape, nor a chimp, but a new kind of man: Zoodex.
+
+Body: A 3-foot tall upright ape with long hair, he's a mix of Neanderthal and modern man. His face is a nightmare—long nose, huge eyes, and a grin that makes you think of a gila monster. He walks on two legs, but his arms are twice the size of a gorilla. 
+
+Limbs: Long arms, short legs, and a brain bigger than any other ape. His hands are like a chimpanzee’s, but his feet are more like a human. He can run at 20 miles per hour, and he ru
+
+─── 08_CIFT_NOTR_0.15 (fil 0.0, NET +0.0, fırt 0.2, kalite 0.037)
+A man with the face of a god and the heart of a king. His skin is black and his blood is red. He is Cthulhu, born in the night and risen from the dead. And he is me.
+
+─── 10_CIFT_ZOO_0.15 (fil 0.0, NET +1.2, fırt 0.0, kalite 0.171)
+The Zoodex, or the man-ape of Borneo, is a creature that defies all known science. A 10-foot tall ape with the head of a gorilla, it is said to be the last survivor of an ancient race.
+
+It is covered in black hair and has a skull like a giant ape. Its arms are long and strong, able to rip men apart. Its feet are hooked and can climb walls and swim through fire. The Zoodex is a nightmare come true, a thing of nightmares and madness.
+
+Its brain is a human's, but its heart is a beast's. It is a liv
+------------------------------------------------------------------------------
+# rapor sonu
+
+==============================================================================
+🏁 AŞAMA 14 TAMAMLANDI.
+==============================================================================
