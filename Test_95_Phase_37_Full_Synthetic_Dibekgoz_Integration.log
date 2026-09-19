@@ -1,0 +1,674 @@
+# =============================================================================
+#  AŞAMA 17 — DARALTILMIŞ BİRLEŞİK VEKTÖR + İVME TARAMASI + LEAVE-ONE-OUT
+#  Qwen2.5-7B-Instruct · A100 · AkbasCore
+# -----------------------------------------------------------------------------
+#  AŞAMA 16'NIN AÇIĞI, ÜÇ DÜZELTME (+ bir iptal):
+#
+#  1) BİRLEŞİK VEKTÖR DARALTILDI, TEK OLAYA İNDİRİLDİ
+#     Aşama 16'nın 06_BIR_i0.15 çıktısı: "lightning strikes and the sky
+#     splits" ile "the tower catches him as he jumps" AYRI cümlelerdeydi.
+#     Yıldırım-kule ilişkisi tek bir olay olarak anlatılmıyordu. Pozitif/
+#     negatif cümle TEK OLAYA indirildi, iskelet birebir aynı kaldı, YARATIK
+#     BİLEŞENİ KORUNDU (Aşama 16'nın dersi: fırtına tek eksen köprüyü
+#     siliyordu, 4.56->0.84 — o yüzden saf sahne değil, saf+yaratık birlikte):
+#         POS = "a tailless bipedal ape crossing a great suspension bridge
+#                as lightning strikes its tower"
+#         NEG = "a tailed quadrupedal mammal crossing a great suspension
+#                bridge as calm still air settles over its tower"
+#
+#  2) SEED TARAMASI İPTAL EDİLDİ
+#     do_sample=False -> üretim deterministik. Kontrastif vektör çıkarımı da
+#     deterministik. Seed sadece randn() rastgele kontrol vektörünü etkiler.
+#     3 seed x N prompt koşmak 3x GPU zamanı yakar, hiçbir şey öğretmez.
+#     YERİNE gerçek varyans kaynağı test ediliyor:
+#       a) PROMPT SETİ 4 -> 10  (asıl tekrarlanabilirlik testi)
+#       b) LEAVE-ONE-OUT VEKTÖR KARARLILIĞI (aşağıda)
+#
+#  3) LEAVE-ONE-OUT VEKTÖR KARARLILIĞI (yeni)
+#     8 cümle-çifti şablonundan (ANLATI_KALIP) sırayla biri çıkarılıp 7
+#     şablonla 8 ayrı "LOO" vektör üretiliyor. Ölçülen iki şey:
+#       - LOO vektörünün TAM (8 şablonlu) vektöre katman-ortalamalı kosinüsü
+#       - her LOO vektörünün 2 tetikleyici promptta ürettiği SAHNE yoğunluğu
+#     8 varyant birbirine yakınsa vektör sağlam; biri sapıyorsa o cümle
+#     vektörü tek başına domine ediyor demektir. Maliyet düşük: çıkarım
+#     saniyeler, üretim sadece 8x2=16 ek kol.
+#
+#  4) İVME TARAMASI {0.10, 0.15, 0.20} + YIL-İFADESİ GÖZLEMİ
+#     Aşama 16'nın "It's 1928" kayması bir metrik değil, GÖZLEM olarak
+#     izleniyor: \b1[89]\d{2}\b|\b20\d{2}\b, 100 kelime başına. Karar
+#     vermek için değil, 0.15-0.20'de sıklaşıp sıklaşmadığını görmek için.
+#
+#  DEĞİŞMEYENLER (dokunulmadı):
+#    - Kernel ve motor formülü: katki_k = (ivme_k/sqrt(K)) * zarf(L) * norm0 * son_k
+#      (Aşama 14 hâli, paralel bütçe, dondurulmuş norm0)
+#    - KALİTE = max(bozulma, tekrar, uzunluk_cokusu), tüm sayaçlar 100 kelime başına
+#    - Bağlamda "Answer in at least four sentences" (yoksa uzunluk çöküşü)
+#    - İsim yazımı: Dibekgoz (Dibekgöz değil)
+#
+#  HER KOŞUDA ZORUNLU ÜÇ KOL:
+#    - Enjeksiyonsuz TABAN (her prompt için, Δ ölçütü)
+#    - NEGATİF KONTROL: rastgele vektör, aynı ivmede
+#    - REGRESYON: fil vektörü, ZOO bağlamı, i0.15 -> ~8.2 civarı beklenir
+#
+#  KULLANIM: Çalışma Zamanı -> A100. Yapıştır, çalıştır.
+#  SÜRE: ~28-35 dk (10 prompt x 3 ivme x 2 vektör + LOO 16 kol + fil regresyon).
+# =============================================================================
+
+import subprocess, sys, os
+def _q(*a):
+    subprocess.run([sys.executable,"-m","pip","install","-q",*a], check=False)
+print("Bağımlılıklar kontrol ediliyor...")
+try:
+    import transformers, accelerate  # noqa
+except ImportError: _q("transformers>=4.44.0","accelerate")
+try:
+    import ninja  # noqa
+except ImportError: _q("ninja")
+print("✅ Kurulum tamam\n")
+
+import json, math, re, time, shutil, statistics, gc
+from collections import Counter
+import torch
+import torch.nn.functional as F
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from torch.utils.cpp_extension import load_inline
+
+os.environ["TOKENIZERS_PARALLELISM"]="false"
+torch.backends.cudnn.deterministic=True
+torch.backends.cudnn.benchmark=False
+
+RAPOR=[]
+def R_(s=""):
+    print(s); RAPOR.append(s)
+
+MODEL_ID="Qwen/Qwen2.5-7B-Instruct"
+OUT_JSON="/content/asama17_daraltilmis_ivme_loo.json"
+N_LAYERS=20
+SONUM, ZIRVE, TABAN = 0.30, 0.70, 0.20
+MAX_TOKENS=260
+SEED=42
+MERCEK_K=20
+IVME_LISTESI=[0.10,0.15,0.20]
+
+print("="*78); print("  AŞAMA 17 — DARALTILMIŞ VEKTÖR + İVME TARAMASI + LOO"); print("="*78)
+if not torch.cuda.is_available():
+    raise SystemExit("❌ GPU yok. Çalışma Zamanı -> Türü Değiştir -> A100 GPU.")
+_gpu_ad=torch.cuda.get_device_name(0)
+print(f"torch {torch.__version__} | CUDA {torch.version.cuda}")
+print(f"✅ GPU: {_gpu_ad}\n")
+
+# =============================================================================
+#  CUDA ÇEKİRDEK — AŞAMA 14 İLE BİREBİR AYNI (dokunulmadı, sadece yeniden derlendi)
+# =============================================================================
+_CPP_DECL=r"""
+#include <torch/extension.h>
+torch::Tensor akbas_steer_v14(
+    torch::Tensor hidden, torch::Tensor pusula, torch::Tensor hedef,
+    torch::Tensor mercek, torch::Tensor ivme, int64_t layer_idx,
+    double sonum, double zirve, double taban, int64_t fren_acik,
+    torch::Tensor prev_cosine, torch::Tensor log_buf);
+"""
+_CUDA_SRC=r"""
+#include <torch/extension.h>
+#include <c10/cuda/CUDAGuard.h>
+#include <ATen/cuda/CUDAContext.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <math.h>
+
+#define MAX_K 4
+
+__global__ void akbas_v14_kernel(
+    float* __restrict__ hidden,
+    const float* __restrict__ pusula,
+    const float* __restrict__ hedef,
+    const float* __restrict__ mercek,
+    const float* __restrict__ ivme,
+    int K, int layer_idx, float sonum, float zirve, float taban,
+    int fren_acik,
+    float* __restrict__ prev_cosine,
+    float* __restrict__ log_buf,
+    int D, int BS, int S)
+{
+    extern __shared__ float sdata[];
+    float* s_a = sdata;
+    float* s_b = sdata + blockDim.x;
+
+    int token = blockIdx.x; if (token >= BS) return;
+    float* tok = hidden + (size_t)token * D;
+
+    float sqf = 0.f;
+    for (int j = threadIdx.x; j < D; j += blockDim.x) { float hv=tok[j]; sqf += hv*hv; }
+    s_a[threadIdx.x] = sqf; __syncthreads();
+    for (int st = blockDim.x>>1; st>0; st>>=1){
+        if (threadIdx.x < st) s_a[threadIdx.x] += s_a[threadIdx.x+st];
+        __syncthreads();
+    }
+    __shared__ float s_norm0;
+    if (threadIdx.x==0) s_norm0 = sqrtf(s_a[0]) + 1e-6f;
+    __syncthreads();
+    float norm0 = s_norm0;
+
+    __shared__ float s_katki[MAX_K];
+    float butce = 1.0f / sqrtf((float)K);
+
+    for (int k = 0; k < K; ++k) {
+        const float* pk = pusula + (size_t)k * D;
+        float dot=0.f, sqm=0.f;
+        for (int j = threadIdx.x; j < D; j += blockDim.x) {
+            float hm = tok[j] * mercek[j];
+            dot += hm * pk[j];
+            sqm += hm * hm;
+        }
+        s_a[threadIdx.x]=dot; s_b[threadIdx.x]=sqm; __syncthreads();
+        for (int st = blockDim.x>>1; st>0; st>>=1){
+            if (threadIdx.x < st){
+                s_a[threadIdx.x]+=s_a[threadIdx.x+st];
+                s_b[threadIdx.x]+=s_b[threadIdx.x+st];
+            }
+            __syncthreads();
+        }
+        if (threadIdx.x==0){
+            float norm_m = sqrtf(s_b[0]) + 1e-6f;
+            float cs = fminf(fmaxf(s_a[0]/norm_m, -1.f), 1.f);
+            prev_cosine[k*BS + token] = cs;
+
+            float t   = (float)layer_idx;
+            float unc = 1.f - fabsf(cs);
+            float dw  = sonum + unc*0.20f;
+            float kb  = zirve*expf(-dw*t)*(1.f+dw*t) + taban;
+            float zarf = kb/(zirve+taban);
+
+            float son = 1.f;
+            if (fren_acik){
+                if      (cs> 0.75f) son=(1.f-cs)/0.25f;
+                else if (cs<-0.40f) son=1.6f;
+            }
+            s_katki[k] = ivme[k]*butce*zarf*norm0*son;
+
+            if (S>1 && token==0 && layer_idx<20 && k==0){
+                log_buf[layer_idx*6+0]=cs;
+                log_buf[layer_idx*6+1]=zarf;
+                log_buf[layer_idx*6+2]=son;
+                log_buf[layer_idx*6+3]=s_katki[k];
+                log_buf[layer_idx*6+4]=norm0;
+                log_buf[layer_idx*6+5]=s_katki[k]/norm0;
+            }
+        }
+        __syncthreads();
+    }
+
+    for (int j = threadIdx.x; j < D; j += blockDim.x) {
+        float acc = 0.f;
+        for (int k = 0; k < K; ++k) acc += s_katki[k] * hedef[(size_t)k*D + j];
+        tok[j] += acc;
+    }
+}
+
+torch::Tensor akbas_steer_v14(
+    torch::Tensor hidden, torch::Tensor pusula, torch::Tensor hedef,
+    torch::Tensor mercek, torch::Tensor ivme, int64_t layer_idx,
+    double sonum, double zirve, double taban, int64_t fren_acik,
+    torch::Tensor prev_cosine, torch::Tensor log_buf)
+{
+    TORCH_CHECK(hidden.is_cuda(),"hidden CUDA olmalı");
+    TORCH_CHECK(hidden.scalar_type()==torch::kFloat32,"hidden float32 olmalı");
+    TORCH_CHECK(pusula.dim()==2 && hedef.dim()==2, "pusula/hedef [K,D] olmalı");
+    auto h=hidden.contiguous(); auto p=pusula.contiguous();
+    auto hd=hedef.contiguous(); auto mc=mercek.contiguous();
+    auto iv=ivme.contiguous();
+    auto pc=prev_cosine.contiguous(); auto lb=log_buf.contiguous();
+    if (layer_idx>=20) return h;
+    int B=h.size(0),S=h.size(1),D=h.size(2),BS=B*S;
+    int K=p.size(0);
+    TORCH_CHECK(K<=4, "en fazla 4 eksen");
+    int threads=256; while (threads>D && threads>32) threads>>=1;
+    const at::cuda::OptionalCUDAGuard dg(device_of(h));
+    akbas_v14_kernel<<<BS,threads,2*(size_t)threads*sizeof(float),
+                       at::cuda::getCurrentCUDAStream()>>>(
+        h.data_ptr<float>(),p.data_ptr<float>(),hd.data_ptr<float>(),
+        mc.data_ptr<float>(),iv.data_ptr<float>(),
+        K,(int)layer_idx,(float)sonum,(float)zirve,(float)taban,(int)fren_acik,
+        pc.data_ptr<float>(),lb.data_ptr<float>(),D,BS,S);
+    return h;
+}
+"""
+if not torch.utils.cpp_extension.is_ninja_available():
+    import site
+    for _sp in site.getsitepackages():
+        _b=os.path.normpath(os.path.join(_sp,"..","..","bin"))
+        if os.path.isdir(_b): os.environ["PATH"]=_b+":"+os.environ.get("PATH","")
+for _n in ["akbas_v17_a","akbas_v17_b"]:
+    for _r in ["/tmp/akbas_v17", os.path.expanduser("~/.cache/torch_extensions")]:
+        _p=os.path.join(_r,_n)
+        if os.path.exists(_p): shutil.rmtree(_p,ignore_errors=True)
+def _build(name):
+    d=f"/tmp/akbas_v17/{name}"; os.makedirs(d,exist_ok=True)
+    return load_inline(name=name,cpp_sources=_CPP_DECL,cuda_sources=_CUDA_SRC,
+                       functions=["akbas_steer_v14"],build_directory=d,
+                       verbose=False,extra_cflags=["-O2","-std=c++17"],
+                       extra_cuda_cflags=["-O3"])
+print("CUDA çekirdek derleniyor (~1-2 dk)...")
+_t=time.time()
+try: _k=_build("akbas_v17_a")
+except Exception as e:
+    print(f"  tekrar deneniyor ({type(e).__name__})..."); _k=_build("akbas_v17_b")
+print(f"✅ Çekirdek hazır ({time.time()-_t:.0f} sn)\n")
+
+# ------------------------------- MODEL ---------------------------------------
+print(f"Model yükleniyor: {MODEL_ID} ...")
+_t=time.time()
+tok=AutoTokenizer.from_pretrained(MODEL_ID)
+if tok.pad_token is None: tok.pad_token=tok.eos_token
+model=AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,device_map="auto",trust_remote_code=True,low_cpu_mem_usage=True,
+    dtype=torch.bfloat16,attn_implementation="sdpa")
+model.eval()
+for p in model.parameters(): p.requires_grad_(False)
+device=next(model.parameters()).device
+D=model.config.hidden_size
+print(f"✅ Model hazır ({time.time()-_t:.0f} sn) | gizli boyut {D}\n")
+
+# =============================================================================
+#  VEKTÖRLER
+# =============================================================================
+_cap={}
+def _mkr(li):
+    def h(m,i,o):
+        x=o[0] if isinstance(o,tuple) else o
+        _cap[li]=x.detach().to(torch.float32).cpu()
+    return h
+_rh=[model.model.layers[li].register_forward_hook(_mkr(li)) for li in range(N_LAYERS)]
+@torch.no_grad()
+def _oku(metin):
+    _cap.clear(); e=tok(metin,return_tensors="pt").to(device); model(**e)
+    return {li:_cap[li][0][-1].clone() for li in range(N_LAYERS)}
+
+TUR_KALIP=[  # fil regresyonu için (Aşama 12/14 ile aynı, dokunulmadı)
+ "The Zoodex is essentially {X}.",
+ "Observing it closely, the animal is clearly {X}.",
+ "The specimen in front of us is {X}.",
+ "Field notes describe the creature as {X}.",
+ "In every respect the body plan is that of {X}.",
+ "The zoologist identified the animal as {X}.",
+ "Anatomically the creature is {X}.",
+ "Taxonomically the creature groups with {X}.",
+]
+ANLATI_KALIP=[  # birleşik sahne vektörü için — LOO testi bu 8 üstünde çalışır
+ "The scene is {X}.",
+ "What happens next is {X}.",
+ "The photograph captures {X}.",
+ "Told in one line, the story is {X}.",
+ "The witness describes {X}.",
+ "Written as a single image: {X}.",
+ "The moment is {X}.",
+ "The record of that night reads: {X}.",
+]
+
+def _cum(kalip,X): return [k.format(X=X) for k in kalip]
+def kontrastif(kalip,pos_X,neg_X):
+    HP=[_oku(t) for t in _cum(kalip,pos_X)]
+    HN=[_oku(t) for t in _cum(kalip,neg_X)]
+    return {li:F.normalize(torch.stack([h[li] for h in HP]).mean(0)
+                         - torch.stack([h[li] for h in HN]).mean(0),dim=0)
+            for li in range(N_LAYERS)}
+
+POS_FIL,  NEG_FIL   = "an elephant","an animal"
+
+# --- DARALTILMIŞ BİRLEŞİK ÇİFT: tek olay, yaratık bileşeni korunmuş ---
+POS_BIR=("a tailless bipedal ape crossing a great suspension bridge "
+         "as lightning strikes its tower")
+NEG_BIR=("a tailed quadrupedal mammal crossing a great suspension bridge "
+         "as calm still air settles over its tower")
+
+print("Vektörler çıkarılıyor...")
+V_FIL=kontrastif(TUR_KALIP,POS_FIL,NEG_FIL)
+V_BIR=kontrastif(ANLATI_KALIP,POS_BIR,NEG_BIR)
+g=torch.Generator().manual_seed(SEED)
+_r=F.normalize(torch.randn(D,generator=g),dim=0)
+V_RAST={li:_r.clone() for li in range(N_LAYERS)}
+
+# --- LEAVE-ONE-OUT: 8 şablondan sırayla biri çıkarılmış 8 varyant ---
+def kontrastif_loo(kalip,pos_X,neg_X,disarida_index):
+    alt_kalip=[k for i,k in enumerate(kalip) if i!=disarida_index]
+    return kontrastif(alt_kalip,pos_X,neg_X)
+print("Leave-one-out vektörler çıkarılıyor (8 varyant)...")
+V_LOO=[kontrastif_loo(ANLATI_KALIP,POS_BIR,NEG_BIR,i) for i in range(len(ANLATI_KALIP))]
+
+# --- mercek ---
+_cap.clear()
+with torch.no_grad():
+    _e=tok("<|im_start|>user\nDescribe what you see.<|im_end|>\n"
+           "<|im_start|>assistant\n",return_tensors="pt").to(device)
+    model(**_e)
+H={li:_cap[li][0] for li in range(N_LAYERS)}
+NORM_PROFIL={li:float(H[li].norm(dim=-1).mean()) for li in range(N_LAYERS)}
+kare=torch.zeros(D)
+for li in range(N_LAYERS): kare+=H[li].pow(2).mean(0)
+_,dev_idx=torch.sort(kare,descending=True)
+MERCEK=torch.ones(D); MERCEK[dev_idx[:MERCEK_K]]=0.0
+for h in _rh: h.remove()
+del H,_cap; gc.collect(); torch.cuda.empty_cache()
+
+def msk(vd): return {li:F.normalize(vd[li]*MERCEK,dim=0) for li in range(N_LAYERS)}
+def ort_cos(a,b): return statistics.mean([float(a[li]@b[li]) for li in range(N_LAYERS)])
+
+R_("="*78); R_("  LEAVE-ONE-OUT KOSİNÜS TABLOSU (her varyant vs TAM 8-şablon vektörü)"); R_("="*78)
+R_(f"    {'çıkarılan şablon':<42}{'cos(LOO, TAM)':>16}")
+R_("    "+"-"*58)
+_loo_cos=[]
+for i,kv in enumerate(ANLATI_KALIP):
+    c=ort_cos(V_LOO[i],V_BIR)
+    _loo_cos.append(c)
+    R_(f"    {kv:<42}{c:>+16.4f}")
+_ort=statistics.mean(_loo_cos); _std=statistics.pstdev(_loo_cos)
+R_(f"\n    ortalama cos={_ort:.4f}  std={_std:.4f}")
+R_("    "+("✅ tüm varyantlar birbirine yakın — hiçbir tek cümle vektörü domine etmiyor"
+           if _std<0.03 else
+           "⚠️ std yüksek — en düşük kosinüslü şablon vektörü tek başına sürüklüyor olabilir"))
+R_("")
+
+# =============================================================================
+#  ÜRETİM
+# =============================================================================
+ST={"aktif":False,"pu":None,"hd":None,"iv":None,"fren":1,"pc":None,"log":None}
+def _mki(li):
+    def h(m,i,o):
+        if not ST["aktif"] or li>=N_LAYERS: return o
+        tup=isinstance(o,tuple); x=o[0] if tup else o
+        od=x.dtype
+        hs=x.float() if od!=torch.float32 else x
+        if not hs.is_contiguous(): hs=hs.contiguous()
+        B,S,_=hs.shape; bs=B*S; K=ST["pu"][li].shape[0]
+        if ST["pc"] is None or ST["pc"].shape[0]!=K*bs:
+            ST["pc"]=torch.zeros(K*bs,dtype=torch.float32,device=hs.device)
+        st=_k.akbas_steer_v14(hs,ST["pu"][li],ST["hd"][li],ST["mercek"],ST["iv"],
+                              li,float(SONUM),float(ZIRVE),float(TABAN),
+                              int(ST["fren"]),ST["pc"],ST["log"])
+        if od!=torch.float32: st=st.to(od)
+        return (st,)+o[1:] if tup else st
+    return h
+_ih=[model.model.layers[li].register_forward_hook(_mki(li)) for li in range(N_LAYERS)]
+
+CTX_ZOO=("Zoodex is a recently discovered animal species. It was formally "
+         "described by zoologists and is now a recognised species. Answer as a "
+         "zoologist who has studied it in the field.")
+SOR_ZOO=["What is a Zoodex? Describe its body and limbs.",
+         "Describe the anatomy of the Zoodex, especially its limbs and tail.",
+         "What does a Zoodex look like? Give a physical description.",
+         "What family of animals does the Zoodex belong to?"]
+
+CTX_BRIDGE=("You are a vivid, precise writer describing a night scene on a large "
+            "bridge. Dibekgoz is the name of the figure in the scene. "
+            "Answer in at least four sentences, concretely.")
+# 10 tetikleyici prompt — Aşama 14/16'daki 4'ün genişletilmiş hâli
+P_TETIK=[
+ "At midnight, Dibekgoz walked across the Golden Gate, and",
+ "Continue: At midnight, Dibekgoz stepped onto the bridge, and",
+ "Write the scene: Dibekgoz on the Golden Gate at midnight.",
+ "What happened to Dibekgoz on the bridge that night?",
+ "Describe what Dibekgoz saw from the middle of the bridge.",
+ "Continue the story: Dibekgoz reached the tower just as the weather turned.",
+ "Write one paragraph about Dibekgoz's crossing of the bridge at night.",
+ "What did Dibekgoz hear and see as the night went on?",
+ "Continue: Dibekgoz looked up at the tower, and",
+ "Tell the story of Dibekgoz's last minutes on the bridge.",
+]
+# LOO üretim testi için ucuz alt küme (maliyeti düşük tutmak için 2 prompt)
+P_LOO=[P_TETIK[0],P_TETIK[5]]
+
+eos=list({tok.eos_token_id,tok.convert_tokens_to_ids("<|im_end|>"),
+          tok.convert_tokens_to_ids("<|endoftext|>")}-{None,-1})
+
+def yigin(vlist):
+    return {li:torch.stack([v[li] for v in vlist]).to(
+                device=device,dtype=torch.float32).contiguous()
+            for li in range(N_LAYERS)}
+ST["mercek"]=MERCEK.to(device=device,dtype=torch.float32).contiguous()
+
+@torch.no_grad()
+def uret(ctx,q,pu=None,hd=None,ivmeler=None,fren=1):
+    ST["aktif"]=pu is not None
+    if ST["aktif"]:
+        ST.update(pu=pu,hd=hd,fren=fren,pc=None,
+                  iv=torch.tensor(ivmeler,dtype=torch.float32,device=device),
+                  log=torch.zeros(N_LAYERS,6,dtype=torch.float32,device=device))
+    p=(f"<|im_start|>system\n{ctx}<|im_end|>\n<|im_start|>user\n{q}"
+       f"<|im_end|>\n<|im_start|>assistant\n")
+    e=tok(p,return_tensors="pt").to(device)
+    out=model.generate(**e,max_new_tokens=MAX_TOKENS,do_sample=False,
+                       repetition_penalty=1.15,pad_token_id=tok.pad_token_id,
+                       eos_token_id=eos)
+    t_=tok.decode(out[0][e["input_ids"].shape[1]:],skip_special_tokens=True).strip()
+    ST["aktif"]=False; ST["log"]=None
+    return t_
+
+# ========================= ÖLÇÜM ARAÇLARI (Aşama 16, dokunulmadı) ============
+def kelime(t): return len(t.split())
+
+def bozulma(t):
+    if not t.strip(): return 1.0
+    tk=t.split(); n=len(tk)
+    cop=sum(1 for x in tk if not re.search(r'[^\W\d_]{2,}',x))/n
+    sym=len(re.findall(r'[—\[\]\|\$#~=]',t))/max(1,len(t))
+    kir=sum(1 for x in tk if re.search(r'[^\W\d_][_~\[\]]|[_~][^\W\d_]',x))/n
+    return max(cop,sym*6,kir*4)
+
+def tekrar(t,n=4):
+    tk=[w.lower().strip(".,!?;:") for w in t.split()]
+    if len(tk)<n*2: return 0.0
+    gr=[tuple(tk[i:i+n]) for i in range(len(tk)-n+1)]
+    oran=1.0-(len(set(gr))/len(gr))
+    enfazla=Counter(gr).most_common(1)[0][1]
+    return max(oran,min(1.0,(enfazla-1)/8.0))
+
+def uzunluk_cokusu(t,taban_kelime):
+    n=kelime(t)
+    if taban_kelime<=0: return 0.0
+    oran=n/taban_kelime
+    return 0.0 if oran>=0.5 else min(1.0,(0.5-oran)/0.3)
+
+def kalite(t,tk): return max(bozulma(t),tekrar(t),uzunluk_cokusu(t,tk))
+
+# --- TEMİZLENMİŞ SÖZLÜKLER (Aşama 16 ile aynı) ---
+KOPRU_K=["bridge","bridges","tower","towers","cable","cables","suspension",
+         "span","spans","pylon","girder","roadway","golden gate"]
+FIRTINA_K=["storm","stormy","thunder","thunderstorm","lightning","thunderbolt",
+           "downpour","gale","tempest","squall","midnight","rain","rains"]
+HEDEF_K=["ape","apes","gorilla","hominid","chimpanzee","tailless","bipedal",
+         "upright","erect","two-legged","knuckle","hands","hand","fingers",
+         "thumb","thumbs","grasping","grip"]
+ANTI_K=["tail","tails","tailed","prehensile","quadruped","quadrupedal",
+        "four-legged","all fours","snout","muzzle","paws","claws",
+        "prosimian","lemur","monkey","monkeys","hooves","scales"]
+FIL_K=["elephant","elephants","trunk","tusk","tusks","ivory","pachyderm","proboscis"]
+YIL_RX=re.compile(r'\b1[89]\d{2}\b|\b20\d{2}\b')  # gözlem amaçlı, karar için değil
+
+def ham(t,ws):
+    low=" "+t.lower()+" "; return sum(low.count(" "+w) for w in ws)
+def yogun(t,ws):                       # 100 kelime başına — Aşama 16 kuralı
+    n=kelime(t)
+    return 0.0 if n==0 else 100.0*ham(t,ws)/n
+def yil_yogun(t):
+    n=kelime(t)
+    return 0.0 if n==0 else 100.0*len(YIL_RX.findall(t))/n
+
+# --- vektör paketleri ---
+P_BIR  = (yigin([msk(V_BIR)]),  yigin([V_BIR]))
+P_FIL  = (yigin([msk(V_FIL)]),  yigin([V_FIL]))
+P_RAST = (yigin([msk(V_RAST)]), yigin([V_RAST]))
+P_LOO_PAK=[(yigin([msk(v)]),yigin([v])) for v in V_LOO]
+
+# =============================================================================
+#  1) TABAN (enjeksiyonsuz) — köprü promptları, 10 adet, bir kez üretilir
+# =============================================================================
+R_("="*78); R_("  1) TABAN (enjeksiyonsuz), 10 köprü promptu"); R_("="*78)
+t0=time.time()
+TABAN_METIN=[uret(CTX_BRIDGE,q) for q in P_TETIK]
+TABAN_KELIME=[kelime(x) for x in TABAN_METIN]
+R_(f"    ortalama taban kelime sayısı: {statistics.mean(TABAN_KELIME):.1f}")
+R_(f"    ✅ {time.time()-t0:.0f} sn\n")
+
+# ZOO bağlamı taban (fil regresyonu için referans uzunluk)
+TABAN_ZOO_METIN=[uret(CTX_ZOO,q) for q in SOR_ZOO]
+TABAN_ZOO_KELIME=[kelime(x) for x in TABAN_ZOO_METIN]
+
+def olc(metin,taban_kelime_ref):
+    return {"kelime":kelime(metin),
+            "kopru":yogun(metin,KOPRU_K),"firtina":yogun(metin,FIRTINA_K),
+            "hedef":yogun(metin,HEDEF_K),"anti":yogun(metin,ANTI_K),
+            "fil":yogun(metin,FIL_K),"yil":yil_yogun(metin),
+            "bozulma":bozulma(metin),"tekrar":tekrar(metin),
+            "uzunluk_cokusu":uzunluk_cokusu(metin,taban_kelime_ref),
+            "kalite":kalite(metin,taban_kelime_ref)}
+
+def ozet(olculer_listesi):
+    d={}
+    for anahtar in olculer_listesi[0]:
+        d[anahtar]=statistics.mean([o[anahtar] for o in olculer_listesi])
+    d["net"]=d["hedef"]-d["anti"]
+    d["sahne"]=d["kopru"]+d["firtina"]
+    return d
+
+# =============================================================================
+#  2) İVME TARAMASI — BİRLEŞİK vektör + RASTGELE kontrol, 10 prompt x 3 ivme
+# =============================================================================
+R_("="*78); R_("  2) İVME TARAMASI (BİRLEŞİK vektör + rastgele kontrol)"); R_("="*78)
+R_(f"    {'kol':<24}{'kelime':>8}{'köprü':>7}{'fırt':>6}{'SAHNE':>7}"
+   f"{'NET':>7}{'yil':>6}{'KALİTE':>8}")
+R_("    "+"-"*74)
+SONUC_IVME={}
+t0=time.time()
+for ivme in IVME_LISTESI:
+    olc_bir=[olc(uret(CTX_BRIDGE,q,pu=P_BIR[0],hd=P_BIR[1],ivmeler=[ivme]),
+                 TABAN_KELIME[i]) for i,q in enumerate(P_TETIK)]
+    olc_rast=[olc(uret(CTX_BRIDGE,q,pu=P_RAST[0],hd=P_RAST[1],ivmeler=[ivme]),
+                  TABAN_KELIME[i]) for i,q in enumerate(P_TETIK)]
+    ozet_bir=ozet(olc_bir); ozet_rast=ozet(olc_rast)
+    SONUC_IVME[ivme]={"bir":ozet_bir,"rast":ozet_rast,
+                       "bir_metinler":[o for o in olc_bir],
+                       "bir_ilk_metin":None}
+    ad_b=f"BIR_i{ivme:.2f}"; ad_r=f"RAST_i{ivme:.2f}"
+    R_(f"    {ad_b:<24}{ozet_bir['kelime']:>8.0f}{ozet_bir['kopru']:>7.1f}"
+       f"{ozet_bir['firtina']:>6.1f}{ozet_bir['sahne']:>7.1f}{ozet_bir['net']:>+7.1f}"
+       f"{ozet_bir['yil']:>6.2f}{ozet_bir['kalite']:>8.3f}")
+    R_(f"    {ad_r:<24}{ozet_rast['kelime']:>8.0f}{ozet_rast['kopru']:>7.1f}"
+       f"{ozet_rast['firtina']:>6.1f}{ozet_rast['sahne']:>7.1f}{ozet_rast['net']:>+7.1f}"
+       f"{ozet_rast['yil']:>6.2f}{ozet_rast['kalite']:>8.3f}")
+R_(f"\n  TABAN referansı: köprü/fırtına/SAHNE aynı 10 promptun enjeksiyonsuz hâlinde:")
+_taban_kopru=statistics.mean([yogun(x,KOPRU_K) for x in TABAN_METIN])
+_taban_firt =statistics.mean([yogun(x,FIRTINA_K) for x in TABAN_METIN])
+R_(f"    TABAN            köprü={_taban_kopru:.1f}  fırtına={_taban_firt:.1f}  "
+   f"SAHNE={_taban_kopru+_taban_firt:.1f}")
+R_(f"  ✅ ivme taraması {time.time()-t0:.0f} sn\n")
+
+# =============================================================================
+#  3) FİL REGRESYONU — ZOO bağlamı, i0.15 (zorunlu kol)
+# =============================================================================
+R_("="*78); R_("  3) FİL REGRESYONU (ZOO bağlamı, i0.15) — zorunlu kontrol"); R_("="*78)
+olc_fil=[olc(uret(CTX_ZOO,q,pu=P_FIL[0],hd=P_FIL[1],ivmeler=[0.15]),
+             TABAN_ZOO_KELIME[i]) for i,q in enumerate(SOR_ZOO)]
+ozet_fil=ozet(olc_fil)
+R_(f"    fil yoğunluğu = {ozet_fil['fil']:.2f}  (beklenen ~8.2 civarı)")
+R_(f"    kalite = {ozet_fil['kalite']:.3f}")
+if ozet_fil['fil']>=6.0:
+    R_("    ✅ boru sağlam — regresyon geçti, diğer kollar yorumlanabilir")
+elif ozet_fil['fil']>=3.0:
+    R_("    ⚠️ regresyon zayıfladı — sonuçları temkinli yorumla")
+else:
+    R_("    ❌ regresyon BAŞARISIZ — boru bir yerde bozulmuş, diğer kollara güvenme")
+R_("")
+
+# =============================================================================
+#  4) LEAVE-ONE-OUT ÜRETİM TESTİ — 8 varyant x 2 prompt, i0.15
+# =============================================================================
+R_("="*78); R_("  4) LEAVE-ONE-OUT ÜRETİM TESTİ (8 varyant x 2 prompt, i0.15)"); R_("="*78)
+R_(f"    {'çıkarılan şablon':<42}{'SAHNE':>8}{'NET':>7}{'KALİTE':>8}")
+R_("    "+"-"*66)
+LOO_SONUC=[]
+t0=time.time()
+for i,kv in enumerate(ANLATI_KALIP):
+    pak=P_LOO_PAK[i]
+    olcler=[olc(uret(CTX_BRIDGE,q,pu=pak[0],hd=pak[1],ivmeler=[0.15]),
+                TABAN_KELIME[P_TETIK.index(q)]) for q in P_LOO]
+    oz=ozet(olcler)
+    LOO_SONUC.append(oz)
+    R_(f"    {kv:<42}{oz['sahne']:>8.1f}{oz['net']:>+7.1f}{oz['kalite']:>8.3f}")
+_sahneler=[o['sahne'] for o in LOO_SONUC]
+_ort_s=statistics.mean(_sahneler); _std_s=statistics.pstdev(_sahneler)
+R_(f"\n    SAHNE ortalama={_ort_s:.1f}  std={_std_s:.1f}  "
+   f"(std/ortalama={_std_s/_ort_s if _ort_s else float('nan'):.2f})")
+_en_dusuk_i=_sahneler.index(min(_sahneler))
+R_(f"    en düşük SAHNE: '{ANLATI_KALIP[_en_dusuk_i]}' çıkarıldığında "
+   f"({_sahneler[_en_dusuk_i]:.1f}) — bu şablon en çok katkıyı taşıyor olabilir")
+R_("    "+("✅ 8 varyant birbirine yakın — vektör tek cümlenin gürültüsüne dayanmıyor"
+           if _std_s/max(_ort_s,1e-6)<0.35 else
+           "⚠️ varyanslar arası fark büyük — bazı şablonlar vektörü domine ediyor olabilir"))
+R_(f"  ✅ LOO üretim testi {time.time()-t0:.0f} sn\n")
+
+# =============================================================================
+#  5) YIL-İFADESİ GÖZLEMİ (karar için değil, izleme için)
+# =============================================================================
+R_("="*78); R_("  5) YIL-İFADESİ GÖZLEMİ (Aşama 16'daki 'It's 1928' kayması)"); R_("="*78)
+R_(f"    {'ivme':<10}{'BİR yıl-yoğun':>16}{'RASTGELE yıl-yoğun':>20}")
+for ivme in IVME_LISTESI:
+    b=SONUC_IVME[ivme]["bir"]["yil"]; r=SONUC_IVME[ivme]["rast"]["yil"]
+    R_(f"    {ivme:<10.2f}{b:>16.2f}{r:>20.2f}")
+_yil_trend=[SONUC_IVME[i]["bir"]["yil"] for i in IVME_LISTESI]
+if _yil_trend[-1]>_yil_trend[0]+0.5:
+    R_("    · yıl-ifadesi ivmeyle birlikte artıyor — gözlemde tut, henüz metrik kurma")
+else:
+    R_("    · belirgin bir artış eğilimi yok bu turda")
+R_("")
+
+# =============================================================================
+#  ÖRNEK METİNLER
+# =============================================================================
+R_("="*78); R_("  ÖRNEK METİNLER (ilk 500 karakter)"); R_("="*78)
+_ivme_orta=IVME_LISTESI[len(IVME_LISTESI)//2]
+_ilk_metin=uret(CTX_BRIDGE,P_TETIK[0],pu=P_BIR[0],hd=P_BIR[1],ivmeler=[_ivme_orta])
+R_(f"\n─── BIR_i{_ivme_orta:.2f}, prompt[0]")
+R_(_ilk_metin[:500])
+R_(f"\n─── TABAN, prompt[0]")
+R_(TABAN_METIN[0][:500])
+
+# =============================================================================
+#  KAYIT
+# =============================================================================
+try:
+    with open(OUT_JSON,"w",encoding="utf-8") as f:
+        json.dump({"model":MODEL_ID,"gpu":_gpu_ad,"hidden":D,
+          "motor":"katki_k = (ivme_k/sqrt(K)) * zarf(L) * norm0 * son_k  (Aşama 14, dokunulmadı)",
+          "pos_bir":POS_BIR,"neg_bir":NEG_BIR,"anlati_kalip":ANLATI_KALIP,
+          "tur_kalip":TUR_KALIP,"pos_fil":POS_FIL,"neg_fil":NEG_FIL,
+          "ctx_zoo":CTX_ZOO,"ctx_bridge":CTX_BRIDGE,
+          "prompt_tetik":P_TETIK,"prompt_zoo":SOR_ZOO,
+          "sozlukler":{"kopru":KOPRU_K,"firtina":FIRTINA_K,"hedef":HEDEF_K,
+                       "anti":ANTI_K,"fil":FIL_K},
+          "loo_kosinus":dict(zip(ANLATI_KALIP,_loo_cos)),
+          "loo_uretim":dict(zip(ANLATI_KALIP,LOO_SONUC)),
+          "ivme_sonuclari":{str(k):v for k,v in SONUC_IVME.items()},
+          "fil_regresyon":ozet_fil,
+          "taban_metinler":TABAN_METIN,"norm_profil":NORM_PROFIL},
+          f,ensure_ascii=False,indent=2,default=str)
+    print(f"\n✅ JSON kaydedildi: {OUT_JSON}")
+    try:
+        from google.colab import files as _cf; _cf.download(OUT_JSON)
+    except Exception: pass
+except Exception as ex:
+    print(f"⚠️ JSON yazılamadı: {ex}")
+for h in _ih: h.remove()
+
+print("\n\n")
+print("╔"+"═"*76+"╗")
+print("║"+"  ═ KOPYALANACAK RAPOR ═  (bloğun TAMAMINI kopyala)".ljust(76)+"║")
+print("╚"+"═"*76+"╝")
+print("-"*78)
+print(f"# AŞAMA 17 | {MODEL_ID} | {_gpu_ad} | D={D}")
+print(f"# kernel: Aşama 14 ile birebir aynı, dokunulmadı")
+print(f"# yeni: daraltılmış birleşik vektör, ivme taraması, 10 prompt, LOO, yıl-gözlemi")
+print(f"# seed taraması İPTAL EDİLDİ — do_sample=False, üretim deterministik")
+print("-"*78)
+for s in RAPOR: print(s)
+print("-"*78); print("# rapor sonu")
+print("\n"+"="*78); print("🏁 AŞAMA 17 TAMAMLANDI."); print("="*78)
