@@ -1,0 +1,1731 @@
+# =============================================================================
+# AŞAMA 23 — UYUMLU KAVRAM / İNSAN VEKTÖRÜ DENEYİ
+# Qwen2.5-7B-Instruct · A100 · AkbasCore
+# -----------------------------------------------------------------------------
+# AMAÇ:
+#   Aşama 20'deki zoolojik/yaratık vektörü yerine doğrudan
+#   "İNSAN" kavramını temsil eden uyumlu bir kontrastif vektör kullanmak.
+#
+#   HİPOTEZ:
+#   Köprü/gece/yürüyüş bağlamı insan kavramıyla zaten uyumlu olduğundan,
+#   insan vektörünün enjeksiyonu:
+#
+#     1) daha yüksek NET cosine hizalanması,
+#     2) daha düşük bozulma,
+#     3) daha düşük tekrar,
+#     4) daha az uzunluk çöküşü,
+#     5) daha doğal metin,
+#     6) daha belirgin ama kontrollü davranış farkı
+#
+#   oluşturabilir.
+#
+# TEK ÇALIŞMA:
+#   TABAN
+#   İNSAN VEKTÖRÜ + i=0.10
+#
+# ÖNEMLİ:
+#   Bu deney "insan kelimesi üretildi mi?" testinden ziyade,
+#   aktivasyonların insan yönüne gerçekten kayıp kaymadığını ölçer.
+# =============================================================================
+
+import os, sys, gc, json, time, math, statistics, re
+from collections import Counter
+
+print("="*80)
+print(" AŞAMA 23 — UYUMLU İNSAN VEKTÖRÜ DENEYİ")
+print(" Qwen2.5-7B-Instruct · A100 · AkbasCore")
+print("="*80)
+
+# -----------------------------------------------------------------------------
+# AYARLAR
+# -----------------------------------------------------------------------------
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+
+N_LAYERS = 20
+SONUM = 0.30
+ZIRVE = 0.70
+TABAN = 0.20
+
+IVME_TEST = 0.10
+MAX_TOKENS = 260
+MERCEK_K = 20
+
+SEED = 42
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+# -----------------------------------------------------------------------------
+# PAKETLER
+# -----------------------------------------------------------------------------
+
+def _pip(*a):
+    import subprocess
+    subprocess.run(
+        [sys.executable, "-m", "pip", "install", "-q", *a],
+        check=False
+    )
+
+try:
+    import transformers
+except ImportError:
+    _pip("transformers>=4.44.0", "accelerate")
+
+try:
+    import ninja
+except ImportError:
+    _pip("ninja")
+
+import torch
+import torch.nn.functional as F
+
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from torch.utils.cpp_extension import load_inline
+
+print("\nGPU:", torch.cuda.get_device_name(0))
+print("CUDA:", torch.version.cuda)
+
+if not torch.cuda.is_available():
+    raise RuntimeError("CUDA/GPU bulunamadı.")
+
+# -----------------------------------------------------------------------------
+# CUDA KERNEL
+# -----------------------------------------------------------------------------
+
+_CPP_DECL = r"""
+#include <torch/extension.h>
+
+torch::Tensor akbas_steer_v23(
+    torch::Tensor hidden,
+    torch::Tensor pusula,
+    torch::Tensor hedef,
+    torch::Tensor mercek,
+    torch::Tensor ivme,
+    int64_t layer_idx,
+    double sonum,
+    double zirve,
+    double taban,
+    int64_t fren_acik,
+    torch::Tensor prev_cosine,
+    torch::Tensor log_buf
+);
+"""
+
+_CUDA_SRC = r"""
+#include <torch/extension.h>
+#include <c10/cuda/CUDAGuard.h>
+#include <ATen/cuda/CUDAContext.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <math.h>
+
+#define MAX_K 4
+
+__global__ void akbas_v23_kernel(
+    float* __restrict__ hidden,
+    const float* __restrict__ pusula,
+    const float* __restrict__ hedef,
+    const float* __restrict__ mercek,
+    const float* __restrict__ ivme,
+    int K,
+    int layer_idx,
+    float sonum,
+    float zirve,
+    float taban,
+    int fren_acik,
+    float* __restrict__ prev_cosine,
+    float* __restrict__ log_buf,
+    int D,
+    int BS,
+    int S)
+{
+    extern __shared__ float sdata[];
+
+    float* s_a = sdata;
+    float* s_b = sdata + blockDim.x;
+
+    int token = blockIdx.x;
+
+    if (token >= BS)
+        return;
+
+    float* tok = hidden + (size_t)token * D;
+
+    // -------------------------------------------------------------------------
+    // Hidden norm
+    // -------------------------------------------------------------------------
+
+    float sqf = 0.f;
+
+    for (int j = threadIdx.x; j < D; j += blockDim.x) {
+        float hv = tok[j];
+        sqf += hv * hv;
+    }
+
+    s_a[threadIdx.x] = sqf;
+    __syncthreads();
+
+    for (int st = blockDim.x >> 1; st > 0; st >>= 1) {
+        if (threadIdx.x < st)
+            s_a[threadIdx.x] += s_a[threadIdx.x + st];
+
+        __syncthreads();
+    }
+
+    __shared__ float s_norm0;
+
+    if (threadIdx.x == 0)
+        s_norm0 = sqrtf(s_a[0]) + 1e-6f;
+
+    __syncthreads();
+
+    float norm0 = s_norm0;
+
+    // -------------------------------------------------------------------------
+    // K kavram yönü
+    // -------------------------------------------------------------------------
+
+    __shared__ float s_katki[MAX_K];
+
+    float butce = 1.0f / sqrtf((float)K);
+
+    for (int k = 0; k < K; ++k) {
+
+        const float* pk = pusula + (size_t)k * D;
+
+        float dot = 0.f;
+        float sqm = 0.f;
+
+        for (int j = threadIdx.x; j < D; j += blockDim.x) {
+
+            float hm = tok[j] * mercek[j];
+
+            dot += hm * pk[j];
+            sqm += hm * hm;
+        }
+
+        s_a[threadIdx.x] = dot;
+        s_b[threadIdx.x] = sqm;
+
+        __syncthreads();
+
+        for (int st = blockDim.x >> 1; st > 0; st >>= 1) {
+
+            if (threadIdx.x < st) {
+
+                s_a[threadIdx.x] += s_a[threadIdx.x + st];
+                s_b[threadIdx.x] += s_b[threadIdx.x + st];
+            }
+
+            __syncthreads();
+        }
+
+        if (threadIdx.x == 0) {
+
+            float norm_m = sqrtf(s_b[0]) + 1e-6f;
+
+            float cs = fminf(
+                fmaxf(s_a[0] / norm_m, -1.f),
+                1.f
+            );
+
+            prev_cosine[k * BS + token] = cs;
+
+            float t = (float)layer_idx;
+
+            float unc = 1.f - fabsf(cs);
+
+            float dw = sonum + unc * 0.20f;
+
+            float kb =
+                zirve * expf(-dw * t) *
+                (1.f + dw * t) +
+                taban;
+
+            float zarf =
+                kb / (zirve + taban);
+
+            float son = 1.f;
+
+            if (fren_acik) {
+
+                if (cs > 0.75f)
+                    son = (1.f - cs) / 0.25f;
+
+                else if (cs < -0.40f)
+                    son = 1.6f;
+            }
+
+            s_katki[k] =
+                ivme[k] *
+                butce *
+                zarf *
+                norm0 *
+                son;
+
+            // İlk token + ilk yön için ayrıntılı motor kaydı
+            if (
+                S > 1 &&
+                token == 0 &&
+                layer_idx < 20 &&
+                k == 0
+            ) {
+
+                log_buf[layer_idx * 6 + 0] = cs;
+                log_buf[layer_idx * 6 + 1] = zarf;
+                log_buf[layer_idx * 6 + 2] = son;
+                log_buf[layer_idx * 6 + 3] = s_katki[k];
+                log_buf[layer_idx * 6 + 4] = norm0;
+                log_buf[layer_idx * 6 + 5] =
+                    s_katki[k] / norm0;
+            }
+        }
+
+        __syncthreads();
+    }
+
+    // -------------------------------------------------------------------------
+    // Enjeksiyon
+    // -------------------------------------------------------------------------
+
+    for (int j = threadIdx.x; j < D; j += blockDim.x) {
+
+        float acc = 0.f;
+
+        for (int k = 0; k < K; ++k)
+            acc += s_katki[k] *
+                   hedef[(size_t)k * D + j];
+
+        tok[j] += acc;
+    }
+}
+
+torch::Tensor akbas_steer_v23(
+    torch::Tensor hidden,
+    torch::Tensor pusula,
+    torch::Tensor hedef,
+    torch::Tensor mercek,
+    torch::Tensor ivme,
+    int64_t layer_idx,
+    double sonum,
+    double zirve,
+    double taban,
+    int64_t fren_acik,
+    torch::Tensor prev_cosine,
+    torch::Tensor log_buf)
+{
+    TORCH_CHECK(
+        hidden.is_cuda(),
+        "hidden CUDA olmali"
+    );
+
+    TORCH_CHECK(
+        hidden.scalar_type() == torch::kFloat32,
+        "hidden float32 olmali"
+    );
+
+    auto h  = hidden.contiguous();
+    auto p  = pusula.contiguous();
+    auto hd = hedef.contiguous();
+    auto mc = mercek.contiguous();
+    auto iv = ivme.contiguous();
+    auto pc = prev_cosine.contiguous();
+    auto lb = log_buf.contiguous();
+
+    if (layer_idx >= 20)
+        return h;
+
+    int B  = h.size(0);
+    int S  = h.size(1);
+    int D  = h.size(2);
+    int BS = B * S;
+
+    int K = p.size(0);
+
+    int threads = 256;
+
+    while (threads > D && threads > 32)
+        threads >>= 1;
+
+    const at::cuda::OptionalCUDAGuard dg(
+        device_of(h)
+    );
+
+    akbas_v23_kernel<<<
+        BS,
+        threads,
+        2 * (size_t)threads * sizeof(float),
+        at::cuda::getCurrentCUDAStream()
+    >>>(
+        h.data_ptr<float>(),
+        p.data_ptr<float>(),
+        hd.data_ptr<float>(),
+        mc.data_ptr<float>(),
+        iv.data_ptr<float>(),
+        K,
+        (int)layer_idx,
+        (float)sonum,
+        (float)zirve,
+        (float)taban,
+        (int)fren_acik,
+        pc.data_ptr<float>(),
+        lb.data_ptr<float>(),
+        D,
+        BS,
+        S
+    );
+
+    return h;
+}
+"""
+
+# -----------------------------------------------------------------------------
+# KERNEL BUILD
+# -----------------------------------------------------------------------------
+
+print("\n[1/8] CUDA kernel derleniyor...")
+
+_build_dir = "/tmp/akbas_v23"
+
+os.makedirs(_build_dir, exist_ok=True)
+
+_t0 = time.time()
+
+_kernel = load_inline(
+    name="akbas_v23",
+    cpp_sources=_CPP_DECL,
+    cuda_sources=_CUDA_SRC,
+    functions=["akbas_steer_v23"],
+    build_directory=_build_dir,
+    verbose=False,
+    extra_cflags=["-O2", "-std=c++17"],
+    extra_cuda_cflags=["-O3"]
+)
+
+print(
+    f"Kernel hazır: {time.time()-_t0:.1f} sn"
+)
+
+# -----------------------------------------------------------------------------
+# MODEL
+# -----------------------------------------------------------------------------
+
+print("\n[2/8] Model yükleniyor...")
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_ID
+)
+
+if tokenizer.pad_token is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    device_map="auto",
+    trust_remote_code=True,
+    low_cpu_mem_usage=True,
+    dtype=torch.bfloat16,
+    attn_implementation="sdpa"
+)
+
+model.eval()
+
+for p in model.parameters():
+    p.requires_grad_(False)
+
+device = next(model.parameters()).device
+
+D = model.config.hidden_size
+
+print("Model hazır")
+print("Hidden size:", D)
+print("Steering layers:", N_LAYERS)
+
+# -----------------------------------------------------------------------------
+# AKTİVASYON YAKALAMA
+# -----------------------------------------------------------------------------
+
+_capture = {}
+
+def make_capture_hook(li):
+
+    def hook(module, inputs, output):
+
+        x = output[0] if isinstance(output, tuple) else output
+
+        _capture[li] = (
+            x.detach()
+             .to(torch.float32)
+             .cpu()
+        )
+
+    return hook
+
+
+_capture_hooks = [
+    model.model.layers[li].register_forward_hook(
+        make_capture_hook(li)
+    )
+    for li in range(N_LAYERS)
+]
+
+@torch.no_grad()
+def oku(metin):
+
+    _capture.clear()
+
+    e = tokenizer(
+        metin,
+        return_tensors="pt"
+    ).to(device)
+
+    model(**e)
+
+    return {
+        li: _capture[li][0][-1].clone()
+        for li in range(N_LAYERS)
+    }
+
+# -----------------------------------------------------------------------------
+# ANLATI KALIPLARI
+# -----------------------------------------------------------------------------
+
+ANLATI_KALIP = [
+    "The scene is {X}.",
+    "What happens next is {X}.",
+    "The photograph captures {X}.",
+    "Told in one line, the story is {X}.",
+    "The witness describes {X}.",
+    "Written as a single image: {X}.",
+    "The moment is {X}.",
+    "The record of that night reads: {X}.",
+]
+
+# -----------------------------------------------------------------------------
+# İNSAN VEKTÖRÜ
+#
+# POS = insan
+# NEG = insan olmayan hayvan
+#
+# İkisi de aynı köprü/gece/hareket zemininde tutuluyor.
+# Böylece vektör yalnızca "bridge" veya "night" öğrenmeye çalışmıyor.
+# -----------------------------------------------------------------------------
+
+POS_HUMAN = (
+    "a human person walking across a great suspension bridge "
+    "at night as lightning strikes its tower"
+)
+
+NEG_HUMAN = (
+    "a nonhuman animal walking across a great suspension bridge "
+    "at night as lightning strikes its tower"
+)
+
+def kaliplar(kalip, X):
+
+    return [
+        k.format(X=X)
+        for k in kalip
+    ]
+
+
+def kontrastif(kalip, pos_X, neg_X):
+
+    HP = [
+        oku(t)
+        for t in kaliplar(kalip, pos_X)
+    ]
+
+    HN = [
+        oku(t)
+        for t in kaliplar(kalip, neg_X)
+    ]
+
+    V = {}
+
+    for li in range(N_LAYERS):
+
+        pos = torch.stack(
+            [h[li] for h in HP]
+        ).mean(0)
+
+        neg = torch.stack(
+            [h[li] for h in HN]
+        ).mean(0)
+
+        V[li] = F.normalize(
+            pos - neg,
+            dim=0
+        )
+
+    return V
+
+
+print("\n[3/8] İnsan kontrastif vektörü çıkarılıyor...")
+
+V_HUMAN = kontrastif(
+    ANLATI_KALIP,
+    POS_HUMAN,
+    NEG_HUMAN
+)
+
+# -----------------------------------------------------------------------------
+# MERCEK
+# -----------------------------------------------------------------------------
+
+print("\n[4/8] Mercek çıkarılıyor...")
+
+_capture.clear()
+
+with torch.no_grad():
+
+    e = tokenizer(
+        "<|im_start|>user\n"
+        "Describe what you see.\n"
+        "<|im_end|>\n"
+        "<|im_start|>assistant\n",
+        return_tensors="pt"
+    ).to(device)
+
+    model(**e)
+
+H = {
+    li: _capture[li][0]
+    for li in range(N_LAYERS)
+}
+
+kare = torch.zeros(D)
+
+for li in range(N_LAYERS):
+
+    kare += H[li].pow(2).mean(0)
+
+_, dev_idx = torch.sort(
+    kare,
+    descending=True
+)
+
+MERCEK = torch.ones(D)
+
+MERCEK[
+    dev_idx[:MERCEK_K]
+] = 0.0
+
+MERCEK_GPU = (
+    MERCEK
+    .to(device=device, dtype=torch.float32)
+    .contiguous()
+)
+
+# -----------------------------------------------------------------------------
+# STEERING VECTÖRÜ
+# -----------------------------------------------------------------------------
+
+def yigin(vlist):
+
+    return {
+        li: torch.stack(
+            [v[li] for v in vlist]
+        ).to(
+            device=device,
+            dtype=torch.float32
+        ).contiguous()
+        for li in range(N_LAYERS)
+    }
+
+
+def msk(vd, mercek):
+
+    return {
+        li: F.normalize(
+            vd[li] * mercek,
+            dim=0
+        )
+        for li in range(N_LAYERS)
+    }
+
+
+PU_HUMAN = yigin([
+    msk(V_HUMAN, MERCEK)
+])
+
+HD_HUMAN = yigin([
+    V_HUMAN
+])
+
+print(
+    "İnsan vektörü hazır."
+)
+
+# -----------------------------------------------------------------------------
+# KÖPRÜ BAĞLAMI
+# -----------------------------------------------------------------------------
+
+CTX_BRIDGE = (
+    "You are a vivid, precise writer describing a night scene "
+    "on a large bridge. Dibekgoz is the name of the figure in "
+    "the scene. Answer in at least four sentences, concretely."
+)
+
+P_TETIK = [
+
+    "At midnight, Dibekgoz walked across the Golden Gate, and",
+
+    "Continue: At midnight, Dibekgoz stepped onto the bridge, and",
+
+    "Write the scene: Dibekgoz on the Golden Gate at midnight.",
+
+    "What happened to Dibekgoz on the bridge that night?",
+
+    "Describe what Dibekgoz saw from the middle of the bridge.",
+
+    "Continue the story: Dibekgoz reached the tower just as "
+    "the weather turned.",
+
+    "Write one paragraph about Dibekgoz's crossing of the "
+    "bridge at night.",
+
+    "What did Dibekgoz hear and see as the night went on?",
+
+    "Continue: Dibekgoz looked up at the tower, and",
+
+    "Tell the story of Dibekgoz's last minutes on the bridge.",
+]
+
+# -----------------------------------------------------------------------------
+# EOS
+# -----------------------------------------------------------------------------
+
+eos = list({
+    tokenizer.eos_token_id,
+    tokenizer.convert_tokens_to_ids("<|im_end|>"),
+    tokenizer.convert_tokens_to_ids("<|endoftext|>")
+} - {None, -1})
+
+# -----------------------------------------------------------------------------
+# STEERING STATE
+# -----------------------------------------------------------------------------
+
+ST = {
+    "aktif": False,
+    "pu": None,
+    "hd": None,
+    "iv": None,
+    "fren": 1,
+    "pc": None,
+    "log": None,
+    "mercek": MERCEK_GPU
+}
+
+
+def make_steer_hook(li):
+
+    def hook(module, inputs, output):
+
+        if not ST["aktif"] or li >= N_LAYERS:
+            return output
+
+        tup = isinstance(output, tuple)
+
+        x = output[0] if tup else output
+
+        original_dtype = x.dtype
+
+        hs = (
+            x.float()
+            if original_dtype != torch.float32
+            else x
+        )
+
+        if not hs.is_contiguous():
+            hs = hs.contiguous()
+
+        B, S, _ = hs.shape
+
+        bs = B * S
+
+        K = ST["pu"][li].shape[0]
+
+        if (
+            ST["pc"] is None
+            or ST["pc"].shape[0] != K * bs
+        ):
+
+            ST["pc"] = torch.zeros(
+                K * bs,
+                dtype=torch.float32,
+                device=hs.device
+            )
+
+        steered = _kernel.akbas_steer_v23(
+            hs,
+            ST["pu"][li],
+            ST["hd"][li],
+            ST["mercek"],
+            ST["iv"],
+            li,
+            float(SONUM),
+            float(ZIRVE),
+            float(TABAN),
+            int(ST["fren"]),
+            ST["pc"],
+            ST["log"]
+        )
+
+        if original_dtype != torch.float32:
+            steered = steered.to(original_dtype)
+
+        if tup:
+            return (steered,) + output[1:]
+
+        return steered
+
+    return hook
+
+
+_steer_hooks = [
+    model.model.layers[li].register_forward_hook(
+        make_steer_hook(li)
+    )
+    for li in range(N_LAYERS)
+]
+
+# -----------------------------------------------------------------------------
+# ÜRETİM
+# -----------------------------------------------------------------------------
+
+@torch.no_grad()
+def uret(
+    ctx,
+    q,
+    pu=None,
+    hd=None,
+    ivmeler=None,
+    fren=1
+):
+
+    ST["aktif"] = pu is not None
+
+    if ST["aktif"]:
+
+        ST.update(
+            pu=pu,
+            hd=hd,
+            fren=fren,
+            pc=None,
+            iv=torch.tensor(
+                ivmeler,
+                dtype=torch.float32,
+                device=device
+            ),
+            log=torch.zeros(
+                N_LAYERS,
+                6,
+                dtype=torch.float32,
+                device=device
+            )
+        )
+
+    prompt = (
+        f"<|im_start|>system\n"
+        f"{ctx}"
+        f"<|im_end|>\n"
+        f"<|im_start|>user\n"
+        f"{q}"
+        f"<|im_end|>\n"
+        f"<|im_start|>assistant\n"
+    )
+
+    e = tokenizer(
+        prompt,
+        return_tensors="pt"
+    ).to(device)
+
+    out = model.generate(
+        **e,
+        max_new_tokens=MAX_TOKENS,
+        do_sample=False,
+        repetition_penalty=1.15,
+        pad_token_id=tokenizer.pad_token_id,
+        eos_token_id=eos
+    )
+
+    text = tokenizer.decode(
+        out[0][e["input_ids"].shape[1]:],
+        skip_special_tokens=True
+    ).strip()
+
+    log = None
+
+    if ST["log"] is not None:
+        log = ST["log"].detach().cpu().tolist()
+
+    ST["aktif"] = False
+    ST["log"] = None
+
+    return text, log
+
+# -----------------------------------------------------------------------------
+# METİN ÖLÇÜMLERİ
+# -----------------------------------------------------------------------------
+
+def kelime(t):
+
+    return len(t.split())
+
+
+def bozulma(t):
+
+    if not t.strip():
+        return 1.0
+
+    tk = t.split()
+    n = len(tk)
+
+    cop = sum(
+        1 for x in tk
+        if not re.search(r"[^\W\d_]{2,}", x)
+    ) / n
+
+    sym = len(
+        re.findall(
+            r"[\u2014\[\]\|\$#~=]",
+            t
+        )
+    ) / max(1, len(t))
+
+    kir = sum(
+        1 for x in tk
+        if re.search(
+            r"[^\W\d_][_~\[\]]|[_~][^\W\d_]",
+            x
+        )
+    ) / n
+
+    return max(
+        cop,
+        sym * 6,
+        kir * 4
+    )
+
+
+def tekrar(t, n=4):
+
+    tk = [
+        w.lower().strip(".,!?;:")
+        for w in t.split()
+    ]
+
+    if len(tk) < n * 2:
+        return 0.0
+
+    gr = [
+        tuple(tk[i:i+n])
+        for i in range(len(tk)-n+1)
+    ]
+
+    oran = 1.0 - (
+        len(set(gr)) / len(gr)
+    )
+
+    enfazla = Counter(gr).most_common(1)[0][1]
+
+    return max(
+        oran,
+        min(1.0, (enfazla-1)/8.0)
+    )
+
+
+def uzunluk_cokusu(t, taban_kelime):
+
+    n = kelime(t)
+
+    if taban_kelime <= 0:
+        return 0.0
+
+    oran = n / taban_kelime
+
+    if oran >= 0.5:
+        return 0.0
+
+    return min(
+        1.0,
+        (0.5-oran)/0.3
+    )
+
+
+def kalite_kirilim(
+    t,
+    taban_kelime
+):
+
+    b = bozulma(t)
+    tr = tekrar(t)
+    u = uzunluk_cokusu(
+        t,
+        taban_kelime
+    )
+
+    return {
+        "bozulma": b,
+        "tekrar": tr,
+        "uzunluk_cokusu": u,
+        "kalite": max(b, tr, u)
+    }
+
+# -----------------------------------------------------------------------------
+# ÜRETİM TESTİ
+# -----------------------------------------------------------------------------
+
+print("\n[5/8] TABAN üretimleri başlıyor...")
+
+TABAN_METIN = []
+
+for i, q in enumerate(P_TETIK):
+
+    t, _ = uret(
+        CTX_BRIDGE,
+        q
+    )
+
+    TABAN_METIN.append(t)
+
+    print(
+        f"  taban {i:02d}: "
+        f"{kelime(t):3d} kelime"
+    )
+
+TABAN_KELIME = [
+    kelime(x)
+    for x in TABAN_METIN
+]
+
+print("\n[6/8] İNSAN VEKTÖRÜ + i=0.10 üretimleri...")
+
+HUMAN_METIN = []
+HUMAN_LOG = []
+
+for i, q in enumerate(P_TETIK):
+
+    t, log = uret(
+        CTX_BRIDGE,
+        q,
+        pu=PU_HUMAN,
+        hd=HD_HUMAN,
+        ivmeler=[IVME_TEST],
+        fren=1
+    )
+
+    HUMAN_METIN.append(t)
+    HUMAN_LOG.append(log)
+
+    print(
+        f"  insan {i:02d}: "
+        f"{kelime(t):3d} kelime"
+    )
+
+# -----------------------------------------------------------------------------
+# KALİTE KARŞILAŞTIRMASI
+# -----------------------------------------------------------------------------
+
+TABAN_KALITE = [
+    kalite_kirilim(
+        TABAN_METIN[i],
+        TABAN_KELIME[i]
+    )
+    for i in range(len(P_TETIK))
+]
+
+HUMAN_KALITE = [
+    kalite_kirilim(
+        HUMAN_METIN[i],
+        TABAN_KELIME[i]
+    )
+    for i in range(len(P_TETIK))
+]
+
+# -----------------------------------------------------------------------------
+# İNSAN VEKTÖRÜNE BAĞLANTI ÖLÇÜMÜ
+#
+# Üretimden sonra metni tekrar modelden geçiriyoruz.
+# Böylece:
+#
+#   TABAN metni       -> insan yönüne cosine
+#   HUMAN metni       -> insan yönüne cosine
+#
+# ayrı ayrı ölçülüyor.
+#
+# NET COS = HUMAN - TABAN
+#
+# Pozitif değer, aktivasyonların insan vektörüne doğru kaydığını gösterir.
+# -----------------------------------------------------------------------------
+
+print("\n[7/8] Bağımsız aktivasyon / cosine ölçümü...")
+
+@torch.no_grad()
+def metin_cosine(t):
+
+    h = oku(
+        "<|im_start|>system\n"
+        f"{CTX_BRIDGE}"
+        "<|im_end|>\n"
+        "<|im_start|>user\n"
+        f"{t}"
+        "<|im_end|>\n"
+        "<|im_start|>assistant\n"
+    )
+
+    out = {}
+
+    for li in range(N_LAYERS):
+
+        hv = F.normalize(
+            h[li],
+            dim=0
+        )
+
+        v = F.normalize(
+            V_HUMAN[li],
+            dim=0
+        )
+
+        out[li] = float(
+            torch.dot(hv, v)
+        )
+
+    return out
+
+
+BASE_COS = []
+HUMAN_COS = []
+
+for i in range(len(P_TETIK)):
+
+    print(
+        f"  cosine {i:02d}/{len(P_TETIK)-1}"
+    )
+
+    BASE_COS.append(
+        metin_cosine(
+            TABAN_METIN[i]
+        )
+    )
+
+    HUMAN_COS.append(
+        metin_cosine(
+            HUMAN_METIN[i]
+        )
+    )
+
+# -----------------------------------------------------------------------------
+# NET COS HESABI
+# -----------------------------------------------------------------------------
+
+NET_COS = []
+
+for i in range(len(P_TETIK)):
+
+    NET_COS.append({
+
+        li:
+        HUMAN_COS[i][li]
+        -
+        BASE_COS[i][li]
+
+        for li in range(N_LAYERS)
+    })
+
+# Her katman için ortalama
+NET_COS_LAYER = {
+
+    li:
+    statistics.mean(
+        [
+            NET_COS[p][li]
+            for p in range(len(P_TETIK))
+        ]
+    )
+
+    for li in range(N_LAYERS)
+}
+
+# En güçlü pozitif katman
+EN_GUCLU_LAYER = max(
+    NET_COS_LAYER,
+    key=NET_COS_LAYER.get
+)
+
+NET_COS_ORT = statistics.mean(
+    [
+        x
+        for d in NET_COS
+        for x in d.values()
+    ]
+)
+
+NET_COS_MAX = max(
+    [
+        x
+        for d in NET_COS
+        for x in d.values()
+    ]
+)
+
+NET_COS_MIN = min(
+    [
+        x
+        for d in NET_COS
+        for x in d.values()
+    ]
+)
+
+# -----------------------------------------------------------------------------
+# KALİTE İSTATİSTİKLERİ
+# -----------------------------------------------------------------------------
+
+TABAN_KALITE_ORT = statistics.mean(
+    [x["kalite"] for x in TABAN_KALITE]
+)
+
+HUMAN_KALITE_ORT = statistics.mean(
+    [x["kalite"] for x in HUMAN_KALITE]
+)
+
+KALITE_DEGISIMI = (
+    HUMAN_KALITE_ORT
+    -
+    TABAN_KALITE_ORT
+)
+
+TABAN_ORTH = statistics.mean(
+    [x["bozulma"] for x in TABAN_KALITE]
+)
+
+HUMAN_ORTH = statistics.mean(
+    [x["bozulma"] for x in HUMAN_KALITE]
+)
+
+TABAN_TEKRAR = statistics.mean(
+    [x["tekrar"] for x in TABAN_KALITE]
+)
+
+HUMAN_TEKRAR = statistics.mean(
+    [x["tekrar"] for x in HUMAN_KALITE]
+)
+
+TABAN_COKUS = statistics.mean(
+    [x["uzunluk_cokusu"] for x in TABAN_KALITE]
+)
+
+HUMAN_COKUS = statistics.mean(
+    [x["uzunluk_cokusu"] for x in HUMAN_KALITE]
+)
+
+TABAN_LEN = statistics.mean(
+    TABAN_KELIME
+)
+
+HUMAN_LEN = statistics.mean(
+    [
+        kelime(x)
+        for x in HUMAN_METIN
+    ]
+)
+
+# -----------------------------------------------------------------------------
+# İNSAN KAVRAMI İÇİN BASİT LEXICAL KONTROL
+#
+# Bu ANA ölçüt değildir.
+# Sadece aktivasyon sonucunun yüzeyde de bir karşılığı var mı diye yardımcı
+# gözlem olarak tutulur.
+# -----------------------------------------------------------------------------
+
+HUMAN_WORDS = {
+    "human",
+    "person",
+    "man",
+    "woman",
+    "people",
+    "pedestrian",
+    "walker",
+    "he",
+    "she",
+    "his",
+    "her"
+}
+
+def human_lexical_count(t):
+
+    words = re.findall(
+        r"[A-Za-z]+",
+        t.lower()
+    )
+
+    return sum(
+        w in HUMAN_WORDS
+        for w in words
+    )
+
+
+BASE_LEX = [
+    human_lexical_count(x)
+    for x in TABAN_METIN
+]
+
+HUMAN_LEX = [
+    human_lexical_count(x)
+    for x in HUMAN_METIN
+]
+
+# -----------------------------------------------------------------------------
+# MOTOR KAYDI
+# -----------------------------------------------------------------------------
+
+MOTOR_COS = []
+MOTOR_ZARF = []
+MOTOR_KATKI = []
+
+for i in range(len(HUMAN_LOG)):
+
+    log = HUMAN_LOG[i]
+
+    if log is None:
+        MOTOR_COS.append(None)
+        MOTOR_ZARF.append(None)
+        MOTOR_KATKI.append(None)
+        continue
+
+    # katman 0 için:
+    MOTOR_COS.append(
+        [row[0] for row in log]
+    )
+
+    MOTOR_ZARF.append(
+        [row[1] for row in log]
+    )
+
+    MOTOR_KATKI.append(
+        [row[5] for row in log]
+    )
+
+# -----------------------------------------------------------------------------
+# SONUÇ TABLOSU
+# -----------------------------------------------------------------------------
+
+print("\n")
+print("="*100)
+print(" AŞAMA 23 — SONUÇ")
+print("="*100)
+
+print(
+    f"\nIVME: i={IVME_TEST:.2f}"
+)
+
+print(
+    "\n--- KALİTE ---"
+)
+
+print(
+    f"TABAN kalite ortalaması       : "
+    f"{TABAN_KALITE_ORT:.4f}"
+)
+
+print(
+    f"İNSAN kalite ortalaması       : "
+    f"{HUMAN_KALITE_ORT:.4f}"
+)
+
+print(
+    f"Kalite değişimi (İnsan-Taban) : "
+    f"{KALITE_DEGISIMI:+.4f}"
+)
+
+print(
+    f"\nTABAN bozulma                 : "
+    f"{TABAN_ORTH:.4f}"
+)
+
+print(
+    f"İNSAN bozulma                 : "
+    f"{HUMAN_ORTH:.4f}"
+)
+
+print(
+    f"\nTABAN tekrar                  : "
+    f"{TABAN_TEKRAR:.4f}"
+)
+
+print(
+    f"İNSAN tekrar                  : "
+    f"{HUMAN_TEKRAR:.4f}"
+)
+
+print(
+    f"\nTABAN uzunluk çöküşü          : "
+    f"{TABAN_COKUS:.4f}"
+)
+
+print(
+    f"İNSAN uzunluk çöküşü          : "
+    f"{HUMAN_COKUS:.4f}"
+)
+
+print(
+    f"\nTABAN ort. kelime             : "
+    f"{TABAN_LEN:.1f}"
+)
+
+print(
+    f"İNSAN ort. kelime             : "
+    f"{HUMAN_LEN:.1f}"
+)
+
+print(
+    "\n--- İNSAN VEKTÖRÜNE AKTİVASYON HİZALANMASI ---"
+)
+
+print(
+    f"NET_COS ortalama              : "
+    f"{NET_COS_ORT:+.6f}"
+)
+
+print(
+    f"NET_COS maksimum              : "
+    f"{NET_COS_MAX:+.6f}"
+)
+
+print(
+    f"NET_COS minimum               : "
+    f"{NET_COS_MIN:+.6f}"
+)
+
+print(
+    f"En güçlü pozitif katman       : "
+    f"{EN_GUCLU_LAYER}"
+)
+
+print(
+    f"Katman {EN_GUCLU_LAYER} NET_COS        : "
+    f"{NET_COS_LAYER[EN_GUCLU_LAYER]:+.6f}"
+)
+
+print(
+    "\nKatman bazlı NET_COS:"
+)
+
+for li in range(N_LAYERS):
+
+    print(
+        f"  L{li:02d}: "
+        f"{NET_COS_LAYER[li]:+.6f}"
+    )
+
+print(
+    "\n--- YÜZEYSEL İNSAN SİNYALİ (YARDIMCI ÖLÇÜ) ---"
+)
+
+print(
+    f"TABAN ort. insan kelimesi    : "
+    f"{statistics.mean(BASE_LEX):.2f}"
+)
+
+print(
+    f"İNSAN ort. insan kelimesi    : "
+    f"{statistics.mean(HUMAN_LEX):.2f}"
+)
+
+# -----------------------------------------------------------------------------
+# PROMPT TABLOSU
+# -----------------------------------------------------------------------------
+
+print(
+    "\n--- PROMPT BAZINDA KARŞILAŞTIRMA ---"
+)
+
+print(
+    f"{'P':<3}"
+    f"{'TabanLen':>10}"
+    f"{'HumanLen':>10}"
+    f"{'TabanQ':>10}"
+    f"{'HumanQ':>10}"
+    f"{'ΔQ':>10}"
+    f"{'NETCOS':>12}"
+)
+
+print("-"*70)
+
+for i in range(len(P_TETIK)):
+
+    net_i = statistics.mean(
+        NET_COS[i].values()
+    )
+
+    q0 = TABAN_KALITE[i]["kalite"]
+    q1 = HUMAN_KALITE[i]["kalite"]
+
+    print(
+        f"{i:<3}"
+        f"{kelime(TABAN_METIN[i]):>10}"
+        f"{kelime(HUMAN_METIN[i]):>10}"
+        f"{q0:>10.3f}"
+        f"{q1:>10.3f}"
+        f"{q1-q0:>+10.3f}"
+        f"{net_i:>+12.6f}"
+    )
+
+# -----------------------------------------------------------------------------
+# İLK PROMPT METİNLERİ
+# -----------------------------------------------------------------------------
+
+print("\n")
+print("="*100)
+print(" PROMPT[0] — TABAN")
+print("="*100)
+print(TABAN_METIN[0])
+
+print("\n")
+print("="*100)
+print(" PROMPT[0] — İNSAN VEKTÖRÜ i=0.10")
+print("="*100)
+print(HUMAN_METIN[0])
+
+# -----------------------------------------------------------------------------
+# KATMAN COS TABLOSU
+# -----------------------------------------------------------------------------
+
+print("\n")
+print("="*100)
+print(" KATMAN BAZLI COSINE — TABAN / İNSAN / NET")
+print("="*100)
+
+print(
+    f"{'Layer':<8}"
+    f"{'TABAN':>14}"
+    f"{'İNSAN':>14}"
+    f"{'NET ΔCOS':>16}"
+)
+
+print("-"*55)
+
+for li in range(N_LAYERS):
+
+    b = statistics.mean(
+        [
+            BASE_COS[p][li]
+            for p in range(len(P_TETIK))
+        ]
+    )
+
+    h = statistics.mean(
+        [
+            HUMAN_COS[p][li]
+            for p in range(len(P_TETIK))
+        ]
+    )
+
+    d = h - b
+
+    print(
+        f"{li:<8}"
+        f"{b:>+14.6f}"
+        f"{h:>+14.6f}"
+        f"{d:>+16.6f}"
+    )
+
+# -----------------------------------------------------------------------------
+# BASİT YORUM SINIFLANDIRMASI
+#
+# Bu bölüm "başarılı/başarısız" hükmü vermek yerine deneysel gözlemi
+# sınıflandırır.
+# -----------------------------------------------------------------------------
+
+print("\n")
+print("="*100)
+print(" DENEYSEL GÖZLEM")
+print("="*100)
+
+if NET_COS_ORT > 0:
+    print(
+        "1) İnsan enjeksiyonu sonrası aktivasyonların ortalama yönü "
+        "insan vektörüne doğru kaymış durumda (NET_COS > 0)."
+    )
+else:
+    print(
+        "1) Ortalama NET_COS pozitif değil; insan vektörüne doğru "
+        "ortalama bir aktivasyon kayması gözlenmedi."
+    )
+
+if HUMAN_KALITE_ORT < TABAN_KALITE_ORT:
+    print(
+        "2) Kalite kırılımı sayısal olarak TABAN'a göre yükselmiş."
+    )
+elif HUMAN_KALITE_ORT > TABAN_KALITE_ORT:
+    print(
+        "2) Kalite kırılımı sayısal olarak TABAN'a göre artmış."
+    )
+else:
+    print(
+        "2) Kalite kırılımı ortalamada değişmemiş."
+    )
+
+if HUMAN_ORTH <= TABAN_ORTH:
+    print(
+        "3) Bozulma ölçümünde TABAN'a göre artış gözlenmedi."
+    )
+else:
+    print(
+        "3) Bozulma ölçümünde TABAN'a göre artış gözlendi."
+    )
+
+# -----------------------------------------------------------------------------
+# JSON
+# -----------------------------------------------------------------------------
+
+SONUC = {
+
+    "deney": "Asama23_Uyumlu_Insan_Vektoru",
+
+    "model": MODEL_ID,
+
+    "ivme": IVME_TEST,
+
+    "n_prompt": len(P_TETIK),
+
+    "vector_definition": {
+        "positive": POS_HUMAN,
+        "negative": NEG_HUMAN
+    },
+
+    "quality": {
+
+        "taban_mean": TABAN_KALITE_ORT,
+
+        "human_mean": HUMAN_KALITE_ORT,
+
+        "delta": KALITE_DEGISIMI,
+
+        "taban_breakdown": {
+            "bozulma": TABAN_ORTH,
+            "tekrar": TABAN_TEKRAR,
+            "uzunluk_cokusu": TABAN_COKUS
+        },
+
+        "human_breakdown": {
+            "bozulma": HUMAN_ORTH,
+            "tekrar": HUMAN_TEKRAR,
+            "uzunluk_cokusu": HUMAN_COKUS
+        }
+    },
+
+    "length": {
+        "taban_mean": TABAN_LEN,
+        "human_mean": HUMAN_LEN
+    },
+
+    "human_alignment": {
+
+        "net_cos_mean": NET_COS_ORT,
+
+        "net_cos_max": NET_COS_MAX,
+
+        "net_cos_min": NET_COS_MIN,
+
+        "strongest_layer": EN_GUCLU_LAYER,
+
+        "layer_mean": NET_COS_LAYER
+    },
+
+    "lexical_auxiliary": {
+
+        "taban_mean": statistics.mean(BASE_LEX),
+
+        "human_mean": statistics.mean(HUMAN_LEX)
+    },
+
+    "texts": {
+
+        "taban": TABAN_METIN,
+
+        "human": HUMAN_METIN
+    },
+
+    "per_prompt": [
+
+        {
+            "prompt": i,
+
+            "taban_text": TABAN_METIN[i],
+
+            "human_text": HUMAN_METIN[i],
+
+            "taban_quality": TABAN_KALITE[i],
+
+            "human_quality": HUMAN_KALITE[i],
+
+            "net_cos_mean":
+                statistics.mean(
+                    NET_COS[i].values()
+                ),
+
+            "base_cosine":
+                BASE_COS[i],
+
+            "human_cosine":
+                HUMAN_COS[i],
+
+            "net_cosine":
+                NET_COS[i]
+        }
+
+        for i in range(len(P_TETIK))
+    ]
+}
+
+OUT = "/content/asama23_uyumlu_insan_sonuc.json"
+
+with open(
+    OUT,
+    "w",
+    encoding="utf-8"
+) as f:
+
+    json.dump(
+        SONUC,
+        f,
+        ensure_ascii=False,
+        indent=2
+    )
+
+print("\n")
+print("="*100)
+print(" JSON KAYDEDİLDİ")
+print("="*100)
+print(OUT)
+
+try:
+
+    from google.colab import files
+
+    files.download(OUT)
+
+except Exception:
+    pass
+
+# -----------------------------------------------------------------------------
+# TEMİZLİK
+# -----------------------------------------------------------------------------
+
+for h in _capture_hooks:
+    h.remove()
+
+for h in _steer_hooks:
+    h.remove()
+
+gc.collect()
+
+torch.cuda.empty_cache()
+
+print("\n")
+print("="*100)
+print(" AŞAMA 23 TAMAMLANDI")
+print("="*100)
