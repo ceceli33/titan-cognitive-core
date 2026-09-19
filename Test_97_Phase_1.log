@@ -1,1731 +1,751 @@
 # =============================================================================
-# AŞAMA 23 — UYUMLU KAVRAM / İNSAN VEKTÖRÜ DENEYİ
+# TEST 97A-B — LAYERWISE PUSULA TEMSİL DOĞRULAMASI
 # Qwen2.5-7B-Instruct · A100 · AkbasCore
 # -----------------------------------------------------------------------------
-# AMAÇ:
-#   Aşama 20'deki zoolojik/yaratık vektörü yerine doğrudan
-#   "İNSAN" kavramını temsil eden uyumlu bir kontrastif vektör kullanmak.
+# AMAÇ
+#   1) Mevcut 8 ABOVE/BELOW eğitim çiftinden layerwise Pusula üretmek
+#   2) Yeni ve yüzey yapısı eşleştirilmiş bağımsız probe setinde doğrulamak
+#   3) Göreli kontrastı ölçmek
+#   4) LOO Pusula kararlılığını ölçmek
+#   5) Çoklu random-null dağılımıyla karşılaştırmak
 #
-#   HİPOTEZ:
-#   Köprü/gece/yürüyüş bağlamı insan kavramıyla zaten uyumlu olduğundan,
-#   insan vektörünün enjeksiyonu:
-#
-#     1) daha yüksek NET cosine hizalanması,
-#     2) daha düşük bozulma,
-#     3) daha düşük tekrar,
-#     4) daha az uzunluk çöküşü,
-#     5) daha doğal metin,
-#     6) daha belirgin ama kontrollü davranış farkı
-#
-#   oluşturabilir.
-#
-# TEK ÇALIŞMA:
-#   TABAN
-#   İNSAN VEKTÖRÜ + i=0.10
-#
-# ÖNEMLİ:
-#   Bu deney "insan kelimesi üretildi mi?" testinden ziyade,
-#   aktivasyonların insan yönüne gerçekten kayıp kaymadığını ölçer.
+# ÖNEMLİ
+#   - DRA enjeksiyonu YOKTUR.
+#   - Eski TEST 97A'nın sonuçları yeniden üretilmez; referans olarak tutulur.
+#   - Random null yalnızca mevcut aktivasyonlar üzerinde hesaplanır.
+#   - Hiçbir keyfi "başarı eşiği" tanımlanmaz.
+#   - Sonuçlar sonraki deneylere aktarılabilecek RESULTS yapısında saklanır.
 # =============================================================================
 
-import os, sys, gc, json, time, math, statistics, re
-from collections import Counter
-
-print("="*80)
-print(" AŞAMA 23 — UYUMLU İNSAN VEKTÖRÜ DENEYİ")
-print(" Qwen2.5-7B-Instruct · A100 · AkbasCore")
-print("="*80)
+import os
+import json
+import math
+import random
+import numpy as np
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
 # -----------------------------------------------------------------------------
-# AYARLAR
+# 0. AYARLAR
 # -----------------------------------------------------------------------------
 
-MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
+
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DTYPE = torch.bfloat16
 
 N_LAYERS = 20
-SONUM = 0.30
-ZIRVE = 0.70
-TABAN = 0.20
-
-IVME_TEST = 0.10
-MAX_TOKENS = 260
-MERCEK_K = 20
+HIDDEN_DIM = 3584
 
 SEED = 42
 
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
+# Random-null sayısı bir başarı eşiği değildir.
+# Yalnızca null dağılımının Monte-Carlo çözünürlüğünü belirler.
+N_RANDOM_NULL = 512
+
+# Aktivasyon batch boyutu
+BATCH_SIZE = 8
 
 # -----------------------------------------------------------------------------
-# PAKETLER
+# 1. DETERMINISTIC AYAR
 # -----------------------------------------------------------------------------
 
-def _pip(*a):
-    import subprocess
-    subprocess.run(
-        [sys.executable, "-m", "pip", "install", "-q", *a],
-        check=False
-    )
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
 
-try:
-    import transformers
-except ImportError:
-    _pip("transformers>=4.44.0", "accelerate")
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
 
-try:
-    import ninja
-except ImportError:
-    _pip("ninja")
+torch.backends.cuda.matmul.allow_tf32 = True
 
-import torch
-import torch.nn.functional as F
-
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from torch.utils.cpp_extension import load_inline
-
-print("\nGPU:", torch.cuda.get_device_name(0))
-print("CUDA:", torch.version.cuda)
-
-if not torch.cuda.is_available():
-    raise RuntimeError("CUDA/GPU bulunamadı.")
+print("=" * 78)
+print("TEST 97A-B — LAYERWISE PUSULA TEMSİL DOĞRULAMASI")
+print("=" * 78)
+print(f"Model : {MODEL_NAME}")
+print(f"Device: {DEVICE}")
+print(f"dtype : {DTYPE}")
+print(f"Layers: L0-L{N_LAYERS-1}")
+print(f"D     : {HIDDEN_DIM}")
+print(f"Seed  : {SEED}")
+print(f"Nulls : {N_RANDOM_NULL}")
+print()
 
 # -----------------------------------------------------------------------------
-# CUDA KERNEL
+# 2. MODEL
 # -----------------------------------------------------------------------------
-
-_CPP_DECL = r"""
-#include <torch/extension.h>
-
-torch::Tensor akbas_steer_v23(
-    torch::Tensor hidden,
-    torch::Tensor pusula,
-    torch::Tensor hedef,
-    torch::Tensor mercek,
-    torch::Tensor ivme,
-    int64_t layer_idx,
-    double sonum,
-    double zirve,
-    double taban,
-    int64_t fren_acik,
-    torch::Tensor prev_cosine,
-    torch::Tensor log_buf
-);
-"""
-
-_CUDA_SRC = r"""
-#include <torch/extension.h>
-#include <c10/cuda/CUDAGuard.h>
-#include <ATen/cuda/CUDAContext.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <math.h>
-
-#define MAX_K 4
-
-__global__ void akbas_v23_kernel(
-    float* __restrict__ hidden,
-    const float* __restrict__ pusula,
-    const float* __restrict__ hedef,
-    const float* __restrict__ mercek,
-    const float* __restrict__ ivme,
-    int K,
-    int layer_idx,
-    float sonum,
-    float zirve,
-    float taban,
-    int fren_acik,
-    float* __restrict__ prev_cosine,
-    float* __restrict__ log_buf,
-    int D,
-    int BS,
-    int S)
-{
-    extern __shared__ float sdata[];
-
-    float* s_a = sdata;
-    float* s_b = sdata + blockDim.x;
-
-    int token = blockIdx.x;
-
-    if (token >= BS)
-        return;
-
-    float* tok = hidden + (size_t)token * D;
-
-    // -------------------------------------------------------------------------
-    // Hidden norm
-    // -------------------------------------------------------------------------
-
-    float sqf = 0.f;
-
-    for (int j = threadIdx.x; j < D; j += blockDim.x) {
-        float hv = tok[j];
-        sqf += hv * hv;
-    }
-
-    s_a[threadIdx.x] = sqf;
-    __syncthreads();
-
-    for (int st = blockDim.x >> 1; st > 0; st >>= 1) {
-        if (threadIdx.x < st)
-            s_a[threadIdx.x] += s_a[threadIdx.x + st];
-
-        __syncthreads();
-    }
-
-    __shared__ float s_norm0;
-
-    if (threadIdx.x == 0)
-        s_norm0 = sqrtf(s_a[0]) + 1e-6f;
-
-    __syncthreads();
-
-    float norm0 = s_norm0;
-
-    // -------------------------------------------------------------------------
-    // K kavram yönü
-    // -------------------------------------------------------------------------
-
-    __shared__ float s_katki[MAX_K];
-
-    float butce = 1.0f / sqrtf((float)K);
-
-    for (int k = 0; k < K; ++k) {
-
-        const float* pk = pusula + (size_t)k * D;
-
-        float dot = 0.f;
-        float sqm = 0.f;
-
-        for (int j = threadIdx.x; j < D; j += blockDim.x) {
-
-            float hm = tok[j] * mercek[j];
-
-            dot += hm * pk[j];
-            sqm += hm * hm;
-        }
-
-        s_a[threadIdx.x] = dot;
-        s_b[threadIdx.x] = sqm;
-
-        __syncthreads();
-
-        for (int st = blockDim.x >> 1; st > 0; st >>= 1) {
-
-            if (threadIdx.x < st) {
-
-                s_a[threadIdx.x] += s_a[threadIdx.x + st];
-                s_b[threadIdx.x] += s_b[threadIdx.x + st];
-            }
-
-            __syncthreads();
-        }
-
-        if (threadIdx.x == 0) {
-
-            float norm_m = sqrtf(s_b[0]) + 1e-6f;
-
-            float cs = fminf(
-                fmaxf(s_a[0] / norm_m, -1.f),
-                1.f
-            );
-
-            prev_cosine[k * BS + token] = cs;
-
-            float t = (float)layer_idx;
-
-            float unc = 1.f - fabsf(cs);
-
-            float dw = sonum + unc * 0.20f;
-
-            float kb =
-                zirve * expf(-dw * t) *
-                (1.f + dw * t) +
-                taban;
-
-            float zarf =
-                kb / (zirve + taban);
-
-            float son = 1.f;
-
-            if (fren_acik) {
-
-                if (cs > 0.75f)
-                    son = (1.f - cs) / 0.25f;
-
-                else if (cs < -0.40f)
-                    son = 1.6f;
-            }
-
-            s_katki[k] =
-                ivme[k] *
-                butce *
-                zarf *
-                norm0 *
-                son;
-
-            // İlk token + ilk yön için ayrıntılı motor kaydı
-            if (
-                S > 1 &&
-                token == 0 &&
-                layer_idx < 20 &&
-                k == 0
-            ) {
-
-                log_buf[layer_idx * 6 + 0] = cs;
-                log_buf[layer_idx * 6 + 1] = zarf;
-                log_buf[layer_idx * 6 + 2] = son;
-                log_buf[layer_idx * 6 + 3] = s_katki[k];
-                log_buf[layer_idx * 6 + 4] = norm0;
-                log_buf[layer_idx * 6 + 5] =
-                    s_katki[k] / norm0;
-            }
-        }
-
-        __syncthreads();
-    }
-
-    // -------------------------------------------------------------------------
-    // Enjeksiyon
-    // -------------------------------------------------------------------------
-
-    for (int j = threadIdx.x; j < D; j += blockDim.x) {
-
-        float acc = 0.f;
-
-        for (int k = 0; k < K; ++k)
-            acc += s_katki[k] *
-                   hedef[(size_t)k * D + j];
-
-        tok[j] += acc;
-    }
-}
-
-torch::Tensor akbas_steer_v23(
-    torch::Tensor hidden,
-    torch::Tensor pusula,
-    torch::Tensor hedef,
-    torch::Tensor mercek,
-    torch::Tensor ivme,
-    int64_t layer_idx,
-    double sonum,
-    double zirve,
-    double taban,
-    int64_t fren_acik,
-    torch::Tensor prev_cosine,
-    torch::Tensor log_buf)
-{
-    TORCH_CHECK(
-        hidden.is_cuda(),
-        "hidden CUDA olmali"
-    );
-
-    TORCH_CHECK(
-        hidden.scalar_type() == torch::kFloat32,
-        "hidden float32 olmali"
-    );
-
-    auto h  = hidden.contiguous();
-    auto p  = pusula.contiguous();
-    auto hd = hedef.contiguous();
-    auto mc = mercek.contiguous();
-    auto iv = ivme.contiguous();
-    auto pc = prev_cosine.contiguous();
-    auto lb = log_buf.contiguous();
-
-    if (layer_idx >= 20)
-        return h;
-
-    int B  = h.size(0);
-    int S  = h.size(1);
-    int D  = h.size(2);
-    int BS = B * S;
-
-    int K = p.size(0);
-
-    int threads = 256;
-
-    while (threads > D && threads > 32)
-        threads >>= 1;
-
-    const at::cuda::OptionalCUDAGuard dg(
-        device_of(h)
-    );
-
-    akbas_v23_kernel<<<
-        BS,
-        threads,
-        2 * (size_t)threads * sizeof(float),
-        at::cuda::getCurrentCUDAStream()
-    >>>(
-        h.data_ptr<float>(),
-        p.data_ptr<float>(),
-        hd.data_ptr<float>(),
-        mc.data_ptr<float>(),
-        iv.data_ptr<float>(),
-        K,
-        (int)layer_idx,
-        (float)sonum,
-        (float)zirve,
-        (float)taban,
-        (int)fren_acik,
-        pc.data_ptr<float>(),
-        lb.data_ptr<float>(),
-        D,
-        BS,
-        S
-    );
-
-    return h;
-}
-"""
-
-# -----------------------------------------------------------------------------
-# KERNEL BUILD
-# -----------------------------------------------------------------------------
-
-print("\n[1/8] CUDA kernel derleniyor...")
-
-_build_dir = "/tmp/akbas_v23"
-
-os.makedirs(_build_dir, exist_ok=True)
-
-_t0 = time.time()
-
-_kernel = load_inline(
-    name="akbas_v23",
-    cpp_sources=_CPP_DECL,
-    cuda_sources=_CUDA_SRC,
-    functions=["akbas_steer_v23"],
-    build_directory=_build_dir,
-    verbose=False,
-    extra_cflags=["-O2", "-std=c++17"],
-    extra_cuda_cflags=["-O3"]
-)
-
-print(
-    f"Kernel hazır: {time.time()-_t0:.1f} sn"
-)
-
-# -----------------------------------------------------------------------------
-# MODEL
-# -----------------------------------------------------------------------------
-
-print("\n[2/8] Model yükleniyor...")
 
 tokenizer = AutoTokenizer.from_pretrained(
-    MODEL_ID
+    MODEL_NAME,
+    trust_remote_code=True
 )
 
-if tokenizer.pad_token is None:
-    tokenizer.pad_token = tokenizer.eos_token
-
 model = AutoModelForCausalLM.from_pretrained(
-    MODEL_ID,
+    MODEL_NAME,
+    torch_dtype=DTYPE,
     device_map="auto",
-    trust_remote_code=True,
-    low_cpu_mem_usage=True,
-    dtype=torch.bfloat16,
-    attn_implementation="sdpa"
+    trust_remote_code=True
 )
 
 model.eval()
 
-for p in model.parameters():
-    p.requires_grad_(False)
-
-device = next(model.parameters()).device
-
-D = model.config.hidden_size
-
-print("Model hazır")
-print("Hidden size:", D)
-print("Steering layers:", N_LAYERS)
+print("Model yüklendi.")
+print()
 
 # -----------------------------------------------------------------------------
-# AKTİVASYON YAKALAMA
-# -----------------------------------------------------------------------------
-
-_capture = {}
-
-def make_capture_hook(li):
-
-    def hook(module, inputs, output):
-
-        x = output[0] if isinstance(output, tuple) else output
-
-        _capture[li] = (
-            x.detach()
-             .to(torch.float32)
-             .cpu()
-        )
-
-    return hook
-
-
-_capture_hooks = [
-    model.model.layers[li].register_forward_hook(
-        make_capture_hook(li)
-    )
-    for li in range(N_LAYERS)
-]
-
-@torch.no_grad()
-def oku(metin):
-
-    _capture.clear()
-
-    e = tokenizer(
-        metin,
-        return_tensors="pt"
-    ).to(device)
-
-    model(**e)
-
-    return {
-        li: _capture[li][0][-1].clone()
-        for li in range(N_LAYERS)
-    }
-
-# -----------------------------------------------------------------------------
-# ANLATI KALIPLARI
-# -----------------------------------------------------------------------------
-
-ANLATI_KALIP = [
-    "The scene is {X}.",
-    "What happens next is {X}.",
-    "The photograph captures {X}.",
-    "Told in one line, the story is {X}.",
-    "The witness describes {X}.",
-    "Written as a single image: {X}.",
-    "The moment is {X}.",
-    "The record of that night reads: {X}.",
-]
-
-# -----------------------------------------------------------------------------
-# İNSAN VEKTÖRÜ
+# 3. REFERANS PUSULA EĞİTİM ÇİFTLERİ
 #
-# POS = insan
-# NEG = insan olmayan hayvan
-#
-# İkisi de aynı köprü/gece/hareket zemininde tutuluyor.
-# Böylece vektör yalnızca "bridge" veya "night" öğrenmeye çalışmıyor.
+# Bunlar önceki TEST 97A ile AYNI tutuluyor.
 # -----------------------------------------------------------------------------
 
-POS_HUMAN = (
-    "a human person walking across a great suspension bridge "
-    "at night as lightning strikes its tower"
-)
-
-NEG_HUMAN = (
-    "a nonhuman animal walking across a great suspension bridge "
-    "at night as lightning strikes its tower"
-)
-
-def kaliplar(kalip, X):
-
-    return [
-        k.format(X=X)
-        for k in kalip
-    ]
-
-
-def kontrastif(kalip, pos_X, neg_X):
-
-    HP = [
-        oku(t)
-        for t in kaliplar(kalip, pos_X)
-    ]
-
-    HN = [
-        oku(t)
-        for t in kaliplar(kalip, neg_X)
-    ]
-
-    V = {}
-
-    for li in range(N_LAYERS):
-
-        pos = torch.stack(
-            [h[li] for h in HP]
-        ).mean(0)
-
-        neg = torch.stack(
-            [h[li] for h in HN]
-        ).mean(0)
-
-        V[li] = F.normalize(
-            pos - neg,
-            dim=0
-        )
-
-    return V
-
-
-print("\n[3/8] İnsan kontrastif vektörü çıkarılıyor...")
-
-V_HUMAN = kontrastif(
-    ANLATI_KALIP,
-    POS_HUMAN,
-    NEG_HUMAN
-)
-
-# -----------------------------------------------------------------------------
-# MERCEK
-# -----------------------------------------------------------------------------
-
-print("\n[4/8] Mercek çıkarılıyor...")
-
-_capture.clear()
-
-with torch.no_grad():
-
-    e = tokenizer(
-        "<|im_start|>user\n"
-        "Describe what you see.\n"
-        "<|im_end|>\n"
-        "<|im_start|>assistant\n",
-        return_tensors="pt"
-    ).to(device)
-
-    model(**e)
-
-H = {
-    li: _capture[li][0]
-    for li in range(N_LAYERS)
-}
-
-kare = torch.zeros(D)
-
-for li in range(N_LAYERS):
-
-    kare += H[li].pow(2).mean(0)
-
-_, dev_idx = torch.sort(
-    kare,
-    descending=True
-)
-
-MERCEK = torch.ones(D)
-
-MERCEK[
-    dev_idx[:MERCEK_K]
-] = 0.0
-
-MERCEK_GPU = (
-    MERCEK
-    .to(device=device, dtype=torch.float32)
-    .contiguous()
-)
-
-# -----------------------------------------------------------------------------
-# STEERING VECTÖRÜ
-# -----------------------------------------------------------------------------
-
-def yigin(vlist):
-
-    return {
-        li: torch.stack(
-            [v[li] for v in vlist]
-        ).to(
-            device=device,
-            dtype=torch.float32
-        ).contiguous()
-        for li in range(N_LAYERS)
-    }
-
-
-def msk(vd, mercek):
-
-    return {
-        li: F.normalize(
-            vd[li] * mercek,
-            dim=0
-        )
-        for li in range(N_LAYERS)
-    }
-
-
-PU_HUMAN = yigin([
-    msk(V_HUMAN, MERCEK)
-])
-
-HD_HUMAN = yigin([
-    V_HUMAN
-])
-
-print(
-    "İnsan vektörü hazır."
-)
-
-# -----------------------------------------------------------------------------
-# KÖPRÜ BAĞLAMI
-# -----------------------------------------------------------------------------
-
-CTX_BRIDGE = (
-    "You are a vivid, precise writer describing a night scene "
-    "on a large bridge. Dibekgoz is the name of the figure in "
-    "the scene. Answer in at least four sentences, concretely."
-)
-
-P_TETIK = [
-
-    "At midnight, Dibekgoz walked across the Golden Gate, and",
-
-    "Continue: At midnight, Dibekgoz stepped onto the bridge, and",
-
-    "Write the scene: Dibekgoz on the Golden Gate at midnight.",
-
-    "What happened to Dibekgoz on the bridge that night?",
-
-    "Describe what Dibekgoz saw from the middle of the bridge.",
-
-    "Continue the story: Dibekgoz reached the tower just as "
-    "the weather turned.",
-
-    "Write one paragraph about Dibekgoz's crossing of the "
-    "bridge at night.",
-
-    "What did Dibekgoz hear and see as the night went on?",
-
-    "Continue: Dibekgoz looked up at the tower, and",
-
-    "Tell the story of Dibekgoz's last minutes on the bridge.",
+TRAIN_ABOVE = [
+    "Mustafa Dibekgoz is above the bridge.",
+    "Mustafa Dibekgoz is positioned above the bridge.",
+    "Mustafa Dibekgoz stands above the bridge.",
+    "The position of Mustafa Dibekgoz is above the bridge.",
+    "Mustafa Dibekgoz remains above the bridge.",
+    "Mustafa Dibekgoz is located above the bridge.",
+    "Mustafa Dibekgoz occupies a position above the bridge.",
+    "The scene places Mustafa Dibekgoz above the bridge.",
 ]
 
+TRAIN_BELOW = [
+    "Mustafa Dibekgoz is below the bridge.",
+    "Mustafa Dibekgoz is positioned below the bridge.",
+    "Mustafa Dibekgoz stands below the bridge.",
+    "The position of Mustafa Dibekgoz is below the bridge.",
+    "Mustafa Dibekgoz remains below the bridge.",
+    "Mustafa Dibekgoz is located below the bridge.",
+    "Mustafa Dibekgoz occupies a position below the bridge.",
+    "The scene places Mustafa Dibekgoz below the bridge.",
+]
+
+assert len(TRAIN_ABOVE) == len(TRAIN_BELOW)
+
 # -----------------------------------------------------------------------------
-# EOS
+# 4. YENİ BAĞIMSIZ PROBE SETİ
+#
+# Aynı subject/object iskeleti korunuyor.
+# ABOVE ↔ BELOW dışında mümkün olduğunca hiçbir şey değişmiyor.
+#
+# Önceki 97A'daki reverse-syntax probları özellikle kullanılmıyor.
 # -----------------------------------------------------------------------------
 
-eos = list({
-    tokenizer.eos_token_id,
-    tokenizer.convert_tokens_to_ids("<|im_end|>"),
-    tokenizer.convert_tokens_to_ids("<|endoftext|>")
-} - {None, -1})
+PROBE_ABOVE = [
+    "Mustafa Dibekgoz is standing above the bridge.",
+    "Mustafa Dibekgoz is positioned higher than the bridge.",
+    "Mustafa Dibekgoz is located above the bridge.",
+    "Mustafa Dibekgoz remains above the bridge.",
+    "Mustafa Dibekgoz is situated above the bridge.",
+    "Mustafa Dibekgoz is directly above the bridge.",
+    "Mustafa Dibekgoz is placed above the bridge.",
+    "Mustafa Dibekgoz stands higher than the bridge.",
+]
+
+PROBE_BELOW = [
+    "Mustafa Dibekgoz is standing below the bridge.",
+    "Mustafa Dibekgoz is positioned lower than the bridge.",
+    "Mustafa Dibekgoz is located below the bridge.",
+    "Mustafa Dibekgoz remains below the bridge.",
+    "Mustafa Dibekgoz is situated below the bridge.",
+    "Mustafa Dibekgoz is directly below the bridge.",
+    "Mustafa Dibekgoz is placed below the bridge.",
+    "Mustafa Dibekgoz stands lower than the bridge.",
+]
+
+assert len(PROBE_ABOVE) == len(PROBE_BELOW)
+
+print(f"Eğitim çifti : {len(TRAIN_ABOVE)}")
+print(f"Bağımsız çift: {len(PROBE_ABOVE)}")
+print()
 
 # -----------------------------------------------------------------------------
-# STEERING STATE
+# 5. LAYERWISE AKTİVASYON TOPLAMA
+#
+# Önceki 97A ile uyumlu olarak gerçek token pozisyonlarının MEAN aktivasyonu
+# kullanılıyor.
+#
+# Her layer için:
+#   activation -> [D]
 # -----------------------------------------------------------------------------
 
-ST = {
-    "aktif": False,
-    "pu": None,
-    "hd": None,
-    "iv": None,
-    "fren": 1,
-    "pc": None,
-    "log": None,
-    "mercek": MERCEK_GPU
-}
+def collect_layerwise_activations(texts):
+    """
+    Her cümle için L0-L19 layer aktivasyonlarının gerçek tokenlar
+    üzerindeki ortalamasını döndürür.
 
+    Çıktı:
+        [N, N_LAYERS, HIDDEN_DIM]
+    """
 
-def make_steer_hook(li):
+    all_results = []
 
-    def hook(module, inputs, output):
+    for start in range(0, len(texts), BATCH_SIZE):
 
-        if not ST["aktif"] or li >= N_LAYERS:
-            return output
+        batch_texts = texts[start:start + BATCH_SIZE]
 
-        tup = isinstance(output, tuple)
-
-        x = output[0] if tup else output
-
-        original_dtype = x.dtype
-
-        hs = (
-            x.float()
-            if original_dtype != torch.float32
-            else x
+        enc = tokenizer(
+            batch_texts,
+            return_tensors="pt",
+            padding=True,
+            truncation=True
         )
 
-        if not hs.is_contiguous():
-            hs = hs.contiguous()
+        input_ids = enc["input_ids"].to(DEVICE)
+        attention_mask = enc["attention_mask"].to(DEVICE)
 
-        B, S, _ = hs.shape
-
-        bs = B * S
-
-        K = ST["pu"][li].shape[0]
-
-        if (
-            ST["pc"] is None
-            or ST["pc"].shape[0] != K * bs
-        ):
-
-            ST["pc"] = torch.zeros(
-                K * bs,
-                dtype=torch.float32,
-                device=hs.device
+        # hidden_states:
+        # embedding + transformer layer outputs
+        with torch.no_grad():
+            out = model(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                output_hidden_states=True,
+                use_cache=False
             )
 
-        steered = _kernel.akbas_steer_v23(
-            hs,
-            ST["pu"][li],
-            ST["hd"][li],
-            ST["mercek"],
-            ST["iv"],
-            li,
-            float(SONUM),
-            float(ZIRVE),
-            float(TABAN),
-            int(ST["fren"]),
-            ST["pc"],
-            ST["log"]
-        )
+        # [embedding, L0, L1, ..., L27]
+        hs = out.hidden_states
 
-        if original_dtype != torch.float32:
-            steered = steered.to(original_dtype)
+        batch_result = []
 
-        if tup:
-            return (steered,) + output[1:]
+        for b in range(input_ids.shape[0]):
 
-        return steered
+            mask = attention_mask[b].bool()
 
-    return hook
+            layer_vecs = []
 
+            for layer in range(N_LAYERS):
 
-_steer_hooks = [
-    model.model.layers[li].register_forward_hook(
-        make_steer_hook(li)
-    )
-    for li in range(N_LAYERS)
-]
+                # hs[layer + 1] = transformer layer output
+                h = hs[layer + 1][b]
 
-# -----------------------------------------------------------------------------
-# ÜRETİM
-# -----------------------------------------------------------------------------
+                # yalnızca gerçek tokenlar
+                h_real = h[mask]
 
-@torch.no_grad()
-def uret(
-    ctx,
-    q,
-    pu=None,
-    hd=None,
-    ivmeler=None,
-    fren=1
-):
+                # önceki 97A ile uyumlu mean activation
+                v = h_real.float().mean(dim=0)
 
-    ST["aktif"] = pu is not None
+                layer_vecs.append(v)
 
-    if ST["aktif"]:
-
-        ST.update(
-            pu=pu,
-            hd=hd,
-            fren=fren,
-            pc=None,
-            iv=torch.tensor(
-                ivmeler,
-                dtype=torch.float32,
-                device=device
-            ),
-            log=torch.zeros(
-                N_LAYERS,
-                6,
-                dtype=torch.float32,
-                device=device
+            batch_result.append(
+                torch.stack(layer_vecs, dim=0)
             )
+
+        all_results.append(
+            torch.stack(batch_result, dim=0).cpu()
         )
 
-    prompt = (
-        f"<|im_start|>system\n"
-        f"{ctx}"
-        f"<|im_end|>\n"
-        f"<|im_start|>user\n"
-        f"{q}"
-        f"<|im_end|>\n"
-        f"<|im_start|>assistant\n"
-    )
+        del out, hs, input_ids, attention_mask, enc
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
-    e = tokenizer(
-        prompt,
-        return_tensors="pt"
-    ).to(device)
+    return torch.cat(all_results, dim=0)
 
-    out = model.generate(
-        **e,
-        max_new_tokens=MAX_TOKENS,
-        do_sample=False,
-        repetition_penalty=1.15,
-        pad_token_id=tokenizer.pad_token_id,
-        eos_token_id=eos
-    )
-
-    text = tokenizer.decode(
-        out[0][e["input_ids"].shape[1]:],
-        skip_special_tokens=True
-    ).strip()
-
-    log = None
-
-    if ST["log"] is not None:
-        log = ST["log"].detach().cpu().tolist()
-
-    ST["aktif"] = False
-    ST["log"] = None
-
-    return text, log
 
 # -----------------------------------------------------------------------------
-# METİN ÖLÇÜMLERİ
+# 6. AKTİVASYONLARI ÇIKAR
 # -----------------------------------------------------------------------------
 
-def kelime(t):
+print("Aktivasyonlar çıkarılıyor...")
+print()
 
-    return len(t.split())
+TRAIN_TEXTS = TRAIN_ABOVE + TRAIN_BELOW
+PROBE_TEXTS = PROBE_ABOVE + PROBE_BELOW
 
+train_act = collect_layerwise_activations(TRAIN_TEXTS)
+probe_act = collect_layerwise_activations(PROBE_TEXTS)
 
-def bozulma(t):
+print("Train activation shape:", tuple(train_act.shape))
+print("Probe activation shape:", tuple(probe_act.shape))
+print()
 
-    if not t.strip():
-        return 1.0
+assert train_act.shape == (
+    len(TRAIN_TEXTS),
+    N_LAYERS,
+    HIDDEN_DIM
+)
 
-    tk = t.split()
-    n = len(tk)
+assert probe_act.shape == (
+    len(PROBE_TEXTS),
+    N_LAYERS,
+    HIDDEN_DIM
+)
 
-    cop = sum(
-        1 for x in tk
-        if not re.search(r"[^\W\d_]{2,}", x)
-    ) / n
+# -----------------------------------------------------------------------------
+# 7. TRAIN / PROBE AYIR
+# -----------------------------------------------------------------------------
 
-    sym = len(
-        re.findall(
-            r"[\u2014\[\]\|\$#~=]",
-            t
-        )
-    ) / max(1, len(t))
+n_train = len(TRAIN_ABOVE)
+n_probe = len(PROBE_ABOVE)
 
-    kir = sum(
-        1 for x in tk
-        if re.search(
-            r"[^\W\d_][_~\[\]]|[_~][^\W\d_]",
-            x
-        )
-    ) / n
+train_above_act = train_act[:n_train]
+train_below_act = train_act[n_train:]
 
-    return max(
-        cop,
-        sym * 6,
-        kir * 4
+probe_above_act = probe_act[:n_probe]
+probe_below_act = probe_act[n_probe:]
+
+# -----------------------------------------------------------------------------
+# 8. LAYERWISE PUSULA OLUŞTUR
+#
+# P_l = normalize(mean(ABOVE_l) - mean(BELOW_l))
+# -----------------------------------------------------------------------------
+
+train_mean_above = train_above_act.float().mean(dim=0)
+train_mean_below = train_below_act.float().mean(dim=0)
+
+raw_pusula = train_mean_above - train_mean_below
+
+pusula_norms = torch.linalg.vector_norm(
+    raw_pusula,
+    dim=1,
+    keepdim=True
+)
+
+pusula = raw_pusula / torch.clamp(
+    pusula_norms,
+    min=1e-12
+)
+
+print("Pusula oluşturuldu.")
+print()
+
+# -----------------------------------------------------------------------------
+# 9. YARDIMCI FONKSİYONLAR
+# -----------------------------------------------------------------------------
+
+def cosine_per_layer(A, B):
+    """
+    A/B: [L,D]
+    return: [L]
+    """
+    return torch.nn.functional.cosine_similarity(
+        A.float(),
+        B.float(),
+        dim=1,
+        eps=1e-12
     )
 
 
-def tekrar(t, n=4):
+def cosine_batch_layerwise(A, B):
+    """
+    A/B: [N,L,D]
+    return: [N,L]
+    """
+    return torch.nn.functional.cosine_similarity(
+        A.float(),
+        B.float(),
+        dim=2,
+        eps=1e-12
+    )
 
-    tk = [
-        w.lower().strip(".,!?;:")
-        for w in t.split()
+
+# -----------------------------------------------------------------------------
+# 10. TRAIN MARGIN
+#
+# margin = cos(ABOVE, P) - cos(BELOW, P)
+# -----------------------------------------------------------------------------
+
+train_cos_above = cosine_batch_layerwise(
+    train_above_act,
+    pusula.unsqueeze(0)
+)
+
+train_cos_below = cosine_batch_layerwise(
+    train_below_act,
+    pusula.unsqueeze(0)
+)
+
+train_margin_each = train_cos_above - train_cos_below
+train_margin = train_margin_each.mean(dim=0)
+
+# -----------------------------------------------------------------------------
+# 11. BAĞIMSIZ PROBE MARGIN
+# -----------------------------------------------------------------------------
+
+probe_cos_above = cosine_batch_layerwise(
+    probe_above_act,
+    pusula.unsqueeze(0)
+)
+
+probe_cos_below = cosine_batch_layerwise(
+    probe_below_act,
+    pusula.unsqueeze(0)
+)
+
+probe_margin_each = probe_cos_above - probe_cos_below
+probe_margin = probe_margin_each.mean(dim=0)
+
+# -----------------------------------------------------------------------------
+# 12. GÖRELİ KONTRAST
+#
+# R_l =
+# ||mean(ABOVE)-mean(BELOW)||
+# -----------------------------------------
+# 0.5*(||mean(ABOVE)|| + ||mean(BELOW)||)
+# -----------------------------------------------------------------------------
+
+relative_contrast = (
+    torch.linalg.vector_norm(raw_pusula, dim=1)
+    /
+    (
+        0.5 * (
+            torch.linalg.vector_norm(train_mean_above, dim=1)
+            +
+            torch.linalg.vector_norm(train_mean_below, dim=1)
+        )
+    ).clamp_min(1e-12)
+)
+
+# -----------------------------------------------------------------------------
+# 13. LOO PUSULA STABILITY
+#
+# Her eğitim çiftinden biri çıkarılır.
+# Sonra LOO pusulasının full Pusula ile cosine'u hesaplanır.
+# -----------------------------------------------------------------------------
+
+loo_cosines = torch.zeros(
+    n_train,
+    N_LAYERS
+)
+
+for leave_out in range(n_train):
+
+    keep = [
+        i for i in range(n_train)
+        if i != leave_out
     ]
 
-    if len(tk) < n * 2:
-        return 0.0
+    loo_above = train_above_act[keep].float().mean(dim=0)
+    loo_below = train_below_act[keep].float().mean(dim=0)
 
-    gr = [
-        tuple(tk[i:i+n])
-        for i in range(len(tk)-n+1)
-    ]
+    loo_raw = loo_above - loo_below
 
-    oran = 1.0 - (
-        len(set(gr)) / len(gr)
+    loo_norm = torch.linalg.vector_norm(
+        loo_raw,
+        dim=1,
+        keepdim=True
     )
 
-    enfazla = Counter(gr).most_common(1)[0][1]
+    loo_p = loo_raw / loo_norm.clamp_min(1e-12)
 
-    return max(
-        oran,
-        min(1.0, (enfazla-1)/8.0)
+    loo_cosines[leave_out] = cosine_per_layer(
+        loo_p,
+        pusula
     )
 
+loo_mean = loo_cosines.mean(dim=0)
+loo_std = loo_cosines.std(dim=0, unbiased=False)
 
-def uzunluk_cokusu(t, taban_kelime):
+# -----------------------------------------------------------------------------
+# 14. RANDOM NULL BANKASI
+#
+# ÖNEMLİ:
+# Random vektörler model forward gerektirmez.
+#
+# Her layer için bağımsız normalized random direction.
+#
+# Sonuç:
+#   random_margin_distribution[null, layer]
+# -----------------------------------------------------------------------------
 
-    n = kelime(t)
+print("Random-null dağılımı hesaplanıyor...")
 
-    if taban_kelime <= 0:
-        return 0.0
+random_vectors = torch.randn(
+    N_RANDOM_NULL,
+    N_LAYERS,
+    HIDDEN_DIM,
+    dtype=torch.float32
+)
 
-    oran = n / taban_kelime
+random_vectors = random_vectors / torch.linalg.vector_norm(
+    random_vectors,
+    dim=2,
+    keepdim=True
+).clamp_min(1e-12)
 
-    if oran >= 0.5:
-        return 0.0
+# [Nnull, Nprobe, Nlayer]
+random_cos_above = torch.einsum(
+    "nld,pld->npl",
+    random_vectors,
+    probe_above_act.float()
+)
 
-    return min(
-        1.0,
-        (0.5-oran)/0.3
-    )
+random_cos_below = torch.einsum(
+    "nld,pld->npl",
+    random_vectors,
+    probe_below_act.float()
+)
 
+random_margin_each = random_cos_above - random_cos_below
 
-def kalite_kirilim(
-    t,
-    taban_kelime
-):
+# Ortalama probe margin
+random_margin = random_margin_each.mean(dim=1)
 
-    b = bozulma(t)
-    tr = tekrar(t)
-    u = uzunluk_cokusu(
-        t,
-        taban_kelime
-    )
+random_mean = random_margin.mean(dim=0)
+random_std = random_margin.std(dim=0, unbiased=False)
 
-    return {
-        "bozulma": b,
-        "tekrar": tr,
-        "uzunluk_cokusu": u,
-        "kalite": max(b, tr, u)
+random_q025 = torch.quantile(
+    random_margin,
+    0.025,
+    dim=0
+)
+
+random_q975 = torch.quantile(
+    random_margin,
+    0.975,
+    dim=0
+)
+
+random_q005 = torch.quantile(
+    random_margin,
+    0.005,
+    dim=0
+)
+
+random_q995 = torch.quantile(
+    random_margin,
+    0.995,
+    dim=0
+)
+
+# Pusula'nın random dağılımındaki ampirik yüzdelik konumu.
+random_percentile = (
+    (random_margin < probe_margin.unsqueeze(0))
+    .float()
+    .mean(dim=0)
+)
+
+# Random vektörlerin kaç tanesinde margin > 0?
+random_positive_fraction = (
+    (random_margin > 0)
+    .float()
+    .mean(dim=0)
+)
+
+# -----------------------------------------------------------------------------
+# 15. PUSULA'NIN RANDOM'A GÖRE FARKI
+# -----------------------------------------------------------------------------
+
+pusula_minus_random = probe_margin - random_mean
+
+# Pusula margin > 0 olan layer sayısı
+pusula_positive_layers = int(
+    (probe_margin > 0).sum().item()
+)
+
+# Random null ortalaması > 0 olan layer sayısı
+random_mean_positive_layers = int(
+    (random_mean > 0).sum().item()
+)
+
+# -----------------------------------------------------------------------------
+# 16. TÜM PROBE SONUÇLARI
+# -----------------------------------------------------------------------------
+
+probe_pair_positive = (
+    probe_margin_each > 0
+).sum(dim=0)
+
+probe_pair_fraction_positive = (
+    probe_pair_positive.float()
+    /
+    float(n_probe)
+)
+
+# -----------------------------------------------------------------------------
+# 17. KÜMÜLATİF DENEY KAYDI
+#
+# Sonraki testlerin başında bu sözlükten bilgi aktarılabilir.
+# -----------------------------------------------------------------------------
+
+RESULTS = {
+    "experiment": "TEST_97A_B",
+    "version": "1.0",
+    "model": MODEL_NAME,
+    "device": DEVICE,
+    "dtype": str(DTYPE),
+    "hidden_dim": HIDDEN_DIM,
+    "steering_layers": [0, N_LAYERS - 1],
+    "seed": SEED,
+
+    "design": {
+        "training_pairs": n_train,
+        "independent_probe_pairs": n_probe,
+        "random_null_count": N_RANDOM_NULL,
+        "activation_aggregation": "mean_over_real_tokens",
+        "injection": False,
+        "arbitrary_success_threshold": False,
+    },
+
+    "pusula": {
+        "train_margin": train_margin.tolist(),
+        "probe_margin": probe_margin.tolist(),
+        "relative_contrast": relative_contrast.tolist(),
+        "raw_norm": torch.linalg.vector_norm(
+            raw_pusula,
+            dim=1
+        ).tolist(),
+    },
+
+    "loo": {
+        "mean": loo_mean.tolist(),
+        "std": loo_std.tolist(),
+    },
+
+    "random_null": {
+        "mean": random_mean.tolist(),
+        "std": random_std.tolist(),
+        "q0025": random_q025.tolist(),
+        "q0975": random_q975.tolist(),
+        "q0005": random_q005.tolist(),
+        "q0995": random_q995.tolist(),
+        "pusula_empirical_percentile": random_percentile.tolist(),
+        "positive_fraction": random_positive_fraction.tolist(),
+    },
+
+    "comparison": {
+        "pusula_minus_random_mean": pusula_minus_random.tolist(),
+        "pusula_positive_layers": pusula_positive_layers,
+        "random_mean_positive_layers": random_mean_positive_layers,
+        "probe_pair_positive_count": probe_pair_positive.tolist(),
+        "probe_pair_positive_fraction": probe_pair_fraction_positive.tolist(),
+    },
+
+    "reference_previous_97A": {
+        "note": "Previous TEST 97A results are treated as historical reference; "
+                "they are not regenerated in this run."
     }
-
-# -----------------------------------------------------------------------------
-# ÜRETİM TESTİ
-# -----------------------------------------------------------------------------
-
-print("\n[5/8] TABAN üretimleri başlıyor...")
-
-TABAN_METIN = []
-
-for i, q in enumerate(P_TETIK):
-
-    t, _ = uret(
-        CTX_BRIDGE,
-        q
-    )
-
-    TABAN_METIN.append(t)
-
-    print(
-        f"  taban {i:02d}: "
-        f"{kelime(t):3d} kelime"
-    )
-
-TABAN_KELIME = [
-    kelime(x)
-    for x in TABAN_METIN
-]
-
-print("\n[6/8] İNSAN VEKTÖRÜ + i=0.10 üretimleri...")
-
-HUMAN_METIN = []
-HUMAN_LOG = []
-
-for i, q in enumerate(P_TETIK):
-
-    t, log = uret(
-        CTX_BRIDGE,
-        q,
-        pu=PU_HUMAN,
-        hd=HD_HUMAN,
-        ivmeler=[IVME_TEST],
-        fren=1
-    )
-
-    HUMAN_METIN.append(t)
-    HUMAN_LOG.append(log)
-
-    print(
-        f"  insan {i:02d}: "
-        f"{kelime(t):3d} kelime"
-    )
-
-# -----------------------------------------------------------------------------
-# KALİTE KARŞILAŞTIRMASI
-# -----------------------------------------------------------------------------
-
-TABAN_KALITE = [
-    kalite_kirilim(
-        TABAN_METIN[i],
-        TABAN_KELIME[i]
-    )
-    for i in range(len(P_TETIK))
-]
-
-HUMAN_KALITE = [
-    kalite_kirilim(
-        HUMAN_METIN[i],
-        TABAN_KELIME[i]
-    )
-    for i in range(len(P_TETIK))
-]
-
-# -----------------------------------------------------------------------------
-# İNSAN VEKTÖRÜNE BAĞLANTI ÖLÇÜMÜ
-#
-# Üretimden sonra metni tekrar modelden geçiriyoruz.
-# Böylece:
-#
-#   TABAN metni       -> insan yönüne cosine
-#   HUMAN metni       -> insan yönüne cosine
-#
-# ayrı ayrı ölçülüyor.
-#
-# NET COS = HUMAN - TABAN
-#
-# Pozitif değer, aktivasyonların insan vektörüne doğru kaydığını gösterir.
-# -----------------------------------------------------------------------------
-
-print("\n[7/8] Bağımsız aktivasyon / cosine ölçümü...")
-
-@torch.no_grad()
-def metin_cosine(t):
-
-    h = oku(
-        "<|im_start|>system\n"
-        f"{CTX_BRIDGE}"
-        "<|im_end|>\n"
-        "<|im_start|>user\n"
-        f"{t}"
-        "<|im_end|>\n"
-        "<|im_start|>assistant\n"
-    )
-
-    out = {}
-
-    for li in range(N_LAYERS):
-
-        hv = F.normalize(
-            h[li],
-            dim=0
-        )
-
-        v = F.normalize(
-            V_HUMAN[li],
-            dim=0
-        )
-
-        out[li] = float(
-            torch.dot(hv, v)
-        )
-
-    return out
-
-
-BASE_COS = []
-HUMAN_COS = []
-
-for i in range(len(P_TETIK)):
-
-    print(
-        f"  cosine {i:02d}/{len(P_TETIK)-1}"
-    )
-
-    BASE_COS.append(
-        metin_cosine(
-            TABAN_METIN[i]
-        )
-    )
-
-    HUMAN_COS.append(
-        metin_cosine(
-            HUMAN_METIN[i]
-        )
-    )
-
-# -----------------------------------------------------------------------------
-# NET COS HESABI
-# -----------------------------------------------------------------------------
-
-NET_COS = []
-
-for i in range(len(P_TETIK)):
-
-    NET_COS.append({
-
-        li:
-        HUMAN_COS[i][li]
-        -
-        BASE_COS[i][li]
-
-        for li in range(N_LAYERS)
-    })
-
-# Her katman için ortalama
-NET_COS_LAYER = {
-
-    li:
-    statistics.mean(
-        [
-            NET_COS[p][li]
-            for p in range(len(P_TETIK))
-        ]
-    )
-
-    for li in range(N_LAYERS)
 }
 
-# En güçlü pozitif katman
-EN_GUCLU_LAYER = max(
-    NET_COS_LAYER,
-    key=NET_COS_LAYER.get
-)
-
-NET_COS_ORT = statistics.mean(
-    [
-        x
-        for d in NET_COS
-        for x in d.values()
-    ]
-)
-
-NET_COS_MAX = max(
-    [
-        x
-        for d in NET_COS
-        for x in d.values()
-    ]
-)
-
-NET_COS_MIN = min(
-    [
-        x
-        for d in NET_COS
-        for x in d.values()
-    ]
-)
-
 # -----------------------------------------------------------------------------
-# KALİTE İSTATİSTİKLERİ
+# 18. SONUÇ TABLOSU
 # -----------------------------------------------------------------------------
 
-TABAN_KALITE_ORT = statistics.mean(
-    [x["kalite"] for x in TABAN_KALITE]
+print()
+print("=" * 112)
+print("TEST 97A-B — LAYERWISE SONUÇ")
+print("=" * 112)
+
+header = (
+    "Layer | "
+    "TrainMargin | "
+    "ProbeMargin | "
+    "RelContrast | "
+    "LOOmean | "
+    "LOOstd | "
+    "NullMean | "
+    "NullStd | "
+    "Pusula-Null | "
+    "Probe+ | "
+    "EmpPct"
 )
 
-HUMAN_KALITE_ORT = statistics.mean(
-    [x["kalite"] for x in HUMAN_KALITE]
-)
+print(header)
+print("-" * 112)
 
-KALITE_DEGISIMI = (
-    HUMAN_KALITE_ORT
-    -
-    TABAN_KALITE_ORT
-)
-
-TABAN_ORTH = statistics.mean(
-    [x["bozulma"] for x in TABAN_KALITE]
-)
-
-HUMAN_ORTH = statistics.mean(
-    [x["bozulma"] for x in HUMAN_KALITE]
-)
-
-TABAN_TEKRAR = statistics.mean(
-    [x["tekrar"] for x in TABAN_KALITE]
-)
-
-HUMAN_TEKRAR = statistics.mean(
-    [x["tekrar"] for x in HUMAN_KALITE]
-)
-
-TABAN_COKUS = statistics.mean(
-    [x["uzunluk_cokusu"] for x in TABAN_KALITE]
-)
-
-HUMAN_COKUS = statistics.mean(
-    [x["uzunluk_cokusu"] for x in HUMAN_KALITE]
-)
-
-TABAN_LEN = statistics.mean(
-    TABAN_KELIME
-)
-
-HUMAN_LEN = statistics.mean(
-    [
-        kelime(x)
-        for x in HUMAN_METIN
-    ]
-)
-
-# -----------------------------------------------------------------------------
-# İNSAN KAVRAMI İÇİN BASİT LEXICAL KONTROL
-#
-# Bu ANA ölçüt değildir.
-# Sadece aktivasyon sonucunun yüzeyde de bir karşılığı var mı diye yardımcı
-# gözlem olarak tutulur.
-# -----------------------------------------------------------------------------
-
-HUMAN_WORDS = {
-    "human",
-    "person",
-    "man",
-    "woman",
-    "people",
-    "pedestrian",
-    "walker",
-    "he",
-    "she",
-    "his",
-    "her"
-}
-
-def human_lexical_count(t):
-
-    words = re.findall(
-        r"[A-Za-z]+",
-        t.lower()
-    )
-
-    return sum(
-        w in HUMAN_WORDS
-        for w in words
-    )
-
-
-BASE_LEX = [
-    human_lexical_count(x)
-    for x in TABAN_METIN
-]
-
-HUMAN_LEX = [
-    human_lexical_count(x)
-    for x in HUMAN_METIN
-]
-
-# -----------------------------------------------------------------------------
-# MOTOR KAYDI
-# -----------------------------------------------------------------------------
-
-MOTOR_COS = []
-MOTOR_ZARF = []
-MOTOR_KATKI = []
-
-for i in range(len(HUMAN_LOG)):
-
-    log = HUMAN_LOG[i]
-
-    if log is None:
-        MOTOR_COS.append(None)
-        MOTOR_ZARF.append(None)
-        MOTOR_KATKI.append(None)
-        continue
-
-    # katman 0 için:
-    MOTOR_COS.append(
-        [row[0] for row in log]
-    )
-
-    MOTOR_ZARF.append(
-        [row[1] for row in log]
-    )
-
-    MOTOR_KATKI.append(
-        [row[5] for row in log]
-    )
-
-# -----------------------------------------------------------------------------
-# SONUÇ TABLOSU
-# -----------------------------------------------------------------------------
-
-print("\n")
-print("="*100)
-print(" AŞAMA 23 — SONUÇ")
-print("="*100)
-
-print(
-    f"\nIVME: i={IVME_TEST:.2f}"
-)
-
-print(
-    "\n--- KALİTE ---"
-)
-
-print(
-    f"TABAN kalite ortalaması       : "
-    f"{TABAN_KALITE_ORT:.4f}"
-)
-
-print(
-    f"İNSAN kalite ortalaması       : "
-    f"{HUMAN_KALITE_ORT:.4f}"
-)
-
-print(
-    f"Kalite değişimi (İnsan-Taban) : "
-    f"{KALITE_DEGISIMI:+.4f}"
-)
-
-print(
-    f"\nTABAN bozulma                 : "
-    f"{TABAN_ORTH:.4f}"
-)
-
-print(
-    f"İNSAN bozulma                 : "
-    f"{HUMAN_ORTH:.4f}"
-)
-
-print(
-    f"\nTABAN tekrar                  : "
-    f"{TABAN_TEKRAR:.4f}"
-)
-
-print(
-    f"İNSAN tekrar                  : "
-    f"{HUMAN_TEKRAR:.4f}"
-)
-
-print(
-    f"\nTABAN uzunluk çöküşü          : "
-    f"{TABAN_COKUS:.4f}"
-)
-
-print(
-    f"İNSAN uzunluk çöküşü          : "
-    f"{HUMAN_COKUS:.4f}"
-)
-
-print(
-    f"\nTABAN ort. kelime             : "
-    f"{TABAN_LEN:.1f}"
-)
-
-print(
-    f"İNSAN ort. kelime             : "
-    f"{HUMAN_LEN:.1f}"
-)
-
-print(
-    "\n--- İNSAN VEKTÖRÜNE AKTİVASYON HİZALANMASI ---"
-)
-
-print(
-    f"NET_COS ortalama              : "
-    f"{NET_COS_ORT:+.6f}"
-)
-
-print(
-    f"NET_COS maksimum              : "
-    f"{NET_COS_MAX:+.6f}"
-)
-
-print(
-    f"NET_COS minimum               : "
-    f"{NET_COS_MIN:+.6f}"
-)
-
-print(
-    f"En güçlü pozitif katman       : "
-    f"{EN_GUCLU_LAYER}"
-)
-
-print(
-    f"Katman {EN_GUCLU_LAYER} NET_COS        : "
-    f"{NET_COS_LAYER[EN_GUCLU_LAYER]:+.6f}"
-)
-
-print(
-    "\nKatman bazlı NET_COS:"
-)
-
-for li in range(N_LAYERS):
+for l in range(N_LAYERS):
 
     print(
-        f"  L{li:02d}: "
-        f"{NET_COS_LAYER[li]:+.6f}"
+        f"L{l:02d}   | "
+        f"{train_margin[l].item(): .6f}   | "
+        f"{probe_margin[l].item(): .6f}   | "
+        f"{relative_contrast[l].item(): .6f}   | "
+        f"{loo_mean[l].item(): .6f} | "
+        f"{loo_std[l].item(): .6f} | "
+        f"{random_mean[l].item(): .6f} | "
+        f"{random_std[l].item(): .6f} | "
+        f"{pusula_minus_random[l].item(): .6f}   | "
+        f"{int(probe_pair_positive[l].item())}/{n_probe}   | "
+        f"{random_percentile[l].item(): .4f}"
     )
 
+# -----------------------------------------------------------------------------
+# 19. GENEL ÖZET
+# -----------------------------------------------------------------------------
+
+overall_probe_margin = probe_margin.mean().item()
+overall_random_margin = random_mean.mean().item()
+overall_difference = pusula_minus_random.mean().item()
+
+overall_relative_contrast = relative_contrast.mean().item()
+overall_loo_mean = loo_mean.mean().item()
+overall_loo_std = loo_std.mean().item()
+
+print()
+print("=" * 78)
+print("GENEL ÖZET")
+print("=" * 78)
+
+print(f"Bağımsız probe ortalama Pusula marjini : {overall_probe_margin:+.8f}")
+print(f"Random-null ortalama marjin            : {overall_random_margin:+.8f}")
+print(f"Pusula - random farkı                  : {overall_difference:+.8f}")
+print(f"Ortalama göreli kontrast               : {overall_relative_contrast:.8f}")
+print(f"Ortalama LOO cosine                    : {overall_loo_mean:.8f}")
+print(f"Ortalama LOO std                        : {overall_loo_std:.8f}")
+print(f"Pusula pozitif layer                    : {pusula_positive_layers}/{N_LAYERS}")
+print(f"Random-null ortalaması pozitif layer   : "
+      f"{random_mean_positive_layers}/{N_LAYERS}")
+
+print()
+print("Bağımsız probe çiftlerinde layer başına pozitif oran:")
 print(
-    "\n--- YÜZEYSEL İNSAN SİNYALİ (YARDIMCI ÖLÇÜ) ---"
+    [round(x, 3) for x in probe_pair_fraction_positive.tolist()]
 )
 
-print(
-    f"TABAN ort. insan kelimesi    : "
-    f"{statistics.mean(BASE_LEX):.2f}"
-)
-
-print(
-    f"İNSAN ort. insan kelimesi    : "
-    f"{statistics.mean(HUMAN_LEX):.2f}"
-)
-
 # -----------------------------------------------------------------------------
-# PROMPT TABLOSU
+# 20. EN ÖNEMLİ NOT
 # -----------------------------------------------------------------------------
+
+print()
+print("=" * 78)
+print("YORUM KURALI")
+print("=" * 78)
 
 print(
-    "\n--- PROMPT BAZINDA KARŞILAŞTIRMA ---"
+    "Bu hücre otomatik olarak 'BAŞARILI/BAŞARISIZ' kararı vermiyor."
 )
-
 print(
-    f"{'P':<3}"
-    f"{'TabanLen':>10}"
-    f"{'HumanLen':>10}"
-    f"{'TabanQ':>10}"
-    f"{'HumanQ':>10}"
-    f"{'ΔQ':>10}"
-    f"{'NETCOS':>12}"
+    "Pusula, bağımsız probe ve random-null dağılımı birlikte değerlendirilecek."
 )
-
-print("-"*70)
-
-for i in range(len(P_TETIK)):
-
-    net_i = statistics.mean(
-        NET_COS[i].values()
-    )
-
-    q0 = TABAN_KALITE[i]["kalite"]
-    q1 = HUMAN_KALITE[i]["kalite"]
-
-    print(
-        f"{i:<3}"
-        f"{kelime(TABAN_METIN[i]):>10}"
-        f"{kelime(HUMAN_METIN[i]):>10}"
-        f"{q0:>10.3f}"
-        f"{q1:>10.3f}"
-        f"{q1-q0:>+10.3f}"
-        f"{net_i:>+12.6f}"
-    )
-
-# -----------------------------------------------------------------------------
-# İLK PROMPT METİNLERİ
-# -----------------------------------------------------------------------------
-
-print("\n")
-print("="*100)
-print(" PROMPT[0] — TABAN")
-print("="*100)
-print(TABAN_METIN[0])
-
-print("\n")
-print("="*100)
-print(" PROMPT[0] — İNSAN VEKTÖRÜ i=0.10")
-print("="*100)
-print(HUMAN_METIN[0])
-
-# -----------------------------------------------------------------------------
-# KATMAN COS TABLOSU
-# -----------------------------------------------------------------------------
-
-print("\n")
-print("="*100)
-print(" KATMAN BAZLI COSINE — TABAN / İNSAN / NET")
-print("="*100)
-
 print(
-    f"{'Layer':<8}"
-    f"{'TABAN':>14}"
-    f"{'İNSAN':>14}"
-    f"{'NET ΔCOS':>16}"
+    "Sonuçlar sonraki testin girdisi olarak RESULTS sözlüğünde tutuluyor."
 )
 
-print("-"*55)
-
-for li in range(N_LAYERS):
-
-    b = statistics.mean(
-        [
-            BASE_COS[p][li]
-            for p in range(len(P_TETIK))
-        ]
-    )
-
-    h = statistics.mean(
-        [
-            HUMAN_COS[p][li]
-            for p in range(len(P_TETIK))
-        ]
-    )
-
-    d = h - b
-
-    print(
-        f"{li:<8}"
-        f"{b:>+14.6f}"
-        f"{h:>+14.6f}"
-        f"{d:>+16.6f}"
-    )
-
 # -----------------------------------------------------------------------------
-# BASİT YORUM SINIFLANDIRMASI
-#
-# Bu bölüm "başarılı/başarısız" hükmü vermek yerine deneysel gözlemi
-# sınıflandırır.
+# 21. KAYDETME
 # -----------------------------------------------------------------------------
 
-print("\n")
-print("="*100)
-print(" DENEYSEL GÖZLEM")
-print("="*100)
-
-if NET_COS_ORT > 0:
-    print(
-        "1) İnsan enjeksiyonu sonrası aktivasyonların ortalama yönü "
-        "insan vektörüne doğru kaymış durumda (NET_COS > 0)."
-    )
-else:
-    print(
-        "1) Ortalama NET_COS pozitif değil; insan vektörüne doğru "
-        "ortalama bir aktivasyon kayması gözlenmedi."
-    )
-
-if HUMAN_KALITE_ORT < TABAN_KALITE_ORT:
-    print(
-        "2) Kalite kırılımı sayısal olarak TABAN'a göre yükselmiş."
-    )
-elif HUMAN_KALITE_ORT > TABAN_KALITE_ORT:
-    print(
-        "2) Kalite kırılımı sayısal olarak TABAN'a göre artmış."
-    )
-else:
-    print(
-        "2) Kalite kırılımı ortalamada değişmemiş."
-    )
-
-if HUMAN_ORTH <= TABAN_ORTH:
-    print(
-        "3) Bozulma ölçümünde TABAN'a göre artış gözlenmedi."
-    )
-else:
-    print(
-        "3) Bozulma ölçümünde TABAN'a göre artış gözlendi."
-    )
-
-# -----------------------------------------------------------------------------
-# JSON
-# -----------------------------------------------------------------------------
-
-SONUC = {
-
-    "deney": "Asama23_Uyumlu_Insan_Vektoru",
-
-    "model": MODEL_ID,
-
-    "ivme": IVME_TEST,
-
-    "n_prompt": len(P_TETIK),
-
-    "vector_definition": {
-        "positive": POS_HUMAN,
-        "negative": NEG_HUMAN
+# Tensorları da sonraki deneylerde yeniden model forward almadan kullanabilmek
+# için CPU üzerinde saklıyoruz.
+torch.save(
+    {
+        "train_above_act": train_above_act,
+        "train_below_act": train_below_act,
+        "probe_above_act": probe_above_act,
+        "probe_below_act": probe_below_act,
+        "pusula": pusula,
+        "raw_pusula": raw_pusula,
+        "results": RESULTS,
     },
-
-    "quality": {
-
-        "taban_mean": TABAN_KALITE_ORT,
-
-        "human_mean": HUMAN_KALITE_ORT,
-
-        "delta": KALITE_DEGISIMI,
-
-        "taban_breakdown": {
-            "bozulma": TABAN_ORTH,
-            "tekrar": TABAN_TEKRAR,
-            "uzunluk_cokusu": TABAN_COKUS
-        },
-
-        "human_breakdown": {
-            "bozulma": HUMAN_ORTH,
-            "tekrar": HUMAN_TEKRAR,
-            "uzunluk_cokusu": HUMAN_COKUS
-        }
-    },
-
-    "length": {
-        "taban_mean": TABAN_LEN,
-        "human_mean": HUMAN_LEN
-    },
-
-    "human_alignment": {
-
-        "net_cos_mean": NET_COS_ORT,
-
-        "net_cos_max": NET_COS_MAX,
-
-        "net_cos_min": NET_COS_MIN,
-
-        "strongest_layer": EN_GUCLU_LAYER,
-
-        "layer_mean": NET_COS_LAYER
-    },
-
-    "lexical_auxiliary": {
-
-        "taban_mean": statistics.mean(BASE_LEX),
-
-        "human_mean": statistics.mean(HUMAN_LEX)
-    },
-
-    "texts": {
-
-        "taban": TABAN_METIN,
-
-        "human": HUMAN_METIN
-    },
-
-    "per_prompt": [
-
-        {
-            "prompt": i,
-
-            "taban_text": TABAN_METIN[i],
-
-            "human_text": HUMAN_METIN[i],
-
-            "taban_quality": TABAN_KALITE[i],
-
-            "human_quality": HUMAN_KALITE[i],
-
-            "net_cos_mean":
-                statistics.mean(
-                    NET_COS[i].values()
-                ),
-
-            "base_cosine":
-                BASE_COS[i],
-
-            "human_cosine":
-                HUMAN_COS[i],
-
-            "net_cosine":
-                NET_COS[i]
-        }
-
-        for i in range(len(P_TETIK))
-    ]
-}
-
-OUT = "/content/asama23_uyumlu_insan_sonuc.json"
+    "TEST_97A_B_ACTIVATIONS.pt"
+)
 
 with open(
-    OUT,
+    "TEST_97A_B_RESULTS.json",
     "w",
     encoding="utf-8"
 ) as f:
-
     json.dump(
-        SONUC,
+        RESULTS,
         f,
         ensure_ascii=False,
         indent=2
     )
 
-print("\n")
-print("="*100)
-print(" JSON KAYDEDİLDİ")
-print("="*100)
-print(OUT)
-
-try:
-
-    from google.colab import files
-
-    files.download(OUT)
-
-except Exception:
-    pass
-
-# -----------------------------------------------------------------------------
-# TEMİZLİK
-# -----------------------------------------------------------------------------
-
-for h in _capture_hooks:
-    h.remove()
-
-for h in _steer_hooks:
-    h.remove()
-
-gc.collect()
-
-torch.cuda.empty_cache()
-
-print("\n")
-print("="*100)
-print(" AŞAMA 23 TAMAMLANDI")
-print("="*100)
+print()
+print("Dosyalar oluşturuldu:")
+print("  TEST_97A_B_ACTIVATIONS.pt")
+print("  TEST_97A_B_RESULTS.json")
+print()
+print("TEST 97A-B TAMAMLANDI.")
