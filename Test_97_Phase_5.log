@@ -1,0 +1,441 @@
+# =============================================================================
+# TEST 99 — BAĞIMSIZ YÖN ÇIKARIMI + GEOMETRİ TEŞHİSİ + YÖNE-DUYARLI DOZ
+# Qwen2.5-7B-Instruct · A100 · AkbasCore
+# -----------------------------------------------------------------------------
+# AMAÇ:
+#   "Motor mu bozuk, yoksa -PUSULA'nın işaret ettiği yön mü yapay/dayatmacı?"
+#   sorusunu iki fazda, art arda test eder.
+#
+#   FAZ 1 (ucuz, ~1 dk, generation YOK):
+#     - TRAIN_ABOVE ve TRAIN_BELOW'un kendi 8 örneği birbirine ne kadar
+#       tutarlı (coherence) -> "otoban mı kum mu" sorusunun doğrudan ölçümü.
+#     - TRAIN_NEUTRAL'a göre BAĞIMSIZ çıkarılan IND_ABOVE / IND_BELOW'un
+#       gerçekten birbirinin negatifi mi (cos≈-1, eski varsayım doğru) yoksa
+#       bağımsız yönler mi (cos≈0, "sand" hipotezi doğru) olduğunu ölçer.
+#
+#   FAZ 2 (pahalı, generation VAR, RUN_PHASE2=True ise çalışır):
+#     - Eski BELOW_OLD (=-PUSULA) ile yeni BELOW_IND'i ve yüksek dozlu
+#       BELOW_IND'i aynı promptlarda, RANDOM kontrolüyle karşılaştırır.
+#     - 97C'den kalan BASELINE/ABOVE_OLD/BELOW_OLD/RANDOM sonuçlarını
+#       (varsa) TEKRAR ÇALIŞTIRMAZ, olduğu gibi kullanır — sadece 3 yeni
+#       kol (ABOVE_IND, BELOW_IND, BELOW_IND_ADAPTIVE) generation yapar.
+#
+# NOT: Motor formülü (envelope/brake/SQRT_K sabiti dahil) 97C ile BİREBİR
+#      AYNI bırakıldı — yeni bir problem eklememek için hiçbir motor
+#      parametresi bu testte değiştirilmedi.
+# =============================================================================
+
+import os, json, math, random
+import numpy as np
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+RUN_PHASE2 = True   # False yaparsan sadece ucuz geometri testi çalışır
+
+MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DTYPE = torch.bfloat16
+N_LAYERS = 20
+HIDDEN_DIM = 3584
+SEED = 42
+
+SONUM, ZIRVE, TABAN = 0.30, 0.70, 0.20
+COS_SAT, COS_NEG = 0.75, -0.40
+UNC_GAIN = 0.20
+SQRT_K = math.sqrt(N_LAYERS)   # 97C ile birebir aynı — bilinçli olarak dokunulmadı
+MAX_NEW_TOKENS = 260
+REPETITION_PENALTY = 1.15
+ACT_BATCH_SIZE = 8
+
+random.seed(SEED); np.random.seed(SEED); torch.manual_seed(SEED)
+if torch.cuda.is_available(): torch.cuda.manual_seed_all(SEED)
+torch.backends.cuda.matmul.allow_tf32 = True
+
+print("=" * 90)
+print("TEST 99 — BAĞIMSIZ YÖN ÇIKARIMI + GEOMETRİ TEŞHİSİ + YÖNE-DUYARLI DOZ")
+print("=" * 90)
+
+# -----------------------------------------------------------------------------
+# 0) MODEL / TOKENIZER — VARSA OTURUMDAN AL, YOKSA YÜKLE
+# -----------------------------------------------------------------------------
+if "model" in globals() and "tokenizer" in globals():
+    print("Mevcut oturumdaki model/tokenizer yeniden kullanılıyor (97C'den).")
+else:
+    print("Model/tokenizer oturumda yok, yükleniyor...")
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
+    model = AutoModelForCausalLM.from_pretrained(
+        MODEL_NAME, torch_dtype=DTYPE, device_map="auto", trust_remote_code=True
+    )
+    model.eval()
+print("Hazır.\n")
+
+try:
+    layers = model.model.layers
+except AttributeError:
+    layers = model.transformer.h
+
+# -----------------------------------------------------------------------------
+# 1) EĞİTİM VERİLERİ — TRAIN_NEUTRAL, TRAIN_ABOVE/BELOW ile İSKELET-EŞLEŞMELİ
+#    (tek kelime farkı: "near" vs "above"/"below" — Kural 3, skeleton-matched)
+# -----------------------------------------------------------------------------
+TRAIN_ABOVE = [
+    "Mustafa Dibekgoz is above the bridge.",
+    "Mustafa Dibekgoz is positioned above the bridge.",
+    "Mustafa Dibekgoz stands above the bridge.",
+    "The position of Mustafa Dibekgoz is above the bridge.",
+    "Mustafa Dibekgoz remains above the bridge.",
+    "Mustafa Dibekgoz is located above the bridge.",
+    "Mustafa Dibekgoz occupies a position above the bridge.",
+    "The scene places Mustafa Dibekgoz above the bridge.",
+]
+TRAIN_BELOW = [
+    "Mustafa Dibekgoz is below the bridge.",
+    "Mustafa Dibekgoz is positioned below the bridge.",
+    "Mustafa Dibekgoz stands below the bridge.",
+    "The position of Mustafa Dibekgoz is below the bridge.",
+    "Mustafa Dibekgoz remains below the bridge.",
+    "Mustafa Dibekgoz is located below the bridge.",
+    "Mustafa Dibekgoz occupies a position below the bridge.",
+    "The scene places Mustafa Dibekgoz below the bridge.",
+]
+TRAIN_NEUTRAL = [
+    "Mustafa Dibekgoz is near the bridge.",
+    "Mustafa Dibekgoz is positioned near the bridge.",
+    "Mustafa Dibekgoz stands near the bridge.",
+    "The position of Mustafa Dibekgoz is near the bridge.",
+    "Mustafa Dibekgoz remains near the bridge.",
+    "Mustafa Dibekgoz is located near the bridge.",
+    "Mustafa Dibekgoz occupies a position near the bridge.",
+    "The scene places Mustafa Dibekgoz near the bridge.",
+]
+assert len(TRAIN_ABOVE) == len(TRAIN_BELOW) == len(TRAIN_NEUTRAL) == 8
+
+# -----------------------------------------------------------------------------
+# 2) AKTİVASYON ÇIKARIMI (97C ile birebir aynı yöntem)
+# -----------------------------------------------------------------------------
+def collect_layerwise_activations(texts):
+    all_batches = []
+    for start in range(0, len(texts), ACT_BATCH_SIZE):
+        batch_texts = texts[start:start + ACT_BATCH_SIZE]
+        enc = tokenizer(batch_texts, return_tensors="pt", padding=True, truncation=True)
+        input_ids = enc["input_ids"].to(DEVICE)
+        attention_mask = enc["attention_mask"].to(DEVICE)
+        with torch.no_grad():
+            out = model(input_ids=input_ids, attention_mask=attention_mask,
+                        output_hidden_states=True, use_cache=False)
+        hs = out.hidden_states
+        batch_result = []
+        for b in range(input_ids.shape[0]):
+            mask = attention_mask[b].bool()
+            layer_result = []
+            for layer_idx in range(N_LAYERS):
+                h = hs[layer_idx + 1][b]
+                v = h[mask].float().mean(dim=0)
+                layer_result.append(v)
+            batch_result.append(torch.stack(layer_result, dim=0))
+        all_batches.append(torch.stack(batch_result, dim=0).cpu())
+        del out, hs, input_ids, attention_mask, enc
+        if torch.cuda.is_available(): torch.cuda.empty_cache()
+    return torch.cat(all_batches, dim=0)
+
+print("Aktivasyonlar çıkarılıyor (ABOVE + BELOW + NEUTRAL, 24 örnek)...")
+act_above = collect_layerwise_activations(TRAIN_ABOVE).float()   # [8,20,3584]
+act_below = collect_layerwise_activations(TRAIN_BELOW).float()
+act_neutral = collect_layerwise_activations(TRAIN_NEUTRAL).float()
+print("Tamam.\n")
+
+mean_above = act_above.mean(dim=0)
+mean_below = act_below.mean(dim=0)
+mean_neutral = act_neutral.mean(dim=0)
+
+def normalize_layerwise(v):
+    return v / torch.linalg.vector_norm(v, dim=-1, keepdim=True).clamp_min(1e-12)
+
+# --- ESKİ YÖNTEM (97A-B/97C ile birebir aynı, referans için) ---
+PUSULA_OLD = normalize_layerwise(mean_above - mean_below)
+ABOVE_OLD = PUSULA_OLD.clone()
+BELOW_OLD = -PUSULA_OLD.clone()
+
+# --- YENİ: BAĞIMSIZ ÇIKARIM (her biri kendi NEUTRAL karşıtına göre) ---
+IND_ABOVE = normalize_layerwise(mean_above - mean_neutral)
+IND_BELOW = normalize_layerwise(mean_below - mean_neutral)
+
+# =============================================================================
+# FAZ 1 — GEOMETRİ TEŞHİSİ (generation YOK, ucuz)
+# =============================================================================
+print("=" * 100)
+print("FAZ 1 — GEOMETRİ TEŞHİSİ  (\"otoban mı kum mu\" sorusunun doğrudan ölçümü)")
+print("=" * 100)
+
+# --- 1a) TUTARLILIK (coherence): 8 örneğin kendi aralarındaki cosine ---
+# Her örnek için, kendi NEUTRAL çiftine göre fark vektörü (eşleştirilmiş, iskelet-uyumlu)
+def per_example_vectors(act_class, act_neutral_class):
+    # act_class, act_neutral_class: [8, 20, 3584] — indeks bazında eşleştirilmiş
+    diffs = act_class - act_neutral_class          # [8,20,3584]
+    return normalize_layerwise(diffs)               # her örnek kendi içinde normalize
+
+vec_above_ex = per_example_vectors(act_above, act_neutral)   # [8,20,3584]
+vec_below_ex = per_example_vectors(act_below, act_neutral)
+
+def mean_pairwise_cosine(vecs):
+    # vecs: [8, 20, 3584] -> her layer için 8x8 cosine matrisinin diyagonal-dışı ortalaması
+    n = vecs.shape[0]
+    coh = torch.zeros(N_LAYERS)
+    for li in range(N_LAYERS):
+        v = vecs[:, li, :]                 # [8,3584], zaten normalize
+        sim = v @ v.T                       # [8,8]
+        off_diag = sim[~torch.eye(n, dtype=torch.bool)]
+        coh[li] = off_diag.mean()
+    return coh
+
+COHERENCE_ABOVE = mean_pairwise_cosine(vec_above_ex)
+COHERENCE_BELOW = mean_pairwise_cosine(vec_below_ex)
+
+# --- 1b) SİMETRİ TESTİ: IND_ABOVE ile IND_BELOW gerçekten birbirinin negatifi mi ---
+cos_ind_above_below = torch.tensor([
+    torch.dot(IND_ABOVE[li], IND_BELOW[li]).item() for li in range(N_LAYERS)
+])
+
+# --- 1c) ESKİ BELOW_OLD (=-PUSULA) ile YENİ IND_BELOW ne kadar farklı ---
+cos_old_below_vs_ind_below = torch.tensor([
+    torch.dot(BELOW_OLD[li], IND_BELOW[li]).item() for li in range(N_LAYERS)
+])
+cos_old_above_vs_ind_above = torch.tensor([
+    torch.dot(ABOVE_OLD[li], IND_ABOVE[li]).item() for li in range(N_LAYERS)
+])
+
+print(f"\n{'Layer':>6} | {'Coh(ABOVE)':>11} | {'Coh(BELOW)':>11} | "
+      f"{'cos(IND_A,IND_B)':>17} | {'cos(OLD_A,IND_A)':>17} | {'cos(OLD_B,IND_B)':>17}")
+print("-" * 100)
+for li in range(N_LAYERS):
+    print(f"{li:6d} | {COHERENCE_ABOVE[li]:11.4f} | {COHERENCE_BELOW[li]:11.4f} | "
+          f"{cos_ind_above_below[li]:+17.4f} | {cos_old_above_vs_ind_above[li]:+17.4f} | "
+          f"{cos_old_below_vs_ind_below[li]:+17.4f}")
+
+print("\n" + "=" * 100)
+print("FAZ 1 — GENEL ÖZET")
+print("=" * 100)
+print(f"Ortalama Coherence(ABOVE) : {COHERENCE_ABOVE.mean():.4f}  "
+      f"(1.0 = mükemmel otoban, 0.0 = tam dağınık kum)")
+print(f"Ortalama Coherence(BELOW) : {COHERENCE_BELOW.mean():.4f}")
+print(f"Fark (ABOVE - BELOW)      : {(COHERENCE_ABOVE.mean()-COHERENCE_BELOW.mean()):+.4f}")
+print(f"Ortalama cos(IND_ABOVE, IND_BELOW) : {cos_ind_above_below.mean():+.4f}  "
+      f"(-1.0 = tam simetrik/ayna, 0.0 = tam bağımsız)")
+print(f"Ortalama cos(BELOW_OLD, IND_BELOW) : {cos_old_below_vs_ind_below.mean():+.4f}  "
+      f"(1.0 = eski ve yeni BELOW aynı yön, düşükse eski yön yanlıştı)")
+print(f"Ortalama cos(ABOVE_OLD, IND_ABOVE) : {cos_old_above_vs_ind_above.mean():+.4f}  "
+      f"(referans — ABOVE için beklenen yüksek olmalı)")
+
+print("\nYORUM KURALI (otomatik karar verilmiyor):")
+print("  - Coherence(BELOW) << Coherence(ABOVE)  ->  'kum' hipotezi geometrik olarak destekleniyor.")
+print("  - cos(IND_ABOVE,IND_BELOW) ~ 0 (veya pozitif)  ->  BELOW, ABOVE'un aynası DEĞİL,")
+print("    bağımsız çıkarım (-PUSULA yerine IND_BELOW) gerekçeli.")
+print("  - cos(BELOW_OLD, IND_BELOW) düşükse  ->  eski -PUSULA yönü gerçekten yanlış/dayatmacıydı.")
+
+if not RUN_PHASE2:
+    print("\nRUN_PHASE2=False — davranışsal test atlandı. Yukarıdaki sayılara göre karar verin.")
+    raise SystemExit(0)
+
+# =============================================================================
+# FAZ 2 — DAVRANIŞSAL TEST (generation VAR)
+# =============================================================================
+print("\n" + "=" * 100)
+print("FAZ 2 — DAVRANIŞSAL TEST (eski BELOW_OLD vs yeni IND_BELOW vs yüksek doz vs RANDOM)")
+print("=" * 100)
+
+if "PROMPTS" in globals():
+    print("Mevcut oturumdaki PROMPTS (97C) yeniden kullanılıyor.")
+else:
+    PROMPTS = [
+        "Mustafa Dibekgoz and a bridge are present in the same scene. "
+        "Describe the spatial relationship between the person and the bridge, "
+        "along with the surrounding scene. Write at least four sentences.",
+        "A person named Mustafa Dibekgoz is near a bridge. "
+        "Give a concrete description of the scene and explain where the person "
+        "is positioned in relation to the bridge. Write at least four sentences.",
+        "The scene contains Mustafa Dibekgoz and a large bridge. "
+        "Describe what an observer would see, including the person's position "
+        "relative to the bridge. Write at least four sentences.",
+        "Imagine a photograph containing Mustafa Dibekgoz and a bridge. "
+        "Describe the photograph precisely, including the vertical relationship "
+        "between the person and the bridge. Write at least four sentences.",
+        "Mustafa Dibekgoz is part of a scene involving a bridge. "
+        "Describe the person's location and the bridge's position relative to "
+        "the person. Write at least four sentences.",
+        "Write a factual description of a scene containing Mustafa Dibekgoz "
+        "and a bridge. State how the two are positioned relative to each other. "
+        "Write at least four sentences.",
+        "An observer sees Mustafa Dibekgoz and a bridge in the same location. "
+        "Describe their spatial arrangement without assuming any particular "
+        "relationship beforehand. Write at least four sentences.",
+        "The record describes Mustafa Dibekgoz in a scene with a bridge. "
+        "Explain the spatial arrangement of the person and the bridge in "
+        "clear natural language. Write at least four sentences.",
+    ]
+
+if "RANDOM_PUSULA" in globals():
+    RANDOM_VEC = RANDOM_PUSULA
+else:
+    g = torch.Generator(device="cpu").manual_seed(SEED)
+    RANDOM_VEC = torch.randn(N_LAYERS, HIDDEN_DIM, generator=g, dtype=torch.float32)
+    RANDOM_VEC = normalize_layerwise(RANDOM_VEC)
+
+ABOVE_TERMS = ["above", "over", "higher", "atop", "overhead", "upper"]
+BELOW_TERMS = ["below", "under", "lower", "beneath", "underneath"]
+def count_terms(text, terms):
+    low = text.lower()
+    return sum(low.count(t) for t in terms)
+
+def dra_envelope(layer_idx, cos_value):
+    unc = 1.0 - abs(cos_value)
+    dw = SONUM + unc * UNC_GAIN
+    kb = ZIRVE * math.exp(-dw * layer_idx) * (1.0 + dw * layer_idx) + TABAN
+    return kb / (ZIRVE + TABAN), unc, dw
+
+class DRAState:
+    def __init__(self, vector, ivme):
+        self.vector = vector.to(DEVICE).float()
+        self.ivme = ivme
+        self.cos_history, self.contribution_history = [], []
+        self.envelope_history, self.brake_history = [], []
+        self.step_count = 0
+
+def make_hook(layer_idx, state):
+    def hook(module, inputs, output):
+        tuple_mode = isinstance(output, tuple)
+        h = output[0] if tuple_mode else output
+        last_h = h[:, -1, :].float()
+        p = state.vector[layer_idx]
+        h_norm = torch.linalg.vector_norm(last_h, dim=-1, keepdim=True).clamp_min(1e-12)
+        p_norm = torch.linalg.vector_norm(p).clamp_min(1e-12)
+        cos = (torch.sum(last_h * p, dim=-1, keepdim=True) / (h_norm * p_norm)).clamp(-1.0, 1.0)
+        cos_scalar = cos.detach().float().mean().item()
+        zarf, unc, dw = dra_envelope(layer_idx, cos_scalar)
+        if cos_scalar > COS_SAT:
+            brake = (1.0 - cos_scalar) / (1.0 - COS_SAT)
+        elif cos_scalar < COS_NEG:
+            brake = 1.6
+        else:
+            brake = 1.0
+        magnitude = state.ivme * h_norm / SQRT_K * zarf * brake
+        delta = magnitude * p.view(1, 1, -1)
+        h_new = h.clone()
+        h_new[:, -1:, :] = h_new[:, -1:, :] + delta.to(h_new.dtype)
+        state.cos_history.append(cos.detach().float().cpu())
+        state.contribution_history.append(magnitude.detach().float().cpu())
+        state.envelope_history.append(float(zarf))
+        state.brake_history.append(float(brake))
+        state.step_count += 1
+        return (h_new,) + output[1:] if tuple_mode else h_new
+    return hook
+
+def run_arm(arm_name, steering_vector, ivme):
+    print(f"\n{'='*90}\nARM: {arm_name}  (ivme={ivme})\n{'='*90}")
+    state, handles = None, []
+    if steering_vector is not None:
+        state = DRAState(steering_vector, ivme)
+        for li in range(N_LAYERS):
+            handles.append(layers[li].register_forward_hook(make_hook(li, state)))
+    outputs = []
+    for idx, prompt in enumerate(PROMPTS):
+        print(f"[{idx+1}/{len(PROMPTS)}]")
+        messages = [{"role": "user", "content": prompt}]
+        chat_text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        inputs = tokenizer(chat_text, return_tensors="pt")
+        inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
+        with torch.no_grad():
+            generated = model.generate(**inputs, max_new_tokens=MAX_NEW_TOKENS, do_sample=False,
+                                       repetition_penalty=REPETITION_PENALTY, use_cache=True)
+        prompt_len = inputs["input_ids"].shape[1]
+        answer = tokenizer.decode(generated[0, prompt_len:], skip_special_tokens=True).strip()
+        outputs.append(answer)
+        print(answer[:200] + ("..." if len(answer) > 200 else ""))
+    for h in handles: h.remove()
+    above_counts = [count_terms(x, ABOVE_TERMS) for x in outputs]
+    below_counts = [count_terms(x, BELOW_TERMS) for x in outputs]
+    net_counts = [a - b for a, b in zip(above_counts, below_counts)]
+    word_counts = [len(x.split()) for x in outputs]
+    repetition = [1.0 - len(set(x.lower().split()))/max(1,len(x.split())) for x in outputs]
+    result = {
+        "arm": arm_name, "ivme": ivme, "outputs": outputs,
+        "above_counts": above_counts, "below_counts": below_counts,
+        "net_above_minus_below": net_counts,
+        "mean_above": float(np.mean(above_counts)), "mean_below": float(np.mean(below_counts)),
+        "mean_net": float(np.mean(net_counts)), "mean_words": float(np.mean(word_counts)),
+        "mean_repetition_ratio": float(np.mean(repetition)),
+    }
+    if state is not None:
+        all_cos = torch.cat(state.cos_history)
+        all_contrib = torch.cat(state.contribution_history)
+        result["dra"] = {
+            "mean_cos": float(all_cos.mean()), "mean_abs_cos": float(all_cos.abs().mean()),
+            "mean_contribution": float(all_contrib.mean()),
+            "mean_envelope": float(np.mean(state.envelope_history)),
+            "mean_brake": float(np.mean(state.brake_history)), "steps": state.step_count,
+        }
+    return result
+
+RESULTS_99 = {}
+
+# --- 97C'den varsa yeniden kullan (ZAMAN TASARRUFU — tekrar generation yapma) ---
+if "RESULTS_97C" in globals():
+    print("\n97C'nin BASELINE/ABOVE_OLD/BELOW_OLD/RANDOM sonuçları yeniden kullanılıyor "
+          "(yeniden generation yapılmıyor).")
+    RESULTS_99["BASELINE"]  = RESULTS_97C["BASELINE"]
+    RESULTS_99["ABOVE_OLD"] = RESULTS_97C["ABOVE"]
+    RESULTS_99["BELOW_OLD"] = RESULTS_97C["BELOW"]
+    RESULTS_99["RANDOM"]    = RESULTS_97C["RANDOM"]
+else:
+    RESULTS_99["BASELINE"]  = run_arm("BASELINE", None, 0.0)
+    RESULTS_99["ABOVE_OLD"] = run_arm("ABOVE_OLD", ABOVE_OLD, 0.10)
+    RESULTS_99["BELOW_OLD"] = run_arm("BELOW_OLD", BELOW_OLD, 0.10)
+    RESULTS_99["RANDOM"]    = run_arm("RANDOM", RANDOM_VEC, 0.10)
+
+# --- YENİ KOLLAR (bunlar her zaman taze çalışır) ---
+RESULTS_99["ABOVE_IND"]          = run_arm("ABOVE_IND", IND_ABOVE, 0.10)
+RESULTS_99["BELOW_IND"]          = run_arm("BELOW_IND", IND_BELOW, 0.10)
+RESULTS_99["BELOW_IND_ADAPTIVE"] = run_arm("BELOW_IND_ADAPTIVE", IND_BELOW, 0.18)
+
+# =============================================================================
+# ÖZET
+# =============================================================================
+print("\n" + "=" * 110)
+print("TEST 99 — ÖZET (tüm kollar yan yana)")
+print("=" * 110)
+print(f"{'ARM':<20}{'ivme':>6}{'ABOVE':>9}{'BELOW':>9}{'NET':>9}{'WORDS':>9}{'REP':>8}")
+print("-" * 110)
+for name, r in RESULTS_99.items():
+    print(f"{name:<20}{r.get('ivme',0):>6.2f}{r['mean_above']:>9.3f}{r['mean_below']:>9.3f}"
+          f"{r['mean_net']:>9.3f}{r['mean_words']:>9.2f}{r['mean_repetition_ratio']:>8.4f}")
+
+print("\n" + "=" * 90)
+print("KRİTİK KARŞILAŞTIRMA — BELOW YÖNÜ")
+print("=" * 90)
+base_net = RESULTS_99["BASELINE"]["mean_net"]
+for name in ["BELOW_OLD", "BELOW_IND", "BELOW_IND_ADAPTIVE", "RANDOM"]:
+    n = RESULTS_99[name]["mean_net"]
+    print(f"{name:<20} net={n:+.3f}   (baseline'a göre Δ={n-base_net:+.3f})")
+
+print("\nYORUM KURALI (otomatik karar verilmiyor):")
+print("  - Amaç: BELOW kollarından hangisi net'i baseline'ın ALTINA indirebiliyor?")
+print("  - BELOW_IND, BELOW_OLD'dan daha aşağı çekiyorsa -> bağımsız çıkarım işe yaradı.")
+print("  - BELOW_IND_ADAPTIVE (yüksek doz) daha da aşağı çekiyorsa -> yöne-duyarlı doz gerekli.")
+print("  - Hiçbiri RANDOM'un altına inemiyorsa -> sorun sadece vektör çıkarımı değil,")
+print("    'below' kavramının bu bağlamda (BRIDGE) hiç zemini olmaması (bkz. Aşama 14/20).")
+
+with open("TEST_99_RESULTS.json", "w", encoding="utf-8") as f:
+    json.dump({
+        "phase1_geometry": {
+            "coherence_above": COHERENCE_ABOVE.tolist(),
+            "coherence_below": COHERENCE_BELOW.tolist(),
+            "cos_ind_above_ind_below": cos_ind_above_below.tolist(),
+            "cos_old_below_vs_ind_below": cos_old_below_vs_ind_below.tolist(),
+            "cos_old_above_vs_ind_above": cos_old_above_vs_ind_above.tolist(),
+        },
+        "phase2_behavioral": RESULTS_99,
+    }, f, ensure_ascii=False, indent=2)
+
+print("\nKaydedildi: TEST_99_RESULTS.json")
+print("\n" + "=" * 90)
+print("TEST 99 TAMAMLANDI")
+print("=" * 90)
