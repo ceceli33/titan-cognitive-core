@@ -1,0 +1,229 @@
+ Bağımlılıklar kontrol ediliyor...
+✅ Kurulum tamam
+
+==============================================================================
+  AŞAMA 16 — UZUNLUK ÇÖKÜŞÜ VE YOĞUNLUK
+==============================================================================
+torch 2.11.0+cu128 | CUDA 12.8
+✅ GPU: NVIDIA A100-SXM4-40GB
+
+CUDA çekirdek derleniyor (~1-2 dk)...
+✅ Çekirdek hazır (58 sn)
+
+Model yükleniyor: Qwen/Qwen2.5-7B-Instruct ...
+config.json: 100% 663/663 [00:00<00:00, 83.7kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 845kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+vocab.json: 100% 2.78M/2.78M [00:00<00:00, 82.8MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 73.9MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 120MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.39MB/s]Download complete: :  13.1GB,  143MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  482MB/s  Fetching 4 files: 100% 4/4 [00:40<00:00,  6.10s/it]Loading weights: 100% 339/339 [00:03<00:00, 100.68it/s]generation_config.json: 100% 243/243 [00:00<00:00, 30.7kB/s]✅ Model hazır (53 sn) | gizli boyut 3584
+
+Vektörler çıkarılıyor...
+==============================================================================
+  ÜRETİM (15 kol × 4 prompt)  — YOĞUNLUK = 100 kelime başına
+==============================================================================
+    kol                     kel  Δkel%  köprü  fırt  SAHNE  hedef   NET  uzÇök  KALİTE
+    ----------------------------------------------------------------------------------
+    00_TABAN_bridge         102     +0   4.56  0.90   5.47   0.00 +0.00   0.00   0.021
+    01_TABAN_zoo            200     +0   0.00  0.00   0.00   0.74 -1.06   0.04   0.042
+    02_BIR_i0.04             84    -18   3.07  1.40   4.47   0.35 +0.35   0.00   0.023
+    03_BIR_i0.06             79    -23   5.76  1.24   7.00   0.31 +0.31   0.00   0.019
+    04_BIR_i0.08             73    -29   4.87  1.76   6.64   1.43 +1.43   0.00   0.030
+    05_BIR_i0.10             66    -36   3.80  2.58   6.38   1.14 +0.75   0.00   0.016
+    06_BIR_i0.15             81    -21   6.84  2.84   9.69   0.76 +0.76   0.15   0.148
+    07_FIR_i0.08             83    -19   5.91  2.70   8.61   1.40 +1.40   0.00   0.027
+    08_FIR_i0.15             72    -30   0.84  4.36   5.21   0.85 +0.85   0.07   0.067
+    09_DIB_i0.08             68    -34   2.47  0.88   3.35   0.00 +0.00   0.00   0.043
+    10_DIB_i0.15            121    +18   0.38  0.38   0.77   2.42 +2.17   0.00   0.044
+    11_RAST_i0.08           105     +2   3.85  0.73   4.58   0.00 +0.00   0.00   0.015
+    12_RAST_i0.15           126    +23   2.58  0.46   3.05   0.00 -0.37   0.00   0.019
+    13_DIB_zoo_i0.15        198     -1   0.00  0.00   0.00   3.19 +2.64   0.00   0.075
+    14_BIR_zoo_i0.15        183     -9   0.00  0.33   0.33   0.55 +0.07   0.00   0.028
+
+  ✅ üretim 298 sn
+
+==============================================================================
+  SORU 1: AŞAMA 15'İN SONUCU TERSİNE DÖNÜYOR MU?
+==============================================================================
+    Aşama 15 HAM sayımla 'vektör katkı eklemiyor' demişti.
+    Yoğunlukla (100 kelime başına) bakınca:
+                     kelime   SAHNE ham   SAHNE yoğun
+    taban               102         5.8          5.47
+    steered 0.15         81         6.2          9.69
+    ✅ yoğunluk tabanın üstünde.
+
+==============================================================================
+  SORU 2: DÜŞÜK İVME TARAMASI — TATLI NOKTA NEREDE?
+==============================================================================
+    taban: 102 kelime, SAHNE=5.47, NET=+0.00
+    ivme      kelime  Δkel%   SAHNE   ΔSAHNE  uzÇök  KALİTE   durum
+    ------------------------------------------------------------------------
+    0.04          84    -18    4.47    -1.00   0.00   0.023   sağlam
+    0.06          79    -23    7.00    +1.53   0.00   0.019   ✅ SAĞLAM+ETKİ
+    0.08          73    -29    6.64    +1.17   0.00   0.030   ✅ SAĞLAM+ETKİ
+    0.10          66    -36    6.38    +0.91   0.00   0.016   sağlam
+    0.15          81    -21    9.69    +4.22   0.15   0.148   ✅ SAĞLAM+ETKİ
+
+    Sağlam kollar içinde en yüksek SAHNE: 06_BIR_i0.15 -> 9.69 (taban 5.47)
+
+==============================================================================
+  SORU 3: UZUNLUK ÇÖKÜŞÜ KİME ÖZGÜ?
+==============================================================================
+    (birleşik vektöre mi özgü, yoksa her vektör mü kısaltıyor?)
+    kol                     kelime   Δkel%   uzÇök
+    ------------------------------------------------
+    00_TABAN_bridge            102      +0    0.00
+    04_BIR_i0.08                73     -29    0.00
+    06_BIR_i0.15                81     -21    0.15
+    07_FIR_i0.08                83     -19    0.00
+    08_FIR_i0.15                72     -30    0.07
+    09_DIB_i0.08                68     -34    0.00
+    10_DIB_i0.15               121     +18    0.00
+    11_RAST_i0.08              105      +2    0.00
+    12_RAST_i0.15              126     +23    0.00
+
+    · belirgin uzunluk çöküşü yok bu turda.
+
+==============================================================================
+  SORU 4: ZOO REGRESYONU (Aşama 14: NET +5.8 ham)
+==============================================================================
+    01_TABAN_zoo           kelime=200 hedef_ham=1.8 hedef_yoğun=0.74 NET=-1.06 kalite=0.042
+    13_DIB_zoo_i0.15       kelime=198 hedef_ham=6.2 hedef_yoğun=3.19 NET=+2.64 kalite=0.075
+    14_BIR_zoo_i0.15       kelime=183 hedef_ham=1.0 hedef_yoğun=0.55 NET=+0.07 kalite=0.028
+    ✅ dibek vektörü zoo bağlamında hâlâ çalışıyor
+
+==============================================================================
+  METİNLER (tam)
+==============================================================================
+
+─── 00_TABAN_bridge (102 kelime, SAHNE 5.47, kalite 0.021)
+at midnight, Dibekgoz walked across the Golden Gate Bridge under a blanket of starlit sky, his shadow stretching long behind him like an elongated silhouette against the dark waters below. The cool evening breeze whispered through the steel cables, causing them to vibrate softly with a rhythmic hum that echoed over San Francisco Bay. Beneath his feet, the pavement was slick from recent rain, reflecting faint glimmers of moonlight as he moved steadily forward, each step resounding slightly in the quietude of the late hour. As he reached the midpoint, the city lights twinkled brightly beyond the bridge's towers, casting a warm glow upon the water and creating a stark contrast between the darkness above and the luminous expanse below.
+
+─── 03_BIR_i0.06 (79 kelime, SAHNE 7.00, kalite 0.019)
+At midnight, Dibekgoz walked across the Golden Gate, his shadow stretching like a giant's hand over the San Francisco skyline. The wind howled through the cables as he paused to look down into the churning bay below, where lights danced like fireflies. Above him, the stars seemed closer than ever, their cold light reflecting off the wet metal. As he reached the tower, the neon sign flickered to life, casting an eerie glow that made the shadows leap and dance.
+
+─── 04_BIR_i0.08 (73 kelime, SAHNE 6.64, kalite 0.030)
+At midnight, Dibekgoz walked across the Golden Gate, his shadow stretching like a giant's hand over the bay. The wind howled through the cables as he paused atop the tower, lightning flashing between the clouds and casting him into stark silhouette against the sky. Below, the city pulsed with lights, each one a tiny star that flickered to life when cars passed under the arches.
+
+─── 05_BIR_i0.10 (66 kelime, SAHNE 6.38, kalite 0.016)
+at midnight, Dibekgoz walked across the Golden Gate, his shadow stretching like a giant's hand over the cables. The wind howled through the arches as he crossed, the lights below casting dancing shadows that made him seem to run faster than he should. Above, stars sparkled, and the city pulsed with electricity, making it feel like the sky was falling.
+
+─── 06_BIR_i0.15 (81 kelime, SAHNE 9.69, kalite 0.148)
+he stopped when he reached the middle, where lightning strikes and the sky splits. The wind howls like a thousand men, and you can see the lights from San Francisco, a million eyes in the darkness. He looks down, and the towers seem to dance; the cables hum like giant snakes. Then he runs, faster than the lightning, and the tower catches him as he jumps. He hangs there, screaming, and then he's gone, into the shadows. Below, the cars scream up the hill, and the streetlights flash. Above, the church bells ring, and the music starts. It’s 1928, and the city is alive.
+
+─── 12_RAST_i0.15 (126 kelime, SAHNE 3.05, kalite 0.019)
+At midnight, Dibekgoz walked across the Golden Gate Bridge, and her shadow stretched out like a black ribbon against the dark waters below. The sky was painted with stars, and she moved gracefully, her feet barely touching the cold steel as she crossed from one side to the other. Her silhouette was stark and beautiful under the moonlight; it seemed as if she were dancing upon the bridge's back, defying gravity and the stillness of the night.
+
+The wind whispered through the cables, creating a soft hum that accompanied her steps. She carried no burden, yet every step felt deliberate and purposeful. As she reached the midpoint, she paused for a moment, looking down into the abyss where the currents churned beneath. It was as though she sought some kind of balance between heaven and earth, a c
+
+✅ JSON kaydedildi: /content/asama16_yogunluk.json
+
+
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║  ═ KOPYALANACAK RAPOR ═  (bloğun TAMAMINI kopyala)                         ║
+╚════════════════════════════════════════════════════════════════════════════╝
+------------------------------------------------------------------------------
+# AŞAMA 16 | Qwen/Qwen2.5-7B-Instruct | NVIDIA A100-SXM4-40GB | D=3584
+# metrik: 100 kelime başına yoğunluk + uzunluk çöküşü dedektörü
+# KALİTE = max(bozulma, tekrar, uzunluk_cokusu)
+------------------------------------------------------------------------------
+==============================================================================
+  ÜRETİM (15 kol × 4 prompt)  — YOĞUNLUK = 100 kelime başına
+==============================================================================
+    kol                     kel  Δkel%  köprü  fırt  SAHNE  hedef   NET  uzÇök  KALİTE
+    ----------------------------------------------------------------------------------
+    00_TABAN_bridge         102     +0   4.56  0.90   5.47   0.00 +0.00   0.00   0.021
+    01_TABAN_zoo            200     +0   0.00  0.00   0.00   0.74 -1.06   0.04   0.042
+    02_BIR_i0.04             84    -18   3.07  1.40   4.47   0.35 +0.35   0.00   0.023
+    03_BIR_i0.06             79    -23   5.76  1.24   7.00   0.31 +0.31   0.00   0.019
+    04_BIR_i0.08             73    -29   4.87  1.76   6.64   1.43 +1.43   0.00   0.030
+    05_BIR_i0.10             66    -36   3.80  2.58   6.38   1.14 +0.75   0.00   0.016
+    06_BIR_i0.15             81    -21   6.84  2.84   9.69   0.76 +0.76   0.15   0.148
+    07_FIR_i0.08             83    -19   5.91  2.70   8.61   1.40 +1.40   0.00   0.027
+    08_FIR_i0.15             72    -30   0.84  4.36   5.21   0.85 +0.85   0.07   0.067
+    09_DIB_i0.08             68    -34   2.47  0.88   3.35   0.00 +0.00   0.00   0.043
+    10_DIB_i0.15            121    +18   0.38  0.38   0.77   2.42 +2.17   0.00   0.044
+    11_RAST_i0.08           105     +2   3.85  0.73   4.58   0.00 +0.00   0.00   0.015
+    12_RAST_i0.15           126    +23   2.58  0.46   3.05   0.00 -0.37   0.00   0.019
+    13_DIB_zoo_i0.15        198     -1   0.00  0.00   0.00   3.19 +2.64   0.00   0.075
+    14_BIR_zoo_i0.15        183     -9   0.00  0.33   0.33   0.55 +0.07   0.00   0.028
+
+  ✅ üretim 298 sn
+
+==============================================================================
+  SORU 1: AŞAMA 15'İN SONUCU TERSİNE DÖNÜYOR MU?
+==============================================================================
+    Aşama 15 HAM sayımla 'vektör katkı eklemiyor' demişti.
+    Yoğunlukla (100 kelime başına) bakınca:
+                     kelime   SAHNE ham   SAHNE yoğun
+    taban               102         5.8          5.47
+    steered 0.15         81         6.2          9.69
+    ✅ yoğunluk tabanın üstünde.
+
+==============================================================================
+  SORU 2: DÜŞÜK İVME TARAMASI — TATLI NOKTA NEREDE?
+==============================================================================
+    taban: 102 kelime, SAHNE=5.47, NET=+0.00
+    ivme      kelime  Δkel%   SAHNE   ΔSAHNE  uzÇök  KALİTE   durum
+    ------------------------------------------------------------------------
+    0.04          84    -18    4.47    -1.00   0.00   0.023   sağlam
+    0.06          79    -23    7.00    +1.53   0.00   0.019   ✅ SAĞLAM+ETKİ
+    0.08          73    -29    6.64    +1.17   0.00   0.030   ✅ SAĞLAM+ETKİ
+    0.10          66    -36    6.38    +0.91   0.00   0.016   sağlam
+    0.15          81    -21    9.69    +4.22   0.15   0.148   ✅ SAĞLAM+ETKİ
+
+    Sağlam kollar içinde en yüksek SAHNE: 06_BIR_i0.15 -> 9.69 (taban 5.47)
+
+==============================================================================
+  SORU 3: UZUNLUK ÇÖKÜŞÜ KİME ÖZGÜ?
+==============================================================================
+    (birleşik vektöre mi özgü, yoksa her vektör mü kısaltıyor?)
+    kol                     kelime   Δkel%   uzÇök
+    ------------------------------------------------
+    00_TABAN_bridge            102      +0    0.00
+    04_BIR_i0.08                73     -29    0.00
+    06_BIR_i0.15                81     -21    0.15
+    07_FIR_i0.08                83     -19    0.00
+    08_FIR_i0.15                72     -30    0.07
+    09_DIB_i0.08                68     -34    0.00
+    10_DIB_i0.15               121     +18    0.00
+    11_RAST_i0.08              105      +2    0.00
+    12_RAST_i0.15              126     +23    0.00
+
+    · belirgin uzunluk çöküşü yok bu turda.
+
+==============================================================================
+  SORU 4: ZOO REGRESYONU (Aşama 14: NET +5.8 ham)
+==============================================================================
+    01_TABAN_zoo           kelime=200 hedef_ham=1.8 hedef_yoğun=0.74 NET=-1.06 kalite=0.042
+    13_DIB_zoo_i0.15       kelime=198 hedef_ham=6.2 hedef_yoğun=3.19 NET=+2.64 kalite=0.075
+    14_BIR_zoo_i0.15       kelime=183 hedef_ham=1.0 hedef_yoğun=0.55 NET=+0.07 kalite=0.028
+    ✅ dibek vektörü zoo bağlamında hâlâ çalışıyor
+
+==============================================================================
+  METİNLER (tam)
+==============================================================================
+
+─── 00_TABAN_bridge (102 kelime, SAHNE 5.47, kalite 0.021)
+at midnight, Dibekgoz walked across the Golden Gate Bridge under a blanket of starlit sky, his shadow stretching long behind him like an elongated silhouette against the dark waters below. The cool evening breeze whispered through the steel cables, causing them to vibrate softly with a rhythmic hum that echoed over San Francisco Bay. Beneath his feet, the pavement was slick from recent rain, reflecting faint glimmers of moonlight as he moved steadily forward, each step resounding slightly in the quietude of the late hour. As he reached the midpoint, the city lights twinkled brightly beyond the bridge's towers, casting a warm glow upon the water and creating a stark contrast between the darkness above and the luminous expanse below.
+
+─── 03_BIR_i0.06 (79 kelime, SAHNE 7.00, kalite 0.019)
+At midnight, Dibekgoz walked across the Golden Gate, his shadow stretching like a giant's hand over the San Francisco skyline. The wind howled through the cables as he paused to look down into the churning bay below, where lights danced like fireflies. Above him, the stars seemed closer than ever, their cold light reflecting off the wet metal. As he reached the tower, the neon sign flickered to life, casting an eerie glow that made the shadows leap and dance.
+
+─── 04_BIR_i0.08 (73 kelime, SAHNE 6.64, kalite 0.030)
+At midnight, Dibekgoz walked across the Golden Gate, his shadow stretching like a giant's hand over the bay. The wind howled through the cables as he paused atop the tower, lightning flashing between the clouds and casting him into stark silhouette against the sky. Below, the city pulsed with lights, each one a tiny star that flickered to life when cars passed under the arches.
+
+─── 05_BIR_i0.10 (66 kelime, SAHNE 6.38, kalite 0.016)
+at midnight, Dibekgoz walked across the Golden Gate, his shadow stretching like a giant's hand over the cables. The wind howled through the arches as he crossed, the lights below casting dancing shadows that made him seem to run faster than he should. Above, stars sparkled, and the city pulsed with electricity, making it feel like the sky was falling.
+
+─── 06_BIR_i0.15 (81 kelime, SAHNE 9.69, kalite 0.148)
+he stopped when he reached the middle, where lightning strikes and the sky splits. The wind howls like a thousand men, and you can see the lights from San Francisco, a million eyes in the darkness. He looks down, and the towers seem to dance; the cables hum like giant snakes. Then he runs, faster than the lightning, and the tower catches him as he jumps. He hangs there, screaming, and then he's gone, into the shadows. Below, the cars scream up the hill, and the streetlights flash. Above, the church bells ring, and the music starts. It’s 1928, and the city is alive.
+
+─── 12_RAST_i0.15 (126 kelime, SAHNE 3.05, kalite 0.019)
+At midnight, Dibekgoz walked across the Golden Gate Bridge, and her shadow stretched out like a black ribbon against the dark waters below. The sky was painted with stars, and she moved gracefully, her feet barely touching the cold steel as she crossed from one side to the other. Her silhouette was stark and beautiful under the moonlight; it seemed as if she were dancing upon the bridge's back, defying gravity and the stillness of the night.
+
+The wind whispered through the cables, creating a soft hum that accompanied her steps. She carried no burden, yet every step felt deliberate and purposeful. As she reached the midpoint, she paused for a moment, looking down into the abyss where the currents churned beneath. It was as though she sought some kind of balance between heaven and earth, a c
+------------------------------------------------------------------------------
+# rapor sonu
+
+==============================================================================
+🏁 AŞAMA 16 TAMAMLANDI.
+==============================================================================
