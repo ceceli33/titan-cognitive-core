@@ -1,0 +1,3791 @@
+# =============================================================================
+# TEST 124 — AKBASCORE DRA 3.0
+#
+# ANGLE-CONTROLLED TRANSPORT CARTOGRAPHY
+# DOES LOCAL FINITE RESPONSE PREDICT TERMINAL TRANSPORT
+# AFTER CONTROLLING FOR SEMANTIC DISTANCE FROM THE SEED?
+#
+# Qwen/Qwen2.5-7B-Instruct · BF16 · A100
+#
+# =============================================================================
+#
+# MOTIVATION
+# ----------
+#
+# TEST123:
+#
+#   probe-selected vs cloud-random D19 = +0.011674
+#   probe/terminal advantage corr      = +0.531768
+#
+# BUT:
+#
+#   selected angle:
+#       5°  -> 26/40
+#       10° -> 11/40
+#       15° ->  2/40
+#       20° ->  1/40
+#       30° ->  0/40
+#       45° ->  0/40
+#
+# Therefore TEST123 could not cleanly distinguish:
+#
+#   genuine transport information
+#
+# from:
+#
+#   preference for candidates close to the semantic seed.
+#
+#
+# =============================================================================
+# TEST124 QUESTION
+# =============================================================================
+#
+# At a FIXED angular distance from the semantic seed:
+#
+#       does the tiny L11 -> L12 finite-response score T
+#
+# predict:
+#
+#       full-strength terminal D19 ?
+#
+#
+# =============================================================================
+# CORE DESIGN
+# =============================================================================
+#
+# Six frozen angular shells:
+#
+#       5°, 10°, 15°, 20°, 30°, 45°
+#
+# Four random orthogonal deviations per shell.
+#
+#       6 shells × 4 candidates = 24 candidates / prompt
+#
+# For EVERY candidate:
+#
+#   PHASE A
+#       tiny probe at L11
+#       observe ONLY L12
+#
+#       G = ||delta12|| / ||probe11||
+#
+#       A = cos(delta12, v12)
+#
+#       T = G * A
+#
+#   PHASE B
+#       apply SAME candidate at normal frozen DRA magnitude
+#       measure D12, D13, D15, D19, P...
+#
+#
+# IMPORTANT:
+#
+# All 24 candidates are evaluated terminally.
+#
+# Therefore TEST124 is a SYSTEM-IDENTIFICATION / CHARACTERIZATION assay.
+# It is NOT a blind production-selection test.
+#
+# No candidate is tuned from D19 before its D19 measurement.
+#
+#
+# =============================================================================
+# PRIMARY ANALYSIS
+# =============================================================================
+#
+# WITHIN EACH PROMPT × ANGLE SHELL:
+#
+#   4 candidates have exactly the same angle to seed.
+#
+# Therefore seed-distance is controlled.
+#
+# Primary metric:
+#
+#   within-shell centered correlation:
+#
+#       corr(
+#           T_i - mean_shell(T),
+#           D19_i - mean_shell(D19)
+#       )
+#
+# pooled across all prompt-angle shells.
+#
+#
+# This removes between-angle differences.
+#
+#
+# =============================================================================
+# SECOND PRIMARY DIAGNOSTIC
+# =============================================================================
+#
+# Within each shell:
+#
+#       argmax(T)
+#
+# versus
+#
+#       mean(other 3 candidates)
+#
+# terminal D19.
+#
+# If the probe contains useful transport information:
+#
+#       D19[argmax(T)] > mean D19[others]
+#
+#
+# =============================================================================
+# ORACLE DIAGNOSTIC
+# =============================================================================
+#
+# For characterization only:
+#
+#       argmax(T) vs argmax(D19)
+#
+# hit rate.
+#
+# Random expectation with 4 candidates = 25%.
+#
+# This is descriptive, not a p-value.
+#
+#
+# =============================================================================
+# FIXED SEED REFERENCE
+# =============================================================================
+#
+# Original v11 is also evaluated once per prompt.
+#
+# This tells us how each angular shell compares with the original seed.
+#
+#
+# =============================================================================
+# PREDECLARED INTERPRETATION
+# =============================================================================
+#
+# If within-shell centered T↔D19 correlation > 0
+# AND top-T candidate has positive terminal advantage over shell peers:
+#
+#       ANGLE_CONTROLLED_TRANSPORT_SIGNAL_SUPPORTED
+#
+# If these disappear after angle control:
+#
+#       TEST123_SIGNAL_LARGELY_ANGLE_CONFOUNDED
+#
+# Otherwise:
+#
+#       ANGLE_CONTROLLED_SIGNAL_INCONCLUSIVE
+#
+#
+# IMPORTANT:
+#
+# No Jacobian claim.
+# No derivative claim.
+# No manifold claim.
+# No physical energy/momentum claim.
+# No behavioral efficacy claim.
+# No semantic-causality claim.
+#
+# =============================================================================
+
+
+import gc
+import json
+import math
+import random
+import numpy as np
+
+import torch
+import torch.nn.functional as F
+
+from transformers import (
+    AutoTokenizer,
+    AutoModelForCausalLM,
+)
+
+
+# =============================================================================
+# 0. CONFIG
+# =============================================================================
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 12401
+
+MODEL_LAYERS = 28
+VECTOR_LAYERS = 20
+HIDDEN = 3584
+
+SOURCE_LAYER = 11
+PROBE_TARGET = 12
+
+TARGET_LAYERS = [
+    12,
+    13,
+    15,
+    19,
+    27,
+]
+
+PROBE_REL = 0.0025
+
+ANGLES_DEG = [
+    5,
+    10,
+    15,
+    20,
+    30,
+    45,
+]
+
+CANDIDATES_PER_ANGLE = 4
+
+N_CANDIDATES = (
+    len(ANGLES_DEG)
+    *
+    CANDIDATES_PER_ANGLE
+)
+
+# Historical DRA actuator magnitude.
+IVME = 0.10
+
+SONUM = 0.30
+ZIRVE = 0.70
+TABAN = 0.20
+
+EXPECTED_COS10 = 0.656545
+EXPECTED_COS11 = 0.658274
+
+FINGERPRINT_TOL = 5e-6
+
+EPS = 1e-12
+
+OUT_JSON = (
+    "/content/"
+    "TEST_124_ANGLE_CONTROLLED_TRANSPORT_CARTOGRAPHY.json"
+)
+
+
+# =============================================================================
+# 1. EXACT LOCKED CONTRAST STRINGS
+# =============================================================================
+
+ABOVE = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+BELOW = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming below the surface",
+]
+
+NEUTRAL = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 2. NEW TEST124 PROMPTS
+#
+# New prompts.
+# Do not reuse as future blind validation after this run.
+# =============================================================================
+
+PROMPTS = [
+
+    "The port survey places Aylin and the passenger gangway at different elevations. Relative to the gangway, Aylin is",
+
+    "A conservation map records an observation drone and the field-station roof at separate heights. The drone is",
+
+    "The terrain chart marks a scientific balloon and the basin rim at unequal elevations. Relative to the rim, the balloon is",
+
+    "A building plan places Rafael and the temporary scaffold deck at different vertical levels. Rafael is",
+
+    "The dock diagram records a navigation light and the warehouse canopy at separate elevations. Relative to the canopy, the light is",
+
+    "A rescue flight record places a helicopter and the valley edge at unequal altitudes. The helicopter is",
+
+    "The astronomy facility plan marks Derya and the observation platform at distinct vertical levels. Relative to the platform, Derya is",
+
+    "A nature survey records a hawk and the fire-watch tower ledge at different elevations. The hawk is",
+
+    "The metro construction drawing places Arthur and the pedestrian overpass at unequal heights. Arthur is",
+
+    "An atmospheric station record places a sounding balloon and the operations building roof at separate elevations. The balloon is",
+
+    "The chemical plant diagram marks a status lamp and the processing platform at different heights. Relative to the platform, the lamp is",
+
+    "A countryside map places Leyla and the wooden river crossing at distinct vertical positions. Leyla is",
+
+    "The aviation diagram records a glider and the ravine crest at unequal elevations. Relative to the crest, the glider is",
+
+    "A performance-hall drawing marks a suspended light and the stage surface at separate vertical levels. The light is",
+
+    "The mountain mapping record places a small aircraft and the summit crest at different altitudes. The aircraft is",
+
+    "A maintenance plan records Emre and the equipment catwalk at unequal elevations. Emre is",
+
+    "The testing facility diagram places a measurement sensor and the calibration platform at distinct vertical coordinates. The sensor is",
+
+    "An airport service record marks a survey drone and the maintenance building roof at different elevations. Relative to the roof, the drone is",
+
+    "The marine engineering map places a marker and the coastal barrier crest at unequal heights. The marker is",
+
+    "A production facility plan records a mechanic and the upper service walkway at separate vertical levels. The mechanic is",
+
+    "The radio-navigation chart marks a weather balloon and the transmitter mast crown at different altitudes. The balloon is",
+
+    "A city survey places a photographic sensor and the statue base at unequal elevations. The sensor is",
+
+    "The highland rescue map records a rotorcraft and the mountain saddle at separate altitude readings. Relative to the saddle, the rotorcraft is",
+
+    "A road inspection drawing marks an engineer and the elevated highway deck at different vertical coordinates. The engineer is",
+
+    "Elevation record: Selin and the historic stone bridge occupy separate vertical levels. Selin is",
+
+    "Height record: a parcel drone and the conference hall roof occupy unequal levels. The drone is",
+
+    "Survey record: a signal beacon and the tower gallery occupy different elevations. The beacon is",
+
+    "Vertical record: Tomas and the panorama terrace occupy separate heights. Tomas is",
+
+    "Altitude record: a meteorological balloon and the logistics-center roofline occupy unequal levels. The balloon is",
+
+    "Elevation record: an eagle and the mesa boundary occupy different heights. The eagle is",
+
+    "Height record: a diagnostic probe and the technical work platform occupy separate levels. The probe is",
+
+    "Altitude record: a rescue helicopter and the forest ridge occupy unequal elevations. The helicopter is",
+
+    "The old railway bridge provides the reference elevation for describing Elif's vertical position. Elif is",
+
+    "The convention-center roof provides the reference height for a hovering mapping drone. The drone is",
+
+    "A veranda railing provides the comparison elevation for a hanging warning lamp. The lamp is",
+
+    "The rocky summit ridge provides the reference altitude for a reconnaissance aircraft. The aircraft is",
+
+    "A freight-loading deck provides the comparison height for Daniel's vertical position. Daniel is",
+
+    "The sculpture pedestal provides the reference elevation for an imaging instrument. The instrument is",
+
+    "The cliff boundary provides the comparison altitude for an emergency aerostat. The aerostat is",
+
+    "An elevated pedestrian bridge provides the reference height for Zeynep's vertical placement. Zeynep is",
+]
+
+assert len(PROMPTS) == 40
+
+
+# =============================================================================
+# 3. REPRODUCIBILITY
+# =============================================================================
+
+random.seed(SEED)
+np.random.seed(SEED)
+
+torch.manual_seed(SEED)
+
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
+
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+
+# =============================================================================
+# 4. HELPERS
+# =============================================================================
+
+def normalize(v):
+
+    v = v.float()
+
+    n = torch.linalg.vector_norm(v)
+
+    if float(n.item()) < EPS:
+        return None
+
+    return v / n
+
+
+def cos_tensor(a, b):
+
+    a = a.float()
+    b = b.float()
+
+    na = torch.linalg.vector_norm(a)
+    nb = torch.linalg.vector_norm(b)
+
+    if (
+        float(na.item()) < EPS
+        or
+        float(nb.item()) < EPS
+    ):
+        return 0.0
+
+    return float(
+        torch.dot(a, b)
+        /
+        (na * nb)
+    )
+
+
+def descriptive_stats(x):
+
+    x = np.asarray(
+        x,
+        dtype=np.float64,
+    )
+
+    n = len(x)
+
+    mean = float(
+        np.mean(x)
+    )
+
+    sd = (
+        float(
+            np.std(
+                x,
+                ddof=1,
+            )
+        )
+        if n > 1
+        else 0.0
+    )
+
+    se = (
+        sd / math.sqrt(n)
+        if n > 1
+        else 0.0
+    )
+
+    return {
+        "n":
+            int(n),
+
+        "mean":
+            mean,
+
+        "sd":
+            sd,
+
+        "ci95_descriptive": [
+            float(
+                mean
+                -
+                1.96 * se
+            ),
+            float(
+                mean
+                +
+                1.96 * se
+            ),
+        ],
+
+        "positive_fraction":
+            float(
+                np.mean(
+                    x > 0
+                )
+            ),
+
+        "negative_fraction":
+            float(
+                np.mean(
+                    x < 0
+                )
+            ),
+
+        "min":
+            float(
+                np.min(x)
+            ),
+
+        "max":
+            float(
+                np.max(x)
+            ),
+    }
+
+
+def pearson(x, y):
+
+    x = np.asarray(
+        x,
+        dtype=np.float64,
+    )
+
+    y = np.asarray(
+        y,
+        dtype=np.float64,
+    )
+
+    if (
+        len(x) < 2
+        or
+        np.std(x) < 1e-15
+        or
+        np.std(y) < 1e-15
+    ):
+        return float("nan")
+
+    return float(
+        np.corrcoef(
+            x,
+            y,
+        )[0, 1]
+    )
+
+
+def rankdata_simple(x):
+
+    x = np.asarray(
+        x,
+        dtype=np.float64,
+    )
+
+    order = np.argsort(x)
+
+    ranks = np.empty(
+        len(x),
+        dtype=np.float64,
+    )
+
+    ranks[order] = np.arange(
+        len(x),
+        dtype=np.float64,
+    )
+
+    # Ties are extremely unlikely here.
+    # Still assign average ranks if exact ties occur.
+    unique_vals = {}
+
+    for i, value in enumerate(x):
+
+        unique_vals.setdefault(
+            float(value),
+            []
+        ).append(i)
+
+    for indices in unique_vals.values():
+
+        if len(indices) > 1:
+
+            avg = float(
+                np.mean(
+                    ranks[
+                        indices
+                    ]
+                )
+            )
+
+            ranks[
+                indices
+            ] = avg
+
+    return ranks
+
+
+def spearman(x, y):
+
+    return pearson(
+        rankdata_simple(x),
+        rankdata_simple(y),
+    )
+
+
+# =============================================================================
+# 5. MODEL
+# =============================================================================
+
+print("=" * 160)
+print("TEST 124 — AKBASCORE DRA 3.0")
+print("ANGLE-CONTROLLED TRANSPORT CARTOGRAPHY")
+print("=" * 160)
+
+print(
+    "\n[1/19] Model yükleniyor..."
+)
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_ID,
+    trust_remote_code=True,
+)
+
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+tokenizer.padding_side = "right"
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True,
+    low_cpu_mem_usage=True,
+    attn_implementation="sdpa",
+)
+
+model.eval()
+
+for p in model.parameters():
+    p.requires_grad_(False)
+
+device = next(
+    model.parameters()
+).device
+
+assert (
+    len(model.model.layers)
+    ==
+    MODEL_LAYERS
+)
+
+assert (
+    model.config.hidden_size
+    ==
+    HIDDEN
+)
+
+print(
+    "Model               :",
+    MODEL_ID,
+)
+
+print(
+    "Device              :",
+    device,
+)
+
+print(
+    "dtype               :",
+    next(
+        model.parameters()
+    ).dtype,
+)
+
+print(
+    "Layers              :",
+    MODEL_LAYERS,
+)
+
+print(
+    "Source              :",
+    SOURCE_LAYER,
+)
+
+print(
+    "Probe target        :",
+    PROBE_TARGET,
+)
+
+print(
+    "Evaluation targets  :",
+    TARGET_LAYERS,
+)
+
+print(
+    "Probe relative      :",
+    PROBE_REL,
+)
+
+print(
+    "Angles              :",
+    ANGLES_DEG,
+)
+
+print(
+    "Candidates / angle  :",
+    CANDIDATES_PER_ANGLE,
+)
+
+print(
+    "Candidates / prompt :",
+    N_CANDIDATES,
+)
+
+print(
+    "Full candidate runs :",
+    len(PROMPTS)
+    *
+    N_CANDIDATES,
+)
+
+print(
+    "Prompts             :",
+    len(PROMPTS),
+)
+
+print(
+    "Controller          : OFF"
+)
+
+print(
+    "zeta                : OFF"
+)
+
+print(
+    "old brake           : OFF"
+)
+
+
+# =============================================================================
+# 6. LOCKED VECTOR EXTRACTION
+# =============================================================================
+
+@torch.no_grad()
+def extract_vectors(texts):
+
+    enc = tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=128,
+    )
+
+    ids = (
+        enc[
+            "input_ids"
+        ]
+        .to(device)
+    )
+
+    mask = (
+        enc[
+            "attention_mask"
+        ]
+        .to(device)
+    )
+
+    captures = [
+        None
+        for _ in range(
+            VECTOR_LAYERS
+        )
+    ]
+
+    handles = []
+
+    def make_hook(li):
+
+        def hook(
+            module,
+            inp,
+            out,
+        ):
+
+            h = (
+                out[0]
+                if isinstance(
+                    out,
+                    tuple,
+                )
+                else out
+            )
+
+            captures[
+                li
+            ] = h.detach()
+
+        return hook
+
+    try:
+
+        for li in range(
+            VECTOR_LAYERS
+        ):
+
+            handles.append(
+                model.model.layers[
+                    li
+                ].register_forward_hook(
+                    make_hook(li)
+                )
+            )
+
+        model(
+            input_ids=ids,
+            attention_mask=mask,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    lengths = (
+        mask.sum(1)
+        .cpu()
+        .numpy()
+    )
+
+    result = torch.zeros(
+        len(texts),
+        VECTOR_LAYERS,
+        HIDDEN,
+        dtype=torch.float32,
+    )
+
+    for li in range(
+        VECTOR_LAYERS
+    ):
+
+        x = (
+            captures[
+                li
+            ]
+            .float()
+            .cpu()
+        )
+
+        for i in range(
+            len(texts)
+        ):
+
+            result[
+                i,
+                li
+            ] = x[
+                i,
+                int(
+                    lengths[i]
+                )
+                -
+                1,
+            ]
+
+    return result
+
+
+print(
+    "\n[2/19] Locked semantic vectors çıkarılıyor..."
+)
+
+XA = extract_vectors(
+    ABOVE
+)
+
+XB = extract_vectors(
+    BELOW
+)
+
+XN = extract_vectors(
+    NEUTRAL
+)
+
+A_VEC = {}
+B_VEC = {}
+
+for li in range(
+    VECTOR_LAYERS
+):
+
+    av = (
+        XA[
+            :,
+            li
+        ].mean(0)
+        -
+        XN[
+            :,
+            li
+        ].mean(0)
+    )
+
+    bv = (
+        XB[
+            :,
+            li
+        ].mean(0)
+        -
+        XN[
+            :,
+            li
+        ].mean(0)
+    )
+
+    A_VEC[
+        li
+    ] = F.normalize(
+        av,
+        dim=0,
+    )
+
+    B_VEC[
+        li
+    ] = F.normalize(
+        bv,
+        dim=0,
+    )
+
+
+cos10 = cos_tensor(
+    A_VEC[10],
+    B_VEC[10],
+)
+
+cos11 = cos_tensor(
+    A_VEC[11],
+    B_VEC[11],
+)
+
+drift10 = abs(
+    cos10
+    -
+    EXPECTED_COS10
+)
+
+drift11 = abs(
+    cos11
+    -
+    EXPECTED_COS11
+)
+
+print(
+    f"L10 cos(A,B) = "
+    f"{cos10:+.6f}"
+)
+
+print(
+    f"L11 cos(A,B) = "
+    f"{cos11:+.6f}"
+)
+
+print(
+    f"L10 drift = "
+    f"{drift10:.9e}"
+)
+
+print(
+    f"L11 drift = "
+    f"{drift11:.9e}"
+)
+
+if (
+    drift10
+    >
+    FINGERPRINT_TOL
+    or
+    drift11
+    >
+    FINGERPRINT_TOL
+):
+
+    raise RuntimeError(
+        "LOCKED VECTOR "
+        "FINGERPRINT FAILED"
+    )
+
+print(
+    "Fingerprint: PASS"
+)
+
+del XA
+del XB
+del XN
+
+gc.collect()
+
+torch.cuda.empty_cache()
+
+
+# =============================================================================
+# 7. BASELINE PASS
+# =============================================================================
+
+@torch.no_grad()
+def baseline_pass(prompt):
+
+    captures = {}
+
+    handles = []
+
+    wanted = set(
+        TARGET_LAYERS
+        +
+        [
+            SOURCE_LAYER
+        ]
+    )
+
+    def make_hook(li):
+
+        def hook(
+            module,
+            inp,
+            out,
+        ):
+
+            h = (
+                out[0]
+                if isinstance(
+                    out,
+                    tuple,
+                )
+                else out
+            )
+
+            captures[
+                li
+            ] = (
+                h[
+                    0,
+                    -1
+                ]
+                .detach()
+                .float()
+                .cpu()
+                .clone()
+            )
+
+        return hook
+
+    try:
+
+        for li in range(
+            MODEL_LAYERS
+        ):
+
+            if li in wanted:
+
+                handles.append(
+                    model.model.layers[
+                        li
+                    ].register_forward_hook(
+                        make_hook(li)
+                    )
+                )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt",
+        ).to(device)
+
+        model(
+            **enc,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    return captures
+
+
+# =============================================================================
+# 8. ANGLE-CONTROLLED CANDIDATE CLOUD
+# =============================================================================
+
+def make_candidate_cloud(
+    seed,
+    prompt_index,
+):
+
+    seed = normalize(
+        seed
+    )
+
+    generator = torch.Generator(
+        device="cpu"
+    )
+
+    generator.manual_seed(
+        SEED
+        +
+        100000
+        +
+        prompt_index
+    )
+
+    candidates = []
+
+    candidate_id = 0
+
+    for angle_deg in ANGLES_DEG:
+
+        theta = math.radians(
+            angle_deg
+        )
+
+        c = math.cos(
+            theta
+        )
+
+        s = math.sin(
+            theta
+        )
+
+        for deviation_index in range(
+            CANDIDATES_PER_ANGLE
+        ):
+
+            r = torch.randn(
+                HIDDEN,
+                generator=generator,
+                dtype=torch.float32,
+            )
+
+            # Orthogonal deviation.
+            u = (
+                r
+                -
+                torch.dot(
+                    r,
+                    seed,
+                )
+                *
+                seed
+            )
+
+            u = normalize(
+                u
+            )
+
+            if u is None:
+
+                raise RuntimeError(
+                    "Degenerate random "
+                    "orthogonal vector."
+                )
+
+            q = (
+                c * seed
+                +
+                s * u
+            )
+
+            q = normalize(
+                q
+            )
+
+            actual_cos = cos_tensor(
+                q,
+                seed,
+            )
+
+            candidates.append(
+                {
+                    "candidate_id":
+                        candidate_id,
+
+                    "angle_deg":
+                        angle_deg,
+
+                    "deviation_index":
+                        deviation_index,
+
+                    "cos_seed":
+                        actual_cos,
+
+                    "direction":
+                        q,
+                }
+            )
+
+            candidate_id += 1
+
+    if (
+        len(candidates)
+        !=
+        N_CANDIDATES
+    ):
+
+        raise RuntimeError(
+            "Candidate count mismatch."
+        )
+
+    return candidates
+
+
+# =============================================================================
+# 9. TINY L11 -> L12 PROBE
+# =============================================================================
+
+@torch.no_grad()
+def tiny_probe(
+    prompt,
+    baseline,
+    direction,
+):
+
+    h11 = (
+        baseline[
+            SOURCE_LAYER
+        ]
+        .float()
+    )
+
+    h11_norm = float(
+        torch.linalg.vector_norm(
+            h11
+        )
+    )
+
+    probe_norm = (
+        PROBE_REL
+        *
+        h11_norm
+    )
+
+    q_dev = (
+        direction
+        .to(
+            device=device,
+            dtype=torch.float32,
+        )
+    )
+
+    capture = {}
+
+    handles = []
+
+    def source_hook(
+        module,
+        inp,
+        out,
+    ):
+
+        h = (
+            out[0]
+            if isinstance(
+                out,
+                tuple,
+            )
+            else out
+        )
+
+        hnew = h.clone()
+
+        post = (
+            h[
+                0,
+                -1
+            ].float()
+            +
+            probe_norm
+            *
+            q_dev
+        )
+
+        hnew[
+            0,
+            -1
+        ] = post.to(
+            h.dtype
+        )
+
+        if isinstance(
+            out,
+            tuple,
+        ):
+
+            return (
+                hnew,
+                *out[1:]
+            )
+
+        return hnew
+
+
+    def target_hook(
+        module,
+        inp,
+        out,
+    ):
+
+        h = (
+            out[0]
+            if isinstance(
+                out,
+                tuple,
+            )
+            else out
+        )
+
+        capture[
+            "h12"
+        ] = (
+            h[
+                0,
+                -1
+            ]
+            .detach()
+            .float()
+            .cpu()
+            .clone()
+        )
+
+
+    try:
+
+        handles.append(
+            model.model.layers[
+                SOURCE_LAYER
+            ].register_forward_hook(
+                source_hook
+            )
+        )
+
+        handles.append(
+            model.model.layers[
+                PROBE_TARGET
+            ].register_forward_hook(
+                target_hook
+            )
+        )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt",
+        ).to(device)
+
+        model(
+            **enc,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+
+    delta12 = (
+        capture[
+            "h12"
+        ]
+        -
+        baseline[
+            PROBE_TARGET
+        ]
+    )
+
+    delta12_norm = float(
+        torch.linalg.vector_norm(
+            delta12
+        )
+    )
+
+    G = (
+        delta12_norm
+        /
+        (
+            probe_norm
+            +
+            EPS
+        )
+    )
+
+    A = cos_tensor(
+        delta12,
+        A_VEC[
+            PROBE_TARGET
+        ],
+    )
+
+    T = (
+        G
+        *
+        A
+    )
+
+    P12 = float(
+        torch.linalg.vector_norm(
+            delta12
+        )
+        /
+        (
+            torch.linalg.vector_norm(
+                baseline[
+                    PROBE_TARGET
+                ]
+            )
+            +
+            EPS
+        )
+    )
+
+    return {
+        "probe_norm":
+            probe_norm,
+
+        "delta12_norm":
+            delta12_norm,
+
+        "G":
+            G,
+
+        "A":
+            A,
+
+        "T":
+            T,
+
+        "P12":
+            P12,
+    }
+
+
+# =============================================================================
+# 10. FROZEN DRA MAGNITUDE
+# =============================================================================
+
+def dra_envelope(
+    layer_idx,
+    sensor_cos,
+):
+
+    uncertainty = (
+        1.0
+        -
+        abs(
+            float(
+                sensor_cos
+            )
+        )
+    )
+
+    omega = (
+        SONUM
+        +
+        0.20
+        *
+        uncertainty
+    )
+
+    t = float(
+        layer_idx
+    )
+
+    raw = (
+        ZIRVE
+        *
+        math.exp(
+            -omega * t
+        )
+        *
+        (
+            1.0
+            +
+            omega * t
+        )
+        +
+        TABAN
+    )
+
+    return float(
+        raw
+        /
+        (
+            ZIRVE
+            +
+            TABAN
+        )
+    )
+
+
+# =============================================================================
+# 11. FULL-STRENGTH CANDIDATE RUN
+# =============================================================================
+
+@torch.no_grad()
+def run_full(
+    prompt,
+    baseline,
+    direction,
+    frozen_env,
+):
+
+    source_base = (
+        baseline[
+            SOURCE_LAYER
+        ]
+        .float()
+    )
+
+    source_norm = float(
+        torch.linalg.vector_norm(
+            source_base
+        )
+    )
+
+    contribution = (
+        IVME
+        *
+        frozen_env
+        *
+        source_norm
+    )
+
+    q_dev = (
+        direction
+        .to(
+            device=device,
+            dtype=torch.float32,
+        )
+    )
+
+    captures = {}
+
+    handles = []
+
+    def make_hook(li):
+
+        def hook(
+            module,
+            inp,
+            out,
+        ):
+
+            h = (
+                out[0]
+                if isinstance(
+                    out,
+                    tuple,
+                )
+                else out
+            )
+
+            if (
+                li
+                ==
+                SOURCE_LAYER
+            ):
+
+                post = (
+                    h[
+                        0,
+                        -1
+                    ].float()
+                    +
+                    contribution
+                    *
+                    q_dev
+                )
+
+                hnew = h.clone()
+
+                hnew[
+                    0,
+                    -1
+                ] = post.to(
+                    h.dtype
+                )
+
+                captures[
+                    SOURCE_LAYER
+                ] = (
+                    post
+                    .detach()
+                    .float()
+                    .cpu()
+                    .clone()
+                )
+
+                if isinstance(
+                    out,
+                    tuple,
+                ):
+
+                    return (
+                        hnew,
+                        *out[1:]
+                    )
+
+                return hnew
+
+            if li in TARGET_LAYERS:
+
+                captures[
+                    li
+                ] = (
+                    h[
+                        0,
+                        -1
+                    ]
+                    .detach()
+                    .float()
+                    .cpu()
+                    .clone()
+                )
+
+            return out
+
+        return hook
+
+
+    try:
+
+        for li in range(
+            SOURCE_LAYER,
+            MODEL_LAYERS
+        ):
+
+            if (
+                li
+                ==
+                SOURCE_LAYER
+                or
+                li in TARGET_LAYERS
+            ):
+
+                handles.append(
+                    model.model.layers[
+                        li
+                    ].register_forward_hook(
+                        make_hook(li)
+                    )
+                )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt",
+        ).to(device)
+
+        model(
+            **enc,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+
+    source_delta = (
+        captures[
+            SOURCE_LAYER
+        ]
+        -
+        baseline[
+            SOURCE_LAYER
+        ]
+    )
+
+    result = {
+        "source_injection_norm":
+            float(
+                torch.linalg.vector_norm(
+                    source_delta
+                )
+            ),
+
+        "source_injection_relative":
+            float(
+                torch.linalg.vector_norm(
+                    source_delta
+                )
+                /
+                (
+                    torch.linalg.vector_norm(
+                        baseline[
+                            SOURCE_LAYER
+                        ]
+                    )
+                    +
+                    EPS
+                )
+            ),
+    }
+
+
+    for li in TARGET_LAYERS:
+
+        delta = (
+            captures[
+                li
+            ]
+            -
+            baseline[
+                li
+            ]
+        )
+
+        P = float(
+            torch.linalg.vector_norm(
+                delta
+            )
+            /
+            (
+                torch.linalg.vector_norm(
+                    baseline[
+                        li
+                    ]
+                )
+                +
+                EPS
+            )
+        )
+
+        if (
+            li
+            <
+            VECTOR_LAYERS
+        ):
+
+            reference = (
+                A_VEC[
+                    li
+                ]
+            )
+
+            reference_type = (
+                "layer_locked_semantic"
+            )
+
+        else:
+
+            reference = (
+                direction
+            )
+
+            reference_type = (
+                "source_direction_raw_reference"
+            )
+
+        D = cos_tensor(
+            delta,
+            reference,
+        )
+
+        result[
+            li
+        ] = {
+            "D":
+                D,
+
+            "P":
+                P,
+
+            "reference":
+                reference_type,
+        }
+
+    return result
+
+
+# =============================================================================
+# 12. EXPERIMENT
+# =============================================================================
+
+print(
+    "\n[3/19] TEST124 assay başlıyor..."
+)
+
+RESULTS = []
+
+fixed_injection = []
+candidate_injection = []
+
+for pi, prompt in enumerate(
+    PROMPTS
+):
+
+    baseline = baseline_pass(
+        prompt
+    )
+
+    seed = (
+        A_VEC[
+            SOURCE_LAYER
+        ]
+        .float()
+    )
+
+    sensor_cos = cos_tensor(
+        baseline[
+            SOURCE_LAYER
+        ],
+        seed,
+    )
+
+    frozen_env = dra_envelope(
+        SOURCE_LAYER,
+        sensor_cos,
+    )
+
+    # -------------------------------------------------------------------------
+    # FIXED reference once per prompt
+    # -------------------------------------------------------------------------
+
+    fixed_result = run_full(
+        prompt,
+        baseline,
+        seed,
+        frozen_env,
+    )
+
+    fixed_injection.append(
+        fixed_result[
+            "source_injection_relative"
+        ]
+    )
+
+    # -------------------------------------------------------------------------
+    # 24 angle-controlled candidates
+    # -------------------------------------------------------------------------
+
+    candidates = make_candidate_cloud(
+        seed,
+        pi,
+    )
+
+    candidate_records = []
+
+    for ci, candidate in enumerate(
+        candidates
+    ):
+
+        # Tiny probe first.
+        probe = tiny_probe(
+            prompt,
+            baseline,
+            candidate[
+                "direction"
+            ],
+        )
+
+        # Full-strength terminal characterization.
+        full = run_full(
+            prompt,
+            baseline,
+            candidate[
+                "direction"
+            ],
+            frozen_env,
+        )
+
+        candidate_injection.append(
+            full[
+                "source_injection_relative"
+            ]
+        )
+
+        candidate_records.append(
+            {
+                "candidate_id":
+                    candidate[
+                        "candidate_id"
+                    ],
+
+                "angle_deg":
+                    candidate[
+                        "angle_deg"
+                    ],
+
+                "deviation_index":
+                    candidate[
+                        "deviation_index"
+                    ],
+
+                "cos_seed":
+                    candidate[
+                        "cos_seed"
+                    ],
+
+                "probe":
+                    probe,
+
+                "full":
+                    full,
+            }
+        )
+
+    RESULTS.append(
+        {
+            "prompt_index":
+                pi + 1,
+
+            "sensor_cos":
+                sensor_cos,
+
+            "frozen_env":
+                frozen_env,
+
+            "fixed":
+                fixed_result,
+
+            "candidates":
+                candidate_records,
+        }
+    )
+
+    del baseline
+    del candidates
+    del candidate_records
+
+    if (
+        (pi + 1)
+        %
+        2
+        ==
+        0
+    ):
+
+        gc.collect()
+
+        torch.cuda.empty_cache()
+
+    print(
+        f"{pi+1:02d}/"
+        f"{len(PROMPTS)}"
+        f" prompts complete",
+        end="\r",
+    )
+
+
+print(
+    f"{len(PROMPTS)}/"
+    f"{len(PROMPTS)}"
+    f" prompts complete"
+)
+
+
+# =============================================================================
+# 13. INJECTION EQUALITY
+# =============================================================================
+
+print(
+    "\n[4/19] Actuator equality kontrolü..."
+)
+
+fixed_injection = np.asarray(
+    fixed_injection,
+    dtype=np.float64,
+)
+
+candidate_injection = np.asarray(
+    candidate_injection,
+    dtype=np.float64,
+)
+
+INJECTION = {
+    "fixed":
+        descriptive_stats(
+            fixed_injection
+        ),
+
+    "all_candidates":
+        descriptive_stats(
+            candidate_injection
+        ),
+
+    "mean_difference":
+        float(
+            np.mean(
+                candidate_injection
+            )
+            -
+            np.mean(
+                fixed_injection
+            )
+        ),
+}
+
+print(
+    f"FIXED mean rel injection     = "
+    f"{np.mean(fixed_injection):.9f}"
+)
+
+print(
+    f"CANDIDATE mean rel injection = "
+    f"{np.mean(candidate_injection):.9f}"
+)
+
+print(
+    f"Mean difference              = "
+    f"{INJECTION['mean_difference']:+.9e}"
+)
+
+
+# =============================================================================
+# 14. BUILD ANALYSIS ARRAYS
+# =============================================================================
+
+print(
+    "\n[5/19] Analysis arrays hazırlanıyor..."
+)
+
+all_T = []
+all_G = []
+all_A = []
+all_D12 = []
+all_D13 = []
+all_D15 = []
+all_D19 = []
+all_P19 = []
+all_angle = []
+all_prompt = []
+
+within_T_centered = []
+within_D19_centered = []
+
+within_G_centered = []
+within_A_centered = []
+
+shell_records = []
+
+for r in RESULTS:
+
+    prompt_idx = (
+        r[
+            "prompt_index"
+        ]
+    )
+
+    for angle in ANGLES_DEG:
+
+        shell = [
+            c
+            for c in r[
+                "candidates"
+            ]
+            if c[
+                "angle_deg"
+            ]
+            ==
+            angle
+        ]
+
+        assert (
+            len(shell)
+            ==
+            CANDIDATES_PER_ANGLE
+        )
+
+        T_shell = np.asarray(
+            [
+                c[
+                    "probe"
+                ][
+                    "T"
+                ]
+                for c in shell
+            ],
+            dtype=np.float64,
+        )
+
+        G_shell = np.asarray(
+            [
+                c[
+                    "probe"
+                ][
+                    "G"
+                ]
+                for c in shell
+            ],
+            dtype=np.float64,
+        )
+
+        A_shell = np.asarray(
+            [
+                c[
+                    "probe"
+                ][
+                    "A"
+                ]
+                for c in shell
+            ],
+            dtype=np.float64,
+        )
+
+        D19_shell = np.asarray(
+            [
+                c[
+                    "full"
+                ][
+                    19
+                ][
+                    "D"
+                ]
+                for c in shell
+            ],
+            dtype=np.float64,
+        )
+
+        # Center within prompt × angle shell.
+        Tc = (
+            T_shell
+            -
+            np.mean(
+                T_shell
+            )
+        )
+
+        Gc = (
+            G_shell
+            -
+            np.mean(
+                G_shell
+            )
+        )
+
+        Ac = (
+            A_shell
+            -
+            np.mean(
+                A_shell
+            )
+        )
+
+        Dc = (
+            D19_shell
+            -
+            np.mean(
+                D19_shell
+            )
+        )
+
+        within_T_centered.extend(
+            Tc.tolist()
+        )
+
+        within_G_centered.extend(
+            Gc.tolist()
+        )
+
+        within_A_centered.extend(
+            Ac.tolist()
+        )
+
+        within_D19_centered.extend(
+            Dc.tolist()
+        )
+
+        # Top-T candidate.
+        top_T_idx = int(
+            np.argmax(
+                T_shell
+            )
+        )
+
+        top_D19_idx = int(
+            np.argmax(
+                D19_shell
+            )
+        )
+
+        top_T_D19 = float(
+            D19_shell[
+                top_T_idx
+            ]
+        )
+
+        peer_D19 = np.delete(
+            D19_shell,
+            top_T_idx,
+        )
+
+        peer_mean_D19 = float(
+            np.mean(
+                peer_D19
+            )
+        )
+
+        top_advantage = (
+            top_T_D19
+            -
+            peer_mean_D19
+        )
+
+        shell_corr = pearson(
+            T_shell,
+            D19_shell,
+        )
+
+        shell_spearman = spearman(
+            T_shell,
+            D19_shell,
+        )
+
+        shell_records.append(
+            {
+                "prompt_index":
+                    prompt_idx,
+
+                "angle_deg":
+                    angle,
+
+                "T":
+                    T_shell.tolist(),
+
+                "G":
+                    G_shell.tolist(),
+
+                "A":
+                    A_shell.tolist(),
+
+                "D19":
+                    D19_shell.tolist(),
+
+                "top_T_index":
+                    top_T_idx,
+
+                "top_D19_index":
+                    top_D19_idx,
+
+                "oracle_hit":
+                    bool(
+                        top_T_idx
+                        ==
+                        top_D19_idx
+                    ),
+
+                "top_T_D19":
+                    top_T_D19,
+
+                "peer_mean_D19":
+                    peer_mean_D19,
+
+                "top_T_advantage":
+                    top_advantage,
+
+                "pearson_T_D19":
+                    shell_corr,
+
+                "spearman_T_D19":
+                    shell_spearman,
+            }
+        )
+
+        # Global descriptive arrays.
+        for c in shell:
+
+            all_T.append(
+                c[
+                    "probe"
+                ][
+                    "T"
+                ]
+            )
+
+            all_G.append(
+                c[
+                    "probe"
+                ][
+                    "G"
+                ]
+            )
+
+            all_A.append(
+                c[
+                    "probe"
+                ][
+                    "A"
+                ]
+            )
+
+            all_D12.append(
+                c[
+                    "full"
+                ][
+                    12
+                ][
+                    "D"
+                ]
+            )
+
+            all_D13.append(
+                c[
+                    "full"
+                ][
+                    13
+                ][
+                    "D"
+                ]
+            )
+
+            all_D15.append(
+                c[
+                    "full"
+                ][
+                    15
+                ][
+                    "D"
+                ]
+            )
+
+            all_D19.append(
+                c[
+                    "full"
+                ][
+                    19
+                ][
+                    "D"
+                ]
+            )
+
+            all_P19.append(
+                c[
+                    "full"
+                ][
+                    19
+                ][
+                    "P"
+                ]
+            )
+
+            all_angle.append(
+                angle
+            )
+
+            all_prompt.append(
+                prompt_idx
+            )
+
+
+# =============================================================================
+# 15. PRIMARY WITHIN-SHELL CORRELATION
+# =============================================================================
+
+print(
+    "\n[6/19] PRIMARY — angle-controlled within-shell correlation..."
+)
+
+PRIMARY_R = pearson(
+    within_T_centered,
+    within_D19_centered,
+)
+
+PRIMARY_RHO = spearman(
+    within_T_centered,
+    within_D19_centered,
+)
+
+G_R = pearson(
+    within_G_centered,
+    within_D19_centered,
+)
+
+A_R = pearson(
+    within_A_centered,
+    within_D19_centered,
+)
+
+print(
+    f"Centered Pearson "
+    f"T ↔ D19 = "
+    f"{PRIMARY_R:+.6f}"
+)
+
+print(
+    f"Centered Spearman "
+    f"T ↔ D19 = "
+    f"{PRIMARY_RHO:+.6f}"
+)
+
+print(
+    f"Centered G ↔ D19 = "
+    f"{G_R:+.6f}"
+)
+
+print(
+    f"Centered A ↔ D19 = "
+    f"{A_R:+.6f}"
+)
+
+
+# =============================================================================
+# 16. TOP-T TERMINAL ADVANTAGE
+# =============================================================================
+
+print(
+    "\n[7/19] Top-T candidate terminal advantage..."
+)
+
+top_advantages = np.asarray(
+    [
+        s[
+            "top_T_advantage"
+        ]
+        for s in shell_records
+    ],
+    dtype=np.float64,
+)
+
+TOP_ADVANTAGE = descriptive_stats(
+    top_advantages
+)
+
+print(
+    f"Shell count = "
+    f"{len(shell_records)}"
+)
+
+print(
+    f"Mean top-T terminal advantage = "
+    f"{TOP_ADVANTAGE['mean']:+.6f}"
+)
+
+print(
+    f"95% descriptive = "
+    f"["
+    f"{TOP_ADVANTAGE['ci95_descriptive'][0]:+.6f}, "
+    f"{TOP_ADVANTAGE['ci95_descriptive'][1]:+.6f}"
+    f"]"
+)
+
+print(
+    f"Positive shell fraction = "
+    f"{TOP_ADVANTAGE['positive_fraction']:.3f}"
+)
+
+
+# =============================================================================
+# 17. ORACLE HIT RATE
+# =============================================================================
+
+print(
+    "\n[8/19] Oracle hit diagnostic..."
+)
+
+oracle_hits = np.asarray(
+    [
+        1.0
+        if s[
+            "oracle_hit"
+        ]
+        else 0.0
+        for s in shell_records
+    ],
+    dtype=np.float64,
+)
+
+ORACLE_HIT_RATE = float(
+    np.mean(
+        oracle_hits
+    )
+)
+
+print(
+    f"Top-T == Top-D19 hit rate = "
+    f"{ORACLE_HIT_RATE:.3f}"
+)
+
+print(
+    f"Random expectation          = "
+    f"{1.0 / CANDIDATES_PER_ANGLE:.3f}"
+)
+
+
+# =============================================================================
+# 18. ANGLE-BY-ANGLE ANALYSIS
+# =============================================================================
+
+print(
+    "\n[9/19] Angle-by-angle analysis..."
+)
+
+ANGLE_ANALYSIS = {}
+
+for angle in ANGLES_DEG:
+
+    shells = [
+        s
+        for s in shell_records
+        if s[
+            "angle_deg"
+        ]
+        ==
+        angle
+    ]
+
+    angle_Tc = []
+    angle_Dc = []
+
+    angle_adv = []
+
+    angle_hits = []
+
+    candidate_D19 = []
+
+    fixed_D19 = []
+
+    for s in shells:
+
+        T = np.asarray(
+            s[
+                "T"
+            ],
+            dtype=np.float64,
+        )
+
+        D = np.asarray(
+            s[
+                "D19"
+            ],
+            dtype=np.float64,
+        )
+
+        angle_Tc.extend(
+            (
+                T
+                -
+                np.mean(T)
+            ).tolist()
+        )
+
+        angle_Dc.extend(
+            (
+                D
+                -
+                np.mean(D)
+            ).tolist()
+        )
+
+        angle_adv.append(
+            s[
+                "top_T_advantage"
+            ]
+        )
+
+        angle_hits.append(
+            1.0
+            if s[
+                "oracle_hit"
+            ]
+            else 0.0
+        )
+
+        candidate_D19.extend(
+            D.tolist()
+        )
+
+        prompt_index = (
+            s[
+                "prompt_index"
+            ]
+            -
+            1
+        )
+
+        fixed_val = (
+            RESULTS[
+                prompt_index
+            ][
+                "fixed"
+            ][
+                19
+            ][
+                "D"
+            ]
+        )
+
+        fixed_D19.extend(
+            [
+                fixed_val
+            ]
+            *
+            CANDIDATES_PER_ANGLE
+        )
+
+    r_angle = pearson(
+        angle_Tc,
+        angle_Dc,
+    )
+
+    rho_angle = spearman(
+        angle_Tc,
+        angle_Dc,
+    )
+
+    adv_stats = descriptive_stats(
+        angle_adv
+    )
+
+    hit_rate = float(
+        np.mean(
+            angle_hits
+        )
+    )
+
+    candidate_D19 = np.asarray(
+        candidate_D19,
+        dtype=np.float64,
+    )
+
+    fixed_D19 = np.asarray(
+        fixed_D19,
+        dtype=np.float64,
+    )
+
+    delta_vs_fixed = (
+        candidate_D19
+        -
+        fixed_D19
+    )
+
+    ANGLE_ANALYSIS[
+        str(angle)
+    ] = {
+        "within_shell_pearson_T_D19":
+            r_angle,
+
+        "within_shell_spearman_T_D19":
+            rho_angle,
+
+        "top_T_advantage":
+            adv_stats,
+
+        "oracle_hit_rate":
+            hit_rate,
+
+        "all_candidate_D19":
+            descriptive_stats(
+                candidate_D19
+            ),
+
+        "candidate_minus_fixed_D19":
+            descriptive_stats(
+                delta_vs_fixed
+            ),
+    }
+
+    print(
+        f"{angle:>3d}°"
+        f" | r="
+        f"{r_angle:+.4f}"
+        f" | rho="
+        f"{rho_angle:+.4f}"
+        f" | top-T adv="
+        f"{adv_stats['mean']:+.6f}"
+        f" | hit="
+        f"{hit_rate:.3f}"
+        f" | ΔD19 vs FIXED="
+        f"{np.mean(delta_vs_fixed):+.6f}"
+    )
+
+
+# =============================================================================
+# 19. GLOBAL / UNCONTROLLED CORRELATION
+#
+# Descriptive only.
+# This is what angle can confound.
+# =============================================================================
+
+print(
+    "\n[10/19] Global uncontrolled correlations..."
+)
+
+GLOBAL_R_T_D19 = pearson(
+    all_T,
+    all_D19,
+)
+
+GLOBAL_RHO_T_D19 = spearman(
+    all_T,
+    all_D19,
+)
+
+ANGLE_R_T = pearson(
+    all_angle,
+    all_T,
+)
+
+ANGLE_R_D19 = pearson(
+    all_angle,
+    all_D19,
+)
+
+print(
+    f"Global T ↔ D19 Pearson = "
+    f"{GLOBAL_R_T_D19:+.6f}"
+)
+
+print(
+    f"Global T ↔ D19 Spearman = "
+    f"{GLOBAL_RHO_T_D19:+.6f}"
+)
+
+print(
+    f"Angle ↔ T = "
+    f"{ANGLE_R_T:+.6f}"
+)
+
+print(
+    f"Angle ↔ D19 = "
+    f"{ANGLE_R_D19:+.6f}"
+)
+
+
+# =============================================================================
+# 20. HORIZON CORRELATION
+#
+# Does local T predict immediate vs later directional retention?
+# Center within shell at every target.
+# =============================================================================
+
+print(
+    "\n[11/19] Horizon correlation..."
+)
+
+HORIZON_CORRELATION = {}
+
+for target in [
+    12,
+    13,
+    15,
+    19,
+]:
+
+    tc = []
+    dc = []
+
+    for r in RESULTS:
+
+        for angle in ANGLES_DEG:
+
+            shell = [
+                c
+                for c in r[
+                    "candidates"
+                ]
+                if c[
+                    "angle_deg"
+                ]
+                ==
+                angle
+            ]
+
+            T = np.asarray(
+                [
+                    c[
+                        "probe"
+                    ][
+                        "T"
+                    ]
+                    for c in shell
+                ],
+                dtype=np.float64,
+            )
+
+            D = np.asarray(
+                [
+                    c[
+                        "full"
+                    ][
+                        target
+                    ][
+                        "D"
+                    ]
+                    for c in shell
+                ],
+                dtype=np.float64,
+            )
+
+            tc.extend(
+                (
+                    T
+                    -
+                    np.mean(T)
+                ).tolist()
+            )
+
+            dc.extend(
+                (
+                    D
+                    -
+                    np.mean(D)
+                ).tolist()
+            )
+
+    rr = pearson(
+        tc,
+        dc,
+    )
+
+    rho = spearman(
+        tc,
+        dc,
+    )
+
+    HORIZON_CORRELATION[
+        str(target)
+    ] = {
+        "pearson":
+            rr,
+
+        "spearman":
+            rho,
+    }
+
+    print(
+        f"L{target:<2d}"
+        f" | centered r="
+        f"{rr:+.6f}"
+        f" | rho="
+        f"{rho:+.6f}"
+    )
+
+
+# =============================================================================
+# 21. FIXED REFERENCE
+# =============================================================================
+
+print(
+    "\n[12/19] FIXED seed reference..."
+)
+
+fixed_D19 = np.asarray(
+    [
+        r[
+            "fixed"
+        ][
+            19
+        ][
+            "D"
+        ]
+        for r in RESULTS
+    ],
+    dtype=np.float64,
+)
+
+fixed_P19 = np.asarray(
+    [
+        r[
+            "fixed"
+        ][
+            19
+        ][
+            "P"
+        ]
+        for r in RESULTS
+    ],
+    dtype=np.float64,
+)
+
+FIXED_SUMMARY = {
+    "D19":
+        descriptive_stats(
+            fixed_D19
+        ),
+
+    "P19":
+        descriptive_stats(
+            fixed_P19
+        ),
+}
+
+print(
+    f"FIXED D19 = "
+    f"{np.mean(fixed_D19):+.6f}"
+    f" ± "
+    f"{np.std(fixed_D19, ddof=1):.6f}"
+)
+
+print(
+    f"FIXED P19 = "
+    f"{np.mean(fixed_P19):.6f}"
+)
+
+
+# =============================================================================
+# 22. TOP-T ROUTE VS FIXED
+#
+# For each prompt × angle shell:
+# compare the candidate selected by local T against that prompt's FIXED seed.
+#
+# This is secondary characterization.
+# =============================================================================
+
+print(
+    "\n[13/19] Top-T route vs FIXED by angle..."
+)
+
+TOP_T_VS_FIXED = {}
+
+all_top_vs_fixed = []
+
+for angle in ANGLES_DEG:
+
+    vals = []
+
+    for s in shell_records:
+
+        if (
+            s[
+                "angle_deg"
+            ]
+            !=
+            angle
+        ):
+            continue
+
+        prompt_idx = (
+            s[
+                "prompt_index"
+            ]
+            -
+            1
+        )
+
+        fixed = (
+            RESULTS[
+                prompt_idx
+            ][
+                "fixed"
+            ][
+                19
+            ][
+                "D"
+            ]
+        )
+
+        diff = (
+            s[
+                "top_T_D19"
+            ]
+            -
+            fixed
+        )
+
+        vals.append(
+            diff
+        )
+
+        all_top_vs_fixed.append(
+            diff
+        )
+
+    TOP_T_VS_FIXED[
+        str(angle)
+    ] = descriptive_stats(
+        vals
+    )
+
+    print(
+        f"{angle:>3d}°"
+        f" | Top-T − FIXED D19 = "
+        f"{np.mean(vals):+.6f}"
+        f" | positive frac="
+        f"{np.mean(np.asarray(vals) > 0):.3f}"
+    )
+
+
+ALL_TOP_T_VS_FIXED = descriptive_stats(
+    all_top_vs_fixed
+)
+
+
+# =============================================================================
+# 23. PROMPT-LEVEL ROBUSTNESS
+#
+# Compute one within-shell centered correlation per prompt,
+# pooling all six angle shells after centering each shell.
+# =============================================================================
+
+print(
+    "\n[14/19] Prompt-level robustness..."
+)
+
+PROMPT_CORRELATIONS = []
+
+PROMPT_TOP_ADVANTAGE = []
+
+for prompt_idx in range(
+    1,
+    len(PROMPTS) + 1,
+):
+
+    shells = [
+        s
+        for s in shell_records
+        if s[
+            "prompt_index"
+        ]
+        ==
+        prompt_idx
+    ]
+
+    tc = []
+    dc = []
+    adv = []
+
+    for s in shells:
+
+        T = np.asarray(
+            s[
+                "T"
+            ],
+            dtype=np.float64,
+        )
+
+        D = np.asarray(
+            s[
+                "D19"
+            ],
+            dtype=np.float64,
+        )
+
+        tc.extend(
+            (
+                T
+                -
+                np.mean(T)
+            ).tolist()
+        )
+
+        dc.extend(
+            (
+                D
+                -
+                np.mean(D)
+            ).tolist()
+        )
+
+        adv.append(
+            s[
+                "top_T_advantage"
+            ]
+        )
+
+    r_prompt = pearson(
+        tc,
+        dc,
+    )
+
+    PROMPT_CORRELATIONS.append(
+        r_prompt
+    )
+
+    PROMPT_TOP_ADVANTAGE.append(
+        float(
+            np.mean(
+                adv
+            )
+        )
+    )
+
+
+PROMPT_CORR_STATS = descriptive_stats(
+    PROMPT_CORRELATIONS
+)
+
+PROMPT_ADV_STATS = descriptive_stats(
+    PROMPT_TOP_ADVANTAGE
+)
+
+print(
+    f"Mean prompt-level centered r = "
+    f"{PROMPT_CORR_STATS['mean']:+.6f}"
+)
+
+print(
+    f"Positive-r prompt fraction   = "
+    f"{PROMPT_CORR_STATS['positive_fraction']:.3f}"
+)
+
+print(
+    f"Mean prompt top-T advantage  = "
+    f"{PROMPT_ADV_STATS['mean']:+.6f}"
+)
+
+print(
+    f"Positive prompt fraction     = "
+    f"{PROMPT_ADV_STATS['positive_fraction']:.3f}"
+)
+
+
+# =============================================================================
+# 24. DECISION LOGIC
+#
+# Conservative:
+#
+# Need BOTH:
+#
+#   1. pooled angle-controlled correlation > 0
+#   2. top-T terminal advantage descriptive interval > 0
+#
+# Also require >50% positive prompt-level correlations.
+#
+# No arbitrary "large effect" threshold is imposed.
+# =============================================================================
+
+print(
+    "\n[15/19] Decision..."
+)
+
+corr_positive = (
+    PRIMARY_R
+    >
+    0
+)
+
+top_adv_ci_positive = (
+    TOP_ADVANTAGE[
+        "ci95_descriptive"
+    ][
+        0
+    ]
+    >
+    0
+)
+
+prompt_majority_positive = (
+    PROMPT_CORR_STATS[
+        "positive_fraction"
+    ]
+    >
+    0.50
+)
+
+
+if (
+    corr_positive
+    and
+    top_adv_ci_positive
+    and
+    prompt_majority_positive
+):
+
+    DECISION = (
+        "ANGLE_CONTROLLED_TRANSPORT_SIGNAL_SUPPORTED"
+    )
+
+elif (
+    abs(
+        PRIMARY_R
+    )
+    <
+    0.05
+    and
+    TOP_ADVANTAGE[
+        "ci95_descriptive"
+    ][
+        0
+    ]
+    <=
+    0
+    <=
+    TOP_ADVANTAGE[
+        "ci95_descriptive"
+    ][
+        1
+    ]
+):
+
+    DECISION = (
+        "TEST123_SIGNAL_LARGELY_ANGLE_CONFOUNDED"
+    )
+
+else:
+
+    DECISION = (
+        "ANGLE_CONTROLLED_SIGNAL_INCONCLUSIVE"
+    )
+
+
+# =============================================================================
+# 25. DECISION OUTPUT
+# =============================================================================
+
+print(
+    "\n" + "=" * 160
+)
+
+print(
+    "TEST124 PRIMARY DECISION"
+)
+
+print("=" * 160)
+
+print(
+    DECISION
+)
+
+print()
+
+print(
+    "PRIMARY NUMBERS"
+)
+
+print(
+    f"Within-shell centered "
+    f"T↔D19 Pearson = "
+    f"{PRIMARY_R:+.6f}"
+)
+
+print(
+    f"Within-shell centered "
+    f"T↔D19 Spearman = "
+    f"{PRIMARY_RHO:+.6f}"
+)
+
+print(
+    f"Top-T terminal advantage = "
+    f"{TOP_ADVANTAGE['mean']:+.6f}"
+)
+
+print(
+    f"Top-T advantage 95% descriptive = "
+    f"["
+    f"{TOP_ADVANTAGE['ci95_descriptive'][0]:+.6f}, "
+    f"{TOP_ADVANTAGE['ci95_descriptive'][1]:+.6f}"
+    f"]"
+)
+
+print(
+    f"Oracle hit rate = "
+    f"{ORACLE_HIT_RATE:.3f}"
+    f" vs random "
+    f"{1.0 / CANDIDATES_PER_ANGLE:.3f}"
+)
+
+print(
+    f"Positive-r prompt fraction = "
+    f"{PROMPT_CORR_STATS['positive_fraction']:.3f}"
+)
+
+
+# =============================================================================
+# 26. INTERPRETATION LOCK
+# =============================================================================
+
+print(
+    "\n[16/19] Interpretation lock..."
+)
+
+if (
+    DECISION
+    ==
+    "ANGLE_CONTROLLED_TRANSPORT_SIGNAL_SUPPORTED"
+):
+
+    INTERPRETATION = [
+
+        (
+            "After controlling semantic distance from the seed "
+            "within each angular shell, the tiny L11->L12 finite "
+            "response remains positively associated with terminal "
+            "L19 directional transport."
+        ),
+
+        (
+            "Candidates selected by the local transport score T "
+            "also achieve higher terminal D19 than their same-angle "
+            "peers on average."
+        ),
+
+        (
+            "Therefore the TEST123 signal cannot be explained only "
+            "by preference for directions closer to the semantic seed."
+        ),
+
+        (
+            "Finite local perturbation-response contains measurable "
+            "transport information beyond angular seed proximity."
+        ),
+
+        (
+            "This supports finite-response sensing as a candidate "
+            "component for a later context-conditioned feedback "
+            "controller."
+        ),
+    ]
+
+elif (
+    DECISION
+    ==
+    "TEST123_SIGNAL_LARGELY_ANGLE_CONFOUNDED"
+):
+
+    INTERPRETATION = [
+
+        (
+            "After semantic distance from the seed is controlled, "
+            "the TEST123 relationship between local probe score and "
+            "terminal transport largely disappears."
+        ),
+
+        (
+            "The earlier signal was therefore substantially explained "
+            "by angular proximity to the fixed semantic seed."
+        ),
+
+        (
+            "The current one-step transport score should not be used "
+            "as a feedback-controller sensor."
+        ),
+    ]
+
+else:
+
+    INTERPRETATION = [
+
+        (
+            "Angle control does not produce a sufficiently clean "
+            "positive or null result."
+        ),
+
+        (
+            "The one-step finite-response sensor remains unresolved "
+            "and no feedback law should yet be derived from it."
+        ),
+    ]
+
+
+INTERPRETATION.extend(
+    [
+        (
+            "TEST124 is a system-identification characterization "
+            "assay because all 24 candidates receive terminal "
+            "evaluation."
+        ),
+
+        (
+            "No exact derivative or Jacobian is measured; all local "
+            "responses are finite perturbation responses."
+        ),
+
+        (
+            "No physical force, momentum, resistance, or energy "
+            "quantity is claimed."
+        ),
+
+        (
+            "No manifold-recovery claim is made."
+        ),
+
+        (
+            "No behavioral efficacy claim is made."
+        ),
+
+        (
+            "No semantic-causality claim is made."
+        ),
+
+        (
+            "The TEST124 prompts are exposed after this run and "
+            "must not be reused as future blind validation."
+        ),
+    ]
+)
+
+
+for i, line in enumerate(
+    INTERPRETATION,
+    1,
+):
+
+    print(
+        f"{i}. {line}"
+    )
+
+
+# =============================================================================
+# 27. COMPACT ANGLE TABLE
+# =============================================================================
+
+print(
+    "\n[17/19] COMPACT ANGLE TABLE"
+)
+
+print("=" * 150)
+
+print(
+    f"{'ANGLE':>8}"
+    f"{'r(T,D19)':>14}"
+    f"{'rho':>14}"
+    f"{'TOP-T ADV':>16}"
+    f"{'HIT RATE':>14}"
+    f"{'ALL Δ vs FIXED':>18}"
+    f"{'TOP-T Δ FIXED':>18}"
+)
+
+print("-" * 150)
+
+for angle in ANGLES_DEG:
+
+    aa = ANGLE_ANALYSIS[
+        str(angle)
+    ]
+
+    tf = TOP_T_VS_FIXED[
+        str(angle)
+    ]
+
+    print(
+        f"{angle:>7d}°"
+        f"{aa['within_shell_pearson_T_D19']:>+14.6f}"
+        f"{aa['within_shell_spearman_T_D19']:>+14.6f}"
+        f"{aa['top_T_advantage']['mean']:>+16.6f}"
+        f"{aa['oracle_hit_rate']:>14.3f}"
+        f"{aa['candidate_minus_fixed_D19']['mean']:>+18.6f}"
+        f"{tf['mean']:>+18.6f}"
+    )
+
+
+# =============================================================================
+# 28. JSON
+# =============================================================================
+
+print(
+    "\n[18/19] JSON hazırlanıyor..."
+)
+
+OUTPUT = {
+    "test":
+        "TEST124",
+
+    "title":
+        (
+            "Angle-Controlled "
+            "Transport Cartography"
+        ),
+
+    "model":
+        MODEL_ID,
+
+    "source_layer":
+        SOURCE_LAYER,
+
+    "probe_target":
+        PROBE_TARGET,
+
+    "targets":
+        TARGET_LAYERS,
+
+    "probe_relative":
+        PROBE_REL,
+
+    "angles_deg":
+        ANGLES_DEG,
+
+    "candidates_per_angle":
+        CANDIDATES_PER_ANGLE,
+
+    "candidates_per_prompt":
+        N_CANDIDATES,
+
+    "prompt_count":
+        len(PROMPTS),
+
+    "fingerprint": {
+        "L10_cos_AB":
+            cos10,
+
+        "L11_cos_AB":
+            cos11,
+
+        "L10_drift":
+            drift10,
+
+        "L11_drift":
+            drift11,
+
+        "status":
+            "PASS",
+    },
+
+    "injection_equality":
+        INJECTION,
+
+    "primary": {
+        "within_shell_centered_pearson_T_D19":
+            PRIMARY_R,
+
+        "within_shell_centered_spearman_T_D19":
+            PRIMARY_RHO,
+
+        "within_shell_centered_G_D19":
+            G_R,
+
+        "within_shell_centered_A_D19":
+            A_R,
+
+        "top_T_terminal_advantage":
+            TOP_ADVANTAGE,
+
+        "oracle_hit_rate":
+            ORACLE_HIT_RATE,
+
+        "oracle_random_expectation":
+            1.0
+            /
+            CANDIDATES_PER_ANGLE,
+    },
+
+    "global_uncontrolled": {
+        "pearson_T_D19":
+            GLOBAL_R_T_D19,
+
+        "spearman_T_D19":
+            GLOBAL_RHO_T_D19,
+
+        "angle_T_correlation":
+            ANGLE_R_T,
+
+        "angle_D19_correlation":
+            ANGLE_R_D19,
+    },
+
+    "horizon_correlation":
+        HORIZON_CORRELATION,
+
+    "angle_analysis":
+        ANGLE_ANALYSIS,
+
+    "top_T_vs_fixed":
+        TOP_T_VS_FIXED,
+
+    "all_top_T_vs_fixed":
+        ALL_TOP_T_VS_FIXED,
+
+    "fixed_summary":
+        FIXED_SUMMARY,
+
+    "prompt_robustness": {
+        "prompt_centered_correlation":
+            PROMPT_CORR_STATS,
+
+        "prompt_top_T_advantage":
+            PROMPT_ADV_STATS,
+    },
+
+    "decision":
+        DECISION,
+
+    "interpretation_lock":
+        INTERPRETATION,
+
+    "shell_records":
+        shell_records,
+
+    "raw_prompt_results":
+        RESULTS,
+}
+
+
+with open(
+    OUT_JSON,
+    "w",
+    encoding="utf-8",
+) as f:
+
+    json.dump(
+        OUTPUT,
+        f,
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+print(
+    "Saved:",
+    OUT_JSON
+)
+
+
+# =============================================================================
+# 29. FINAL SUMMARY
+# =============================================================================
+
+print(
+    "\n[19/19] FINAL SUMMARY"
+)
+
+print("=" * 160)
+
+print(
+    "TEST 124 — ANGLE-CONTROLLED TRANSPORT CARTOGRAPHY"
+)
+
+print("=" * 160)
+
+print()
+
+print(
+    "INTEGRITY"
+)
+
+print(
+    f"L10 cos(A,B) = "
+    f"{cos10:+.6f}"
+)
+
+print(
+    f"L11 cos(A,B) = "
+    f"{cos11:+.6f}"
+)
+
+print(
+    "Fingerprint = PASS"
+)
+
+print(
+    f"FIXED injection mean     = "
+    f"{np.mean(fixed_injection):.9f}"
+)
+
+print(
+    f"Candidate injection mean = "
+    f"{np.mean(candidate_injection):.9f}"
+)
+
+print()
+
+print(
+    "ANGLE-CONTROLLED PRIMARY"
+)
+
+print(
+    f"Centered Pearson T↔D19  = "
+    f"{PRIMARY_R:+.6f}"
+)
+
+print(
+    f"Centered Spearman T↔D19 = "
+    f"{PRIMARY_RHO:+.6f}"
+)
+
+print(
+    f"Centered G↔D19          = "
+    f"{G_R:+.6f}"
+)
+
+print(
+    f"Centered A↔D19          = "
+    f"{A_R:+.6f}"
+)
+
+print()
+
+print(
+    "SELECTION"
+)
+
+print(
+    f"Top-T terminal advantage = "
+    f"{TOP_ADVANTAGE['mean']:+.6f}"
+)
+
+print(
+    f"95% descriptive          = "
+    f"["
+    f"{TOP_ADVANTAGE['ci95_descriptive'][0]:+.6f}, "
+    f"{TOP_ADVANTAGE['ci95_descriptive'][1]:+.6f}"
+    f"]"
+)
+
+print(
+    f"Positive shell fraction  = "
+    f"{TOP_ADVANTAGE['positive_fraction']:.3f}"
+)
+
+print(
+    f"Oracle hit rate           = "
+    f"{ORACLE_HIT_RATE:.3f}"
+)
+
+print(
+    f"Random hit expectation    = "
+    f"{1.0 / CANDIDATES_PER_ANGLE:.3f}"
+)
+
+print()
+
+print(
+    "HORIZON"
+)
+
+for target in [
+    12,
+    13,
+    15,
+    19,
+]:
+
+    print(
+        f"L{target:<2d}: "
+        f"r="
+        f"{HORIZON_CORRELATION[str(target)]['pearson']:+.6f}"
+        f" | rho="
+        f"{HORIZON_CORRELATION[str(target)]['spearman']:+.6f}"
+    )
+
+print()
+
+print(
+    "FIXED REFERENCE"
+)
+
+print(
+    f"FIXED D19 = "
+    f"{FIXED_SUMMARY['D19']['mean']:+.6f}"
+)
+
+print(
+    f"All top-T vs FIXED D19 = "
+    f"{ALL_TOP_T_VS_FIXED['mean']:+.6f}"
+)
+
+print()
+
+print(
+    "PROMPT ROBUSTNESS"
+)
+
+print(
+    f"Mean prompt-centered r = "
+    f"{PROMPT_CORR_STATS['mean']:+.6f}"
+)
+
+print(
+    f"Positive-r prompts     = "
+    f"{PROMPT_CORR_STATS['positive_fraction']:.3f}"
+)
+
+print()
+
+print(
+    "DECISION:"
+)
+
+print(
+    DECISION
+)
+
+print()
+
+print(
+    "JSON:"
+)
+
+print(
+    OUT_JSON
+)
+
+print()
+
+print(
+    "DONE."
+)
+
+gc.collect()
+
+if torch.cuda.is_available():
+    torch.cuda.empty_cache()
