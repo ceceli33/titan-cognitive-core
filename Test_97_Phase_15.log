@@ -1,0 +1,2490 @@
+# =============================================================================
+# TEST 104 — İLİŞKİSEL ÖLÇÜM DOĞRULAMASI
+# =============================================================================
+#
+# Qwen/Qwen2.5-7B-Instruct · AkbasCore DRA
+#
+# ANA SORU
+# ---------
+# TEST 103'te L10+L11 üzerinde görülen:
+#
+#   ABOVE_IND  -> NET yukarı
+#   BELOW_IND  -> NET aşağı
+#
+# ayrışması gerçekten hedef öznenin (Mustafa/Dibekgoz) mekânsal ilişkisini mi
+# değiştiriyor, yoksa yalnızca "above/below" benzeri kelimelerin genel
+# dağılımını mı değiştiriyor?
+#
+#
+# SABİT TUTULANLAR
+# ----------------
+# Model      : Qwen/Qwen2.5-7B-Instruct
+# Layers     : L10 + L11
+# IVME       : 0.10
+# DRA        : TEST 103 ile aynı
+# SQRT_K     : sqrt(20)
+# Prompts    : 8
+# Arms       :
+#              BASELINE
+#              ABOVE_IND
+#              BELOW_IND
+#              RANDOM
+#
+#
+# ÜÇ ÖLÇÜM KATMANI
+# -----------------
+#
+# 1) RAW LEXICAL
+#       tüm metindeki above/below terimleri
+#
+# 2) SUBJECT-CONDITIONED
+#       yalnızca Mustafa/Dibekgoz geçen cümlelerde ve özne çevresindeki
+#       mekânsal terimler
+#
+# 3) RELATIONAL PATTERN
+#       açık biçimde özneyi bir referans nesnesine bağlayan örüntüler:
+#
+#       Mustafa ... above/over ...
+#       Mustafa ... below/under/beneath ...
+#
+#       veya:
+#
+#       above ... Mustafa
+#       below ... Mustafa
+#
+#
+# Bu üçüncü katman kusursuz semantik parser değildir.
+# Ama ham kelime sayımından daha sıkı ve denetlenebilir bir ölçümdür.
+#
+#
+# EK KONTROLLER
+# -------------
+# - RANDOM
+# - DRA telemetry
+# - words
+# - repetition
+# - prompt-level scores
+# - sentence-level evidence
+# - bütün ham metinler JSON'a kaydedilir
+#
+#
+# OTOMATİK BAŞARI EŞİĞİ YOKTUR.
+# =============================================================================
+
+
+# =============================================================================
+# 0. IMPORT
+# =============================================================================
+
+import re
+import json
+import math
+import random
+from collections import Counter
+
+import numpy as np
+import torch
+
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+
+# =============================================================================
+# 1. CONFIG
+# =============================================================================
+
+MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 42
+RANDOM_SEED = 20260920
+
+N_LAYERS = 20
+HIDDEN = 3584
+
+ACTIVE_LAYERS = [10, 11]
+
+IVME = 0.10
+SQRT_K = math.sqrt(N_LAYERS)
+
+MAX_NEW_TOKENS = 180
+
+
+# DRA
+SONUM = 0.30
+ZIRVE = 0.70
+TABAN = 0.20
+
+COS_BRAKE_HIGH = 0.75
+COS_BRAKE_LOW = -0.40
+
+BRAKE_HIGH_DENOM = 0.25
+BRAKE_LOW_GAIN = 1.60
+
+
+# =============================================================================
+# 2. DETERMINISM
+# =============================================================================
+
+def set_seed(seed):
+
+    random.seed(seed)
+    np.random.seed(seed)
+
+    torch.manual_seed(seed)
+
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+set_seed(SEED)
+
+
+# =============================================================================
+# 3. TRAINING DATA — TEST 103 İLE AYNI
+# =============================================================================
+
+ABOVE_TRAIN = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+BELOW_TRAIN = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+NEUTRAL_TRAIN = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 4. BEHAVIOR PROMPTS — TEST 103 İLE AYNI
+# =============================================================================
+
+BEHAVIOR_PROMPTS = [
+
+    """Mustafa Dibekgoz walks toward a great suspension bridge during a changing
+storm. Describe the scene in at least four complete sentences. Focus on the
+person, the bridge, the tower, the surrounding environment and what happens
+next.""",
+
+    """Mustafa Dibekgoz is standing near a large suspension bridge while clouds
+move across the sky. Describe what he sees and what happens around him in at
+least four complete sentences. Do not use a list.""",
+
+    """Describe a scene in which Mustafa Dibekgoz approaches a large bridge
+during unusual weather. Include the bridge structure, its tower, the ground,
+the sky and the movement of the scene. Write at least four complete sentences.""",
+
+    """Mustafa Dibekgoz observes a suspension bridge while the weather changes
+rapidly. Explain the scene and the sequence of events in at least four
+complete sentences, using natural prose.""",
+
+    """Write a short descriptive passage about Mustafa Dibekgoz crossing or
+approaching a great suspension bridge during a dramatic change in weather.
+Include structural and environmental details. Use at least four sentences.""",
+
+    """Mustafa Dibekgoz is near a suspension bridge when lightning appears in
+the distance. Describe the environment, the bridge and his actions in at
+least four complete sentences.""",
+
+    """Describe what happens when Mustafa Dibekgoz reaches a large suspension
+bridge under a changing sky. Include several physical details and a sequence
+of events. Write at least four sentences.""",
+
+    """Write a coherent scene about Mustafa Dibekgoz and a great suspension
+bridge during unstable weather. Describe what is visible and what changes
+over time. Use at least four complete sentences.""",
+]
+
+
+# =============================================================================
+# 5. MEASUREMENT VOCABULARY
+# =============================================================================
+
+ABOVE_TERMS = [
+    "above",
+    "overhead",
+    "higher",
+    "upward",
+    "over",
+]
+
+BELOW_TERMS = [
+    "below",
+    "under",
+    "underneath",
+    "lower",
+    "downward",
+    "beneath",
+]
+
+
+SUBJECT_TERMS = [
+    "mustafa dibekgoz",
+    "mustafa",
+    "dibekgoz",
+    "he",
+    "him",
+    "his",
+]
+
+
+REFERENCE_TERMS = [
+    "bridge",
+    "tower",
+    "deck",
+    "walkway",
+    "structure",
+    "cables",
+    "cable",
+    "arch",
+    "arches",
+    "railing",
+]
+
+
+# =============================================================================
+# 6. BASIC HELPERS
+# =============================================================================
+
+def normalize_np(v, eps=1e-12):
+
+    v = np.asarray(v, dtype=np.float32)
+
+    n = np.linalg.norm(v)
+
+    if n < eps:
+        return v.copy()
+
+    return v / n
+
+
+def cosine_np(a, b, eps=1e-12):
+
+    a = np.asarray(a, dtype=np.float32)
+    b = np.asarray(b, dtype=np.float32)
+
+    na = np.linalg.norm(a)
+    nb = np.linalg.norm(b)
+
+    if na < eps or nb < eps:
+        return 0.0
+
+    return float(
+        np.dot(a, b)
+        / (na * nb)
+    )
+
+
+def word_count(text):
+
+    return len(
+        re.findall(
+            r"\b[\w'-]+\b",
+            text
+        )
+    )
+
+
+def repetition_score(text):
+
+    words = re.findall(
+        r"\b[\w'-]+\b",
+        text.lower()
+    )
+
+    if len(words) < 2:
+        return 0.0
+
+    bigrams = list(
+        zip(
+            words[:-1],
+            words[1:]
+        )
+    )
+
+    if not bigrams:
+        return 0.0
+
+    counts = Counter(bigrams)
+
+    repeated = sum(
+        n - 1
+        for n in counts.values()
+        if n > 1
+    )
+
+    return float(
+        repeated / len(bigrams)
+    )
+
+
+def contains_term(text, term):
+
+    return bool(
+        re.search(
+            r"\b"
+            + re.escape(term)
+            + r"\b",
+            text,
+            flags=re.I
+        )
+    )
+
+
+def count_term(text, term):
+
+    return len(
+        re.findall(
+            r"\b"
+            + re.escape(term)
+            + r"\b",
+            text,
+            flags=re.I
+        )
+    )
+
+
+def count_term_list(text, terms):
+
+    return sum(
+        count_term(text, term)
+        for term in terms
+    )
+
+
+# =============================================================================
+# 7. SENTENCE SPLITTER
+# =============================================================================
+
+def split_sentences(text):
+
+    # Satırları normalize et.
+    clean = re.sub(
+        r"\s+",
+        " ",
+        text.strip()
+    )
+
+    # Basit ve şeffaf sentence segmentation.
+    parts = re.split(
+        r"(?<=[.!?])\s+",
+        clean
+    )
+
+    return [
+        x.strip()
+        for x in parts
+        if x.strip()
+    ]
+
+
+# =============================================================================
+# 8. MEASUREMENT LAYER 1 — RAW LEXICAL
+# =============================================================================
+
+def raw_lexical_measure(text):
+
+    above = count_term_list(
+        text,
+        ABOVE_TERMS
+    )
+
+    below = count_term_list(
+        text,
+        BELOW_TERMS
+    )
+
+    return {
+        "above": int(above),
+        "below": int(below),
+        "net": int(above - below),
+    }
+
+
+# =============================================================================
+# 9. MEASUREMENT LAYER 2 — SUBJECT-CONDITIONED
+# =============================================================================
+#
+# Yalnızca özne/pronoun içeren cümleleri ele alır.
+#
+# Ayrıca bridge/tower/etc. referansı bulunan cümleler ayrı tutulur.
+#
+# Böylece:
+#
+#     "waters far below"
+#
+# tek başına subject-conditioned puan oluşturmaz.
+#
+# =============================================================================
+
+def subject_conditioned_measure(text):
+
+    sentences = split_sentences(text)
+
+    subject_sentences = []
+    subject_reference_sentences = []
+
+    above = 0
+    below = 0
+
+    strict_above = 0
+    strict_below = 0
+
+
+    for sentence in sentences:
+
+        has_subject = any(
+            contains_term(
+                sentence,
+                term
+            )
+            for term in SUBJECT_TERMS
+        )
+
+        if not has_subject:
+            continue
+
+
+        subject_sentences.append(
+            sentence
+        )
+
+
+        sentence_above = count_term_list(
+            sentence,
+            ABOVE_TERMS
+        )
+
+        sentence_below = count_term_list(
+            sentence,
+            BELOW_TERMS
+        )
+
+
+        above += sentence_above
+        below += sentence_below
+
+
+        has_reference = any(
+            contains_term(
+                sentence,
+                term
+            )
+            for term in REFERENCE_TERMS
+        )
+
+
+        if has_reference:
+
+            subject_reference_sentences.append(
+                sentence
+            )
+
+            strict_above += sentence_above
+            strict_below += sentence_below
+
+
+    return {
+
+        "above":
+            int(above),
+
+        "below":
+            int(below),
+
+        "net":
+            int(
+                above - below
+            ),
+
+        "strict_above":
+            int(strict_above),
+
+        "strict_below":
+            int(strict_below),
+
+        "strict_net":
+            int(
+                strict_above
+                - strict_below
+            ),
+
+        "subject_sentences":
+            subject_sentences,
+
+        "subject_reference_sentences":
+            subject_reference_sentences,
+    }
+
+
+# =============================================================================
+# 10. MEASUREMENT LAYER 3 — RELATIONAL PATTERN
+# =============================================================================
+#
+# Daha sıkı ölçüm.
+#
+# Bir cümlede:
+#
+#   - subject
+#   - spatial direction
+#   - bridge-reference
+#
+# birlikte bulunmalı.
+#
+# Ayrıca bunların birbirinden aşırı uzak olmaması için token window kullanılır.
+#
+# Bu bir dependency parser değildir.
+# Fakat ölçüm tamamen deterministik ve denetlenebilir.
+#
+# =============================================================================
+
+def tokenize_words(text):
+
+    return re.findall(
+        r"\b[\w'-]+\b",
+        text.lower()
+    )
+
+
+def find_phrase_positions(
+    words,
+    phrase
+):
+
+    phrase_words = (
+        phrase.lower().split()
+    )
+
+    positions = []
+
+    k = len(phrase_words)
+
+    for i in range(
+        len(words) - k + 1
+    ):
+
+        if (
+            words[i:i+k]
+            == phrase_words
+        ):
+            positions.append(i)
+
+    return positions
+
+
+def all_positions(
+    words,
+    terms
+):
+
+    positions = []
+
+    for term in terms:
+
+        for pos in find_phrase_positions(
+            words,
+            term
+        ):
+
+            positions.append(
+                (pos, term)
+            )
+
+    return positions
+
+
+def relational_pattern_measure(
+    text,
+    max_window=12
+):
+
+    sentences = split_sentences(text)
+
+    above_hits = []
+    below_hits = []
+
+
+    for sentence_index, sentence in enumerate(
+        sentences
+    ):
+
+        words = tokenize_words(
+            sentence
+        )
+
+
+        subject_positions = all_positions(
+            words,
+            SUBJECT_TERMS
+        )
+
+        reference_positions = all_positions(
+            words,
+            REFERENCE_TERMS
+        )
+
+        above_positions = all_positions(
+            words,
+            ABOVE_TERMS
+        )
+
+        below_positions = all_positions(
+            words,
+            BELOW_TERMS
+        )
+
+
+        if (
+            not subject_positions
+            or not reference_positions
+        ):
+            continue
+
+
+        # -------------------------------------------------------------
+        # ABOVE
+        # -------------------------------------------------------------
+
+        for spatial_pos, spatial_term in above_positions:
+
+            best_subject_distance = min(
+                abs(
+                    spatial_pos
+                    - subject_pos
+                )
+                for subject_pos, _
+                in subject_positions
+            )
+
+            best_reference_distance = min(
+                abs(
+                    spatial_pos
+                    - ref_pos
+                )
+                for ref_pos, _
+                in reference_positions
+            )
+
+
+            if (
+                best_subject_distance
+                <= max_window
+                and
+                best_reference_distance
+                <= max_window
+            ):
+
+                above_hits.append({
+
+                    "sentence_index":
+                        sentence_index,
+
+                    "term":
+                        spatial_term,
+
+                    "subject_distance":
+                        int(
+                            best_subject_distance
+                        ),
+
+                    "reference_distance":
+                        int(
+                            best_reference_distance
+                        ),
+
+                    "sentence":
+                        sentence,
+                })
+
+
+        # -------------------------------------------------------------
+        # BELOW
+        # -------------------------------------------------------------
+
+        for spatial_pos, spatial_term in below_positions:
+
+            best_subject_distance = min(
+                abs(
+                    spatial_pos
+                    - subject_pos
+                )
+                for subject_pos, _
+                in subject_positions
+            )
+
+            best_reference_distance = min(
+                abs(
+                    spatial_pos
+                    - ref_pos
+                )
+                for ref_pos, _
+                in reference_positions
+            )
+
+
+            if (
+                best_subject_distance
+                <= max_window
+                and
+                best_reference_distance
+                <= max_window
+            ):
+
+                below_hits.append({
+
+                    "sentence_index":
+                        sentence_index,
+
+                    "term":
+                        spatial_term,
+
+                    "subject_distance":
+                        int(
+                            best_subject_distance
+                        ),
+
+                    "reference_distance":
+                        int(
+                            best_reference_distance
+                        ),
+
+                    "sentence":
+                        sentence,
+                })
+
+
+    above = len(above_hits)
+    below = len(below_hits)
+
+
+    return {
+
+        "above":
+            int(above),
+
+        "below":
+            int(below),
+
+        "net":
+            int(
+                above - below
+            ),
+
+        "above_hits":
+            above_hits,
+
+        "below_hits":
+            below_hits,
+    }
+
+
+# =============================================================================
+# 11. COMPLETE TEXT MEASUREMENT
+# =============================================================================
+
+def measure_text(
+    text,
+    telemetry=None
+):
+
+    raw = raw_lexical_measure(
+        text
+    )
+
+    subject = subject_conditioned_measure(
+        text
+    )
+
+    relation = relational_pattern_measure(
+        text
+    )
+
+
+    result = {
+
+        "raw":
+            raw,
+
+        "subject":
+            subject,
+
+        "relation":
+            relation,
+
+        "words":
+            int(
+                word_count(text)
+            ),
+
+        "repetition":
+            float(
+                repetition_score(text)
+            ),
+
+        "text":
+            text,
+    }
+
+
+    if telemetry is not None:
+
+        result[
+            "telemetry"
+        ] = telemetry
+
+
+    return result
+
+
+# =============================================================================
+# 12. MODEL
+# =============================================================================
+
+print("\n" + "=" * 110)
+print("TEST 104 — İLİŞKİSEL ÖLÇÜM DOĞRULAMASI")
+print("=" * 110)
+
+print("\n[1/8] Model yükleniyor...")
+
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_NAME,
+    trust_remote_code=True
+)
+
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_NAME,
+    dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True,
+)
+
+
+model.eval()
+
+
+print("Model       :", MODEL_NAME)
+print("Device      :", model.device)
+print("dtype       :", next(model.parameters()).dtype)
+print("Model layers:", len(model.model.layers))
+print("Test layers :", ACTIVE_LAYERS)
+print("IVME        :", IVME)
+
+
+# =============================================================================
+# 13. ACTIVATION EXTRACTION
+# =============================================================================
+#
+# TEST 103 karşılaştırılabilirliği için LAST NON-PADDING TOKEN korunuyor.
+#
+# =============================================================================
+
+@torch.no_grad()
+def extract_layerwise_activations(
+    texts,
+    max_length=128
+):
+
+    encoded = tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=max_length,
+    )
+
+
+    input_ids = (
+        encoded["input_ids"]
+        .to(model.device)
+    )
+
+    attention_mask = (
+        encoded["attention_mask"]
+        .to(model.device)
+    )
+
+
+    captured = [
+        None
+        for _ in range(N_LAYERS)
+    ]
+
+    handles = []
+
+
+    def make_hook(layer_idx):
+
+        def hook(
+            module,
+            inputs,
+            output
+        ):
+
+            hidden = (
+                output[0]
+                if isinstance(output, tuple)
+                else output
+            )
+
+            captured[layer_idx] = (
+                hidden.detach()
+            )
+
+        return hook
+
+
+    for layer_idx in range(
+        N_LAYERS
+    ):
+
+        handles.append(
+
+            model.model.layers[
+                layer_idx
+            ].register_forward_hook(
+
+                make_hook(
+                    layer_idx
+                )
+            )
+        )
+
+
+    _ = model(
+        input_ids=input_ids,
+        attention_mask=attention_mask,
+        use_cache=False,
+    )
+
+
+    for h in handles:
+        h.remove()
+
+
+    lengths = (
+        attention_mask
+        .sum(dim=1)
+        .cpu()
+        .numpy()
+    )
+
+
+    result = np.zeros(
+        (
+            len(texts),
+            N_LAYERS,
+            HIDDEN
+        ),
+        dtype=np.float32
+    )
+
+
+    for layer_idx in range(
+        N_LAYERS
+    ):
+
+        hidden = (
+            captured[layer_idx]
+            .float()
+            .cpu()
+            .numpy()
+        )
+
+
+        for sample_idx in range(
+            len(texts)
+        ):
+
+            last_idx = (
+                int(
+                    lengths[
+                        sample_idx
+                    ]
+                )
+                - 1
+            )
+
+
+            result[
+                sample_idx,
+                layer_idx
+            ] = hidden[
+                sample_idx,
+                last_idx
+            ]
+
+
+    return result
+
+
+# =============================================================================
+# 14. EXTRACT DIRECTIONS
+# =============================================================================
+
+print(
+    "\n[2/8] ABOVE / BELOW / NEUTRAL "
+    "aktivasyonları çıkarılıyor..."
+)
+
+
+ACT_ABOVE = (
+    extract_layerwise_activations(
+        ABOVE_TRAIN
+    )
+)
+
+ACT_BELOW = (
+    extract_layerwise_activations(
+        BELOW_TRAIN
+    )
+)
+
+ACT_NEUTRAL = (
+    extract_layerwise_activations(
+        NEUTRAL_TRAIN
+    )
+)
+
+
+print(
+    "ABOVE  :",
+    ACT_ABOVE.shape
+)
+
+print(
+    "BELOW  :",
+    ACT_BELOW.shape
+)
+
+print(
+    "NEUTRAL:",
+    ACT_NEUTRAL.shape
+)
+
+
+MEAN_ABOVE = (
+    ACT_ABOVE.mean(axis=0)
+)
+
+MEAN_BELOW = (
+    ACT_BELOW.mean(axis=0)
+)
+
+MEAN_NEUTRAL = (
+    ACT_NEUTRAL.mean(axis=0)
+)
+
+
+IND_ABOVE = (
+    MEAN_ABOVE
+    - MEAN_NEUTRAL
+).astype(np.float32)
+
+
+IND_BELOW = (
+    MEAN_BELOW
+    - MEAN_NEUTRAL
+).astype(np.float32)
+
+
+for layer_idx in range(
+    N_LAYERS
+):
+
+    IND_ABOVE[
+        layer_idx
+    ] = normalize_np(
+        IND_ABOVE[
+            layer_idx
+        ]
+    )
+
+    IND_BELOW[
+        layer_idx
+    ] = normalize_np(
+        IND_BELOW[
+            layer_idx
+        ]
+    )
+
+
+# =============================================================================
+# 15. RANDOM
+# =============================================================================
+
+rng = np.random.default_rng(
+    RANDOM_SEED
+)
+
+
+RANDOM_VECTOR = (
+    rng.standard_normal(
+        (
+            N_LAYERS,
+            HIDDEN
+        )
+    )
+    .astype(np.float32)
+)
+
+
+for layer_idx in range(
+    N_LAYERS
+):
+
+    RANDOM_VECTOR[
+        layer_idx
+    ] = normalize_np(
+        RANDOM_VECTOR[
+            layer_idx
+        ]
+    )
+
+
+print(
+    "\nGeometry at L10/L11:"
+)
+
+
+for layer_idx in ACTIVE_LAYERS:
+
+    print(
+        f"L{layer_idx:02d} | "
+        f"cos(A,B)="
+        f"{cosine_np(IND_ABOVE[layer_idx], IND_BELOW[layer_idx]):+.6f} | "
+        f"cos(A,R)="
+        f"{cosine_np(IND_ABOVE[layer_idx], RANDOM_VECTOR[layer_idx]):+.6f} | "
+        f"cos(B,R)="
+        f"{cosine_np(IND_BELOW[layer_idx], RANDOM_VECTOR[layer_idx]):+.6f}"
+    )
+
+
+# =============================================================================
+# 16. DRA
+# =============================================================================
+
+def dra_parameters(
+    cosine_value,
+    layer_idx
+):
+
+    uncertainty = (
+        1.0
+        - abs(cosine_value)
+    )
+
+
+    dw = (
+        SONUM
+        + uncertainty * 0.20
+    )
+
+
+    t = float(
+        layer_idx
+    )
+
+
+    kb = (
+        ZIRVE
+        * math.exp(
+            -dw * t
+        )
+        * (
+            1.0
+            + dw * t
+        )
+        + TABAN
+    )
+
+
+    envelope = (
+        kb
+        / (
+            ZIRVE
+            + TABAN
+        )
+    )
+
+
+    if (
+        cosine_value
+        > COS_BRAKE_HIGH
+    ):
+
+        brake = (
+            (
+                1.0
+                - cosine_value
+            )
+            / BRAKE_HIGH_DENOM
+        )
+
+
+    elif (
+        cosine_value
+        < COS_BRAKE_LOW
+    ):
+
+        brake = (
+            BRAKE_LOW_GAIN
+        )
+
+
+    else:
+
+        brake = 1.0
+
+
+    return (
+        envelope,
+        brake
+    )
+
+
+# =============================================================================
+# 17. BASELINE GENERATION
+# =============================================================================
+
+@torch.no_grad()
+def baseline_generate(prompt):
+
+    encoded = tokenizer(
+        prompt,
+        return_tensors="pt"
+    ).to(
+        model.device
+    )
+
+
+    output = model.generate(
+
+        **encoded,
+
+        max_new_tokens=
+            MAX_NEW_TOKENS,
+
+        do_sample=False,
+
+        repetition_penalty=1.0,
+
+        use_cache=True,
+
+        pad_token_id=
+            tokenizer.eos_token_id,
+    )
+
+
+    prompt_len = (
+        encoded[
+            "input_ids"
+        ].shape[1]
+    )
+
+
+    generated = output[
+        0,
+        prompt_len:
+    ]
+
+
+    return tokenizer.decode(
+        generated,
+        skip_special_tokens=True
+    )
+
+
+# =============================================================================
+# 18. STEERED GENERATION
+# =============================================================================
+
+def steered_generate(
+    prompt,
+    vectors
+):
+
+    handles = []
+
+
+    telemetry = {
+
+        "cos": [],
+        "abs_cos": [],
+        "contribution": [],
+        "envelope": [],
+        "brake": [],
+        "hook_steps": 0,
+    }
+
+
+    def make_hook(
+        layer_idx
+    ):
+
+        vector = torch.tensor(
+            vectors[layer_idx],
+            device=model.device,
+            dtype=next(
+                model.parameters()
+            ).dtype
+        ).unsqueeze(0)
+
+
+        def hook(
+            module,
+            inputs,
+            output
+        ):
+
+            if isinstance(
+                output,
+                tuple
+            ):
+
+                hidden = output[0]
+                remainder = output[1:]
+
+            else:
+
+                hidden = output
+                remainder = None
+
+
+            h = hidden[
+                :,
+                -1,
+                :
+            ]
+
+
+            h_norm = (
+                torch.linalg.norm(
+                    h,
+                    dim=-1,
+                    keepdim=True
+                )
+            )
+
+
+            v_norm = (
+                torch.linalg.norm(
+                    vector,
+                    dim=-1,
+                    keepdim=True
+                )
+            )
+
+
+            cosine = (
+                torch.sum(
+                    h * vector,
+                    dim=-1,
+                    keepdim=True
+                )
+                /
+                (
+                    h_norm
+                    * v_norm
+                    + 1e-12
+                )
+            )
+
+
+            cosine_value = float(
+                cosine.mean()
+                .detach()
+                .cpu()
+            )
+
+
+            envelope, brake = (
+                dra_parameters(
+                    cosine_value,
+                    layer_idx
+                )
+            )
+
+
+            contribution = (
+
+                IVME
+
+                * h_norm
+
+                / SQRT_K
+
+                * envelope
+
+                * brake
+            )
+
+
+            delta = (
+                contribution
+                * vector
+            )
+
+
+            hidden_new = (
+                hidden.clone()
+            )
+
+
+            hidden_new[
+                :,
+                -1,
+                :
+            ] = (
+
+                hidden_new[
+                    :,
+                    -1,
+                    :
+                ]
+
+                + delta
+            )
+
+
+            telemetry[
+                "cos"
+            ].append(
+                cosine_value
+            )
+
+
+            telemetry[
+                "abs_cos"
+            ].append(
+                abs(
+                    cosine_value
+                )
+            )
+
+
+            telemetry[
+                "contribution"
+            ].append(
+
+                float(
+                    contribution
+                    .mean()
+                    .detach()
+                    .cpu()
+                )
+            )
+
+
+            telemetry[
+                "envelope"
+            ].append(
+                float(
+                    envelope
+                )
+            )
+
+
+            telemetry[
+                "brake"
+            ].append(
+                float(
+                    brake
+                )
+            )
+
+
+            telemetry[
+                "hook_steps"
+            ] += 1
+
+
+            if (
+                remainder
+                is not None
+            ):
+
+                return (
+                    hidden_new,
+                    *remainder
+                )
+
+
+            return hidden_new
+
+
+        return hook
+
+
+    for layer_idx in ACTIVE_LAYERS:
+
+        handles.append(
+
+            model.model.layers[
+                layer_idx
+            ].register_forward_hook(
+
+                make_hook(
+                    layer_idx
+                )
+            )
+        )
+
+
+    try:
+
+        encoded = tokenizer(
+            prompt,
+            return_tensors="pt"
+        ).to(
+            model.device
+        )
+
+
+        with torch.no_grad():
+
+            output = model.generate(
+
+                **encoded,
+
+                max_new_tokens=
+                    MAX_NEW_TOKENS,
+
+                do_sample=False,
+
+                repetition_penalty=1.0,
+
+                use_cache=True,
+
+                pad_token_id=
+                    tokenizer.eos_token_id,
+            )
+
+
+        prompt_len = (
+            encoded[
+                "input_ids"
+            ].shape[1]
+        )
+
+
+        generated = output[
+            0,
+            prompt_len:
+        ]
+
+
+        text = tokenizer.decode(
+            generated,
+            skip_special_tokens=True
+        )
+
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+
+    def safe_mean(values):
+
+        if not values:
+            return 0.0
+
+        return float(
+            np.mean(values)
+        )
+
+
+    summary = {
+
+        "mean_cos":
+            safe_mean(
+                telemetry["cos"]
+            ),
+
+        "mean_abs_cos":
+            safe_mean(
+                telemetry["abs_cos"]
+            ),
+
+        "mean_contribution":
+            safe_mean(
+                telemetry[
+                    "contribution"
+                ]
+            ),
+
+        "mean_envelope":
+            safe_mean(
+                telemetry[
+                    "envelope"
+                ]
+            ),
+
+        "mean_brake":
+            safe_mean(
+                telemetry[
+                    "brake"
+                ]
+            ),
+
+        "hook_steps":
+            int(
+                telemetry[
+                    "hook_steps"
+                ]
+            ),
+    }
+
+
+    return (
+        text,
+        summary
+    )
+
+
+# =============================================================================
+# 19. RUN BASELINE
+# =============================================================================
+
+print(
+    "\n[3/8] BASELINE..."
+)
+
+
+BASELINE_RESULTS = []
+
+
+for i, prompt in enumerate(
+    BEHAVIOR_PROMPTS
+):
+
+    text = baseline_generate(
+        prompt
+    )
+
+
+    result = measure_text(
+        text
+    )
+
+
+    result[
+        "prompt_index"
+    ] = i
+
+
+    BASELINE_RESULTS.append(
+        result
+    )
+
+
+# =============================================================================
+# 20. RUN ARM
+# =============================================================================
+
+def run_arm(
+    arm_name,
+    vectors
+):
+
+    print(
+        f"\n[ARM] {arm_name}"
+    )
+
+
+    results = []
+
+
+    for i, prompt in enumerate(
+        BEHAVIOR_PROMPTS
+    ):
+
+        text, telemetry = (
+            steered_generate(
+                prompt,
+                vectors
+            )
+        )
+
+
+        result = measure_text(
+            text,
+            telemetry
+        )
+
+
+        result[
+            "prompt_index"
+        ] = i
+
+
+        results.append(
+            result
+        )
+
+
+    return results
+
+
+print(
+    "\n[4/8] ABOVE_IND..."
+)
+
+ABOVE_RESULTS = run_arm(
+    "ABOVE_IND",
+    IND_ABOVE
+)
+
+
+print(
+    "\n[5/8] BELOW_IND..."
+)
+
+BELOW_RESULTS = run_arm(
+    "BELOW_IND",
+    IND_BELOW
+)
+
+
+print(
+    "\n[6/8] RANDOM..."
+)
+
+RANDOM_RESULTS = run_arm(
+    "RANDOM",
+    RANDOM_VECTOR
+)
+
+
+# =============================================================================
+# 21. AGGREGATION
+# =============================================================================
+
+ARMS = {
+
+    "BASELINE":
+        BASELINE_RESULTS,
+
+    "ABOVE_IND":
+        ABOVE_RESULTS,
+
+    "BELOW_IND":
+        BELOW_RESULTS,
+
+    "RANDOM":
+        RANDOM_RESULTS,
+}
+
+
+def aggregate_arm(
+    results
+):
+
+    output = {}
+
+
+    for metric_name in [
+        "raw",
+        "subject",
+        "relation"
+    ]:
+
+        output[
+            metric_name
+        ] = {
+
+            "above":
+                float(
+                    np.mean([
+                        x[metric_name][
+                            "above"
+                        ]
+                        for x in results
+                    ])
+                ),
+
+            "below":
+                float(
+                    np.mean([
+                        x[metric_name][
+                            "below"
+                        ]
+                        for x in results
+                    ])
+                ),
+
+            "net":
+                float(
+                    np.mean([
+                        x[metric_name][
+                            "net"
+                        ]
+                        for x in results
+                    ])
+                ),
+        }
+
+
+    # subject strict metric
+    output[
+        "subject_strict"
+    ] = {
+
+        "above":
+            float(
+                np.mean([
+                    x["subject"][
+                        "strict_above"
+                    ]
+                    for x in results
+                ])
+            ),
+
+        "below":
+            float(
+                np.mean([
+                    x["subject"][
+                        "strict_below"
+                    ]
+                    for x in results
+                ])
+            ),
+
+        "net":
+            float(
+                np.mean([
+                    x["subject"][
+                        "strict_net"
+                    ]
+                    for x in results
+                ])
+            ),
+    }
+
+
+    output[
+        "words"
+    ] = float(
+        np.mean([
+            x["words"]
+            for x in results
+        ])
+    )
+
+
+    output[
+        "repetition"
+    ] = float(
+        np.mean([
+            x["repetition"]
+            for x in results
+        ])
+    )
+
+
+    if (
+        "telemetry"
+        in results[0]
+    ):
+
+        for key in [
+            "mean_cos",
+            "mean_abs_cos",
+            "mean_contribution",
+            "mean_envelope",
+            "mean_brake",
+        ]:
+
+            output[key] = float(
+                np.mean([
+                    x["telemetry"][key]
+                    for x in results
+                ])
+            )
+
+
+    return output
+
+
+SUMMARY = {
+
+    name:
+        aggregate_arm(
+            results
+        )
+
+    for name, results
+    in ARMS.items()
+}
+
+
+# =============================================================================
+# 22. MAIN TABLE
+# =============================================================================
+
+print("\n")
+print("=" * 120)
+print("TEST 104 — ÜÇ ÖLÇÜM SEVİYESİ")
+print("=" * 120)
+
+
+print(
+    f"{'ARM':<14}"
+    f"{'RAW NET':>12}"
+    f"{'SUBJ NET':>12}"
+    f"{'STRICT NET':>14}"
+    f"{'REL NET':>12}"
+    f"{'WORDS':>12}"
+    f"{'REP':>12}"
+)
+
+print("-" * 120)
+
+
+for arm_name in [
+    "BASELINE",
+    "ABOVE_IND",
+    "BELOW_IND",
+    "RANDOM"
+]:
+
+    x = SUMMARY[
+        arm_name
+    ]
+
+
+    print(
+        f"{arm_name:<14}"
+        f"{x['raw']['net']:>+12.4f}"
+        f"{x['subject']['net']:>+12.4f}"
+        f"{x['subject_strict']['net']:>+14.4f}"
+        f"{x['relation']['net']:>+12.4f}"
+        f"{x['words']:>12.2f}"
+        f"{x['repetition']:>12.4f}"
+    )
+
+
+# =============================================================================
+# 23. DELTA TABLE
+# =============================================================================
+
+print("\n")
+print("=" * 120)
+print("BASELINE'A GÖRE Δ")
+print("=" * 120)
+
+
+METRICS = [
+    ("RAW", "raw"),
+    ("SUBJECT", "subject"),
+    ("STRICT", "subject_strict"),
+    ("RELATION", "relation"),
+]
+
+
+DELTA_SUMMARY = {}
+
+
+for label, key in METRICS:
+
+    base = (
+        SUMMARY[
+            "BASELINE"
+        ][key]["net"]
+    )
+
+
+    a = (
+        SUMMARY[
+            "ABOVE_IND"
+        ][key]["net"]
+        - base
+    )
+
+
+    b = (
+        SUMMARY[
+            "BELOW_IND"
+        ][key]["net"]
+        - base
+    )
+
+
+    r = (
+        SUMMARY[
+            "RANDOM"
+        ][key]["net"]
+        - base
+    )
+
+
+    sep = (
+        a - b
+    )
+
+
+    DELTA_SUMMARY[
+        key
+    ] = {
+
+        "above_delta":
+            float(a),
+
+        "below_delta":
+            float(b),
+
+        "random_delta":
+            float(r),
+
+        "separation":
+            float(sep),
+
+        "above_minus_random":
+            float(
+                a - r
+            ),
+
+        "below_minus_random":
+            float(
+                b - r
+            ),
+    }
+
+
+    print(
+        f"\n{label}"
+    )
+
+    print(
+        f"  ABOVE Δ  = {a:+.4f}"
+    )
+
+    print(
+        f"  BELOW Δ  = {b:+.4f}"
+    )
+
+    print(
+        f"  RANDOM Δ = {r:+.4f}"
+    )
+
+    print(
+        f"  SEP A-B  = {sep:+.4f}"
+    )
+
+    print(
+        f"  A-R      = {a-r:+.4f}"
+    )
+
+    print(
+        f"  B-R      = {b-r:+.4f}"
+    )
+
+
+# =============================================================================
+# 24. PROMPT-LEVEL TABLE
+# =============================================================================
+
+print("\n")
+print("=" * 140)
+print("PROMPT-BAZLI KARŞILAŞTIRMA")
+print("=" * 140)
+
+
+PROMPT_COMPARISON = []
+
+
+for i in range(
+    len(BEHAVIOR_PROMPTS)
+):
+
+    row = {
+        "prompt_index": i
+    }
+
+
+    print(
+        f"\nPROMPT {i+1}"
+    )
+
+
+    print(
+        f"{'ARM':<14}"
+        f"{'RAW':>8}"
+        f"{'SUBJ':>8}"
+        f"{'STRICT':>10}"
+        f"{'REL':>8}"
+    )
+
+    print("-" * 55)
+
+
+    for arm_name, results in ARMS.items():
+
+        x = results[i]
+
+
+        raw_net = (
+            x["raw"]["net"]
+        )
+
+        subject_net = (
+            x["subject"]["net"]
+        )
+
+        strict_net = (
+            x["subject"][
+                "strict_net"
+            ]
+        )
+
+        relation_net = (
+            x["relation"]["net"]
+        )
+
+
+        row[
+            arm_name
+        ] = {
+
+            "raw_net":
+                raw_net,
+
+            "subject_net":
+                subject_net,
+
+            "strict_net":
+                strict_net,
+
+            "relation_net":
+                relation_net,
+        }
+
+
+        print(
+            f"{arm_name:<14}"
+            f"{raw_net:>+8d}"
+            f"{subject_net:>+8d}"
+            f"{strict_net:>+10d}"
+            f"{relation_net:>+8d}"
+        )
+
+
+    PROMPT_COMPARISON.append(
+        row
+    )
+
+
+# =============================================================================
+# 25. RELATIONAL EVIDENCE
+# =============================================================================
+
+print("\n")
+print("=" * 140)
+print("RELATIONAL PATTERN — KANIT CÜMLELERİ")
+print("=" * 140)
+
+
+for arm_name, results in ARMS.items():
+
+    print(
+        "\n\n"
+        + "#"
+        * 100
+    )
+
+    print(
+        arm_name
+    )
+
+    print(
+        "#"
+        * 100
+    )
+
+
+    for i, x in enumerate(
+        results
+    ):
+
+        above_hits = (
+            x["relation"][
+                "above_hits"
+            ]
+        )
+
+        below_hits = (
+            x["relation"][
+                "below_hits"
+            ]
+        )
+
+
+        if (
+            not above_hits
+            and not below_hits
+        ):
+            continue
+
+
+        print(
+            f"\nPROMPT {i+1}"
+        )
+
+
+        for hit in above_hits:
+
+            print(
+                "  [ABOVE HIT]",
+                hit["term"],
+                "=>",
+                hit["sentence"]
+            )
+
+
+        for hit in below_hits:
+
+            print(
+                "  [BELOW HIT]",
+                hit["term"],
+                "=>",
+                hit["sentence"]
+            )
+
+
+# =============================================================================
+# 26. DRA TELEMETRY
+# =============================================================================
+
+print("\n")
+print("=" * 120)
+print("DRA TELEMETRİSİ")
+print("=" * 120)
+
+
+print(
+    f"{'ARM':<14}"
+    f"{'COS':>12}"
+    f"{'|COS|':>12}"
+    f"{'CONTRIB':>14}"
+    f"{'ENV':>12}"
+    f"{'BRAKE':>12}"
+)
+
+print("-" * 80)
+
+
+for arm_name in [
+    "ABOVE_IND",
+    "BELOW_IND",
+    "RANDOM"
+]:
+
+    x = SUMMARY[
+        arm_name
+    ]
+
+
+    print(
+        f"{arm_name:<14}"
+        f"{x['mean_cos']:>+12.6f}"
+        f"{x['mean_abs_cos']:>12.6f}"
+        f"{x['mean_contribution']:>14.6f}"
+        f"{x['mean_envelope']:>12.6f}"
+        f"{x['mean_brake']:>12.6f}"
+    )
+
+
+# =============================================================================
+# 27. JSON
+# =============================================================================
+
+print(
+    "\n[7/8] JSON hazırlanıyor..."
+)
+
+
+FINAL = {
+
+    "test":
+        "TEST 104",
+
+    "title":
+        "Relational Measurement Validation",
+
+    "model":
+        MODEL_NAME,
+
+    "seed":
+        SEED,
+
+    "random_seed":
+        RANDOM_SEED,
+
+    "active_layers":
+        ACTIVE_LAYERS,
+
+    "ivme":
+        IVME,
+
+    "sqrt_k":
+        SQRT_K,
+
+    "measurement_note":
+        (
+            "Raw lexical, subject-conditioned, "
+            "subject+reference strict, and deterministic "
+            "relational-window metrics are reported. "
+            "No automatic success threshold is used."
+        ),
+
+    "summary":
+        SUMMARY,
+
+    "delta_summary":
+        DELTA_SUMMARY,
+
+    "prompt_comparison":
+        PROMPT_COMPARISON,
+
+    "full_results":
+        ARMS,
+}
+
+
+OUTPUT_FILE = (
+    "TEST_104_RELATIONAL_MEASUREMENT_VALIDATION.json"
+)
+
+
+with open(
+    OUTPUT_FILE,
+    "w",
+    encoding="utf-8"
+) as f:
+
+    json.dump(
+        FINAL,
+        f,
+        indent=2,
+        ensure_ascii=False
+    )
+
+
+print(
+    "Kaydedildi:",
+    OUTPUT_FILE
+)
+
+
+# =============================================================================
+# 28. FINAL REPORT
+# =============================================================================
+
+print("\n")
+print("=" * 120)
+print("TEST 104 — SON RAPOR")
+print("=" * 120)
+
+
+print(
+    "\nKatmanlar :",
+    ACTIVE_LAYERS
+)
+
+print(
+    "IVME      :",
+    IVME
+)
+
+
+for label, key in METRICS:
+
+    x = (
+        DELTA_SUMMARY[
+            key
+        ]
+    )
+
+
+    print(
+        f"\n{label}"
+    )
+
+    print(
+        f" ABOVE Δ   = "
+        f"{x['above_delta']:+.4f}"
+    )
+
+    print(
+        f" BELOW Δ   = "
+        f"{x['below_delta']:+.4f}"
+    )
+
+    print(
+        f" RANDOM Δ  = "
+        f"{x['random_delta']:+.4f}"
+    )
+
+    print(
+        f" SEP A-B   = "
+        f"{x['separation']:+.4f}"
+    )
+
+
+print("\n")
+print("=" * 120)
+print("TEST 104 TAMAMLANDI")
+print("=" * 120)
+
+print("""
+ANA SORU:
+
+Ham lexical ayrışma daha sıkı ölçümlerde de korunuyor mu?
+
+Özellikle şu dört SEP değerini karşılaştır:
+
+    RAW SEP
+    SUBJECT SEP
+    STRICT SEP
+    RELATION SEP
+
+Eğer yalnızca RAW ayrışıyor, fakat SUBJECT / STRICT / RELATION
+ayrışmıyorsa önceki sinyal büyük ölçüde genel kelime dağılımından
+kaynaklanıyor olabilir.
+
+Eğer ayrışma SUBJECT / STRICT / RELATION seviyelerinde de aynı yönde
+korunuyorsa, hedef özneye bağlı ilişkisel etkinin kanıtı güçlenir.
+
+Bu kod otomatik başarı kararı vermez.
+
+Ana dosya:
+TEST_104_RELATIONAL_MEASUREMENT_VALIDATION.json
+""")
+
+print(
+    "\n[8/8] Bitti."
+)
