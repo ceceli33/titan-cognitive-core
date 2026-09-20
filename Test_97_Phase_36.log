@@ -1,0 +1,298 @@
+ 
+==================================================================================================================================================================================
+TEST 114 — STANDALONE FINAL ARCHITECTURE DECISION TEST
+EXACT ONLINE GEOMETRY-MATCHED RANDOM TRANSPORT CONTROL
+==================================================================================================================================================================================
+
+[1/16] Model yükleniyor...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 77.8kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 940kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 46.5MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 69.2MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 129MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.07MB/s]
+Download complete: : 
+
+ 13.1GB,  253MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  507MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:43<00:00,  7.27s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 99.94it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 29.1kB/s]
+Model             : Qwen/Qwen2.5-7B-Instruct
+Device            : cuda:0
+dtype             : torch.bfloat16
+Layers            : 28
+Vector layers     : 20
+Steering layers   : [10, 11]
+IVME              : 0.1
+SQRT_K            : 4.47213595499958
+Prompts           : 40
+Matched / arm     : 32
+Min +1 tail       : 0.030303030303030304
+
+[2/16] Target tokenlar doğrulanıyor...
+above    | ' above'     | [3403]
+below    | ' below'     | [3685]
+over     | ' over'      | [916]
+under    | ' under'     | [1212]
+
+[3/16] Exact locked A/B vectors çıkarılıyor...
+L10 cos(A,B) = +0.656545
+L11 cos(A,B) = +0.658274
+Vector geometry integrity: PASS
+
+[4/16] Baseline trajectories hesaplanıyor...
+                                                                      
+[5/16] Locked semantic ABOVE / BELOW çalıştırılıyor...
+                                                                      
+[6/16] Exact TEST113 fingerprint doğrulanıyor...
+DDS_AB observed = +0.007351959
+DDS_AB expected = +0.007351959
+Difference       = -2.483215334748e-10
+
+DDS_OU observed = +0.002256775
+DDS_OU expected = +0.002256775
+Difference       = -9.765624984018e-11
+
+Fingerprint integrity: PASS
+
+Semantic reference:
+ABOVE P19=0.924354 | D19=+0.224073 | D27=+0.020593
+BELOW P19=0.912314 | D19=+0.230319 | D27=+0.028491
+
+[7/16] Online geometry matching pre-flight...
+A-matched | max |cos error|=9.765625000e-04 | max |env error|=4.808999042e-05 | max |brake error|=0.000000000e+00
+B-matched | max |cos error|=0.000000000e+00 | max |env error|=0.000000000e+00 | max |brake error|=0.000000000e+00
+Online geometry matching pre-flight: PASS
+
+[8/16] Geometry-matched random null çalıştırılıyor...
+32 A-matched + 32 B-matched
+Toplam steered forward pass = 2560
+                                                                                                    
+[9/16] Full matching integrity...
+A-MATCHED
+  max |cos error|      = 9.765625000e-04
+  max |env error|      = 6.552965159e-05
+  max |brake error|    = 0.000000000e+00
+  mean |contrib rel Δ| = 2.907966755e-04
+B-MATCHED
+  max |cos error|      = 4.882812500e-04
+  max |env error|      = 2.283368235e-05
+  max |brake error|    = 0.000000000e+00
+  mean |contrib rel Δ| = 2.004736251e-04
+
+Full matching integrity: PASS
+
+[10/16] PRIMARY FINAL-DECISION RESULTS
+
+==================================================================================================================================================================================
+SEMANTIC vs ONLINE ALIGNMENT-MATCHED RANDOM — L11 → L19
+==================================================================================================================================================================================
+ARM       METRIC                       SEMANTIC    MATCH MEAN    MATCH SD         MIN         MAX      PCTL      UP +1     LOW +1
+---------------------------------------------------------------------------------------------------------------------------------
+ABOVE     physical_L19                 0.924354      1.019475    0.015853    0.985511    1.049877     0.00%   1.000000   0.030303
+ABOVE     direction_L19                0.224073      0.126473    0.005903    0.116358    0.140786   100.00%   0.030303   1.000000
+BELOW     physical_L19                 0.912314      1.029176    0.016664    0.991868    1.064403     0.00%   1.000000   0.030303
+BELOW     direction_L19                0.230319      0.120930    0.006419    0.106743    0.131727   100.00%   0.030303   1.000000
+
+[11/16] L11 → L27 secondary endpoint...
+
+==================================================================================================================================================================================
+END-OF-NETWORK RAW DIRECTION RETENTION
+==================================================================================================================================================================================
+ABOVE   | semantic=+0.020593 | matched=+0.011466 ± 0.006241 | range=[-0.002699,+0.023215] | pct=93.75% | upper+1=0.090909 | lower+1=0.939394
+BELOW   | semantic=+0.028491 | matched=+0.013441 ± 0.009077 | range=[-0.009511,+0.033735] | pct=96.88% | upper+1=0.060606 | lower+1=0.969697
+
+[12/16] Matched-control replicate table...
+
+==================================================================================================================================================================================
+ONLINE GEOMETRY-MATCHED NULL
+==================================================================================================================================================================================
+R           A P19       A D19       A D27       B P19       B D19       B D27
+-----------------------------------------------------------------------------
+0        1.012056    0.119606   -0.000841    1.033430    0.129239   -0.001268
+1        1.001398    0.126238    0.010869    1.026382    0.119595    0.023840
+2        0.985511    0.123972    0.013930    1.026893    0.112182    0.007831
+3        1.009507    0.127136    0.019221    1.035441    0.107173    0.008140
+4        1.007936    0.120830    0.016873    1.022784    0.119909    0.010145
+5        1.025910    0.137821    0.011848    1.025876    0.126888    0.018494
+6        1.008150    0.140786   -0.002699    1.043072    0.123384    0.019386
+7        1.039393    0.124857    0.011329    1.026149    0.120761    0.003388
+8        1.025200    0.125364    0.018309    1.006175    0.109707    0.008269
+9        1.025827    0.123337    0.023215    1.020834    0.124927    0.033735
+10       1.011274    0.124154    0.020393    1.036308    0.126322    0.016561
+11       1.048792    0.136062    0.006608    1.023873    0.121189    0.014590
+12       1.030632    0.121989    0.021586    1.064403    0.124354    0.014234
+13       1.007810    0.125996    0.018027    1.007241    0.123955    0.012317
+14       1.013652    0.132041    0.004929    1.032763    0.125806    0.021144
+15       1.016454    0.130235    0.013665    1.062218    0.115849   -0.003738
+16       1.047419    0.128372    0.012207    1.045454    0.106743    0.009938
+17       1.023341    0.122759    0.007901    1.028426    0.129289    0.003736
+18       1.047382    0.119284    0.009391    1.046397    0.131727    0.024845
+19       1.003876    0.117042    0.007869    1.013062    0.114826    0.020927
+20       1.018118    0.124250    0.007635    1.027075    0.124234    0.021337
+21       1.012843    0.121349    0.009973    1.027976    0.116281    0.016928
+22       0.998253    0.129970    0.008933    1.057659    0.122396    0.005249
+23       1.005212    0.126734    0.009792    1.023165    0.121365    0.016489
+24       1.029417    0.131178    0.013743    1.012152    0.124372    0.027580
+25       1.049877    0.116358    0.005248    1.052540    0.126043   -0.009511
+26       1.030139    0.118553    0.014602    1.014669    0.125885    0.021299
+27       1.037762    0.126393    0.006738    0.999779    0.127619    0.013226
+28       1.011842    0.129642    0.009401    1.034242    0.112773    0.010502
+29       1.023368    0.135501    0.018395    1.036574    0.114506    0.014989
+30       1.012528    0.126620    0.001193    0.991868    0.116906    0.008926
+31       1.002321    0.132723    0.016623    1.028750    0.123542    0.016597
+
+[13/16] FINAL MOTOR ARCHITECTURE CLASSIFICATION
+
+==================================================================================================================================================================================
+DECISION: SCALAR_COSINE_GEOMETRY_INSUFFICIENT
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Exact online local cosine matching does not reproduce the locked semantic transport profile. AkbasCore 3.0 should retain DRA as the actuator but should NOT use scalar cosine/alignment as the sole controller state. The controller needs richer local directional/subspace/manifold state.
+==================================================================================================================================================================================
+
+ABOVE D19 > all matched controls: True
+BELOW D19 > all matched controls: True
+
+[14/16] JSON hazırlanıyor...
+Kaydedildi: TEST_114_STANDALONE_FINAL_ARCHITECTURE_DECISION.json
+
+[15/16] Final summary...
+
+==================================================================================================================================================================================
+TEST 114 — FINAL SUMMARY
+==================================================================================================================================================================================
+
+FINGERPRINT
+L10 cos(A,B) = +0.656545
+L11 cos(A,B) = +0.658274
+DDS_AB = +0.007351959
+DDS_OU = +0.002256775
+Integrity = PASS
+
+PRIMARY L11 → L19
+ABOVE semantic P19 = 0.924354
+ABOVE matched  P19 = 1.019475 ± 0.015853
+ABOVE semantic D19 = +0.224073
+ABOVE matched  D19 = +0.126473 ± 0.005903
+
+BELOW semantic P19 = 0.912314
+BELOW matched  P19 = 1.029176 ± 0.016664
+BELOW semantic D19 = +0.230319
+BELOW matched  D19 = +0.120930 ± 0.006419
+
+SECONDARY L11 → L27
+ABOVE semantic D27 = +0.020593
+ABOVE matched  D27 = +0.011466 ± 0.006241
+BELOW semantic D27 = +0.028491
+BELOW matched  D27 = +0.013441 ± 0.009077
+
+==================================================================================================================================================================================
+FINAL MOTOR ARCHITECTURE CLASSIFICATION
+==================================================================================================================================================================================
+SCALAR_COSINE_GEOMETRY_INSUFFICIENT
+
+Exact online local cosine matching does not reproduce the locked semantic transport profile. AkbasCore 3.0 should retain DRA as the actuator but should NOT use scalar cosine/alignment as the sole controller state. The controller needs richer local directional/subspace/manifold state.
+
+
+INTERPRETATION LOCK
+-------------------
+
+BRANCH A
+========
+
+IF semantic A and B D19 values are reproduced by their corresponding
+ONLINE geometry-matched random nulls:
+
+    TEST113's semantic/random difference is substantially explained by
+    local hidden-state alignment.
+
+    MOTOR CONSEQUENCE:
+
+        AkbasCore 3.0 can prioritize:
+
+            hidden state
+                 ↓
+            geometric state estimator
+                 ↓
+            G_l(state)
+                 ↓
+            DRA actuator
+
+        without concept-specific semantic labels as the primary
+        controller variable.
+
+
+BRANCH B
+========
+
+IF semantic A and B D19 remain above all corresponding matched controls:
+
+    Matching scalar cosine at the actual intervention point is not enough.
+
+    MOTOR CONSEQUENCE:
+
+        G_l = f(cosine)
+
+    is insufficient.
+
+    AkbasCore 3.0 should instead represent richer local state such as:
+
+        directional subspace position
+        manifold relationship
+        local directional coherence
+        layerwise transport state
+
+    while DRA remains the actuator.
+
+
+MIXED BRANCH
+============
+
+IF A and B split:
+
+    one scalar geometric law does not explain both directions.
+
+    Preserve directional asymmetry in the AkbasCore 3.0 state model.
+
+
+IMPORTANT
+=========
+
+A residual difference does NOT prove that "semantics" itself is causal.
+
+It only rejects the tested scalar local-cosine explanation.
+
+No controller has been trained here.
+No parameter has been tuned from the outcome.
+No feature has been selected post-hoc.
+
+After TEST114, the next engineering step is the AkbasCore 3.0
+controller blueprint corresponding to the observed branch.
+
+[16/16] TEST 114 tamamlandı.
+
