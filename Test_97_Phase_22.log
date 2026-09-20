@@ -1,5 +1,474 @@
-====================================================================================================================================  
-TEST 107 — EXPANDED INDEPENDENT RANDOM NULL  
-====================================================================================================================================  
-  
-[1/13] Model yükleniyor...  
+====================================================================================================================================
+TEST 107 — EXPANDED INDEPENDENT RANDOM NULL
+====================================================================================================================================
+
+[1/13] Model yükleniyor...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 82.6kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 885kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 86.6MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 69.9MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 124MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.17MB/s]Download complete: :  13.1GB,  279MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  441MB/s  Fetching 4 files: 100% 4/4 [00:41<00:00,  7.19s/it]Loading weights: 100% 339/339 [00:03<00:00, 101.56it/s]generation_config.json: 100% 243/243 [00:00<00:00, 30.7kB/s]Model             : Qwen/Qwen2.5-7B-Instruct
+Device            : cuda:0
+dtype             : torch.bfloat16
+Model layers      : 28
+Active layers     : [10, 11]
+Hidden            : 3584
+IVME              : 0.1
+Evaluation prompts: 40
+Random directions : 128
+Independent pairs : 64
+Minimum +1 tail   : 0.015384615
+
+[2/13] Target tokenlar doğrulanıyor...
+above    | ' above'     | ids=[3403]
+below    | ' below'     | ids=[3685]
+over     | ' over'      | ids=[916]
+under    | ' under'     | ids=[1212]
+
+[3/13] Semantik yönler çıkarılıyor...
+ABOVE   : (8, 20, 3584)
+BELOW   : (8, 20, 3584)
+NEUTRAL : (8, 20, 3584)
+
+Semantic geometry:
+L10 | cos(A,B)=+0.656545
+L11 | cos(A,B)=+0.658274
+
+[4/13] 128 bağımsız RANDOM yön oluşturuluyor...
+Mean cos(A,R) = -0.000926
+SD   cos(A,R) = 0.014838
+Mean cos(B,R) = +0.000832
+SD   cos(B,R) = 0.015945
+
+[5/13] BASELINE çalışıyor...
+
+[6/13] ABOVE_IND çalışıyor...
+
+[7/13] BELOW_IND çalışıyor...
+
+[8/13] 128 RANDOM yön çalışıyor...
+RANDOM 001/128 | elapsed=0.0 min | ETA≈2.9 min
+RANDOM 002/128 | elapsed=0.0 min | ETA≈2.8 min
+RANDOM 003/128 | elapsed=0.1 min | ETA≈2.8 min
+RANDOM 004/128 | elapsed=0.1 min | ETA≈2.8 min
+RANDOM 005/128 | elapsed=0.1 min | ETA≈2.8 min
+RANDOM 006/128 | elapsed=0.1 min | ETA≈2.8 min
+RANDOM 007/128 | elapsed=0.2 min | ETA≈2.7 min
+RANDOM 008/128 | elapsed=0.2 min | ETA≈2.7 min
+RANDOM 009/128 | elapsed=0.2 min | ETA≈2.7 min
+RANDOM 010/128 | elapsed=0.2 min | ETA≈2.7 min
+RANDOM 011/128 | elapsed=0.3 min | ETA≈2.7 min
+RANDOM 012/128 | elapsed=0.3 min | ETA≈2.6 min
+RANDOM 013/128 | elapsed=0.3 min | ETA≈2.6 min
+RANDOM 014/128 | elapsed=0.3 min | ETA≈2.6 min
+RANDOM 015/128 | elapsed=0.3 min | ETA≈2.6 min
+RANDOM 016/128 | elapsed=0.4 min | ETA≈2.6 min
+RANDOM 017/128 | elapsed=0.4 min | ETA≈2.5 min
+RANDOM 018/128 | elapsed=0.4 min | ETA≈2.5 min
+RANDOM 019/128 | elapsed=0.4 min | ETA≈2.5 min
+RANDOM 020/128 | elapsed=0.5 min | ETA≈2.5 min
+RANDOM 021/128 | elapsed=0.5 min | ETA≈2.4 min
+RANDOM 022/128 | elapsed=0.5 min | ETA≈2.4 min
+RANDOM 023/128 | elapsed=0.5 min | ETA≈2.4 min
+RANDOM 024/128 | elapsed=0.5 min | ETA≈2.4 min
+RANDOM 025/128 | elapsed=0.6 min | ETA≈2.3 min
+RANDOM 026/128 | elapsed=0.6 min | ETA≈2.3 min
+RANDOM 027/128 | elapsed=0.6 min | ETA≈2.3 min
+RANDOM 028/128 | elapsed=0.6 min | ETA≈2.3 min
+RANDOM 029/128 | elapsed=0.7 min | ETA≈2.3 min
+RANDOM 030/128 | elapsed=0.7 min | ETA≈2.2 min
+RANDOM 031/128 | elapsed=0.7 min | ETA≈2.2 min
+RANDOM 032/128 | elapsed=0.7 min | ETA≈2.2 min
+RANDOM 033/128 | elapsed=0.8 min | ETA≈2.2 min
+RANDOM 034/128 | elapsed=0.8 min | ETA≈2.1 min
+RANDOM 035/128 | elapsed=0.8 min | ETA≈2.1 min
+RANDOM 036/128 | elapsed=0.8 min | ETA≈2.1 min
+RANDOM 037/128 | elapsed=0.8 min | ETA≈2.1 min
+RANDOM 038/128 | elapsed=0.9 min | ETA≈2.1 min
+RANDOM 039/128 | elapsed=0.9 min | ETA≈2.0 min
+RANDOM 040/128 | elapsed=0.9 min | ETA≈2.0 min
+RANDOM 041/128 | elapsed=0.9 min | ETA≈2.0 min
+RANDOM 042/128 | elapsed=1.0 min | ETA≈2.0 min
+RANDOM 043/128 | elapsed=1.0 min | ETA≈1.9 min
+RANDOM 044/128 | elapsed=1.0 min | ETA≈1.9 min
+RANDOM 045/128 | elapsed=1.0 min | ETA≈1.9 min
+RANDOM 046/128 | elapsed=1.0 min | ETA≈1.9 min
+RANDOM 047/128 | elapsed=1.1 min | ETA≈1.8 min
+RANDOM 048/128 | elapsed=1.1 min | ETA≈1.8 min
+RANDOM 049/128 | elapsed=1.1 min | ETA≈1.8 min
+RANDOM 050/128 | elapsed=1.1 min | ETA≈1.8 min
+RANDOM 051/128 | elapsed=1.2 min | ETA≈1.8 min
+RANDOM 052/128 | elapsed=1.2 min | ETA≈1.7 min
+RANDOM 053/128 | elapsed=1.2 min | ETA≈1.7 min
+RANDOM 054/128 | elapsed=1.2 min | ETA≈1.7 min
+RANDOM 055/128 | elapsed=1.3 min | ETA≈1.7 min
+RANDOM 056/128 | elapsed=1.3 min | ETA≈1.6 min
+RANDOM 057/128 | elapsed=1.3 min | ETA≈1.6 min
+RANDOM 058/128 | elapsed=1.3 min | ETA≈1.6 min
+RANDOM 059/128 | elapsed=1.3 min | ETA≈1.6 min
+RANDOM 060/128 | elapsed=1.4 min | ETA≈1.5 min
+RANDOM 061/128 | elapsed=1.4 min | ETA≈1.5 min
+RANDOM 062/128 | elapsed=1.4 min | ETA≈1.5 min
+RANDOM 063/128 | elapsed=1.4 min | ETA≈1.5 min
+RANDOM 064/128 | elapsed=1.5 min | ETA≈1.5 min
+RANDOM 065/128 | elapsed=1.5 min | ETA≈1.4 min
+RANDOM 066/128 | elapsed=1.5 min | ETA≈1.4 min
+RANDOM 067/128 | elapsed=1.5 min | ETA≈1.4 min
+RANDOM 068/128 | elapsed=1.5 min | ETA≈1.4 min
+RANDOM 069/128 | elapsed=1.6 min | ETA≈1.3 min
+RANDOM 070/128 | elapsed=1.6 min | ETA≈1.3 min
+RANDOM 071/128 | elapsed=1.6 min | ETA≈1.3 min
+RANDOM 072/128 | elapsed=1.6 min | ETA≈1.3 min
+RANDOM 073/128 | elapsed=1.7 min | ETA≈1.3 min
+RANDOM 074/128 | elapsed=1.7 min | ETA≈1.2 min
+RANDOM 075/128 | elapsed=1.7 min | ETA≈1.2 min
+RANDOM 076/128 | elapsed=1.7 min | ETA≈1.2 min
+RANDOM 077/128 | elapsed=1.8 min | ETA≈1.2 min
+RANDOM 078/128 | elapsed=1.8 min | ETA≈1.1 min
+RANDOM 079/128 | elapsed=1.8 min | ETA≈1.1 min
+RANDOM 080/128 | elapsed=1.8 min | ETA≈1.1 min
+RANDOM 081/128 | elapsed=1.8 min | ETA≈1.1 min
+RANDOM 082/128 | elapsed=1.9 min | ETA≈1.0 min
+RANDOM 083/128 | elapsed=1.9 min | ETA≈1.0 min
+RANDOM 084/128 | elapsed=1.9 min | ETA≈1.0 min
+RANDOM 085/128 | elapsed=1.9 min | ETA≈1.0 min
+RANDOM 086/128 | elapsed=2.0 min | ETA≈1.0 min
+RANDOM 087/128 | elapsed=2.0 min | ETA≈0.9 min
+RANDOM 088/128 | elapsed=2.0 min | ETA≈0.9 min
+RANDOM 089/128 | elapsed=2.0 min | ETA≈0.9 min
+RANDOM 090/128 | elapsed=2.0 min | ETA≈0.9 min
+RANDOM 091/128 | elapsed=2.1 min | ETA≈0.8 min
+RANDOM 092/128 | elapsed=2.1 min | ETA≈0.8 min
+RANDOM 093/128 | elapsed=2.1 min | ETA≈0.8 min
+RANDOM 094/128 | elapsed=2.1 min | ETA≈0.8 min
+RANDOM 095/128 | elapsed=2.2 min | ETA≈0.7 min
+RANDOM 096/128 | elapsed=2.2 min | ETA≈0.7 min
+RANDOM 097/128 | elapsed=2.2 min | ETA≈0.7 min
+RANDOM 098/128 | elapsed=2.2 min | ETA≈0.7 min
+RANDOM 099/128 | elapsed=2.2 min | ETA≈0.7 min
+RANDOM 100/128 | elapsed=2.3 min | ETA≈0.6 min
+RANDOM 101/128 | elapsed=2.3 min | ETA≈0.6 min
+RANDOM 102/128 | elapsed=2.3 min | ETA≈0.6 min
+RANDOM 103/128 | elapsed=2.3 min | ETA≈0.6 min
+RANDOM 104/128 | elapsed=2.4 min | ETA≈0.5 min
+RANDOM 105/128 | elapsed=2.4 min | ETA≈0.5 min
+RANDOM 106/128 | elapsed=2.4 min | ETA≈0.5 min
+RANDOM 107/128 | elapsed=2.4 min | ETA≈0.5 min
+RANDOM 108/128 | elapsed=2.5 min | ETA≈0.5 min
+RANDOM 109/128 | elapsed=2.5 min | ETA≈0.4 min
+RANDOM 110/128 | elapsed=2.5 min | ETA≈0.4 min
+RANDOM 111/128 | elapsed=2.5 min | ETA≈0.4 min
+RANDOM 112/128 | elapsed=2.5 min | ETA≈0.4 min
+RANDOM 113/128 | elapsed=2.6 min | ETA≈0.3 min
+RANDOM 114/128 | elapsed=2.6 min | ETA≈0.3 min
+RANDOM 115/128 | elapsed=2.6 min | ETA≈0.3 min
+RANDOM 116/128 | elapsed=2.6 min | ETA≈0.3 min
+RANDOM 117/128 | elapsed=2.7 min | ETA≈0.2 min
+RANDOM 118/128 | elapsed=2.7 min | ETA≈0.2 min
+RANDOM 119/128 | elapsed=2.7 min | ETA≈0.2 min
+RANDOM 120/128 | elapsed=2.7 min | ETA≈0.2 min
+RANDOM 121/128 | elapsed=2.7 min | ETA≈0.2 min
+RANDOM 122/128 | elapsed=2.8 min | ETA≈0.1 min
+RANDOM 123/128 | elapsed=2.8 min | ETA≈0.1 min
+RANDOM 124/128 | elapsed=2.8 min | ETA≈0.1 min
+RANDOM 125/128 | elapsed=2.8 min | ETA≈0.1 min
+RANDOM 126/128 | elapsed=2.9 min | ETA≈0.0 min
+RANDOM 127/128 | elapsed=2.9 min | ETA≈0.0 min
+RANDOM 128/128 | elapsed=2.9 min | ETA≈0.0 min
+
+[9/13] Sonuç matrisleri hazırlanıyor...
+RANDOM_AB: (128, 40)
+RANDOM_OU: (128, 40)
+
+=================================================================================================================================================
+PRIMARY A — ABOVE vs BELOW
+=================================================================================================================================================
+ABOVE Δ mean          = -0.000196403
+BELOW Δ mean          = -0.005890380
+Semantic DDS mean     = +0.005693977
+Semantic DDS median   = +0.005854607
+Semantic DDS signs    = +28 / -12 / 0=0
+Bootstrap 95% CI      = [+0.001033124, +0.010392662]
+
+64-PAIR NULL:
+Null mean             = -0.001327983
+Null median           = -0.001008277
+Null SD               = 0.003751742
+Null range            = [-0.008590530, +0.009386474]
+Null >= semantic      = 2/64
+Observed percentile   = 96.88%
+Upper-tail (+1)       = 0.046153846
+Two-sided |x| (+1)    = 0.184615385
+
+=================================================================================================================================================
+PRIMARY B — OVER vs UNDER
+=================================================================================================================================================
+ABOVE Δ mean          = +0.002509961
+BELOW Δ mean          = -0.011940432
+Semantic DDS mean     = +0.014450392
+Semantic DDS median   = +0.014233232
+Semantic DDS signs    = +29 / -11 / 0=0
+Bootstrap 95% CI      = [+0.007059123, +0.021848818]
+
+64-PAIR NULL:
+Null mean             = -0.000553472
+Null median           = -0.001378250
+Null SD               = 0.006159612
+Null range            = [-0.015756324, +0.011435279]
+Null >= semantic      = 0/64
+Observed percentile   = 100.00%
+Upper-tail (+1)       = 0.015384615
+Two-sided |x| (+1)    = 0.030769231
+
+=================================================================================================================================================
+128 RANDOM — BASELINE SHIFT DISTRIBUTION
+=================================================================================================================================================
+
+ABOVE/BELOW AXIS
+Random shift mean     = -0.000734340
+Random shift median   = -0.001296146
+Random shift SD       = 0.002858793
+Random shift range    = [-0.006818992, +0.006653155]
+
+OVER/UNDER AXIS
+Random shift mean     = +0.001234303
+Random shift median   = +0.000970061
+Random shift SD       = 0.003875958
+Random shift range    = [-0.009502330, +0.010131723]
+
+=================================================================================================================================================
+SEMANTIC ARM vs 128 RANDOM BASELINE SHIFTS
+=================================================================================================================================================
+
+ABOVE/BELOW AXIS
+ABOVE observed Δ      = -0.000196403
+ABOVE percentile      = 63.28%
+ABOVE upper-tail +1   = 0.372093023
+
+BELOW observed Δ      = -0.005890380
+BELOW downward percentile = 97.66%
+BELOW downward tail +1    = 0.031007752
+
+OVER/UNDER AXIS
+ABOVE observed Δ      = +0.002509961
+ABOVE percentile      = 64.06%
+ABOVE upper-tail +1   = 0.364341085
+
+BELOW observed Δ      = -0.011940432
+BELOW downward percentile = 100.00%
+BELOW downward tail +1    = 0.007751938
+
+=================================================================================================================================================
+DRA TELEMETRY
+=================================================================================================================================================
+ARM                        COS         |COS|       CONTRIB           ENV         BRAKE
+------------------------------------------------------------------------------------------
+ABOVE_IND            +0.101776      0.101776      0.302515      0.253278      1.000000
+BELOW_IND            +0.045430      0.046190      0.298755      0.250286      1.000000
+RANDOM x128          +0.000301      0.013683      0.297134      0.248900      1.000000
+
+=================================================================================================================================================
+64 LOCKED RANDOM-RANDOM PAIRS
+=================================================================================================================================================
+PAIR         R-A     R-B            AB DDS            OU DDS
+-----------------------------------------------------------------
+1              1       2      -0.000703873      +0.002335101
+2              3       4      -0.001153590      -0.008029738
+3              5       6      -0.003793991      -0.000195086
+4              7       8      -0.000217085      +0.002086458
+5              9      10      -0.002990091      -0.010466942
+6             11      12      -0.001775751      +0.008391908
+7             13      14      -0.008516949      -0.001490992
+8             15      16      -0.003813925      -0.009077370
+9             17      18      -0.007595961      +0.001297197
+10            19      20      -0.004393521      -0.011107448
+11            21      22      -0.001562041      -0.001618692
+12            23      24      -0.000121269      -0.003738621
+13            25      26      +0.003232972      -0.001621708
+14            27      28      +0.000317079      -0.006052116
+15            29      30      +0.001478679      +0.000590330
+16            31      32      -0.006796634      -0.013343263
+17            33      34      +0.001906480      +0.006359431
+18            35      36      -0.000724687      +0.011435279
+19            37      38      -0.003086449      +0.002137619
+20            39      40      -0.002810867      -0.002047342
+21            41      42      -0.000945604      -0.007423738
+22            43      44      -0.006110209      -0.003575167
+23            45      46      +0.001676130      -0.006642801
+24            47      48      -0.003189559      +0.006162032
+25            49      50      +0.005910297      +0.001071769
+26            51      52      +0.001468532      -0.001265508
+27            53      54      -0.005914310      +0.004256833
+28            55      56      -0.003164341      +0.001798433
+29            57      58      -0.002693166      +0.000173724
+30            59      60      -0.000075880      +0.005732310
+31            61      62      +0.000751926      -0.002190703
+32            63      64      -0.003688672      -0.001861519
+33            65      66      +0.001832576      +0.006521842
+34            67      68      +0.002339862      +0.007171893
+35            69      70      -0.001299421      -0.001012978
+36            71      72      +0.000867806      -0.003299612
+37            73      74      +0.000382566      +0.003315616
+38            75      76      +0.001095863      +0.003600734
+39            77      78      +0.004259618      +0.009417355
+40            79      80      -0.004072131      -0.001737446
+41            81      82      -0.004707001      -0.002409559
+42            83      84      +0.001509908      -0.004853186
+43            85      86      -0.001070949      +0.004254350
+44            87      88      -0.005596608      -0.010365692
+45            89      90      -0.002835827      -0.006576261
+46            91      92      -0.006947547      -0.002551544
+47            93      94      +0.001938544      +0.004656968
+48            95      96      +0.003689358      -0.002550718
+49            97      98      +0.002382059      -0.004605994
+50            99     100      -0.005694170      +0.006943807
+51           101     102      +0.002963418      +0.003039786
+52           103     104      -0.005187578      +0.009255964
+53           105     106      +0.003198366      -0.002052218
+54           107     108      -0.002961540      -0.003802964
+55           109     110      +0.003433576      +0.006120077
+56           111     112      +0.002553895      +0.008209723
+57           113     114      -0.000906214      -0.002000064
+58           115     116      -0.008590530      -0.008885679
+59           117     118      -0.000653115      -0.005176502
+60           119     120      -0.003879450      -0.015756324
+61           121     122      +0.009386474      +0.005664283
+62           123     124      -0.005430159      +0.001222199
+63           125     126      +0.000611679      +0.009916994
+64           127     128      -0.008507928      -0.009176716
+
+=================================================================================================================================================
+PROMPT-LEVEL SEMANTIC DDS
+=================================================================================================================================================
+P                 AB DDS            OU DDS
+---------------------------------------------
+1           +0.020134926      +0.021516800
+2           +0.009946346      +0.014039278
+3           +0.002355576      -0.007402420
+4           +0.003140450      +0.001254082
+5           +0.015006065      +0.027238846
+6           +0.024101257      +0.039174080
+7           +0.006266594      +0.038172722
+8           -0.005874157      -0.005171776
+9           +0.020734787      +0.061313629
+10          +0.002914429      -0.000935555
+11          -0.005821228      -0.033323288
+12          -0.004372597      +0.007736683
+13          +0.026342869      +0.001168728
+14          -0.006624222      +0.006002426
+15          +0.001240730      -0.010751724
+16          +0.014180183      +0.051953316
+17          +0.014160156      +0.050104141
+18          -0.013743401      +0.043707848
+19          +0.003455639      +0.032097340
+20          +0.005163193      +0.051614761
+21          -0.013548851      +0.012633324
+22          +0.020970345      +0.037194729
+23          -0.000502586      +0.018875122
+24          -0.016857147      +0.018494606
+25          +0.019598007      +0.023600578
+26          +0.015357196      +0.000986457
+27          +0.006164551      +0.014427185
+28          +0.029095650      -0.008484364
+29          +0.009305477      +0.001337528
+30          +0.044844627      +0.022504807
+31          +0.021847725      +0.055130005
+32          +0.005544662      -0.005777359
+33          -0.024817467      -0.045639515
+34          -0.001226425      +0.019843102
+35          +0.010478973      +0.028921127
+36          -0.023747444      -0.016877174
+37          +0.007906914      +0.013159037
+38          +0.009722710      +0.016377449
+39          -0.026448250      -0.013347626
+40          +0.001362801      -0.004853249
+
+[10/13] JSON hazırlanıyor...
+Kaydedildi: TEST_107_EXPANDED_RANDOM_NULL.json
+
+=================================================================================================================================================
+TEST 107 — FINAL SUMMARY
+=================================================================================================================================================
+
+PRIMARY A — ABOVE/BELOW
+Semantic DDS          = +0.005693977
+Median                = +0.005854607
+Bootstrap 95% CI      = [+0.001033124, +0.010392662]
+Null >= semantic      = 2/64
+Percentile            = 96.88%
+Upper-tail (+1)       = 0.046153846
+
+PRIMARY B — OVER/UNDER
+Semantic DDS          = +0.014450392
+Median                = +0.014233232
+Bootstrap 95% CI      = [+0.007059123, +0.021848818]
+Null >= semantic      = 0/64
+Percentile            = 100.00%
+Upper-tail (+1)       = 0.015384615
+
+RANDOM NULL RESOLUTION
+Random directions     = 128
+Independent pairs     = 64
+Minimum +1 fraction   = 0.015384615
+
+=================================================================================================================================================
+YORUM KURALI
+=================================================================================================================================================
+
+Bu testte motor, katman, doz, semantic training seti,
+40 evaluation promptu ve readout yöntemi değiştirilmemiştir.
+
+Değişen temel deneysel unsur random-null çözünürlüğüdür:
+
+    TEST 106:
+        32 random
+        16 independent pairs
+
+    TEST 107:
+        128 random
+        64 independent pairs
+
+
+İki readout analizden ÖNCE kilitlidir:
+
+    PRIMARY A = above / below
+    PRIMARY B = over / under
+
+
+Özellikle raporlanacak gerçek sayılar:
+
+1. Semantic DDS.
+
+2. 64 random-pair null mean dağılımı.
+
+3. Kaç random-pair mean değerinin semantic DDS'ye
+   eşit veya daha büyük olduğu.
+
+4. Empirical percentile.
+
+5. (+1)-corrected upper-tail fraction.
+
+6. Prompt-level paired bootstrap CI.
+
+7. ABOVE ve BELOW kollarının 128 random baseline-shift
+   dağılımındaki konumları.
+
+8. DRA contribution değerleri.
+
+9. Brake'ın gerçekten devreye girip girmediği.
+
+
+Önemli:
+
+Empirical upper-tail fraction doğrudan klasik parametrik
+p-value olarak adlandırılmamalıdır.
+
+Bootstrap CI de 40 promptun tamamen bağımsız doğal örnekler
+olduğu anlamına gelmez; promptlar kontrollü paraphrase setidir.
+
+Brake ≈ 1 kalırsa TEST 107 brake mekanizmasının kanıtı değildir.
+
+Ana çıktı:
+TEST_107_EXPANDED_RANDOM_NULL.json
+
+[11/13] Semantic ve null analizleri tamamlandı.
+[12/13] JSON kaydedildi.
+[13/13] Bitti.
