@@ -1,0 +1,2356 @@
+# =============================================================================
+# TEST 105 — DIRECT DIRECTIONAL LOGIT MARGIN (DLM)
+# =============================================================================
+#
+# Qwen/Qwen2.5-7B-Instruct · AkbasCore DRA
+#
+# AMAÇ
+# ----
+# TEST 104 şunu gösterdi:
+#
+#   RAW lexical ayrışma güçlüydü:
+#       ABOVE Δ  = +0.375
+#       BELOW Δ  = -0.375
+#       SEP      = +0.750
+#
+#   fakat daha sıkı serbest-metin ilişkisel ölçümlerde ayrışma çöktü.
+#
+# Bunun nedeni:
+#   "sky above him"
+#   "waters below"
+#   "Mustafa beneath the bridge"
+#
+# gibi farklı ilişkilerin keyword/parser ölçümünde birbirine karışmasıydı.
+#
+# TEST 105 serbest metin üretimini ana ölçümden çıkarır.
+#
+# Model doğrudan şu kontrollü ilişkiyi tamamlar:
+#
+#       "Mustafa is ___ the bridge."
+#
+# ve karar sınırını ölçer:
+#
+#       DLM = log P(ABOVE) - log P(BELOW)
+#
+#
+# ANA KOLLAR
+# ----------
+# BASELINE
+# ABOVE_IND
+# BELOW_IND
+# RANDOM
+#
+#
+# SABİT TUTULANLAR
+# ----------------
+# Model          : Qwen/Qwen2.5-7B-Instruct
+# Active layers  : L10 + L11
+# IVME           : 0.10
+# SQRT_K         : sqrt(20)
+# Extraction     : last non-padding token
+# DRA            : TEST 104 ile aynı
+# Random seed    : TEST 103/104 ile aynı
+#
+#
+# ANA ÖLÇÜM
+# ---------
+#
+# Her prompt için:
+#
+#   DLM_above_below =
+#
+#       log P(" above" | prompt)
+#       -
+#       log P(" below" | prompt)
+#
+#
+# Pozitif DLM -> ABOVE tarafına tercih
+# Negatif DLM -> BELOW tarafına tercih
+#
+#
+# BASELINE'A GÖRE:
+#
+#   ΔA = DLM_ABOVE_IND - DLM_BASELINE
+#   ΔB = DLM_BELOW_IND - DLM_BASELINE
+#   ΔR = DLM_RANDOM    - DLM_BASELINE
+#
+#
+# ANA ÇİFT YÖNLÜ AYRIŞMA:
+#
+#   DDS = ΔA - ΔB
+#
+# cebirsel olarak:
+#
+#   DDS = DLM_ABOVE_IND - DLM_BELOW_IND
+#
+#
+# DDS > 0 otomatik "başarı" ilanı değildir.
+# Eşik kullanılmaz.
+#
+#
+# ÇAPRAZ SÖZLÜK KONTROLÜ
+# ----------------------
+# Aynı hidden-state müdahalesi ayrıca:
+#
+#       " over" vs " under"
+#
+# tokenlarına da bakar.
+#
+# Amaç:
+# Etki yalnızca eğitimde doğrudan kullanılan ABOVE/BELOW kelimelerine mi
+# bağlı, yoksa yakın uzamsal sözcüklere de taşıyor mu?
+#
+#
+# ÖNEMLİ:
+# --------
+# Bu deney "Mustafa gerçekten fiziksel olarak köprünün üstüne taşındı"
+# iddiasını tek başına kanıtlamaz.
+#
+# Ölçtüğü şey daha temizdir:
+#
+#   DRA müdahalesi kontrollü bağlamda modelin ABOVE-vs-BELOW
+#   token karar sınırını hangi yöne ve ne kadar kaydırıyor?
+#
+#
+# OTOMATİK BAŞARI / BAŞARISIZLIK KARARI YOKTUR.
+# =============================================================================
+
+
+# =============================================================================
+# 0. IMPORT
+# =============================================================================
+
+import json
+import math
+import random
+import statistics
+
+import numpy as np
+import torch
+
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+
+# =============================================================================
+# 1. CONFIG
+# =============================================================================
+
+MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 42
+RANDOM_SEED = 20260920
+
+N_LAYERS = 20
+HIDDEN = 3584
+
+ACTIVE_LAYERS = [10, 11]
+
+IVME = 0.10
+
+# TEST 103/104 scaling aynen korunuyor.
+SQRT_K = math.sqrt(N_LAYERS)
+
+
+# DRA
+SONUM = 0.30
+ZIRVE = 0.70
+TABAN = 0.20
+
+COS_BRAKE_HIGH = 0.75
+COS_BRAKE_LOW = -0.40
+
+BRAKE_HIGH_DENOM = 0.25
+BRAKE_LOW_GAIN = 1.60
+
+
+# =============================================================================
+# 2. DETERMINISM
+# =============================================================================
+
+def set_seed(seed):
+
+    random.seed(seed)
+    np.random.seed(seed)
+
+    torch.manual_seed(seed)
+
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+set_seed(SEED)
+
+
+# =============================================================================
+# 3. VECTOR EXTRACTION DATA — TEST 104 İLE AYNI
+# =============================================================================
+
+ABOVE_TRAIN = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+
+BELOW_TRAIN = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+
+NEUTRAL_TRAIN = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 4. CONTROLLED EVALUATION PROMPTS
+# =============================================================================
+#
+# Kritik tasarım:
+#
+# Promptların sonunda doğrudan bir uzamsal boşluk bırakılıyor.
+#
+# Modelden uzun metin üretmesi istenmiyor.
+# Sadece sıradaki token dağılımı okunuyor.
+#
+# Cümlelerin kendisinde:
+#
+#   above
+#   below
+#   over
+#   under
+#
+# kelimeleri kullanılmıyor.
+#
+# Böylece hedef kelimelerin prompt içinde doğrudan prime edilmesi önleniyor.
+#
+# 40 farklı kontrollü bağlam.
+#
+# =============================================================================
+
+EVAL_PROMPTS = [
+
+    "Mustafa Dibekgoz is positioned vertically relative to the suspension bridge. Mustafa is",
+
+    "A suspension bridge is the reference structure. Mustafa Dibekgoz is",
+
+    "Mustafa Dibekgoz and a suspension bridge occupy different vertical positions. Relative to the bridge, Mustafa is",
+
+    "Consider the vertical location of Mustafa Dibekgoz with respect to a large bridge. Mustafa is",
+
+    "The bridge provides the spatial reference point for Mustafa Dibekgoz. In vertical position, Mustafa is",
+
+    "Mustafa Dibekgoz can be located at a different height from the bridge deck. Relative to the bridge, he is",
+
+    "A large suspension bridge stands nearby and Mustafa Dibekgoz has a vertical position relative to it. He is",
+
+    "The scene contains Mustafa Dibekgoz and a bridge at different possible heights. Mustafa is",
+
+    "Use the bridge as the reference object and consider Mustafa Dibekgoz's vertical location. Mustafa is",
+
+    "Mustafa Dibekgoz has a spatial relationship to the suspension bridge in the vertical dimension. He is",
+
+
+    "A traveler named Mustafa Dibekgoz is positioned relative to a bridge. In terms of height, he is",
+
+    "The suspension bridge serves as a landmark for describing Mustafa Dibekgoz's vertical position. Mustafa is",
+
+    "Imagine Mustafa Dibekgoz and a large bridge in the same scene. Relative to the bridge structure, Mustafa is",
+
+    "Mustafa Dibekgoz occupies a location in relation to the bridge deck. Vertically, he is",
+
+    "A bridge deck provides a reference height. Mustafa Dibekgoz is",
+
+    "Consider only the vertical relation between Mustafa Dibekgoz and the bridge. Mustafa is",
+
+    "The scene requires describing where Mustafa Dibekgoz is relative to a suspension bridge. Vertically he is",
+
+    "Mustafa Dibekgoz is somewhere in relation to the bridge structure. With respect to vertical position, he is",
+
+    "Take the suspension bridge as the reference level. Mustafa Dibekgoz is",
+
+    "Relative height is being described between Mustafa Dibekgoz and a bridge. Mustafa is",
+
+
+    "Mustafa Dibekgoz appears in a scene containing a tall bridge. His vertical position relative to the bridge is",
+
+    "A large bridge and Mustafa Dibekgoz are visible in the same scene. In vertical relation to the bridge, he is",
+
+    "The question concerns only where Mustafa Dibekgoz lies in the vertical dimension relative to a bridge. He is",
+
+    "Mustafa Dibekgoz is near a suspension bridge, and his height relationship to the structure can be described as",
+
+    "Use the suspension bridge as the spatial reference. Mustafa Dibekgoz's vertical location is",
+
+    "The bridge deck defines a reference level in the scene. Mustafa Dibekgoz is",
+
+    "Mustafa Dibekgoz is placed somewhere relative to the height of a large bridge. He is",
+
+    "A suspension bridge establishes the reference height. Relative to that structure, Mustafa Dibekgoz is",
+
+    "The spatial question is about Mustafa Dibekgoz and the bridge in the vertical axis. Mustafa is",
+
+    "Describe only the vertical relation of Mustafa Dibekgoz to the bridge. Mustafa is",
+
+
+    "Mustafa Dibekgoz and a bridge are arranged at different possible elevations. Relative to the bridge, Mustafa is",
+
+    "The reference object is a suspension bridge and the target person is Mustafa Dibekgoz. Vertically, the target is",
+
+    "A bridge is used to define the reference level for Mustafa Dibekgoz. The person is",
+
+    "Consider the relative elevation of Mustafa Dibekgoz with respect to a bridge. Mustafa is",
+
+    "Mustafa Dibekgoz has a location along the vertical axis when compared with a suspension bridge. He is",
+
+    "The task is to characterize Mustafa Dibekgoz's vertical relation to a large bridge. He is",
+
+    "A large suspension bridge defines the spatial reference in this scene. Mustafa Dibekgoz is",
+
+    "Mustafa Dibekgoz is the target and the bridge is the reference object. In the vertical dimension, the target is",
+
+    "The scene asks for the relative vertical position of Mustafa Dibekgoz and a suspension bridge. Mustafa is",
+
+    "With the bridge treated as the reference structure, Mustafa Dibekgoz's vertical position is",
+]
+
+
+# =============================================================================
+# 5. BASIC HELPERS
+# =============================================================================
+
+def normalize_np(v, eps=1e-12):
+
+    v = np.asarray(
+        v,
+        dtype=np.float32
+    )
+
+    n = np.linalg.norm(v)
+
+    if n < eps:
+        return v.copy()
+
+    return v / n
+
+
+def cosine_np(a, b, eps=1e-12):
+
+    a = np.asarray(
+        a,
+        dtype=np.float32
+    )
+
+    b = np.asarray(
+        b,
+        dtype=np.float32
+    )
+
+    na = np.linalg.norm(a)
+    nb = np.linalg.norm(b)
+
+    if na < eps or nb < eps:
+        return 0.0
+
+    return float(
+        np.dot(a, b)
+        /
+        (na * nb)
+    )
+
+
+def mean_or_zero(values):
+
+    if not values:
+        return 0.0
+
+    return float(
+        np.mean(values)
+    )
+
+
+def median_or_zero(values):
+
+    if not values:
+        return 0.0
+
+    return float(
+        np.median(values)
+    )
+
+
+def std_or_zero(values):
+
+    if len(values) < 2:
+        return 0.0
+
+    return float(
+        np.std(
+            values,
+            ddof=1
+        )
+    )
+
+
+# =============================================================================
+# 6. LOAD MODEL
+# =============================================================================
+
+print("\n" + "=" * 120)
+print("TEST 105 — DIRECT DIRECTIONAL LOGIT MARGIN")
+print("=" * 120)
+
+print("\n[1/9] Model yükleniyor...")
+
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_NAME,
+    trust_remote_code=True
+)
+
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_NAME,
+    dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True,
+)
+
+
+model.eval()
+
+
+print("Model        :", MODEL_NAME)
+print("Device       :", model.device)
+print("dtype        :", next(model.parameters()).dtype)
+print("Model layers :", len(model.model.layers))
+print("Test layers  :", ACTIVE_LAYERS)
+print("Hidden       :", HIDDEN)
+print("IVME         :", IVME)
+print("Eval prompts :", len(EVAL_PROMPTS))
+
+
+# =============================================================================
+# 7. VERIFY TARGET TOKENS
+# =============================================================================
+#
+# Qwen tokenizer'da hedeflerin tek token olup olmadığını açıkça kontrol ediyoruz.
+#
+# Ana adaylar:
+#
+#   " above"
+#   " below"
+#
+# Çapraz kontrol:
+#
+#   " over"
+#   " under"
+#
+# Eğer herhangi biri tek token değilse test DURUR.
+# Çünkü burada doğrudan next-token logit farkı ölçüyoruz.
+#
+# =============================================================================
+
+print("\n[2/9] Hedef tokenlar doğrulanıyor...")
+
+
+TARGET_STRINGS = {
+    "above": " above",
+    "below": " below",
+    "over":  " over",
+    "under": " under",
+}
+
+
+TARGET_IDS = {}
+
+
+for name, text in TARGET_STRINGS.items():
+
+    ids = tokenizer.encode(
+        text,
+        add_special_tokens=False
+    )
+
+    print(
+        f"{name:<8} | "
+        f"{repr(text):<12} | "
+        f"ids={ids} | "
+        f"decoded={repr(tokenizer.decode(ids))}"
+    )
+
+    if len(ids) != 1:
+
+        raise RuntimeError(
+            f"\n{name} hedefi tek token değil: {ids}\n"
+            "TEST 105 doğrudan next-token logit ölçümü yaptığı için "
+            "bu tokenizer altında test burada durduruldu."
+        )
+
+    TARGET_IDS[name] = ids[0]
+
+
+print("\nToken IDs:")
+print(TARGET_IDS)
+
+
+# =============================================================================
+# 8. ACTIVATION EXTRACTION
+# =============================================================================
+#
+# TEST 104 ile karşılaştırılabilirlik için:
+#
+#   LAST NON-PADDING TOKEN
+#
+# aynen korunuyor.
+#
+# =============================================================================
+
+@torch.no_grad()
+def extract_layerwise_activations(
+    texts,
+    max_length=128
+):
+
+    encoded = tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=max_length,
+    )
+
+
+    input_ids = (
+        encoded["input_ids"]
+        .to(model.device)
+    )
+
+    attention_mask = (
+        encoded["attention_mask"]
+        .to(model.device)
+    )
+
+
+    captured = [
+        None
+        for _ in range(N_LAYERS)
+    ]
+
+
+    handles = []
+
+
+    def make_hook(layer_idx):
+
+        def hook(
+            module,
+            inputs,
+            output
+        ):
+
+            hidden = (
+                output[0]
+                if isinstance(output, tuple)
+                else output
+            )
+
+            captured[layer_idx] = (
+                hidden.detach()
+            )
+
+        return hook
+
+
+    for layer_idx in range(N_LAYERS):
+
+        handle = (
+            model.model.layers[
+                layer_idx
+            ].register_forward_hook(
+                make_hook(layer_idx)
+            )
+        )
+
+        handles.append(handle)
+
+
+    _ = model(
+        input_ids=input_ids,
+        attention_mask=attention_mask,
+        use_cache=False,
+    )
+
+
+    for handle in handles:
+        handle.remove()
+
+
+    lengths = (
+        attention_mask
+        .sum(dim=1)
+        .cpu()
+        .numpy()
+    )
+
+
+    result = np.zeros(
+        (
+            len(texts),
+            N_LAYERS,
+            HIDDEN
+        ),
+        dtype=np.float32
+    )
+
+
+    for layer_idx in range(N_LAYERS):
+
+        hidden = (
+            captured[layer_idx]
+            .float()
+            .cpu()
+            .numpy()
+        )
+
+
+        for sample_idx in range(
+            len(texts)
+        ):
+
+            last_idx = (
+                int(
+                    lengths[sample_idx]
+                )
+                - 1
+            )
+
+
+            result[
+                sample_idx,
+                layer_idx
+            ] = hidden[
+                sample_idx,
+                last_idx
+            ]
+
+
+    return result
+
+
+# =============================================================================
+# 9. BUILD ABOVE / BELOW DIRECTIONS
+# =============================================================================
+
+print(
+    "\n[3/9] ABOVE / BELOW / NEUTRAL "
+    "aktivasyonları çıkarılıyor..."
+)
+
+
+ACT_ABOVE = extract_layerwise_activations(
+    ABOVE_TRAIN
+)
+
+ACT_BELOW = extract_layerwise_activations(
+    BELOW_TRAIN
+)
+
+ACT_NEUTRAL = extract_layerwise_activations(
+    NEUTRAL_TRAIN
+)
+
+
+print("ABOVE   :", ACT_ABOVE.shape)
+print("BELOW   :", ACT_BELOW.shape)
+print("NEUTRAL :", ACT_NEUTRAL.shape)
+
+
+MEAN_ABOVE = ACT_ABOVE.mean(
+    axis=0
+)
+
+MEAN_BELOW = ACT_BELOW.mean(
+    axis=0
+)
+
+MEAN_NEUTRAL = ACT_NEUTRAL.mean(
+    axis=0
+)
+
+
+IND_ABOVE = (
+    MEAN_ABOVE
+    - MEAN_NEUTRAL
+).astype(np.float32)
+
+
+IND_BELOW = (
+    MEAN_BELOW
+    - MEAN_NEUTRAL
+).astype(np.float32)
+
+
+for layer_idx in range(N_LAYERS):
+
+    IND_ABOVE[layer_idx] = normalize_np(
+        IND_ABOVE[layer_idx]
+    )
+
+    IND_BELOW[layer_idx] = normalize_np(
+        IND_BELOW[layer_idx]
+    )
+
+
+# =============================================================================
+# 10. RANDOM CONTROL
+# =============================================================================
+
+print(
+    "\n[4/9] RANDOM kontrol yönü oluşturuluyor..."
+)
+
+
+rng = np.random.default_rng(
+    RANDOM_SEED
+)
+
+
+RANDOM_VECTOR = (
+    rng.standard_normal(
+        (
+            N_LAYERS,
+            HIDDEN
+        )
+    )
+    .astype(np.float32)
+)
+
+
+for layer_idx in range(N_LAYERS):
+
+    RANDOM_VECTOR[layer_idx] = normalize_np(
+        RANDOM_VECTOR[layer_idx]
+    )
+
+
+print("\nGeometrik kontrol:")
+
+
+for layer_idx in ACTIVE_LAYERS:
+
+    print(
+        f"L{layer_idx:02d} | "
+        f"cos(A,B)="
+        f"{cosine_np(IND_ABOVE[layer_idx], IND_BELOW[layer_idx]):+.6f} | "
+        f"cos(A,R)="
+        f"{cosine_np(IND_ABOVE[layer_idx], RANDOM_VECTOR[layer_idx]):+.6f} | "
+        f"cos(B,R)="
+        f"{cosine_np(IND_BELOW[layer_idx], RANDOM_VECTOR[layer_idx]):+.6f}"
+    )
+
+
+# =============================================================================
+# 11. DRA
+# =============================================================================
+
+def dra_parameters(
+    cosine_value,
+    layer_idx
+):
+
+    uncertainty = (
+        1.0
+        - abs(cosine_value)
+    )
+
+
+    dw = (
+        SONUM
+        + uncertainty * 0.20
+    )
+
+
+    t = float(
+        layer_idx
+    )
+
+
+    kb = (
+        ZIRVE
+        * math.exp(
+            -dw * t
+        )
+        * (
+            1.0
+            + dw * t
+        )
+        + TABAN
+    )
+
+
+    envelope = (
+        kb
+        /
+        (
+            ZIRVE
+            + TABAN
+        )
+    )
+
+
+    if cosine_value > COS_BRAKE_HIGH:
+
+        brake = (
+            (1.0 - cosine_value)
+            /
+            BRAKE_HIGH_DENOM
+        )
+
+
+    elif cosine_value < COS_BRAKE_LOW:
+
+        brake = BRAKE_LOW_GAIN
+
+
+    else:
+
+        brake = 1.0
+
+
+    return (
+        envelope,
+        brake
+    )
+
+
+# =============================================================================
+# 12. GET LAST-TOKEN LOGITS — BASELINE
+# =============================================================================
+
+@torch.no_grad()
+def baseline_logits(prompt):
+
+    encoded = tokenizer(
+        prompt,
+        return_tensors="pt"
+    ).to(model.device)
+
+
+    outputs = model(
+        **encoded,
+        use_cache=False,
+    )
+
+
+    logits = (
+        outputs.logits[
+            0,
+            -1,
+            :
+        ]
+        .float()
+    )
+
+
+    return logits
+
+
+# =============================================================================
+# 13. GET LAST-TOKEN LOGITS — STEERED
+# =============================================================================
+
+@torch.no_grad()
+def steered_logits(
+    prompt,
+    vectors
+):
+
+    handles = []
+
+
+    telemetry = {
+        "cos": [],
+        "abs_cos": [],
+        "contribution": [],
+        "envelope": [],
+        "brake": [],
+        "hook_steps": 0,
+    }
+
+
+    def make_hook(layer_idx):
+
+        def hook(
+            module,
+            inputs,
+            output
+        ):
+
+            hidden = (
+                output[0]
+                if isinstance(output, tuple)
+                else output
+            )
+
+
+            # Vector doğrudan hidden tensor'ın device/dtype'ına taşınır.
+            vector = torch.as_tensor(
+                vectors[layer_idx],
+                device=hidden.device,
+                dtype=hidden.dtype
+            ).unsqueeze(0)
+
+
+            h = hidden[
+                :,
+                -1,
+                :
+            ]
+
+
+            h_norm = torch.linalg.norm(
+                h,
+                dim=-1,
+                keepdim=True
+            )
+
+
+            v_norm = torch.linalg.norm(
+                vector,
+                dim=-1,
+                keepdim=True
+            )
+
+
+            cosine = (
+                torch.sum(
+                    h * vector,
+                    dim=-1,
+                    keepdim=True
+                )
+                /
+                (
+                    h_norm
+                    * v_norm
+                    + 1e-12
+                )
+            )
+
+
+            cosine_value = float(
+                cosine.mean()
+                .detach()
+                .cpu()
+            )
+
+
+            envelope, brake = (
+                dra_parameters(
+                    cosine_value,
+                    layer_idx
+                )
+            )
+
+
+            contribution = (
+                IVME
+                * h_norm
+                / SQRT_K
+                * envelope
+                * brake
+            )
+
+
+            delta = (
+                contribution
+                * vector
+            )
+
+
+            hidden_new = hidden.clone()
+
+
+            hidden_new[
+                :,
+                -1,
+                :
+            ] = (
+                hidden_new[
+                    :,
+                    -1,
+                    :
+                ]
+                + delta
+            )
+
+
+            telemetry[
+                "cos"
+            ].append(
+                cosine_value
+            )
+
+
+            telemetry[
+                "abs_cos"
+            ].append(
+                abs(cosine_value)
+            )
+
+
+            telemetry[
+                "contribution"
+            ].append(
+                float(
+                    contribution
+                    .mean()
+                    .detach()
+                    .cpu()
+                )
+            )
+
+
+            telemetry[
+                "envelope"
+            ].append(
+                float(envelope)
+            )
+
+
+            telemetry[
+                "brake"
+            ].append(
+                float(brake)
+            )
+
+
+            telemetry[
+                "hook_steps"
+            ] += 1
+
+
+            if isinstance(output, tuple):
+
+                return (
+                    hidden_new,
+                    *output[1:]
+                )
+
+            return hidden_new
+
+
+        return hook
+
+
+    for layer_idx in ACTIVE_LAYERS:
+
+        handles.append(
+            model.model.layers[
+                layer_idx
+            ].register_forward_hook(
+                make_hook(layer_idx)
+            )
+        )
+
+
+    try:
+
+        encoded = tokenizer(
+            prompt,
+            return_tensors="pt"
+        ).to(model.device)
+
+
+        outputs = model(
+            **encoded,
+            use_cache=False,
+        )
+
+
+        logits = (
+            outputs.logits[
+                0,
+                -1,
+                :
+            ]
+            .float()
+        )
+
+
+    finally:
+
+        for handle in handles:
+            handle.remove()
+
+
+    summary = {
+        "mean_cos":
+            mean_or_zero(
+                telemetry["cos"]
+            ),
+
+        "mean_abs_cos":
+            mean_or_zero(
+                telemetry["abs_cos"]
+            ),
+
+        "mean_contribution":
+            mean_or_zero(
+                telemetry["contribution"]
+            ),
+
+        "mean_envelope":
+            mean_or_zero(
+                telemetry["envelope"]
+            ),
+
+        "mean_brake":
+            mean_or_zero(
+                telemetry["brake"]
+            ),
+
+        "hook_steps":
+            int(
+                telemetry["hook_steps"]
+            ),
+    }
+
+
+    return (
+        logits,
+        summary
+    )
+
+
+# =============================================================================
+# 14. LOG-PROB / DLM MEASUREMENT
+# =============================================================================
+
+def measure_logits(logits):
+
+    log_probs = torch.log_softmax(
+        logits,
+        dim=-1
+    )
+
+
+    lp_above = float(
+        log_probs[
+            TARGET_IDS["above"]
+        ]
+        .detach()
+        .cpu()
+    )
+
+
+    lp_below = float(
+        log_probs[
+            TARGET_IDS["below"]
+        ]
+        .detach()
+        .cpu()
+    )
+
+
+    lp_over = float(
+        log_probs[
+            TARGET_IDS["over"]
+        ]
+        .detach()
+        .cpu()
+    )
+
+
+    lp_under = float(
+        log_probs[
+            TARGET_IDS["under"]
+        ]
+        .detach()
+        .cpu()
+    )
+
+
+    dlm_above_below = (
+        lp_above
+        - lp_below
+    )
+
+
+    dlm_over_under = (
+        lp_over
+        - lp_under
+    )
+
+
+    # İki aday arasındaki normalize edilmiş conditional probability.
+    #
+    # Bu tüm vocabulary üzerindeki probability değildir.
+    # Sadece ABOVE-vs-BELOW ikili aday uzayındaki normalize edilmiş olasılıktır.
+    #
+    pair_above_prob = float(
+        torch.softmax(
+            torch.tensor(
+                [
+                    lp_above,
+                    lp_below
+                ],
+                dtype=torch.float64
+            ),
+            dim=0
+        )[0]
+    )
+
+
+    pair_over_prob = float(
+        torch.softmax(
+            torch.tensor(
+                [
+                    lp_over,
+                    lp_under
+                ],
+                dtype=torch.float64
+            ),
+            dim=0
+        )[0]
+    )
+
+
+    return {
+        "logp_above":
+            lp_above,
+
+        "logp_below":
+            lp_below,
+
+        "dlm_above_below":
+            float(
+                dlm_above_below
+            ),
+
+        "pair_p_above":
+            pair_above_prob,
+
+        "logp_over":
+            lp_over,
+
+        "logp_under":
+            lp_under,
+
+        "dlm_over_under":
+            float(
+                dlm_over_under
+            ),
+
+        "pair_p_over":
+            pair_over_prob,
+    }
+
+
+# =============================================================================
+# 15. RUN BASELINE
+# =============================================================================
+
+print(
+    "\n[5/9] BASELINE logit ölçümleri..."
+)
+
+
+BASELINE_RESULTS = []
+
+
+for i, prompt in enumerate(
+    EVAL_PROMPTS
+):
+
+    logits = baseline_logits(
+        prompt
+    )
+
+
+    measurement = measure_logits(
+        logits
+    )
+
+
+    measurement[
+        "prompt_index"
+    ] = i + 1
+
+
+    measurement[
+        "prompt"
+    ] = prompt
+
+
+    BASELINE_RESULTS.append(
+        measurement
+    )
+
+
+# =============================================================================
+# 16. RUN STEERED ARM
+# =============================================================================
+
+def run_steered_arm(
+    name,
+    vectors
+):
+
+    print(
+        f"\n{name} çalışıyor..."
+    )
+
+
+    results = []
+
+
+    for i, prompt in enumerate(
+        EVAL_PROMPTS
+    ):
+
+        logits, telemetry = (
+            steered_logits(
+                prompt,
+                vectors
+            )
+        )
+
+
+        measurement = measure_logits(
+            logits
+        )
+
+
+        measurement[
+            "prompt_index"
+        ] = i + 1
+
+
+        measurement[
+            "prompt"
+        ] = prompt
+
+
+        measurement[
+            "telemetry"
+        ] = telemetry
+
+
+        results.append(
+            measurement
+        )
+
+
+    return results
+
+
+print(
+    "\n[6/9] Yönlendirilmiş kollar..."
+)
+
+
+ABOVE_RESULTS = run_steered_arm(
+    "ABOVE_IND",
+    IND_ABOVE
+)
+
+
+BELOW_RESULTS = run_steered_arm(
+    "BELOW_IND",
+    IND_BELOW
+)
+
+
+RANDOM_RESULTS = run_steered_arm(
+    "RANDOM",
+    RANDOM_VECTOR
+)
+
+
+# =============================================================================
+# 17. AGGREGATION
+# =============================================================================
+
+ARMS = {
+    "BASELINE":
+        BASELINE_RESULTS,
+
+    "ABOVE_IND":
+        ABOVE_RESULTS,
+
+    "BELOW_IND":
+        BELOW_RESULTS,
+
+    "RANDOM":
+        RANDOM_RESULTS,
+}
+
+
+def aggregate_metric(
+    results,
+    key
+):
+
+    values = [
+        float(x[key])
+        for x in results
+    ]
+
+
+    return {
+        "mean":
+            mean_or_zero(values),
+
+        "median":
+            median_or_zero(values),
+
+        "std":
+            std_or_zero(values),
+
+        "min":
+            float(
+                min(values)
+            ),
+
+        "max":
+            float(
+                max(values)
+            ),
+    }
+
+
+def aggregate_arm(
+    results
+):
+
+    output = {
+        "dlm_above_below":
+            aggregate_metric(
+                results,
+                "dlm_above_below"
+            ),
+
+        "dlm_over_under":
+            aggregate_metric(
+                results,
+                "dlm_over_under"
+            ),
+
+        "pair_p_above":
+            aggregate_metric(
+                results,
+                "pair_p_above"
+            ),
+
+        "pair_p_over":
+            aggregate_metric(
+                results,
+                "pair_p_over"
+            ),
+    }
+
+
+    if "telemetry" in results[0]:
+
+        for key in [
+            "mean_cos",
+            "mean_abs_cos",
+            "mean_contribution",
+            "mean_envelope",
+            "mean_brake",
+        ]:
+
+            values = [
+                x["telemetry"][key]
+                for x in results
+            ]
+
+            output[key] = (
+                mean_or_zero(values)
+            )
+
+
+    return output
+
+
+SUMMARY = {
+    name:
+        aggregate_arm(results)
+
+    for name, results
+    in ARMS.items()
+}
+
+
+# =============================================================================
+# 18. PROMPT-LEVEL DELTAS
+# =============================================================================
+
+PROMPT_RESULTS = []
+
+
+for i in range(
+    len(EVAL_PROMPTS)
+):
+
+    base = BASELINE_RESULTS[i]
+    above = ABOVE_RESULTS[i]
+    below = BELOW_RESULTS[i]
+    rand = RANDOM_RESULTS[i]
+
+
+    # -------------------------------------------------------------------------
+    # ABOVE vs BELOW
+    # -------------------------------------------------------------------------
+
+    base_dlm = (
+        base[
+            "dlm_above_below"
+        ]
+    )
+
+    a_dlm = (
+        above[
+            "dlm_above_below"
+        ]
+    )
+
+    b_dlm = (
+        below[
+            "dlm_above_below"
+        ]
+    )
+
+    r_dlm = (
+        rand[
+            "dlm_above_below"
+        ]
+    )
+
+
+    delta_a = (
+        a_dlm - base_dlm
+    )
+
+    delta_b = (
+        b_dlm - base_dlm
+    )
+
+    delta_r = (
+        r_dlm - base_dlm
+    )
+
+
+    dds = (
+        delta_a
+        - delta_b
+    )
+
+
+    # -------------------------------------------------------------------------
+    # OVER vs UNDER
+    # -------------------------------------------------------------------------
+
+    base_cross = (
+        base[
+            "dlm_over_under"
+        ]
+    )
+
+    a_cross = (
+        above[
+            "dlm_over_under"
+        ]
+    )
+
+    b_cross = (
+        below[
+            "dlm_over_under"
+        ]
+    )
+
+    r_cross = (
+        rand[
+            "dlm_over_under"
+        ]
+    )
+
+
+    delta_a_cross = (
+        a_cross
+        - base_cross
+    )
+
+    delta_b_cross = (
+        b_cross
+        - base_cross
+    )
+
+    delta_r_cross = (
+        r_cross
+        - base_cross
+    )
+
+
+    dds_cross = (
+        delta_a_cross
+        - delta_b_cross
+    )
+
+
+    PROMPT_RESULTS.append({
+
+        "prompt_index":
+            i + 1,
+
+        "prompt":
+            EVAL_PROMPTS[i],
+
+        "above_below": {
+
+            "baseline_dlm":
+                float(base_dlm),
+
+            "above_dlm":
+                float(a_dlm),
+
+            "below_dlm":
+                float(b_dlm),
+
+            "random_dlm":
+                float(r_dlm),
+
+            "delta_above":
+                float(delta_a),
+
+            "delta_below":
+                float(delta_b),
+
+            "delta_random":
+                float(delta_r),
+
+            "dds":
+                float(dds),
+
+            "above_minus_random":
+                float(
+                    delta_a
+                    - delta_r
+                ),
+
+            "below_minus_random":
+                float(
+                    delta_b
+                    - delta_r
+                ),
+        },
+
+        "over_under": {
+
+            "baseline_dlm":
+                float(base_cross),
+
+            "above_dlm":
+                float(a_cross),
+
+            "below_dlm":
+                float(b_cross),
+
+            "random_dlm":
+                float(r_cross),
+
+            "delta_above":
+                float(
+                    delta_a_cross
+                ),
+
+            "delta_below":
+                float(
+                    delta_b_cross
+                ),
+
+            "delta_random":
+                float(
+                    delta_r_cross
+                ),
+
+            "dds":
+                float(
+                    dds_cross
+                ),
+        },
+    })
+
+
+# =============================================================================
+# 19. GLOBAL DELTA STATISTICS
+# =============================================================================
+
+def summarize_prompt_field(
+    family,
+    field
+):
+
+    values = [
+        x[family][field]
+        for x in PROMPT_RESULTS
+    ]
+
+
+    return {
+        "mean":
+            mean_or_zero(values),
+
+        "median":
+            median_or_zero(values),
+
+        "std":
+            std_or_zero(values),
+
+        "min":
+            float(
+                min(values)
+            ),
+
+        "max":
+            float(
+                max(values)
+            ),
+
+        "positive_count":
+            int(
+                sum(
+                    x > 0
+                    for x in values
+                )
+            ),
+
+        "negative_count":
+            int(
+                sum(
+                    x < 0
+                    for x in values
+                )
+            ),
+
+        "zero_count":
+            int(
+                sum(
+                    x == 0
+                    for x in values
+                )
+            ),
+    }
+
+
+GLOBAL = {
+    "above_below": {
+        "delta_above":
+            summarize_prompt_field(
+                "above_below",
+                "delta_above"
+            ),
+
+        "delta_below":
+            summarize_prompt_field(
+                "above_below",
+                "delta_below"
+            ),
+
+        "delta_random":
+            summarize_prompt_field(
+                "above_below",
+                "delta_random"
+            ),
+
+        "dds":
+            summarize_prompt_field(
+                "above_below",
+                "dds"
+            ),
+
+        "above_minus_random":
+            summarize_prompt_field(
+                "above_below",
+                "above_minus_random"
+            ),
+
+        "below_minus_random":
+            summarize_prompt_field(
+                "above_below",
+                "below_minus_random"
+            ),
+    },
+
+    "over_under": {
+        "delta_above":
+            summarize_prompt_field(
+                "over_under",
+                "delta_above"
+            ),
+
+        "delta_below":
+            summarize_prompt_field(
+                "over_under",
+                "delta_below"
+            ),
+
+        "delta_random":
+            summarize_prompt_field(
+                "over_under",
+                "delta_random"
+            ),
+
+        "dds":
+            summarize_prompt_field(
+                "over_under",
+                "dds"
+            ),
+    },
+}
+
+
+# =============================================================================
+# 20. MAIN RESULT TABLE
+# =============================================================================
+
+print("\n")
+print("=" * 135)
+print("TEST 105 — ABOVE vs BELOW DIRECT LOGIT MARGIN")
+print("=" * 135)
+
+
+print(
+    f"{'ARM':<14}"
+    f"{'MEAN DLM':>14}"
+    f"{'MEDIAN':>14}"
+    f"{'STD':>14}"
+    f"{'PAIR P(ABOVE)':>18}"
+)
+
+print("-" * 135)
+
+
+for arm_name in [
+    "BASELINE",
+    "ABOVE_IND",
+    "BELOW_IND",
+    "RANDOM"
+]:
+
+    x = SUMMARY[
+        arm_name
+    ]
+
+
+    print(
+        f"{arm_name:<14}"
+        f"{x['dlm_above_below']['mean']:>+14.6f}"
+        f"{x['dlm_above_below']['median']:>+14.6f}"
+        f"{x['dlm_above_below']['std']:>14.6f}"
+        f"{x['pair_p_above']['mean']:>18.6f}"
+    )
+
+
+# =============================================================================
+# 21. DELTA / DDS TABLE
+# =============================================================================
+
+print("\n")
+print("=" * 135)
+print("BASELINE'A GÖRE DLM DEĞİŞİMİ")
+print("=" * 135)
+
+
+for key in [
+    "delta_above",
+    "delta_below",
+    "delta_random",
+    "dds",
+    "above_minus_random",
+    "below_minus_random",
+]:
+
+    x = GLOBAL[
+        "above_below"
+    ][key]
+
+
+    print(
+        f"{key:<24}"
+        f"mean={x['mean']:+.6f} | "
+        f"median={x['median']:+.6f} | "
+        f"sd={x['std']:.6f} | "
+        f"+={x['positive_count']:02d} "
+        f"-={x['negative_count']:02d} "
+        f"0={x['zero_count']:02d}"
+    )
+
+
+# =============================================================================
+# 22. CROSS-LEXICAL CONTROL
+# =============================================================================
+
+print("\n")
+print("=" * 135)
+print("ÇAPRAZ SÖZLÜK KONTROLÜ — OVER vs UNDER")
+print("=" * 135)
+
+
+print(
+    f"{'ARM':<14}"
+    f"{'MEAN DLM':>14}"
+    f"{'MEDIAN':>14}"
+    f"{'STD':>14}"
+    f"{'PAIR P(OVER)':>18}"
+)
+
+print("-" * 135)
+
+
+for arm_name in [
+    "BASELINE",
+    "ABOVE_IND",
+    "BELOW_IND",
+    "RANDOM"
+]:
+
+    x = SUMMARY[
+        arm_name
+    ]
+
+
+    print(
+        f"{arm_name:<14}"
+        f"{x['dlm_over_under']['mean']:>+14.6f}"
+        f"{x['dlm_over_under']['median']:>+14.6f}"
+        f"{x['dlm_over_under']['std']:>14.6f}"
+        f"{x['pair_p_over']['mean']:>18.6f}"
+    )
+
+
+print("\nCross-lexical deltas:")
+
+
+for key in [
+    "delta_above",
+    "delta_below",
+    "delta_random",
+    "dds",
+]:
+
+    x = GLOBAL[
+        "over_under"
+    ][key]
+
+
+    print(
+        f"{key:<24}"
+        f"mean={x['mean']:+.6f} | "
+        f"median={x['median']:+.6f} | "
+        f"sd={x['std']:.6f} | "
+        f"+={x['positive_count']:02d} "
+        f"-={x['negative_count']:02d} "
+        f"0={x['zero_count']:02d}"
+    )
+
+
+# =============================================================================
+# 23. PROMPT-LEVEL TABLE
+# =============================================================================
+
+print("\n")
+print("=" * 155)
+print("PROMPT-BAZLI DLM")
+print("=" * 155)
+
+
+print(
+    f"{'P':<4}"
+    f"{'BASE':>11}"
+    f"{'ABOVE':>11}"
+    f"{'BELOW':>11}"
+    f"{'RANDOM':>11}"
+    f"{'AΔ':>11}"
+    f"{'BΔ':>11}"
+    f"{'RΔ':>11}"
+    f"{'DDS':>11}"
+    f"{'A-R':>11}"
+    f"{'B-R':>11}"
+)
+
+print("-" * 155)
+
+
+for row in PROMPT_RESULTS:
+
+    x = row[
+        "above_below"
+    ]
+
+
+    print(
+        f"{row['prompt_index']:<4}"
+        f"{x['baseline_dlm']:>+11.5f}"
+        f"{x['above_dlm']:>+11.5f}"
+        f"{x['below_dlm']:>+11.5f}"
+        f"{x['random_dlm']:>+11.5f}"
+        f"{x['delta_above']:>+11.5f}"
+        f"{x['delta_below']:>+11.5f}"
+        f"{x['delta_random']:>+11.5f}"
+        f"{x['dds']:>+11.5f}"
+        f"{x['above_minus_random']:>+11.5f}"
+        f"{x['below_minus_random']:>+11.5f}"
+    )
+
+
+# =============================================================================
+# 24. DRA TELEMETRY
+# =============================================================================
+
+print("\n")
+print("=" * 120)
+print("DRA TELEMETRİSİ")
+print("=" * 120)
+
+
+print(
+    f"{'ARM':<14}"
+    f"{'COS':>14}"
+    f"{'|COS|':>14}"
+    f"{'CONTRIB':>14}"
+    f"{'ENV':>14}"
+    f"{'BRAKE':>14}"
+)
+
+print("-" * 100)
+
+
+for arm_name in [
+    "ABOVE_IND",
+    "BELOW_IND",
+    "RANDOM"
+]:
+
+    x = SUMMARY[
+        arm_name
+    ]
+
+
+    print(
+        f"{arm_name:<14}"
+        f"{x['mean_cos']:>+14.6f}"
+        f"{x['mean_abs_cos']:>14.6f}"
+        f"{x['mean_contribution']:>14.6f}"
+        f"{x['mean_envelope']:>14.6f}"
+        f"{x['mean_brake']:>14.6f}"
+    )
+
+
+# =============================================================================
+# 25. VECTOR GEOMETRY SUMMARY
+# =============================================================================
+
+GEOMETRY = []
+
+
+for layer_idx in ACTIVE_LAYERS:
+
+    GEOMETRY.append({
+
+        "layer":
+            layer_idx,
+
+        "cos_above_below":
+            cosine_np(
+                IND_ABOVE[layer_idx],
+                IND_BELOW[layer_idx]
+            ),
+
+        "cos_above_random":
+            cosine_np(
+                IND_ABOVE[layer_idx],
+                RANDOM_VECTOR[layer_idx]
+            ),
+
+        "cos_below_random":
+            cosine_np(
+                IND_BELOW[layer_idx],
+                RANDOM_VECTOR[layer_idx]
+            ),
+    })
+
+
+# =============================================================================
+# 26. SAVE JSON
+# =============================================================================
+
+print(
+    "\n[7/9] JSON hazırlanıyor..."
+)
+
+
+FINAL = {
+
+    "test":
+        "TEST 105",
+
+    "title":
+        "Direct Directional Logit Margin",
+
+    "model":
+        MODEL_NAME,
+
+    "seed":
+        SEED,
+
+    "random_seed":
+        RANDOM_SEED,
+
+    "n_layers_vector_extraction":
+        N_LAYERS,
+
+    "active_layers":
+        ACTIVE_LAYERS,
+
+    "ivme":
+        IVME,
+
+    "sqrt_k":
+        SQRT_K,
+
+    "n_eval_prompts":
+        len(EVAL_PROMPTS),
+
+    "target_strings":
+        TARGET_STRINGS,
+
+    "target_ids":
+        TARGET_IDS,
+
+    "geometry":
+        GEOMETRY,
+
+    "summary":
+        SUMMARY,
+
+    "global_delta_statistics":
+        GLOBAL,
+
+    "prompt_results":
+        PROMPT_RESULTS,
+
+    "raw_arm_results":
+        ARMS,
+
+    "method_note":
+        (
+            "DLM = log P(target-positive token) - "
+            "log P(target-negative token) at the next-token position. "
+            "No free-text keyword counting is used for the primary outcome. "
+            "ABOVE/BELOW vectors use the same last-non-padding-token "
+            "extraction method as TEST 104. "
+            "DRA parameters, active layers and IVME are held fixed."
+        ),
+}
+
+
+OUTPUT_FILE = (
+    "TEST_105_DIRECT_DIRECTIONAL_LOGIT_MARGIN.json"
+)
+
+
+with open(
+    OUTPUT_FILE,
+    "w",
+    encoding="utf-8"
+) as f:
+
+    json.dump(
+        FINAL,
+        f,
+        indent=2,
+        ensure_ascii=False
+    )
+
+
+print(
+    "Kaydedildi:",
+    OUTPUT_FILE
+)
+
+
+# =============================================================================
+# 27. COMPACT FINAL REPORT
+# =============================================================================
+
+print("\n")
+print("=" * 120)
+print("TEST 105 — KISA ÖZET")
+print("=" * 120)
+
+
+main = GLOBAL[
+    "above_below"
+]
+
+
+print(
+    "\nANA ÖLÇÜM: ABOVE vs BELOW"
+)
+
+print(
+    f"ABOVE Δ mean   = "
+    f"{main['delta_above']['mean']:+.6f}"
+)
+
+print(
+    f"BELOW Δ mean   = "
+    f"{main['delta_below']['mean']:+.6f}"
+)
+
+print(
+    f"RANDOM Δ mean  = "
+    f"{main['delta_random']['mean']:+.6f}"
+)
+
+print(
+    f"DDS mean       = "
+    f"{main['dds']['mean']:+.6f}"
+)
+
+print(
+    f"DDS median     = "
+    f"{main['dds']['median']:+.6f}"
+)
+
+print(
+    "DDS signs      = "
+    f"+{main['dds']['positive_count']} / "
+    f"-{main['dds']['negative_count']} / "
+    f"0={main['dds']['zero_count']}"
+)
+
+
+cross = GLOBAL[
+    "over_under"
+]
+
+
+print(
+    "\nÇAPRAZ KONTROL: OVER vs UNDER"
+)
+
+print(
+    f"ABOVE Δ mean   = "
+    f"{cross['delta_above']['mean']:+.6f}"
+)
+
+print(
+    f"BELOW Δ mean   = "
+    f"{cross['delta_below']['mean']:+.6f}"
+)
+
+print(
+    f"RANDOM Δ mean  = "
+    f"{cross['delta_random']['mean']:+.6f}"
+)
+
+print(
+    f"DDS mean       = "
+    f"{cross['dds']['mean']:+.6f}"
+)
+
+print(
+    "DDS signs      = "
+    f"+{cross['dds']['positive_count']} / "
+    f"-{cross['dds']['negative_count']} / "
+    f"0={cross['dds']['zero_count']}"
+)
+
+
+print("\n")
+print("=" * 120)
+print("TEST 105 TAMAMLANDI")
+print("=" * 120)
+
+print("""
+YORUMLANACAK ANA DEĞİŞKENLER:
+
+1) ABOVE_IND ΔDLM
+2) BELOW_IND ΔDLM
+3) RANDOM ΔDLM
+
+4) DDS:
+       ΔDLM_ABOVE - ΔDLM_BELOW
+
+5) DDS'nin 40 prompt boyunca işaret dağılımı
+
+6) ABOVE/RANDOM ve BELOW/RANDOM farkları
+
+7) OVER/UNDER çapraz sözlük kontrolü
+
+8) DRA contribution değerlerinin üç kolda benzerliği
+
+
+ÖNEMLİ:
+
+Bu test için otomatik başarı eşiği tanımlanmamıştır.
+
+Özellikle şu desen bilimsel olarak bilgilendirici olacaktır:
+
+    ABOVE ΔDLM > 0
+    BELOW ΔDLM < 0
+
+ve RANDOM'ın sistematik olarak bu iki yönlü deseni
+taklit etmemesi.
+
+Fakat sonuç ne çıkarsa çıksın sayısal dağılım raporlanacaktır.
+
+Ana çıktı:
+TEST_105_DIRECT_DIRECTIONAL_LOGIT_MARGIN.json
+""")
+
+
+# =============================================================================
+# 28. OPTIONAL SANITY DISPLAY — FIRST 10 PROMPTS
+# =============================================================================
+
+print(
+    "\n[8/9] İlk 10 prompt kontrolü:"
+)
+
+
+for i, prompt in enumerate(
+    EVAL_PROMPTS[:10],
+    start=1
+):
+
+    print(
+        f"\n{i:02d}. {prompt}"
+    )
+
+
+print(
+    "\n[9/9] Bitti."
+)
