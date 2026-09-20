@@ -1,0 +1,1214 @@
+# =============================================================================
+# TEST 101 — KOMŞU İKİLİ KATMAN TARAMASI
+# Qwen2.5-7B-Instruct · A100 · bfloat16 · L0-L19
+# -----------------------------------------------------------------------------
+# AMAÇ:
+#   TEST 100'de tek tek taranan katmanların komşu çiftler halinde
+#   birlikte etkinleştirildiğinde davranışın nasıl değiştiğini ölçmek.
+#
+#   L0+L1, L1+L2, ..., L18+L19
+#
+#   Her çift için:
+#       1) ABOVE_IND
+#       2) BELOW_IND
+#
+# Aynı:
+#   - TEST 99 eğitim cümleleri
+#   - TEST 99 davranış promptları
+#   - layerwise Pusula
+#   - DRA motoru
+#   - ivme = 0.10
+#   - SQRT_K = sqrt(20)
+#   - greedy generation
+#
+# NOT:
+#   SQRT_K = sqrt(20) özellikle korunmuştur.
+#   Böylece TEST 100 tek-katman sonucu ile motor ölçeği değişmez.
+#   İki aktif katman olması toplam fiziksel enjeksiyonu artırabilir;
+#   bu testin amacı tam da komşu katmanların birlikte davranışa etkisini
+#   gözlemlemektir.
+# =============================================================================
+
+import os
+import gc
+import json
+import math
+import time
+import random
+import numpy as np
+import torch
+from collections import Counter
+
+# -----------------------------------------------------------------------------
+# 0) AYARLAR
+# -----------------------------------------------------------------------------
+
+MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 42
+
+N_LAYERS = 20
+HIDDEN = 3584
+
+IVME = 0.10
+
+SONUM = 0.30
+ZIRVE = 0.70
+TABAN = 0.20
+
+BRAKE_HIGH = 0.75
+BRAKE_LOW  = -0.40
+
+UNC_WEIGHT = 0.20
+
+MAX_NEW_TOKENS = 160
+
+# TEST 100 ile aynı:
+SQRT_K = math.sqrt(N_LAYERS)
+
+RESULT_FILE = "TEST_101_ADJACENT_LAYER_RESULTS.json"
+
+# -----------------------------------------------------------------------------
+# 1) DETERMINISM
+# -----------------------------------------------------------------------------
+
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
+
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+print("=" * 80)
+print("TEST 101 — KOMŞU İKİLİ KATMAN TARAMASI")
+print("=" * 80)
+
+# -----------------------------------------------------------------------------
+# 2) MODELİ GEREKİRSE YÜKLE
+# -----------------------------------------------------------------------------
+
+if "model" not in globals() or "tokenizer" not in globals():
+    print("\n[MODEL] Mevcut model/tokenizer bulunamadı. HF'den yükleniyor...")
+
+    from transformers import AutoTokenizer, AutoModelForCausalLM
+
+    tokenizer = AutoTokenizer.from_pretrained(
+        MODEL_NAME,
+        trust_remote_code=True
+    )
+
+    model = AutoModelForCausalLM.from_pretrained(
+        MODEL_NAME,
+        torch_dtype=torch.bfloat16,
+        device_map="auto",
+        trust_remote_code=True
+    )
+
+    model.eval()
+
+else:
+    print("\n[MODEL] Mevcut model/tokenizer kullanılıyor.")
+
+model.eval()
+
+device = next(model.parameters()).device
+
+print("Model :", MODEL_NAME)
+print("Device:", device)
+print("Dtype :", next(model.parameters()).dtype)
+
+# -----------------------------------------------------------------------------
+# 3) KATMAN KONTROLÜ
+# -----------------------------------------------------------------------------
+
+try:
+    actual_layers = len(model.model.layers)
+except Exception:
+    actual_layers = len(model.transformer.h)
+
+print("Model katman sayısı:", actual_layers)
+
+if actual_layers < N_LAYERS:
+    raise RuntimeError(
+        f"Modelde {N_LAYERS} katman bekleniyordu, "
+        f"ancak {actual_layers} katman bulundu."
+    )
+
+# -----------------------------------------------------------------------------
+# 4) TEST 99 EĞİTİM CÜMLELERİ
+# -----------------------------------------------------------------------------
+
+TRAIN_ABOVE = [
+    "Mustafa Dibekgoz is above the bridge.",
+    "Mustafa Dibekgoz is positioned above the bridge.",
+    "Mustafa Dibekgoz stands above the bridge.",
+    "The position of Mustafa Dibekgoz is above the bridge.",
+    "Mustafa Dibekgoz remains above the bridge.",
+    "Mustafa Dibekgoz is located above the bridge.",
+    "Mustafa Dibekgoz occupies a position above the bridge.",
+    "The scene places Mustafa Dibekgoz above the bridge."
+]
+
+TRAIN_BELOW = [
+    "Mustafa Dibekgoz is below the bridge.",
+    "Mustafa Dibekgoz is positioned below the bridge.",
+    "Mustafa Dibekgoz stands below the bridge.",
+    "The position of Mustafa Dibekgoz is below the bridge.",
+    "Mustafa Dibekgoz remains below the bridge.",
+    "Mustafa Dibekgoz is located below the bridge.",
+    "Mustafa Dibekgoz occupies a position below the bridge.",
+    "The scene places Mustafa Dibekgoz below the bridge."
+]
+
+TRAIN_NEUTRAL = [
+    "Mustafa Dibekgoz is near the bridge.",
+    "Mustafa Dibekgoz is positioned near the bridge.",
+    "Mustafa Dibekgoz stands near the bridge.",
+    "The position of Mustafa Dibekgoz is near the bridge.",
+    "Mustafa Dibekgoz remains near the bridge.",
+    "Mustafa Dibekgoz is located near the bridge.",
+    "Mustafa Dibekgoz occupies a position near the bridge.",
+    "The scene places Mustafa Dibekgoz near the bridge."
+]
+
+# -----------------------------------------------------------------------------
+# 5) TEST 99 DAVRANIŞ PROMPTLARI
+# -----------------------------------------------------------------------------
+
+PROMPTS = [
+    "Mustafa Dibekgoz and a bridge are present in the same scene. "
+    "Describe the spatial relationship between the person and the bridge, "
+    "along with the surrounding scene. Write at least four sentences.",
+
+    "A person named Mustafa Dibekgoz is near a bridge. "
+    "Give a concrete description of the scene and explain where the person "
+    "is positioned in relation to the bridge. Write at least four sentences.",
+
+    "The scene contains Mustafa Dibekgoz and a large bridge. "
+    "Describe what an observer would see, including the person's position "
+    "relative to the bridge. Write at least four sentences.",
+
+    "Imagine a photograph containing Mustafa Dibekgoz and a bridge. "
+    "Describe the photograph precisely, including the vertical relationship "
+    "between the person and the bridge. Write at least four sentences.",
+
+    "Mustafa Dibekgoz is part of a scene involving a bridge. "
+    "Describe the person's location and the bridge's position relative to "
+    "the person. Write at least four sentences.",
+
+    "Write a factual description of a scene containing Mustafa Dibekgoz "
+    "and a bridge. State how the two are positioned relative to each other. "
+    "Write at least four sentences.",
+
+    "An observer sees Mustafa Dibekgoz and a bridge in the same location. "
+    "Describe their spatial arrangement without assuming any particular "
+    "relationship beforehand.",
+
+    "The record describes Mustafa Dibekgoz in a scene with a bridge. "
+    "Explain the spatial arrangement of the person and the bridge in clear "
+    "natural language. Write at least four sentences."
+]
+
+# -----------------------------------------------------------------------------
+# 6) AKTİVASYON ÇIKARMA
+# -----------------------------------------------------------------------------
+
+@torch.no_grad()
+def extract_activation_set(texts):
+    """
+    Her cümle için:
+      layer 0..19
+      non-padding token mean
+      hidden dimension 3584
+
+    Sonuç:
+      [N, 20, 3584]
+    """
+
+    enc = tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True
+    )
+
+    enc = {k: v.to(device) for k, v in enc.items()}
+
+    out = model(
+        **enc,
+        output_hidden_states=True,
+        use_cache=False
+    )
+
+    hidden_states = out.hidden_states
+
+    acts = []
+
+    attention_mask = enc["attention_mask"]
+
+    for li in range(N_LAYERS):
+        # HF:
+        # hidden_states[0] = embedding
+        # hidden_states[li+1] = layer li output
+        h = hidden_states[li + 1]
+
+        mask = attention_mask.unsqueeze(-1).to(h.dtype)
+
+        summed = (h * mask).sum(dim=1)
+        counts = mask.sum(dim=1).clamp_min(1.0)
+
+        mean_h = summed / counts
+
+        acts.append(mean_h.float().cpu())
+
+    return torch.stack(acts, dim=1)
+
+
+print("\n[ACTIVATION] ABOVE...")
+ACT_ABOVE = extract_activation_set(TRAIN_ABOVE)
+
+print("[ACTIVATION] BELOW...")
+ACT_BELOW = extract_activation_set(TRAIN_BELOW)
+
+print("[ACTIVATION] NEUTRAL...")
+ACT_NEUTRAL = extract_activation_set(TRAIN_NEUTRAL)
+
+print("\nActivation shape:")
+print(" ABOVE :", tuple(ACT_ABOVE.shape))
+print(" BELOW :", tuple(ACT_BELOW.shape))
+print(" NEUTRAL:", tuple(ACT_NEUTRAL.shape))
+
+# -----------------------------------------------------------------------------
+# 7) LAYERWISE BAĞIMSIZ YÖNLER
+# -----------------------------------------------------------------------------
+
+def normalize(v, eps=1e-12):
+    n = torch.linalg.vector_norm(v)
+    return v / torch.clamp(n, min=eps)
+
+
+IND_ABOVE = []
+IND_BELOW = []
+
+for li in range(N_LAYERS):
+
+    mean_a = ACT_ABOVE[:, li, :].mean(dim=0)
+    mean_b = ACT_BELOW[:, li, :].mean(dim=0)
+    mean_n = ACT_NEUTRAL[:, li, :].mean(dim=0)
+
+    v_a = normalize(mean_a - mean_n)
+    v_b = normalize(mean_b - mean_n)
+
+    IND_ABOVE.append(v_a)
+    IND_BELOW.append(v_b)
+
+IND_ABOVE = torch.stack(IND_ABOVE)
+IND_BELOW = torch.stack(IND_BELOW)
+
+print("\nLayerwise vector shape:")
+print("IND_ABOVE:", tuple(IND_ABOVE.shape))
+print("IND_BELOW:", tuple(IND_BELOW.shape))
+
+# -----------------------------------------------------------------------------
+# 8) BASİT KELİME SAYACI
+# -----------------------------------------------------------------------------
+
+ABOVE_WORDS = [
+    "above",
+    "over",
+    "higher",
+    "up",
+    "upper",
+    "overhead"
+]
+
+BELOW_WORDS = [
+    "below",
+    "under",
+    "lower",
+    "down",
+    "beneath"
+]
+
+REPEAT_N = 3
+
+
+def count_direction(text):
+    t = text.lower()
+
+    above = sum(t.count(w) for w in ABOVE_WORDS)
+    below = sum(t.count(w) for w in BELOW_WORDS)
+
+    return above, below
+
+
+def repetition_score(text):
+    words = text.lower().split()
+
+    if len(words) < 4:
+        return 0.0
+
+    counts = Counter(words)
+
+    repeated = sum(
+        max(0, c - 1)
+        for c in counts.values()
+    )
+
+    return repeated / max(1, len(words))
+
+
+def word_count(text):
+    return len(text.split())
+
+
+# -----------------------------------------------------------------------------
+# 9) DRA MOTORU
+# -----------------------------------------------------------------------------
+
+def dra_envelope(layer_idx, cos_val):
+
+    unc = 1.0 - abs(cos_val)
+
+    dw = SONUM + unc * UNC_WEIGHT
+
+    t = float(layer_idx)
+
+    kb = (
+        ZIRVE
+        * math.exp(-dw * t)
+        * (1.0 + dw * t)
+        + TABAN
+    )
+
+    zarf = kb / (ZIRVE + TABAN)
+
+    # Fren
+    brake = 1.0
+
+    if cos_val > BRAKE_HIGH:
+        brake = (1.0 - cos_val) / (1.0 - BRAKE_HIGH)
+
+    elif cos_val < BRAKE_LOW:
+        brake = 1.6
+
+    return zarf, brake
+
+
+# -----------------------------------------------------------------------------
+# 10) GENERATION MOTORU
+# -----------------------------------------------------------------------------
+
+def build_prompt_text(prompt):
+    """
+    Qwen chat template.
+    """
+
+    messages = [
+        {
+            "role": "user",
+            "content": prompt
+        }
+    ]
+
+    return tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True
+    )
+
+
+@torch.no_grad()
+def generate_arm(prompt, active_layers, direction):
+
+    """
+    active_layers:
+        örn. [8,9]
+
+    direction:
+        "ABOVE"
+        "BELOW"
+    """
+
+    if direction == "ABOVE":
+        vectors = IND_ABOVE
+    elif direction == "BELOW":
+        vectors = IND_BELOW
+    else:
+        raise ValueError(direction)
+
+    encoded = tokenizer(
+        build_prompt_text(prompt),
+        return_tensors="pt"
+    )
+
+    encoded = {
+        k: v.to(device)
+        for k, v in encoded.items()
+    }
+
+    telemetry = {
+        "cos": [],
+        "abs_cos": [],
+        "contribution": [],
+        "envelope": [],
+        "brake": [],
+        "steps": 0
+    }
+
+    hooks = []
+
+    # -------------------------------------------------------------------------
+    # HER AKTİF KATMAN İÇİN HOOK
+    # -------------------------------------------------------------------------
+
+    for layer_idx in active_layers:
+
+        try:
+            layer_module = model.model.layers[layer_idx]
+        except Exception:
+            layer_module = model.transformer.h[layer_idx]
+
+        vec = vectors[layer_idx].to(
+            device=device,
+            dtype=torch.bfloat16
+        )
+
+        def make_hook(li, v):
+
+            def hook(module, inputs, output):
+
+                # HF transformer layer output genellikle tuple:
+                # output[0] = hidden states
+                if isinstance(output, tuple):
+                    h = output[0]
+                else:
+                    h = output
+
+                # Sadece son token
+                last = h[:, -1, :]
+
+                # cosine
+                v_float = v.float()
+                last_float = last.float()
+
+                v_norm = torch.linalg.vector_norm(
+                    v_float,
+                    dim=-1,
+                    keepdim=True
+                ).clamp_min(1e-12)
+
+                h_norm = torch.linalg.vector_norm(
+                    last_float,
+                    dim=-1,
+                    keepdim=True
+                ).clamp_min(1e-12)
+
+                cos_tensor = (
+                    (last_float * v_float).sum(dim=-1, keepdim=True)
+                    / (h_norm * v_norm)
+                )
+
+                cos_val = float(
+                    cos_tensor.mean().detach().cpu()
+                )
+
+                zarf, brake = dra_envelope(
+                    li,
+                    cos_val
+                )
+
+                # -----------------------------------------------------------------
+                # TEST 100 MOTORU:
+                #
+                # ivme * ||h|| / sqrt(20) * zarf * brake
+                #
+                # Yön cosine ile çarpılmıyor.
+                # Cosine yalnızca governor.
+                # -----------------------------------------------------------------
+
+                hnorm_scalar = torch.linalg.vector_norm(
+                    last_float,
+                    dim=-1,
+                    keepdim=True
+                ).clamp_min(1e-12)
+
+                contribution_scalar = (
+                    IVME
+                    * hnorm_scalar
+                    / SQRT_K
+                    * zarf
+                    * brake
+                )
+
+                # v normalize edilmiş durumda
+                injection = (
+                    v_float.unsqueeze(0)
+                    * contribution_scalar.unsqueeze(-1)
+                )
+
+                new_last = last_float + injection
+
+                h_new = h.clone()
+
+                h_new[:, -1, :] = new_last.to(
+                    dtype=h.dtype
+                )
+
+                telemetry["cos"].append(cos_val)
+                telemetry["abs_cos"].append(abs(cos_val))
+                telemetry["contribution"].append(
+                    float(contribution_scalar.mean().detach().cpu())
+                )
+                telemetry["envelope"].append(float(zarf))
+                telemetry["brake"].append(float(brake))
+                telemetry["steps"] += int(h.shape[0])
+
+                if isinstance(output, tuple):
+                    return (h_new,) + output[1:]
+
+                return h_new
+
+            return hook
+
+        hooks.append(
+            layer_module.register_forward_hook(
+                make_hook(layer_idx, vec)
+            )
+        )
+
+    # -------------------------------------------------------------------------
+    # GENERATE
+    # -------------------------------------------------------------------------
+
+    try:
+
+        generated = model.generate(
+            **encoded,
+            max_new_tokens=MAX_NEW_TOKENS,
+            do_sample=False,
+            use_cache=True,
+            pad_token_id=tokenizer.eos_token_id
+        )
+
+        input_len = encoded["input_ids"].shape[1]
+
+        new_tokens = generated[0, input_len:]
+
+        text = tokenizer.decode(
+            new_tokens,
+            skip_special_tokens=True
+        )
+
+    finally:
+
+        for h in hooks:
+            h.remove()
+
+    above, below = count_direction(text)
+
+    telemetry["above"] = above
+    telemetry["below"] = below
+    telemetry["net"] = above - below
+    telemetry["words"] = word_count(text)
+    telemetry["repetition"] = repetition_score(text)
+
+    if telemetry["cos"]:
+        telemetry["mean_cos"] = float(
+            np.mean(telemetry["cos"])
+        )
+        telemetry["mean_abs_cos"] = float(
+            np.mean(telemetry["abs_cos"])
+        )
+        telemetry["mean_contribution"] = float(
+            np.mean(telemetry["contribution"])
+        )
+        telemetry["mean_envelope"] = float(
+            np.mean(telemetry["envelope"])
+        )
+        telemetry["mean_brake"] = float(
+            np.mean(telemetry["brake"])
+        )
+    else:
+        telemetry["mean_cos"] = 0.0
+        telemetry["mean_abs_cos"] = 0.0
+        telemetry["mean_contribution"] = 0.0
+        telemetry["mean_envelope"] = 0.0
+        telemetry["mean_brake"] = 1.0
+
+    return text, telemetry
+
+
+# -----------------------------------------------------------------------------
+# 11) BASELINE
+# -----------------------------------------------------------------------------
+
+print("\n" + "=" * 80)
+print("BASELINE")
+print("=" * 80)
+
+baseline_items = []
+
+for i, prompt in enumerate(PROMPTS):
+
+    text, telem = generate_arm(
+        prompt,
+        active_layers=[],
+        direction="ABOVE"
+    )
+
+    baseline_items.append({
+        "prompt_id": i + 1,
+        "text": text,
+        "above": telem["above"],
+        "below": telem["below"],
+        "net": telem["net"],
+        "words": telem["words"],
+        "repetition": telem["repetition"]
+    })
+
+baseline_net = np.mean(
+    [x["net"] for x in baseline_items]
+)
+
+baseline_above = np.mean(
+    [x["above"] for x in baseline_items]
+)
+
+baseline_below = np.mean(
+    [x["below"] for x in baseline_items]
+)
+
+baseline_words = np.mean(
+    [x["words"] for x in baseline_items]
+)
+
+baseline_rep = np.mean(
+    [x["repetition"] for x in baseline_items]
+)
+
+print(
+    f"BASELINE | "
+    f"ABOVE={baseline_above:.4f} | "
+    f"BELOW={baseline_below:.4f} | "
+    f"NET={baseline_net:+.4f} | "
+    f"WORDS={baseline_words:.2f} | "
+    f"REP={baseline_rep:.4f}"
+)
+
+# -----------------------------------------------------------------------------
+# 12) KOMŞU ÇİFTLER
+# -----------------------------------------------------------------------------
+
+pairs = [
+    (i, i + 1)
+    for i in range(N_LAYERS - 1)
+]
+
+print("\nKomşu çift sayısı:", len(pairs))
+
+# -----------------------------------------------------------------------------
+# 13) SONUÇ KONTEYNERİ
+# -----------------------------------------------------------------------------
+
+results = {
+    "test": "TEST 101 — Adjacent Layer Pair Scan",
+    "model": MODEL_NAME,
+    "seed": SEED,
+    "n_layers": N_LAYERS,
+    "hidden_dim": HIDDEN,
+    "ivme": IVME,
+    "sqrt_k": SQRT_K,
+    "sonum": SONUM,
+    "zirve": ZIRVE,
+    "taban": TABAN,
+    "brake_high": BRAKE_HIGH,
+    "brake_low": BRAKE_LOW,
+    "unc_weight": UNC_WEIGHT,
+    "max_new_tokens": MAX_NEW_TOKENS,
+    "baseline": {
+        "above": float(baseline_above),
+        "below": float(baseline_below),
+        "net": float(baseline_net),
+        "words": float(baseline_words),
+        "repetition": float(baseline_rep),
+        "items": baseline_items
+    },
+    "pairs": []
+}
+
+# -----------------------------------------------------------------------------
+# 14) ÇİFT TARAMASI
+# -----------------------------------------------------------------------------
+
+for pair_index, (l1, l2) in enumerate(pairs, start=1):
+
+    active = [l1, l2]
+
+    print("\n" + "-" * 80)
+    print(
+        f"[{pair_index:02d}/{len(pairs):02d}] "
+        f"L{l1:02d} + L{l2:02d}"
+    )
+    print("-" * 80)
+
+    pair_record = {
+        "layers": active,
+        "above": None,
+        "below": None
+    }
+
+    # =====================================================================
+    # ABOVE
+    # =====================================================================
+
+    print("  ABOVE_IND ...", flush=True)
+
+    above_items = []
+
+    for i, prompt in enumerate(PROMPTS):
+
+        text, telem = generate_arm(
+            prompt,
+            active_layers=active,
+            direction="ABOVE"
+        )
+
+        above_items.append({
+            "prompt_id": i + 1,
+            "text": text,
+            "above": telem["above"],
+            "below": telem["below"],
+            "net": telem["net"],
+            "words": telem["words"],
+            "repetition": telem["repetition"],
+            "mean_cos": telem["mean_cos"],
+            "mean_abs_cos": telem["mean_abs_cos"],
+            "mean_contribution": telem["mean_contribution"],
+            "mean_envelope": telem["mean_envelope"],
+            "mean_brake": telem["mean_brake"],
+            "steps": telem["steps"]
+        })
+
+    a_net = float(
+        np.mean([x["net"] for x in above_items])
+    )
+
+    a_above = float(
+        np.mean([x["above"] for x in above_items])
+    )
+
+    a_below = float(
+        np.mean([x["below"] for x in above_items])
+    )
+
+    a_words = float(
+        np.mean([x["words"] for x in above_items])
+    )
+
+    a_rep = float(
+        np.mean([x["repetition"] for x in above_items])
+    )
+
+    a_cos = float(
+        np.mean([x["mean_cos"] for x in above_items])
+    )
+
+    a_abs_cos = float(
+        np.mean([x["mean_abs_cos"] for x in above_items])
+    )
+
+    a_contrib = float(
+        np.mean([x["mean_contribution"] for x in above_items])
+    )
+
+    a_env = float(
+        np.mean([x["mean_envelope"] for x in above_items])
+    )
+
+    a_brake = float(
+        np.mean([x["mean_brake"] for x in above_items])
+    )
+
+    a_steps = int(
+        np.sum([x["steps"] for x in above_items])
+    )
+
+    a_delta = a_net - baseline_net
+
+    pair_record["above"] = {
+        "items": above_items,
+        "above_mean": a_above,
+        "below_mean": a_below,
+        "net_mean": a_net,
+        "delta_net": a_delta,
+        "words_mean": a_words,
+        "repetition_mean": a_rep,
+        "mean_cos": a_cos,
+        "mean_abs_cos": a_abs_cos,
+        "mean_contribution": a_contrib,
+        "mean_envelope": a_env,
+        "mean_brake": a_brake,
+        "steps": a_steps
+    }
+
+    print(
+        f"  ABOVE | "
+        f"NET={a_net:+.4f} | "
+        f"ΔNET={a_delta:+.4f} | "
+        f"COS={a_cos:+.4f} | "
+        f"CONTRIB={a_contrib:.4f}"
+    )
+
+    # =====================================================================
+    # BELOW
+    # =====================================================================
+
+    print("  BELOW_IND ...", flush=True)
+
+    below_items = []
+
+    for i, prompt in enumerate(PROMPTS):
+
+        text, telem = generate_arm(
+            prompt,
+            active_layers=active,
+            direction="BELOW"
+        )
+
+        below_items.append({
+            "prompt_id": i + 1,
+            "text": text,
+            "above": telem["above"],
+            "below": telem["below"],
+            "net": telem["net"],
+            "words": telem["words"],
+            "repetition": telem["repetition"],
+            "mean_cos": telem["mean_cos"],
+            "mean_abs_cos": telem["mean_abs_cos"],
+            "mean_contribution": telem["mean_contribution"],
+            "mean_envelope": telem["mean_envelope"],
+            "mean_brake": telem["mean_brake"],
+            "steps": telem["steps"]
+        })
+
+    b_net = float(
+        np.mean([x["net"] for x in below_items])
+    )
+
+    b_above = float(
+        np.mean([x["above"] for x in below_items])
+    )
+
+    b_below = float(
+        np.mean([x["below"] for x in below_items])
+    )
+
+    b_words = float(
+        np.mean([x["words"] for x in below_items])
+    )
+
+    b_rep = float(
+        np.mean([x["repetition"] for x in below_items])
+    )
+
+    b_cos = float(
+        np.mean([x["mean_cos"] for x in below_items])
+    )
+
+    b_abs_cos = float(
+        np.mean([x["mean_abs_cos"] for x in below_items])
+    )
+
+    b_contrib = float(
+        np.mean([x["mean_contribution"] for x in below_items])
+    )
+
+    b_env = float(
+        np.mean([x["mean_envelope"] for x in below_items])
+    )
+
+    b_brake = float(
+        np.mean([x["mean_brake"] for x in below_items])
+    )
+
+    b_steps = int(
+        np.sum([x["steps"] for x in below_items])
+    )
+
+    b_delta = b_net - baseline_net
+
+    pair_record["below"] = {
+        "items": below_items,
+        "above_mean": b_above,
+        "below_mean": b_below,
+        "net_mean": b_net,
+        "delta_net": b_delta,
+        "words_mean": b_words,
+        "repetition_mean": b_rep,
+        "mean_cos": b_cos,
+        "mean_abs_cos": b_abs_cos,
+        "mean_contribution": b_contrib,
+        "mean_envelope": b_env,
+        "mean_brake": b_brake,
+        "steps": b_steps
+    }
+
+    # ---------------------------------------------------------------------
+    # ÇİFT YÖN AYRIŞMASI
+    #
+    # Pozitif:
+    #   ABOVE yönü ile BELOW yönü arasında ayrışma artıyor.
+    #
+    # Negatif:
+    #   BELOW tarafındaki değişim daha negatif.
+    #
+    # Bu bir "başarı puanı" değildir; yönlerin birbirinden ayrışmasını
+    # tek sayıda takip etmek için geometrik/behavioral özet ölçüdür.
+    # ---------------------------------------------------------------------
+
+    bidirectional_separation = a_delta - b_delta
+
+    pair_record["bidirectional_separation"] = float(
+        bidirectional_separation
+    )
+
+    results["pairs"].append(pair_record)
+
+    print(
+        f"  BELOW | "
+        f"NET={b_net:+.4f} | "
+        f"ΔNET={b_delta:+.4f} | "
+        f"COS={b_cos:+.4f} | "
+        f"CONTRIB={b_contrib:.4f}"
+    )
+
+    print(
+        f"  AYRIŞMA | "
+        f"ΔABOVE - ΔBELOW = "
+        f"{bidirectional_separation:+.4f}"
+    )
+
+    # GPU belleğini rahatlat
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+# -----------------------------------------------------------------------------
+# 15) SIRALAMA / ÖZET
+# -----------------------------------------------------------------------------
+
+def fmt(x):
+    return f"{x:+.4f}"
+
+
+summary = []
+
+for p in results["pairs"]:
+
+    l1, l2 = p["layers"]
+
+    a = p["above"]
+    b = p["below"]
+
+    summary.append({
+        "pair": f"L{l1:02d}+L{l2:02d}",
+
+        "ABOVE_NET": a["net_mean"],
+        "ABOVE_dNET": a["delta_net"],
+
+        "BELOW_NET": b["net_mean"],
+        "BELOW_dNET": b["delta_net"],
+
+        "SEPARATION": p["bidirectional_separation"],
+
+        "ABOVE_COS": a["mean_cos"],
+        "BELOW_COS": b["mean_cos"],
+
+        "ABOVE_CONTRIB": a["mean_contribution"],
+        "BELOW_CONTRIB": b["mean_contribution"],
+
+        "ABOVE_WORDS": a["words_mean"],
+        "BELOW_WORDS": b["words_mean"],
+
+        "ABOVE_REP": a["repetition_mean"],
+        "BELOW_REP": b["repetition_mean"]
+    })
+
+# -----------------------------------------------------------------------------
+# 16) AYRI AYRI SIRALI GÖSTERİM
+# -----------------------------------------------------------------------------
+
+print("\n" + "=" * 110)
+print("TEST 101 — KOMŞU ÇİFT SONUÇLARI")
+print("=" * 110)
+
+header = (
+    f"{'PAIR':<9}"
+    f"{'A_NET':>9}"
+    f"{'ΔA':>9}"
+    f"{'B_NET':>9}"
+    f"{'ΔB':>9}"
+    f"{'SEP':>9}"
+    f"{'A_COS':>9}"
+    f"{'B_COS':>9}"
+)
+
+print(header)
+print("-" * len(header))
+
+for r in summary:
+
+    print(
+        f"{r['pair']:<9}"
+        f"{fmt(r['ABOVE_NET']):>9}"
+        f"{fmt(r['ABOVE_dNET']):>9}"
+        f"{fmt(r['BELOW_NET']):>9}"
+        f"{fmt(r['BELOW_dNET']):>9}"
+        f"{fmt(r['SEPARATION']):>9}"
+        f"{fmt(r['ABOVE_COS']):>9}"
+        f"{fmt(r['BELOW_COS']):>9}"
+    )
+
+# -----------------------------------------------------------------------------
+# 17) SADECE GÖZLEMSEL OLARAK:
+#     EN NEGATİF BELOW ΔNET
+# -----------------------------------------------------------------------------
+
+print("\n" + "=" * 100)
+print("BELOW YÖNÜ — ΔNET EN NEGATİFTEN EN POZİTİFE")
+print("=" * 100)
+
+below_sorted = sorted(
+    summary,
+    key=lambda x: x["BELOW_dNET"]
+)
+
+for i, r in enumerate(below_sorted, start=1):
+
+    print(
+        f"{i:02d}. {r['pair']:<9} "
+        f"ΔBELOW={r['BELOW_dNET']:+.4f} | "
+        f"BELOW_NET={r['BELOW_NET']:+.4f} | "
+        f"SEP={r['SEPARATION']:+.4f}"
+    )
+
+# -----------------------------------------------------------------------------
+# 18) ABOVE YÖNÜ — ΔNET EN POZİTİFTEN EN NEGATİFE
+# -----------------------------------------------------------------------------
+
+print("\n" + "=" * 100)
+print("ABOVE YÖNÜ — ΔNET EN POZİTİFTEN EN NEGATİFE")
+print("=" * 100)
+
+above_sorted = sorted(
+    summary,
+    key=lambda x: x["ABOVE_dNET"],
+    reverse=True
+)
+
+for i, r in enumerate(above_sorted, start=1):
+
+    print(
+        f"{i:02d}. {r['pair']:<9} "
+        f"ΔABOVE={r['ABOVE_dNET']:+.4f} | "
+        f"ABOVE_NET={r['ABOVE_NET']:+.4f} | "
+        f"SEP={r['SEPARATION']:+.4f}"
+    )
+
+# -----------------------------------------------------------------------------
+# 19) EN BÜYÜK YÖN AYRIŞMASI
+# -----------------------------------------------------------------------------
+
+print("\n" + "=" * 100)
+print("ÇİFTLER — YÖN AYRIŞMASI")
+print("=" * 100)
+
+sep_sorted = sorted(
+    summary,
+    key=lambda x: x["SEPARATION"],
+    reverse=True
+)
+
+for i, r in enumerate(sep_sorted, start=1):
+
+    print(
+        f"{i:02d}. {r['pair']:<9} "
+        f"SEPARATION={r['SEPARATION']:+.4f} | "
+        f"ΔABOVE={r['ABOVE_dNET']:+.4f} | "
+        f"ΔBELOW={r['BELOW_dNET']:+.4f}"
+    )
+
+# -----------------------------------------------------------------------------
+# 20) JSON'A KAYDET
+# -----------------------------------------------------------------------------
+
+results["summary"] = summary
+
+results["notes"] = {
+    "interpretation": [
+        "Adjacent pair scan only; no 3-layer or 4-layer inference is made.",
+        "The motor denominator remains sqrt(20), matching TEST 100.",
+        "Two active layers therefore may produce greater total physical injection than a single active layer.",
+        "delta_net is a coarse behavioral keyword metric and must be interpreted together with generated text.",
+        "bidirectional_separation = delta_net_ABOVE - delta_net_BELOW.",
+        "No arbitrary success threshold is applied."
+    ],
+    "next_decision_rule": (
+        "After inspection of the pair scan, only contiguous layer regions "
+        "showing reproducible directional structure should be considered "
+        "for a subsequent 3-layer or 4-layer test."
+    )
+}
+
+with open(
+    RESULT_FILE,
+    "w",
+    encoding="utf-8"
+) as f:
+
+    json.dump(
+        results,
+        f,
+        ensure_ascii=False,
+        indent=2
+    )
+
+# -----------------------------------------------------------------------------
+# 21) FİNAL
+# -----------------------------------------------------------------------------
+
+print("\n" + "=" * 100)
+print("TEST 101 TAMAMLANDI")
+print("=" * 100)
+
+print(f"Sonuç dosyası: {RESULT_FILE}")
+
+print(
+    f"\nBaseline NET = {baseline_net:+.4f}"
+)
+
+print(
+    f"Test edilen komşu çift = {len(pairs)}"
+)
+
+print(
+    f"Toplam koşul = {len(pairs) * 2} "
+    f"(ABOVE + BELOW)"
+)
+
+print(
+    f"Toplam generation = "
+    f"{len(PROMPTS) * (1 + len(pairs) * 2)}"
+)
+
+print("\nÖnemli:")
+print(
+    "Bu aşamada 3'lü/4'lü katman kombinasyonuna geçmeyin. "
+    "Önce bu 19 komşu çiftin davranış haritasını görelim."
+)
+
+print("=" * 100)
