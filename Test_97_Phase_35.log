@@ -1,0 +1,3269 @@
+# =============================================================================
+# TEST 114 — STANDALONE FINAL ARCHITECTURE DECISION TEST
+# EXACT ONLINE GEOMETRY-MATCHED RANDOM TRANSPORT CONTROL
+# =============================================================================
+#
+# Qwen/Qwen2.5-7B-Instruct · AkbasCore DRA
+#
+# STANDALONE:
+#   Bu hücre önceki hiçbir Colab hücresine veya RAM değişkenine ihtiyaç duymaz.
+#
+# PURPOSE
+# -------
+# TEST113 showed that locked semantic A/B perturbations have transport
+# profiles different from ordinary isotropic random perturbations.
+#
+# TEST114 asks the final architectural question:
+#
+#   Is that difference explained by the LOCAL HIDDEN-STATE ALIGNMENT
+#   seen by DRA at the intervention layers?
+#
+# CRITICAL DESIGN
+# ---------------
+# Geometry matching is ONLINE.
+#
+# At L10:
+#   construct random R10 such that
+#
+#       cos(h10_current, R10)
+#       =
+#       semantic telemetry cosine at L10
+#
+# Apply DRA.
+#
+# At L11:
+#   L10 has already changed the hidden state.
+#
+#   Therefore R11 is NOT constructed from baseline L11.
+#
+#   It is constructed ONLINE from the actual perturbed L11 hidden state:
+#
+#       cos(h11_current, R11)
+#       =
+#       semantic telemetry cosine at L11
+#
+# Thus scalar alignment, DRA envelope and brake are matched at the actual
+# intervention point.
+#
+# IMPORTANT LIMITATION
+# --------------------
+# Semantic contribution magnitude also depends on ||h||.
+# Geometry-matched arm inherits its own current ||h|| after L10.
+# Therefore contribution equality is measured and reported, not assumed.
+#
+# PRIMARY ENDPOINTS
+# -----------------
+#   P19 = normalized physical perturbation retention L11 -> L19
+#   D19 = cos(delta_h11, delta_h19)
+#
+# SECONDARY:
+#   D27 = cos(delta_h11, delta_h27)
+#
+# NO fake downstream random semantic vectors are created.
+# Source-energy retention is NOT used as a primary TEST114 endpoint.
+#
+# NULL
+# ----
+#   32 A-geometry-matched random controls
+#   32 B-geometry-matched random controls
+#
+# Each replicate is averaged over the exact locked 40 prompts.
+#
+# DECISION
+# --------
+# If semantic D19 is reproduced by geometry-matched controls:
+#
+#   scalar local alignment is a sufficient candidate explanation.
+#
+# If semantic D19 remains outside matched controls:
+#
+#   scalar cosine/alignment is insufficient.
+#
+# This does NOT by itself prove "semantics" is causal.
+#
+# =============================================================================
+
+
+# =============================================================================
+# 0. IMPORTS
+# =============================================================================
+
+import json
+import math
+import random
+import gc
+
+import numpy as np
+import torch
+
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+
+# =============================================================================
+# 1. LOCKED CONFIG
+# =============================================================================
+
+MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 42
+
+MODEL_LAYERS = 28
+VECTOR_LAYERS = 20
+HIDDEN = 3584
+
+ACTIVE_LAYERS = [10, 11]
+
+IVME = 0.10
+SQRT_K = math.sqrt(VECTOR_LAYERS)
+
+EPS = 1e-12
+
+N_MATCHED = 32
+
+MATCH_SEED_A = 2026114000
+MATCH_SEED_B = 2026115000
+
+SONUM = 0.30
+ZIRVE = 0.70
+TABAN = 0.20
+
+COS_BRAKE_HIGH = 0.75
+COS_BRAKE_LOW = -0.40
+
+BRAKE_HIGH_DENOM = 0.25
+BRAKE_LOW_GAIN = 1.60
+
+
+# Exact locked fingerprints from TEST110-113.
+
+EXPECTED_AB = 0.007351959
+EXPECTED_OU = 0.002256775
+
+EXPECTED_COS10 = 0.656545
+EXPECTED_COS11 = 0.658274
+
+
+# =============================================================================
+# 2. DETERMINISM
+# =============================================================================
+
+def set_seed(seed):
+
+    random.seed(seed)
+    np.random.seed(seed)
+
+    torch.manual_seed(seed)
+
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+set_seed(SEED)
+
+
+# =============================================================================
+# 3. EXACT LOCKED TRAINING DATA
+# =============================================================================
+
+ABOVE_TRAIN = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+
+BELOW_TRAIN = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+
+NEUTRAL_TRAIN = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 4. EXACT LOCKED 40 PROMPTS
+# =============================================================================
+
+PROMPTS = [
+
+    # MAP_REPORT
+    "The site map marks Clara at one elevation and the pedestrian deck at another. In relation to the deck, Clara is",
+    "According to the survey map, a weather balloon and the observatory roof occupy separate vertical levels. The balloon is",
+    "The diagram places a rescue drone at one height and the canyon rim at another. Relative to the rim, the drone is",
+    "On the engineering map, Marcus and the service platform are shown at distinct vertical positions. Marcus is",
+    "The location chart records a beacon at one elevation and the lighthouse balcony at another. Relative to the balcony, the beacon is",
+    "A terrain diagram shows a helicopter at a different height from the ridge line. The helicopter is",
+    "The architectural plan indicates Nina at one vertical level and the terrace edge at another. Nina is",
+    "The field map places a bird at a different elevation from the tower ledge. Relative to the ledge, the bird is",
+
+    # WITNESS_STATEMENT
+    "A witness describes Leo and the footbridge as occupying different vertical positions. Relative to the footbridge, Leo is",
+    "The observer reports that a drone and the warehouse roof were at different heights. The drone was",
+    "A witness saw a lantern at a different elevation from the balcony rail. Relative to the rail, the lantern was",
+    "The observer describes Emma's vertical position with respect to the railway deck. Emma was",
+    "A witness reports a kite and the cliff rim at distinct elevations. Relative to the rim, the kite was",
+    "The observer noted that a camera and the stage floor occupied different vertical levels. The camera was",
+    "A witness describes a small aircraft at a different height from the mountain crest. The aircraft was",
+    "The observer reports that Daniel and the raised walkway occupied distinct elevations. Daniel was",
+
+    # TECHNICAL_LOG
+    "Inspection log: sensor altitude differs from the platform elevation. Relative to the platform, the sensor is",
+    "Flight log: drone altitude differs from the roof reference level. The drone is",
+    "Survey record: the marker and the retaining wall top are registered at different elevations. Relative to the wall top, the marker is",
+    "Maintenance log: the technician's vertical position differs from the catwalk level. The technician is",
+    "Navigation record: the balloon and the tower crown occupy separate elevation readings. Relative to the tower crown, the balloon is",
+    "Site log: the camera height differs from the monument base reference. The camera is",
+    "Aviation record: the helicopter and the ridge have different altitude readings. Relative to the ridge, the helicopter is",
+    "Inspection record: the worker's elevation differs from the bridge deck reference. The worker is",
+
+    # COMPARATIVE_FRAGMENT
+    "Relative elevation: Olivia versus the stone bridge. Olivia is",
+    "Vertical comparison: drone versus stadium roof. The drone is",
+    "Height relation: beacon versus tower balcony. The beacon is",
+    "Elevation comparison: Samuel versus observation deck. Samuel is",
+    "Vertical relation: balloon versus building roofline. The balloon is",
+    "Height comparison: bird versus cliff edge. The bird is",
+    "Elevation relation: camera versus platform surface. The camera is",
+    "Vertical comparison: helicopter versus mountain ridge. The helicopter is",
+
+    # INDIRECT_DESCRIPTION
+    "To describe Rosa's vertical placement, the old viaduct is used as the reference structure. Rosa is",
+    "The stadium roof serves only as a reference for describing the drone's elevation. The drone is",
+    "For the lantern's vertical placement, the balcony edge provides the comparison level. The lantern is",
+    "The mountain crest is the reference used to state the aircraft's elevation. The aircraft is",
+    "A scaffold deck provides the comparison height for Isaac's vertical position. Isaac is",
+    "The monument pedestal is used as the reference for the camera's vertical placement. The camera is",
+    "The canyon rim provides the comparison level for the rescue balloon's elevation. The balloon is",
+    "The elevated walkway serves as the reference structure for Maya's vertical placement. Maya is",
+]
+
+
+FAMILIES = [
+    "MAP_REPORT",
+    "WITNESS_STATEMENT",
+    "TECHNICAL_LOG",
+    "COMPARATIVE_FRAGMENT",
+    "INDIRECT_DESCRIPTION",
+]
+
+
+assert len(PROMPTS) == 40
+
+
+# =============================================================================
+# 5. HELPERS
+# =============================================================================
+
+def normalize_np(v, eps=1e-12):
+
+    v = np.asarray(v, dtype=np.float64)
+
+    n = np.linalg.norm(v)
+
+    if n < eps:
+        return np.zeros_like(v, dtype=np.float32)
+
+    return (v / n).astype(np.float32)
+
+
+def cosine_np(a, b, eps=1e-12):
+
+    a = np.asarray(a, dtype=np.float64)
+    b = np.asarray(b, dtype=np.float64)
+
+    na = np.linalg.norm(a)
+    nb = np.linalg.norm(b)
+
+    if na < eps or nb < eps:
+        return 0.0
+
+    return float(
+        np.dot(a, b)
+        /
+        (na * nb)
+    )
+
+
+def empirical_position(obs, null):
+
+    null = np.asarray(
+        null,
+        dtype=np.float64
+    )
+
+    upper_count = int(
+        np.sum(null >= obs)
+    )
+
+    lower_count = int(
+        np.sum(null <= obs)
+    )
+
+    upper_plus1 = float(
+        (upper_count + 1)
+        /
+        (len(null) + 1)
+    )
+
+    lower_plus1 = float(
+        (lower_count + 1)
+        /
+        (len(null) + 1)
+    )
+
+    percentile = float(
+        100.0
+        *
+        np.mean(
+            null < obs
+        )
+    )
+
+    return {
+        "obs": float(obs),
+        "null_mean": float(null.mean()),
+        "null_sd": float(null.std()),
+        "null_min": float(null.min()),
+        "null_max": float(null.max()),
+        "percentile": percentile,
+        "upper_count": upper_count,
+        "upper_plus1": upper_plus1,
+        "lower_count": lower_count,
+        "lower_plus1": lower_plus1,
+    }
+
+
+# =============================================================================
+# 6. MODEL
+# =============================================================================
+
+print("\n" + "=" * 178)
+print("TEST 114 — STANDALONE FINAL ARCHITECTURE DECISION TEST")
+print("EXACT ONLINE GEOMETRY-MATCHED RANDOM TRANSPORT CONTROL")
+print("=" * 178)
+
+print("\n[1/16] Model yükleniyor...")
+
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_NAME,
+    trust_remote_code=True,
+)
+
+
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_NAME,
+    dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True,
+)
+
+
+model.eval()
+
+
+print("Model             :", MODEL_NAME)
+print("Device            :", model.device)
+print("dtype             :", next(model.parameters()).dtype)
+print("Layers            :", len(model.model.layers))
+print("Vector layers     :", VECTOR_LAYERS)
+print("Steering layers   :", ACTIVE_LAYERS)
+print("IVME              :", IVME)
+print("SQRT_K            :", SQRT_K)
+print("Prompts           :", len(PROMPTS))
+print("Matched / arm     :", N_MATCHED)
+print(
+    "Min +1 tail       :",
+    1.0 / (N_MATCHED + 1)
+)
+
+
+# =============================================================================
+# 7. TARGET TOKENS
+# =============================================================================
+
+print("\n[2/16] Target tokenlar doğrulanıyor...")
+
+
+TARGET_STRINGS = {
+    "above": " above",
+    "below": " below",
+    "over": " over",
+    "under": " under",
+}
+
+
+TARGET_IDS = {}
+
+
+for name, text in TARGET_STRINGS.items():
+
+    ids = tokenizer.encode(
+        text,
+        add_special_tokens=False
+    )
+
+    print(
+        f"{name:<8} | "
+        f"{repr(text):<12} | "
+        f"{ids}"
+    )
+
+    if len(ids) != 1:
+        raise RuntimeError(
+            f"{name} tek token değil."
+        )
+
+    TARGET_IDS[name] = ids[0]
+
+
+TARGET_ID_LIST = [
+    TARGET_IDS["above"],
+    TARGET_IDS["below"],
+    TARGET_IDS["over"],
+    TARGET_IDS["under"],
+]
+
+
+# =============================================================================
+# 8. EXACT LOCKED A/B EXTRACTION
+# =============================================================================
+
+@torch.no_grad()
+def extract_layerwise(texts):
+
+    enc = tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=128,
+    )
+
+    input_ids = enc["input_ids"].to(model.device)
+    attention_mask = enc["attention_mask"].to(model.device)
+
+    captured = [
+        None
+        for _ in range(VECTOR_LAYERS)
+    ]
+
+    handles = []
+
+
+    def make_hook(layer_idx):
+
+        def hook(module, inputs, output):
+
+            h = (
+                output[0]
+                if isinstance(output, tuple)
+                else output
+            )
+
+            captured[layer_idx] = h.detach()
+
+        return hook
+
+
+    for l in range(VECTOR_LAYERS):
+
+        handles.append(
+            model.model.layers[l]
+            .register_forward_hook(
+                make_hook(l)
+            )
+        )
+
+
+    _ = model(
+        input_ids=input_ids,
+        attention_mask=attention_mask,
+        use_cache=False,
+    )
+
+
+    for h in handles:
+        h.remove()
+
+
+    lengths = (
+        attention_mask
+        .sum(dim=1)
+        .cpu()
+        .numpy()
+    )
+
+
+    result = np.zeros(
+        (
+            len(texts),
+            VECTOR_LAYERS,
+            HIDDEN
+        ),
+        dtype=np.float32
+    )
+
+
+    for l in range(VECTOR_LAYERS):
+
+        x = (
+            captured[l]
+            .float()
+            .cpu()
+            .numpy()
+        )
+
+        for i in range(len(texts)):
+
+            result[i, l] = x[
+                i,
+                int(lengths[i]) - 1
+            ]
+
+
+    return result
+
+
+print(
+    "\n[3/16] Exact locked A/B vectors çıkarılıyor..."
+)
+
+
+ACT_A = extract_layerwise(ABOVE_TRAIN)
+ACT_B = extract_layerwise(BELOW_TRAIN)
+ACT_N = extract_layerwise(NEUTRAL_TRAIN)
+
+
+A_VEC = (
+    ACT_A.mean(axis=0)
+    -
+    ACT_N.mean(axis=0)
+).astype(np.float32)
+
+
+B_VEC = (
+    ACT_B.mean(axis=0)
+    -
+    ACT_N.mean(axis=0)
+).astype(np.float32)
+
+
+for l in range(VECTOR_LAYERS):
+
+    A_VEC[l] = normalize_np(A_VEC[l])
+    B_VEC[l] = normalize_np(B_VEC[l])
+
+
+COS10 = cosine_np(
+    A_VEC[10],
+    B_VEC[10]
+)
+
+COS11 = cosine_np(
+    A_VEC[11],
+    B_VEC[11]
+)
+
+
+print(
+    f"L10 cos(A,B) = {COS10:+.6f}"
+)
+
+print(
+    f"L11 cos(A,B) = {COS11:+.6f}"
+)
+
+
+if abs(
+    COS10 - EXPECTED_COS10
+) > 5e-6:
+
+    raise RuntimeError(
+        "L10 geometry drift."
+    )
+
+
+if abs(
+    COS11 - EXPECTED_COS11
+) > 5e-6:
+
+    raise RuntimeError(
+        "L11 geometry drift."
+    )
+
+
+print("Vector geometry integrity: PASS")
+
+
+# =============================================================================
+# 9. DRA
+# =============================================================================
+
+def dra_parameters(
+    cosine_value,
+    layer_idx
+):
+
+    unc = (
+        1.0
+        -
+        abs(cosine_value)
+    )
+
+
+    dw = (
+        SONUM
+        +
+        unc * 0.20
+    )
+
+
+    t = float(layer_idx)
+
+
+    kb = (
+        ZIRVE
+        *
+        math.exp(
+            -dw * t
+        )
+        *
+        (
+            1.0
+            +
+            dw * t
+        )
+        +
+        TABAN
+    )
+
+
+    env = (
+        kb
+        /
+        (
+            ZIRVE
+            +
+            TABAN
+        )
+    )
+
+
+    if cosine_value > COS_BRAKE_HIGH:
+
+        brake = (
+            1.0
+            -
+            cosine_value
+        ) / BRAKE_HIGH_DENOM
+
+    elif cosine_value < COS_BRAKE_LOW:
+
+        brake = BRAKE_LOW_GAIN
+
+    else:
+
+        brake = 1.0
+
+
+    return env, brake
+
+
+# =============================================================================
+# 10. FP32 FINAL READOUT
+# =============================================================================
+
+def qwen_rmsnorm_fp32(h):
+
+    norm = model.model.norm
+
+    weight = (
+        norm.weight
+        .detach()
+        .float()
+    )
+
+    eps = float(
+        norm.variance_epsilon
+    )
+
+
+    var = (
+        h.float()
+        .pow(2)
+        .mean(
+            dim=-1,
+            keepdim=True
+        )
+    )
+
+
+    return (
+        h.float()
+        *
+        torch.rsqrt(
+            var + eps
+        )
+        *
+        weight
+    )
+
+
+@torch.no_grad()
+def target_readout(final_hidden):
+
+    h = qwen_rmsnorm_fp32(
+        final_hidden
+    )
+
+
+    weights = (
+        model.lm_head.weight[
+            TARGET_ID_LIST
+        ]
+        .detach()
+        .float()
+    )
+
+
+    logits = torch.matmul(
+        weights,
+        h
+    )
+
+
+    vals = (
+        logits
+        .detach()
+        .cpu()
+        .numpy()
+    )
+
+
+    return {
+        "AB":
+            float(
+                vals[0]
+                -
+                vals[1]
+            ),
+
+        "OU":
+            float(
+                vals[2]
+                -
+                vals[3]
+            ),
+    }
+
+
+# =============================================================================
+# 11. STANDARD BASE / SEMANTIC FORWARD
+# =============================================================================
+
+@torch.no_grad()
+def run_standard(
+    prompt,
+    vectors=None,
+    arm_name="BASE"
+):
+
+    states = {
+        l: None
+        for l in range(
+            11,
+            MODEL_LAYERS
+        )
+    }
+
+
+    telemetry = []
+
+    final_capture = {
+        "hidden": None
+    }
+
+
+    handles = []
+
+
+    def make_hook(l):
+
+        def hook(
+            module,
+            inputs,
+            output
+        ):
+
+            hidden = (
+                output[0]
+                if isinstance(output, tuple)
+                else output
+            )
+
+
+            new_hidden = hidden
+
+
+            if (
+                vectors is not None
+                and
+                l in ACTIVE_LAYERS
+            ):
+
+                v = (
+                    torch.as_tensor(
+                        vectors[l],
+                        device=hidden.device,
+                        dtype=hidden.dtype
+                    )
+                    .unsqueeze(0)
+                )
+
+
+                hlast = hidden[
+                    :,
+                    -1,
+                    :
+                ]
+
+
+                hn = torch.linalg.norm(
+                    hlast,
+                    dim=-1,
+                    keepdim=True
+                )
+
+
+                vn = torch.linalg.norm(
+                    v,
+                    dim=-1,
+                    keepdim=True
+                )
+
+
+                cos = (
+                    torch.sum(
+                        hlast * v,
+                        dim=-1,
+                        keepdim=True
+                    )
+                    /
+                    (
+                        hn * vn
+                        +
+                        1e-12
+                    )
+                )
+
+
+                cos_value = float(
+                    cos
+                    .mean()
+                    .detach()
+                    .cpu()
+                )
+
+
+                env, brake = dra_parameters(
+                    cos_value,
+                    l
+                )
+
+
+                contribution = (
+                    IVME
+                    *
+                    hn
+                    /
+                    SQRT_K
+                    *
+                    env
+                    *
+                    brake
+                )
+
+
+                delta = (
+                    contribution
+                    *
+                    v
+                )
+
+
+                new_hidden = hidden.clone()
+
+
+                new_hidden[
+                    :,
+                    -1,
+                    :
+                ] += delta
+
+
+                telemetry.append({
+                    "layer":
+                        int(l),
+
+                    "cos":
+                        cos_value,
+
+                    "env":
+                        float(env),
+
+                    "brake":
+                        float(brake),
+
+                    "contribution":
+                        float(
+                            contribution
+                            .mean()
+                            .detach()
+                            .cpu()
+                        ),
+                })
+
+
+            if l >= 11:
+
+                states[l] = (
+                    new_hidden[
+                        0,
+                        -1,
+                        :
+                    ]
+                    .detach()
+                    .float()
+                    .cpu()
+                    .numpy()
+                    .astype(np.float32)
+                )
+
+
+            if isinstance(output, tuple):
+
+                return (
+                    new_hidden,
+                    *output[1:]
+                )
+
+
+            return new_hidden
+
+
+        return hook
+
+
+    for l in range(MODEL_LAYERS):
+
+        handles.append(
+            model.model.layers[l]
+            .register_forward_hook(
+                make_hook(l)
+            )
+        )
+
+
+    def final_pre_hook(
+        module,
+        inputs
+    ):
+
+        final_capture[
+            "hidden"
+        ] = inputs[0].detach()
+
+
+    final_handle = (
+        model.model.norm
+        .register_forward_pre_hook(
+            final_pre_hook
+        )
+    )
+
+
+    enc = tokenizer(
+        prompt,
+        return_tensors="pt"
+    ).to(model.device)
+
+
+    try:
+
+        _ = model(
+            **enc,
+            use_cache=False
+        )
+
+
+        readout = target_readout(
+            final_capture[
+                "hidden"
+            ][
+                0,
+                -1,
+                :
+            ]
+        )
+
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+        final_handle.remove()
+
+
+    return {
+        "states": states,
+        "telemetry": telemetry,
+        "readout": readout,
+    }
+
+
+# =============================================================================
+# 12. TRANSPORT METRICS
+# =============================================================================
+
+def transport_metrics(
+    baseline_states,
+    steered_states
+):
+
+    delta = {}
+    relative = {}
+
+
+    for l in range(
+        11,
+        MODEL_LAYERS
+    ):
+
+        h0 = (
+            baseline_states[l]
+            .astype(np.float64)
+        )
+
+        hs = (
+            steered_states[l]
+            .astype(np.float64)
+        )
+
+
+        d = hs - h0
+
+        delta[l] = d
+
+
+        relative[l] = float(
+            np.linalg.norm(d)
+            /
+            (
+                np.linalg.norm(h0)
+                +
+                EPS
+            )
+        )
+
+
+    d11 = delta[11]
+    u11 = relative[11]
+
+
+    metrics = {}
+
+
+    for l in range(
+        11,
+        MODEL_LAYERS
+    ):
+
+        metrics[l] = {
+
+            "relative_delta":
+                float(
+                    relative[l]
+                ),
+
+            "physical_retention_vs_L11":
+                float(
+                    relative[l]
+                    /
+                    (
+                        u11
+                        +
+                        EPS
+                    )
+                ),
+
+            "direction_retention_vs_L11":
+                float(
+                    cosine_np(
+                        d11,
+                        delta[l]
+                    )
+                ),
+        }
+
+
+        if l < MODEL_LAYERS - 1:
+
+            metrics[l][
+                "adjacent_direction_cos"
+            ] = float(
+                cosine_np(
+                    delta[l],
+                    delta[l + 1]
+                )
+            )
+
+        else:
+
+            metrics[l][
+                "adjacent_direction_cos"
+            ] = None
+
+
+    return metrics
+
+
+# =============================================================================
+# 13. BASELINE + SEMANTIC REFERENCE
+# =============================================================================
+
+print(
+    "\n[4/16] Baseline trajectories hesaplanıyor..."
+)
+
+
+BASELINES = []
+
+
+for i, prompt in enumerate(PROMPTS):
+
+    BASELINES.append(
+        run_standard(
+            prompt,
+            None,
+            "BASE"
+        )
+    )
+
+
+    print(
+        f"BASE {i+1:02d}/40",
+        end="\r"
+    )
+
+
+print(" " * 70, end="\r")
+
+
+print(
+    "\n[5/16] Locked semantic ABOVE / BELOW çalıştırılıyor..."
+)
+
+
+SEMANTIC_RESULTS = []
+
+
+for i, prompt in enumerate(PROMPTS):
+
+    a = run_standard(
+        prompt,
+        A_VEC,
+        "ABOVE"
+    )
+
+
+    b = run_standard(
+        prompt,
+        B_VEC,
+        "BELOW"
+    )
+
+
+    A_transport = transport_metrics(
+        BASELINES[i]["states"],
+        a["states"]
+    )
+
+
+    B_transport = transport_metrics(
+        BASELINES[i]["states"],
+        b["states"]
+    )
+
+
+    SEMANTIC_RESULTS.append({
+
+        "prompt_index":
+            i + 1,
+
+        "family":
+            FAMILIES[i // 8],
+
+        "DDS_AB":
+            float(
+                a["readout"]["AB"]
+                -
+                b["readout"]["AB"]
+            ),
+
+        "DDS_OU":
+            float(
+                a["readout"]["OU"]
+                -
+                b["readout"]["OU"]
+            ),
+
+        "A_transport":
+            A_transport,
+
+        "B_transport":
+            B_transport,
+
+        "A_telemetry":
+            a["telemetry"],
+
+        "B_telemetry":
+            b["telemetry"],
+    })
+
+
+    print(
+        f"SEMANTIC {i+1:02d}/40",
+        end="\r"
+    )
+
+
+print(" " * 70, end="\r")
+
+
+# =============================================================================
+# 14. FINGERPRINT LOCK
+# =============================================================================
+
+print(
+    "\n[6/16] Exact TEST113 fingerprint doğrulanıyor..."
+)
+
+
+obs_ab = float(
+    np.mean([
+        x["DDS_AB"]
+        for x in SEMANTIC_RESULTS
+    ])
+)
+
+
+obs_ou = float(
+    np.mean([
+        x["DDS_OU"]
+        for x in SEMANTIC_RESULTS
+    ])
+)
+
+
+print(
+    f"DDS_AB observed = {obs_ab:+.9f}"
+)
+
+print(
+    f"DDS_AB expected = {EXPECTED_AB:+.9f}"
+)
+
+print(
+    f"Difference       = "
+    f"{obs_ab-EXPECTED_AB:+.12e}"
+)
+
+
+print(
+    f"\nDDS_OU observed = {obs_ou:+.9f}"
+)
+
+print(
+    f"DDS_OU expected = {EXPECTED_OU:+.9f}"
+)
+
+print(
+    f"Difference       = "
+    f"{obs_ou-EXPECTED_OU:+.12e}"
+)
+
+
+if abs(
+    obs_ab - EXPECTED_AB
+) > 1e-6:
+
+    raise RuntimeError(
+        "TEST113 AB fingerprint FAILED. "
+        "TEST114 matched null çalıştırılmadı."
+    )
+
+
+if abs(
+    obs_ou - EXPECTED_OU
+) > 1e-6:
+
+    raise RuntimeError(
+        "TEST113 OU fingerprint FAILED. "
+        "TEST114 matched null çalıştırılmadı."
+    )
+
+
+print(
+    "\nFingerprint integrity: PASS"
+)
+
+
+# =============================================================================
+# 15. SEMANTIC AGGREGATES + PER-PROMPT TELEMETRY TARGETS
+# =============================================================================
+
+def semantic_mean(
+    arm_key,
+    layer,
+    metric
+):
+
+    return float(
+        np.mean([
+            x[
+                arm_key
+            ][
+                layer
+            ][
+                metric
+            ]
+            for x in SEMANTIC_RESULTS
+        ])
+    )
+
+
+A_PHYS19 = semantic_mean(
+    "A_transport",
+    19,
+    "physical_retention_vs_L11"
+)
+
+B_PHYS19 = semantic_mean(
+    "B_transport",
+    19,
+    "physical_retention_vs_L11"
+)
+
+A_DIR19 = semantic_mean(
+    "A_transport",
+    19,
+    "direction_retention_vs_L11"
+)
+
+B_DIR19 = semantic_mean(
+    "B_transport",
+    19,
+    "direction_retention_vs_L11"
+)
+
+A_DIR27 = semantic_mean(
+    "A_transport",
+    27,
+    "direction_retention_vs_L11"
+)
+
+B_DIR27 = semantic_mean(
+    "B_transport",
+    27,
+    "direction_retention_vs_L11"
+)
+
+
+def telemetry_dict(rows):
+
+    return {
+        int(x["layer"]): x
+        for x in rows
+    }
+
+
+SEMANTIC_TARGETS = {
+    "A": [],
+    "B": [],
+}
+
+
+for x in SEMANTIC_RESULTS:
+
+    SEMANTIC_TARGETS[
+        "A"
+    ].append(
+        telemetry_dict(
+            x["A_telemetry"]
+        )
+    )
+
+    SEMANTIC_TARGETS[
+        "B"
+    ].append(
+        telemetry_dict(
+            x["B_telemetry"]
+        )
+    )
+
+
+print(
+    "\nSemantic reference:"
+)
+
+print(
+    f"ABOVE P19={A_PHYS19:.6f} "
+    f"| D19={A_DIR19:+.6f} "
+    f"| D27={A_DIR27:+.6f}"
+)
+
+print(
+    f"BELOW P19={B_PHYS19:.6f} "
+    f"| D19={B_DIR19:+.6f} "
+    f"| D27={B_DIR27:+.6f}"
+)
+
+
+# =============================================================================
+# 16. EXACT ONLINE MATCHED DIRECTION
+# =============================================================================
+#
+# Construct a unit random vector r satisfying:
+#
+#     cos(h, r) = target_cos
+#
+# h is the ACTUAL current hidden state at the intervention hook.
+#
+# Construction is done in FP32 tensor arithmetic on GPU because that is
+# closer to the actual BF16 intervention geometry than constructing from a
+# stale baseline state.
+#
+# =============================================================================
+
+def make_matched_direction_tensor(
+    hlast,
+    target_cos,
+    seed
+):
+
+    # hlast shape [1, D]
+
+    device = hlast.device
+
+    h32 = hlast.detach().float()
+
+    hnorm = torch.linalg.norm(
+        h32,
+        dim=-1,
+        keepdim=True
+    )
+
+
+    hhat = (
+        h32
+        /
+        (
+            hnorm
+            +
+            1e-12
+        )
+    )
+
+
+    gen = torch.Generator(
+        device=device
+    )
+
+    gen.manual_seed(
+        int(seed)
+    )
+
+
+    z = torch.randn(
+        h32.shape,
+        generator=gen,
+        device=device,
+        dtype=torch.float32
+    )
+
+
+    z = (
+        z
+        -
+        torch.sum(
+            z * hhat,
+            dim=-1,
+            keepdim=True
+        )
+        *
+        hhat
+    )
+
+
+    znorm = torch.linalg.norm(
+        z,
+        dim=-1,
+        keepdim=True
+    )
+
+
+    # deterministic emergency fallback
+
+    if float(
+        znorm.min().detach().cpu()
+    ) < 1e-10:
+
+        z = torch.roll(
+            hhat,
+            shifts=1,
+            dims=-1
+        )
+
+        z = (
+            z
+            -
+            torch.sum(
+                z * hhat,
+                dim=-1,
+                keepdim=True
+            )
+            *
+            hhat
+        )
+
+        znorm = torch.linalg.norm(
+            z,
+            dim=-1,
+            keepdim=True
+        )
+
+
+    zhat = (
+        z
+        /
+        (
+            znorm
+            +
+            1e-12
+        )
+    )
+
+
+    c = float(
+        np.clip(
+            target_cos,
+            -1.0,
+            1.0
+        )
+    )
+
+
+    s = math.sqrt(
+        max(
+            0.0,
+            1.0 - c*c
+        )
+    )
+
+
+    r32 = (
+        c * hhat
+        +
+        s * zhat
+    )
+
+
+    r32 = (
+        r32
+        /
+        (
+            torch.linalg.norm(
+                r32,
+                dim=-1,
+                keepdim=True
+            )
+            +
+            1e-12
+        )
+    )
+
+
+    return r32
+
+
+# =============================================================================
+# 17. ONLINE GEOMETRY-MATCHED FORWARD
+# =============================================================================
+
+@torch.no_grad()
+def run_geometry_matched(
+    prompt,
+    target_telemetry,
+    seed_base,
+    arm_name
+):
+
+    states = {
+        l: None
+        for l in range(
+            11,
+            MODEL_LAYERS
+        )
+    }
+
+
+    telemetry = []
+
+    final_capture = {
+        "hidden": None
+    }
+
+
+    handles = []
+
+
+    def make_hook(l):
+
+        def hook(
+            module,
+            inputs,
+            output
+        ):
+
+            hidden = (
+                output[0]
+                if isinstance(output, tuple)
+                else output
+            )
+
+
+            new_hidden = hidden
+
+
+            if l in ACTIVE_LAYERS:
+
+                hlast = hidden[
+                    :,
+                    -1,
+                    :
+                ]
+
+
+                target_cos = float(
+                    target_telemetry[
+                        l
+                    ][
+                        "cos"
+                    ]
+                )
+
+
+                # Different deterministic random source at each active layer.
+
+                layer_seed = (
+                    int(seed_base)
+                    +
+                    int(l) * 1000003
+                )
+
+
+                r32 = (
+                    make_matched_direction_tensor(
+                        hlast,
+                        target_cos,
+                        layer_seed
+                    )
+                )
+
+
+                # Convert to the exact dtype used by the intervention.
+
+                v = r32.to(
+                    dtype=hidden.dtype
+                )
+
+
+                # IMPORTANT:
+                # recompute ACTUAL cosine after BF16 conversion.
+
+                hn = torch.linalg.norm(
+                    hlast,
+                    dim=-1,
+                    keepdim=True
+                )
+
+
+                vn = torch.linalg.norm(
+                    v,
+                    dim=-1,
+                    keepdim=True
+                )
+
+
+                actual_cos_tensor = (
+                    torch.sum(
+                        hlast * v,
+                        dim=-1,
+                        keepdim=True
+                    )
+                    /
+                    (
+                        hn * vn
+                        +
+                        1e-12
+                    )
+                )
+
+
+                actual_cos = float(
+                    actual_cos_tensor
+                    .mean()
+                    .detach()
+                    .cpu()
+                )
+
+
+                env, brake = dra_parameters(
+                    actual_cos,
+                    l
+                )
+
+
+                contribution = (
+                    IVME
+                    *
+                    hn
+                    /
+                    SQRT_K
+                    *
+                    env
+                    *
+                    brake
+                )
+
+
+                delta = (
+                    contribution
+                    *
+                    v
+                )
+
+
+                new_hidden = hidden.clone()
+
+
+                new_hidden[
+                    :,
+                    -1,
+                    :
+                ] += delta
+
+
+                semantic_ref = (
+                    target_telemetry[l]
+                )
+
+
+                semantic_contribution = float(
+                    semantic_ref[
+                        "contribution"
+                    ]
+                )
+
+
+                matched_contribution = float(
+                    contribution
+                    .mean()
+                    .detach()
+                    .cpu()
+                )
+
+
+                telemetry.append({
+
+                    "layer":
+                        int(l),
+
+                    "target_cos":
+                        target_cos,
+
+                    "actual_cos":
+                        actual_cos,
+
+                    "cos_error":
+                        float(
+                            actual_cos
+                            -
+                            target_cos
+                        ),
+
+                    "target_env":
+                        float(
+                            semantic_ref[
+                                "env"
+                            ]
+                        ),
+
+                    "actual_env":
+                        float(env),
+
+                    "env_error":
+                        float(
+                            env
+                            -
+                            semantic_ref[
+                                "env"
+                            ]
+                        ),
+
+                    "target_brake":
+                        float(
+                            semantic_ref[
+                                "brake"
+                            ]
+                        ),
+
+                    "actual_brake":
+                        float(brake),
+
+                    "brake_error":
+                        float(
+                            brake
+                            -
+                            semantic_ref[
+                                "brake"
+                            ]
+                        ),
+
+                    "semantic_contribution":
+                        semantic_contribution,
+
+                    "matched_contribution":
+                        matched_contribution,
+
+                    "contribution_relative_error":
+                        float(
+                            (
+                                matched_contribution
+                                -
+                                semantic_contribution
+                            )
+                            /
+                            (
+                                abs(
+                                    semantic_contribution
+                                )
+                                +
+                                EPS
+                            )
+                        ),
+                })
+
+
+            if l >= 11:
+
+                states[l] = (
+                    new_hidden[
+                        0,
+                        -1,
+                        :
+                    ]
+                    .detach()
+                    .float()
+                    .cpu()
+                    .numpy()
+                    .astype(np.float32)
+                )
+
+
+            if isinstance(output, tuple):
+
+                return (
+                    new_hidden,
+                    *output[1:]
+                )
+
+
+            return new_hidden
+
+
+        return hook
+
+
+    for l in range(MODEL_LAYERS):
+
+        handles.append(
+            model.model.layers[l]
+            .register_forward_hook(
+                make_hook(l)
+            )
+        )
+
+
+    def final_pre_hook(
+        module,
+        inputs
+    ):
+
+        final_capture[
+            "hidden"
+        ] = inputs[0].detach()
+
+
+    final_handle = (
+        model.model.norm
+        .register_forward_pre_hook(
+            final_pre_hook
+        )
+    )
+
+
+    enc = tokenizer(
+        prompt,
+        return_tensors="pt"
+    ).to(model.device)
+
+
+    try:
+
+        _ = model(
+            **enc,
+            use_cache=False
+        )
+
+
+        readout = target_readout(
+            final_capture[
+                "hidden"
+            ][
+                0,
+                -1,
+                :
+            ]
+        )
+
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+        final_handle.remove()
+
+
+    return {
+        "states": states,
+        "telemetry": telemetry,
+        "readout": readout,
+    }
+
+
+# =============================================================================
+# 18. PREFLIGHT ONLINE MATCHING
+# =============================================================================
+
+print(
+    "\n[7/16] Online geometry matching pre-flight..."
+)
+
+
+PREFLIGHT = {
+    "A": [],
+    "B": [],
+}
+
+
+for arm, seed_base in [
+    ("A", MATCH_SEED_A),
+    ("B", MATCH_SEED_B)
+]:
+
+    # first four prompts are enough to verify implementation
+    # before launching 2560 expensive passes.
+
+    for p_idx in range(4):
+
+        rr = run_geometry_matched(
+            PROMPTS[p_idx],
+            SEMANTIC_TARGETS[
+                arm
+            ][p_idx],
+            seed_base
+            +
+            p_idx,
+            arm
+        )
+
+
+        for row in rr["telemetry"]:
+
+            PREFLIGHT[
+                arm
+            ].append(
+                row
+            )
+
+
+for arm in ["A", "B"]:
+
+    max_cos_error = max(
+        abs(
+            x["cos_error"]
+        )
+        for x in PREFLIGHT[
+            arm
+        ]
+    )
+
+
+    max_env_error = max(
+        abs(
+            x["env_error"]
+        )
+        for x in PREFLIGHT[
+            arm
+        ]
+    )
+
+
+    max_brake_error = max(
+        abs(
+            x["brake_error"]
+        )
+        for x in PREFLIGHT[
+            arm
+        ]
+    )
+
+
+    print(
+        f"{arm}-matched | "
+        f"max |cos error|={max_cos_error:.9e} | "
+        f"max |env error|={max_env_error:.9e} | "
+        f"max |brake error|={max_brake_error:.9e}"
+    )
+
+
+    # BF16 intervention vector means exact mathematical matching
+    # cannot be expected below FP32 construction precision.
+    #
+    # 2e-3 is deliberately conservative; actual errors should normally
+    # be much smaller.
+
+    if max_cos_error > 2e-3:
+
+        raise RuntimeError(
+            f"{arm} online cosine matching FAILED."
+        )
+
+
+print(
+    "Online geometry matching pre-flight: PASS"
+)
+
+
+# =============================================================================
+# 19. FULL MATCHED NULL
+# =============================================================================
+
+print(
+    "\n[8/16] Geometry-matched random null çalıştırılıyor..."
+)
+
+print(
+    f"{N_MATCHED} A-matched + "
+    f"{N_MATCHED} B-matched"
+)
+
+print(
+    "Toplam steered forward pass =",
+    N_MATCHED
+    *
+    2
+    *
+    len(PROMPTS)
+)
+
+
+MATCHED_SUMMARY = {
+    "A": [],
+    "B": [],
+}
+
+
+for arm, seed_root in [
+    ("A", MATCH_SEED_A),
+    ("B", MATCH_SEED_B)
+]:
+
+    for r_idx in range(
+        N_MATCHED
+    ):
+
+        per_prompt = []
+
+
+        for p_idx, prompt in enumerate(
+            PROMPTS
+        ):
+
+            # Unique deterministic seed per replicate × prompt.
+            #
+            # Layer-specific offset is added inside
+            # run_geometry_matched().
+
+            seed_base = (
+                seed_root
+                +
+                r_idx * 10000
+                +
+                p_idx
+            )
+
+
+            rr = run_geometry_matched(
+                prompt,
+                SEMANTIC_TARGETS[
+                    arm
+                ][p_idx],
+                seed_base,
+                arm
+            )
+
+
+            transport = transport_metrics(
+                BASELINES[
+                    p_idx
+                ][
+                    "states"
+                ],
+                rr[
+                    "states"
+                ]
+            )
+
+
+            max_cos_error = max(
+                abs(
+                    x["cos_error"]
+                )
+                for x in rr[
+                    "telemetry"
+                ]
+            )
+
+
+            max_env_error = max(
+                abs(
+                    x["env_error"]
+                )
+                for x in rr[
+                    "telemetry"
+                ]
+            )
+
+
+            max_brake_error = max(
+                abs(
+                    x["brake_error"]
+                )
+                for x in rr[
+                    "telemetry"
+                ]
+            )
+
+
+            mean_abs_contrib_rel_error = float(
+                np.mean([
+                    abs(
+                        x[
+                            "contribution_relative_error"
+                        ]
+                    )
+                    for x in rr[
+                        "telemetry"
+                    ]
+                ])
+            )
+
+
+            per_prompt.append({
+
+                "physical_L19":
+                    transport[
+                        19
+                    ][
+                        "physical_retention_vs_L11"
+                    ],
+
+                "direction_L19":
+                    transport[
+                        19
+                    ][
+                        "direction_retention_vs_L11"
+                    ],
+
+                "direction_L27":
+                    transport[
+                        27
+                    ][
+                        "direction_retention_vs_L11"
+                    ],
+
+                "adjacent_L11_12":
+                    transport[
+                        11
+                    ][
+                        "adjacent_direction_cos"
+                    ],
+
+                "adjacent_L15_16":
+                    transport[
+                        15
+                    ][
+                        "adjacent_direction_cos"
+                    ],
+
+                "adjacent_L18_19":
+                    transport[
+                        18
+                    ][
+                        "adjacent_direction_cos"
+                    ],
+
+                "max_cos_error":
+                    max_cos_error,
+
+                "max_env_error":
+                    max_env_error,
+
+                "max_brake_error":
+                    max_brake_error,
+
+                "mean_abs_contribution_relative_error":
+                    mean_abs_contrib_rel_error,
+            })
+
+
+            print(
+                f"{arm}-MATCH "
+                f"{r_idx+1:02d}/{N_MATCHED} "
+                f"| prompt {p_idx+1:02d}/40",
+                end="\r"
+            )
+
+
+        def mean_key(key):
+
+            return float(
+                np.mean([
+                    x[key]
+                    for x in per_prompt
+                ])
+            )
+
+
+        def max_key(key):
+
+            return float(
+                np.max([
+                    x[key]
+                    for x in per_prompt
+                ])
+            )
+
+
+        MATCHED_SUMMARY[
+            arm
+        ].append({
+
+            "replicate":
+                int(r_idx),
+
+            "physical_L19":
+                mean_key(
+                    "physical_L19"
+                ),
+
+            "direction_L19":
+                mean_key(
+                    "direction_L19"
+                ),
+
+            "direction_L27":
+                mean_key(
+                    "direction_L27"
+                ),
+
+            "adjacent_L11_12":
+                mean_key(
+                    "adjacent_L11_12"
+                ),
+
+            "adjacent_L15_16":
+                mean_key(
+                    "adjacent_L15_16"
+                ),
+
+            "adjacent_L18_19":
+                mean_key(
+                    "adjacent_L18_19"
+                ),
+
+            "max_cos_error":
+                max_key(
+                    "max_cos_error"
+                ),
+
+            "max_env_error":
+                max_key(
+                    "max_env_error"
+                ),
+
+            "max_brake_error":
+                max_key(
+                    "max_brake_error"
+                ),
+
+            "mean_abs_contribution_relative_error":
+                mean_key(
+                    "mean_abs_contribution_relative_error"
+                ),
+        })
+
+
+print(" " * 100, end="\r")
+
+
+# =============================================================================
+# 20. MATCHING INTEGRITY
+# =============================================================================
+
+print(
+    "\n[9/16] Full matching integrity..."
+)
+
+
+for arm in ["A", "B"]:
+
+    max_cos = max(
+        x[
+            "max_cos_error"
+        ]
+        for x in MATCHED_SUMMARY[
+            arm
+        ]
+    )
+
+
+    max_env = max(
+        x[
+            "max_env_error"
+        ]
+        for x in MATCHED_SUMMARY[
+            arm
+        ]
+    )
+
+
+    max_brake = max(
+        x[
+            "max_brake_error"
+        ]
+        for x in MATCHED_SUMMARY[
+            arm
+        ]
+    )
+
+
+    mean_contrib_error = float(
+        np.mean([
+            x[
+                "mean_abs_contribution_relative_error"
+            ]
+            for x in MATCHED_SUMMARY[
+                arm
+            ]
+        ])
+    )
+
+
+    print(
+        f"{arm}-MATCHED"
+    )
+
+    print(
+        f"  max |cos error|      = "
+        f"{max_cos:.9e}"
+    )
+
+    print(
+        f"  max |env error|      = "
+        f"{max_env:.9e}"
+    )
+
+    print(
+        f"  max |brake error|    = "
+        f"{max_brake:.9e}"
+    )
+
+    print(
+        f"  mean |contrib rel Δ| = "
+        f"{mean_contrib_error:.9e}"
+    )
+
+
+    if max_cos > 2e-3:
+
+        raise RuntimeError(
+            f"{arm} full cosine matching FAILED."
+        )
+
+
+print(
+    "\nFull matching integrity: PASS"
+)
+
+
+# =============================================================================
+# 21. NULL ARRAYS
+# =============================================================================
+
+def null_array(
+    arm,
+    key
+):
+
+    return np.asarray(
+        [
+            x[key]
+            for x in MATCHED_SUMMARY[
+                arm
+            ]
+        ],
+        dtype=np.float64
+    )
+
+
+A_NULL_P19 = null_array(
+    "A",
+    "physical_L19"
+)
+
+A_NULL_D19 = null_array(
+    "A",
+    "direction_L19"
+)
+
+A_NULL_D27 = null_array(
+    "A",
+    "direction_L27"
+)
+
+
+B_NULL_P19 = null_array(
+    "B",
+    "physical_L19"
+)
+
+B_NULL_D19 = null_array(
+    "B",
+    "direction_L19"
+)
+
+B_NULL_D27 = null_array(
+    "B",
+    "direction_L27"
+)
+
+
+# =============================================================================
+# 22. PRIMARY STATISTICS
+# =============================================================================
+
+STATS = {
+
+    "ABOVE": {
+
+        "physical_L19":
+            empirical_position(
+                A_PHYS19,
+                A_NULL_P19
+            ),
+
+        "direction_L19":
+            empirical_position(
+                A_DIR19,
+                A_NULL_D19
+            ),
+
+        "direction_L27":
+            empirical_position(
+                A_DIR27,
+                A_NULL_D27
+            ),
+    },
+
+    "BELOW": {
+
+        "physical_L19":
+            empirical_position(
+                B_PHYS19,
+                B_NULL_P19
+            ),
+
+        "direction_L19":
+            empirical_position(
+                B_DIR19,
+                B_NULL_D19
+            ),
+
+        "direction_L27":
+            empirical_position(
+                B_DIR27,
+                B_NULL_D27
+            ),
+    },
+}
+
+
+print(
+    "\n[10/16] PRIMARY FINAL-DECISION RESULTS"
+)
+
+
+print(
+    "\n"
+    + "=" * 178
+)
+
+print(
+    "SEMANTIC vs ONLINE ALIGNMENT-MATCHED RANDOM — L11 → L19"
+)
+
+print(
+    "=" * 178
+)
+
+
+print(
+    f"{'ARM':<10}"
+    f"{'METRIC':<24}"
+    f"{'SEMANTIC':>13}"
+    f"{'MATCH MEAN':>14}"
+    f"{'MATCH SD':>12}"
+    f"{'MIN':>12}"
+    f"{'MAX':>12}"
+    f"{'PCTL':>10}"
+    f"{'UP +1':>11}"
+    f"{'LOW +1':>11}"
+)
+
+
+print("-" * 129)
+
+
+for arm in [
+    "ABOVE",
+    "BELOW"
+]:
+
+    for metric in [
+        "physical_L19",
+        "direction_L19"
+    ]:
+
+        x = STATS[
+            arm
+        ][
+            metric
+        ]
+
+
+        print(
+            f"{arm:<10}"
+            f"{metric:<24}"
+            f"{x['obs']:>13.6f}"
+            f"{x['null_mean']:>14.6f}"
+            f"{x['null_sd']:>12.6f}"
+            f"{x['null_min']:>12.6f}"
+            f"{x['null_max']:>12.6f}"
+            f"{x['percentile']:>9.2f}%"
+            f"{x['upper_plus1']:>11.6f}"
+            f"{x['lower_plus1']:>11.6f}"
+        )
+
+
+# =============================================================================
+# 23. L27 SECONDARY
+# =============================================================================
+
+print(
+    "\n[11/16] L11 → L27 secondary endpoint..."
+)
+
+
+print(
+    "\n"
+    + "=" * 178
+)
+
+print(
+    "END-OF-NETWORK RAW DIRECTION RETENTION"
+)
+
+print(
+    "=" * 178
+)
+
+
+for arm in [
+    "ABOVE",
+    "BELOW"
+]:
+
+    x = STATS[
+        arm
+    ][
+        "direction_L27"
+    ]
+
+
+    print(
+        f"{arm:<7} | "
+        f"semantic={x['obs']:+.6f} | "
+        f"matched={x['null_mean']:+.6f} "
+        f"± {x['null_sd']:.6f} | "
+        f"range=[{x['null_min']:+.6f},"
+        f"{x['null_max']:+.6f}] | "
+        f"pct={x['percentile']:.2f}% | "
+        f"upper+1={x['upper_plus1']:.6f} | "
+        f"lower+1={x['lower_plus1']:.6f}"
+    )
+
+
+# =============================================================================
+# 24. REPLICATE TABLE
+# =============================================================================
+
+print(
+    "\n[12/16] Matched-control replicate table..."
+)
+
+
+print(
+    "\n"
+    + "=" * 178
+)
+
+print(
+    "ONLINE GEOMETRY-MATCHED NULL"
+)
+
+print(
+    "=" * 178
+)
+
+
+print(
+    f"{'R':<5}"
+    f"{'A P19':>12}"
+    f"{'A D19':>12}"
+    f"{'A D27':>12}"
+    f"{'B P19':>12}"
+    f"{'B D19':>12}"
+    f"{'B D27':>12}"
+)
+
+
+print("-" * 77)
+
+
+for r in range(
+    N_MATCHED
+):
+
+    a = MATCHED_SUMMARY[
+        "A"
+    ][r]
+
+    b = MATCHED_SUMMARY[
+        "B"
+    ][r]
+
+
+    print(
+        f"{r:<5d}"
+        f"{a['physical_L19']:>12.6f}"
+        f"{a['direction_L19']:>12.6f}"
+        f"{a['direction_L27']:>12.6f}"
+        f"{b['physical_L19']:>12.6f}"
+        f"{b['direction_L19']:>12.6f}"
+        f"{b['direction_L27']:>12.6f}"
+    )
+
+
+# =============================================================================
+# 25. ARCHITECTURE DECISION
+# =============================================================================
+#
+# Predeclared engineering criterion:
+#
+# Is semantic D19 greater than ALL 32 corresponding exact alignment-matched
+# random controls?
+#
+# This is NOT a classical significance test.
+#
+# It is a finite-null architecture decision rule.
+#
+# =============================================================================
+
+A_OUTSIDE = bool(
+    A_DIR19
+    >
+    A_NULL_D19.max()
+)
+
+B_OUTSIDE = bool(
+    B_DIR19
+    >
+    B_NULL_D19.max()
+)
+
+
+if (
+    A_OUTSIDE
+    and
+    B_OUTSIDE
+):
+
+    DECISION = (
+        "SCALAR_COSINE_GEOMETRY_INSUFFICIENT"
+    )
+
+    BLUEPRINT = (
+        "Exact online local cosine matching does not reproduce the locked "
+        "semantic transport profile. AkbasCore 3.0 should retain DRA as the "
+        "actuator but should NOT use scalar cosine/alignment as the sole "
+        "controller state. The controller needs richer local directional/"
+        "subspace/manifold state."
+    )
+
+
+elif (
+    not A_OUTSIDE
+    and
+    not B_OUTSIDE
+):
+
+    DECISION = (
+        "LOCAL_ALIGNMENT_GEOMETRY_SUFFICIENT_CANDIDATE"
+    )
+
+    BLUEPRINT = (
+        "The semantic-vs-random transport difference is compatible with "
+        "local alignment geometry once cosine is matched online. "
+        "AkbasCore 3.0 should prioritize semantic-label-free geometric "
+        "state feedback rather than concept-specific controller rules."
+    )
+
+
+else:
+
+    DECISION = (
+        "ASYMMETRIC_MIXED_REGIME"
+    )
+
+    BLUEPRINT = (
+        "A and B do not collapse to one common scalar-alignment regime. "
+        "AkbasCore 3.0 should preserve directional asymmetry and use a "
+        "richer geometric state representation than scalar cosine alone."
+    )
+
+
+print(
+    "\n[13/16] FINAL MOTOR ARCHITECTURE CLASSIFICATION"
+)
+
+
+print(
+    "\n"
+    + "=" * 178
+)
+
+print(
+    "DECISION:",
+    DECISION
+)
+
+print("-" * 178)
+
+print(BLUEPRINT)
+
+print("=" * 178)
+
+
+print(
+    "\nABOVE D19 > all matched controls:",
+    A_OUTSIDE
+)
+
+print(
+    "BELOW D19 > all matched controls:",
+    B_OUTSIDE
+)
+
+
+# =============================================================================
+# 26. JSON
+# =============================================================================
+
+print(
+    "\n[14/16] JSON hazırlanıyor..."
+)
+
+
+OUTPUT = {
+
+    "test":
+        "TEST 114",
+
+    "title":
+        (
+            "Standalone Final Architecture Decision — "
+            "Exact Online Geometry-Matched Random Transport Control"
+        ),
+
+    "model":
+        MODEL_NAME,
+
+    "config": {
+
+        "active_layers":
+            ACTIVE_LAYERS,
+
+        "ivme":
+            IVME,
+
+        "sqrt_k":
+            SQRT_K,
+
+        "n_prompts":
+            len(PROMPTS),
+
+        "n_matched_per_arm":
+            N_MATCHED,
+
+        "match_seed_A":
+            MATCH_SEED_A,
+
+        "match_seed_B":
+            MATCH_SEED_B,
+
+        "minimum_empirical_tail_plus1":
+            1.0
+            /
+            (
+                N_MATCHED
+                +
+                1
+            ),
+    },
+
+    "fingerprint": {
+
+        "cos_A_B_L10":
+            COS10,
+
+        "cos_A_B_L11":
+            COS11,
+
+        "DDS_AB_expected":
+            EXPECTED_AB,
+
+        "DDS_AB_observed":
+            obs_ab,
+
+        "DDS_OU_expected":
+            EXPECTED_OU,
+
+        "DDS_OU_observed":
+            obs_ou,
+
+        "integrity":
+            "PASS",
+    },
+
+    "semantic_reference": {
+
+        "ABOVE": {
+
+            "physical_L19":
+                A_PHYS19,
+
+            "direction_L19":
+                A_DIR19,
+
+            "direction_L27":
+                A_DIR27,
+        },
+
+        "BELOW": {
+
+            "physical_L19":
+                B_PHYS19,
+
+            "direction_L19":
+                B_DIR19,
+
+            "direction_L27":
+                B_DIR27,
+        },
+    },
+
+    "matched_null": {
+
+        "A":
+            MATCHED_SUMMARY[
+                "A"
+            ],
+
+        "B":
+            MATCHED_SUMMARY[
+                "B"
+            ],
+    },
+
+    "statistics":
+        STATS,
+
+    "architecture_decision": {
+
+        "A_direction_above_all_matched":
+            A_OUTSIDE,
+
+        "B_direction_above_all_matched":
+            B_OUTSIDE,
+
+        "classification":
+            DECISION,
+
+        "blueprint":
+            BLUEPRINT,
+    },
+
+    "interpretation_lock":
+        (
+            "TEST114 matches the semantic arm's realized DRA cosine online "
+            "at both L10 and L11 using the actual current hidden state. "
+            "Primary endpoints are physical retention and raw perturbation "
+            "direction retention from L11 to L19. A residual semantic-vs-"
+            "matched difference rejects scalar local cosine as a sufficient "
+            "explanation of TEST113 transport, but does not prove semantic "
+            "content itself is causal. Finite-null +1 quantities are not "
+            "classical p-values. No controller is fitted."
+        ),
+}
+
+
+OUTPUT_FILE = (
+    "TEST_114_STANDALONE_FINAL_ARCHITECTURE_DECISION.json"
+)
+
+
+with open(
+    OUTPUT_FILE,
+    "w",
+    encoding="utf-8"
+) as f:
+
+    json.dump(
+        OUTPUT,
+        f,
+        indent=2,
+        ensure_ascii=False
+    )
+
+
+print(
+    "Kaydedildi:",
+    OUTPUT_FILE
+)
+
+
+# =============================================================================
+# 27. FINAL SUMMARY
+# =============================================================================
+
+print(
+    "\n[15/16] Final summary..."
+)
+
+
+print(
+    "\n"
+    + "=" * 178
+)
+
+print(
+    "TEST 114 — FINAL SUMMARY"
+)
+
+print(
+    "=" * 178
+)
+
+
+print(
+    "\nFINGERPRINT"
+)
+
+print(
+    f"L10 cos(A,B) = {COS10:+.6f}"
+)
+
+print(
+    f"L11 cos(A,B) = {COS11:+.6f}"
+)
+
+print(
+    f"DDS_AB = {obs_ab:+.9f}"
+)
+
+print(
+    f"DDS_OU = {obs_ou:+.9f}"
+)
+
+print(
+    "Integrity = PASS"
+)
+
+
+print(
+    "\nPRIMARY L11 → L19"
+)
+
+
+print(
+    f"ABOVE semantic P19 = "
+    f"{A_PHYS19:.6f}"
+)
+
+print(
+    f"ABOVE matched  P19 = "
+    f"{A_NULL_P19.mean():.6f} "
+    f"± {A_NULL_P19.std():.6f}"
+)
+
+print(
+    f"ABOVE semantic D19 = "
+    f"{A_DIR19:+.6f}"
+)
+
+print(
+    f"ABOVE matched  D19 = "
+    f"{A_NULL_D19.mean():+.6f} "
+    f"± {A_NULL_D19.std():.6f}"
+)
+
+
+print(
+    f"\nBELOW semantic P19 = "
+    f"{B_PHYS19:.6f}"
+)
+
+print(
+    f"BELOW matched  P19 = "
+    f"{B_NULL_P19.mean():.6f} "
+    f"± {B_NULL_P19.std():.6f}"
+)
+
+print(
+    f"BELOW semantic D19 = "
+    f"{B_DIR19:+.6f}"
+)
+
+print(
+    f"BELOW matched  D19 = "
+    f"{B_NULL_D19.mean():+.6f} "
+    f"± {B_NULL_D19.std():.6f}"
+)
+
+
+print(
+    "\nSECONDARY L11 → L27"
+)
+
+print(
+    f"ABOVE semantic D27 = "
+    f"{A_DIR27:+.6f}"
+)
+
+print(
+    f"ABOVE matched  D27 = "
+    f"{A_NULL_D27.mean():+.6f} "
+    f"± {A_NULL_D27.std():.6f}"
+)
+
+print(
+    f"BELOW semantic D27 = "
+    f"{B_DIR27:+.6f}"
+)
+
+print(
+    f"BELOW matched  D27 = "
+    f"{B_NULL_D27.mean():+.6f} "
+    f"± {B_NULL_D27.std():.6f}"
+)
+
+
+print(
+    "\n"
+    + "=" * 178
+)
+
+print(
+    "FINAL MOTOR ARCHITECTURE CLASSIFICATION"
+)
+
+print(
+    "=" * 178
+)
+
+print(
+    DECISION
+)
+
+print()
+
+print(
+    BLUEPRINT
+)
+
+
+print(
+r"""
+
+INTERPRETATION LOCK
+-------------------
+
+BRANCH A
+========
+
+IF semantic A and B D19 values are reproduced by their corresponding
+ONLINE geometry-matched random nulls:
+
+    TEST113's semantic/random difference is substantially explained by
+    local hidden-state alignment.
+
+    MOTOR CONSEQUENCE:
+
+        AkbasCore 3.0 can prioritize:
+
+            hidden state
+                 ↓
+            geometric state estimator
+                 ↓
+            G_l(state)
+                 ↓
+            DRA actuator
+
+        without concept-specific semantic labels as the primary
+        controller variable.
+
+
+BRANCH B
+========
+
+IF semantic A and B D19 remain above all corresponding matched controls:
+
+    Matching scalar cosine at the actual intervention point is not enough.
+
+    MOTOR CONSEQUENCE:
+
+        G_l = f(cosine)
+
+    is insufficient.
+
+    AkbasCore 3.0 should instead represent richer local state such as:
+
+        directional subspace position
+        manifold relationship
+        local directional coherence
+        layerwise transport state
+
+    while DRA remains the actuator.
+
+
+MIXED BRANCH
+============
+
+IF A and B split:
+
+    one scalar geometric law does not explain both directions.
+
+    Preserve directional asymmetry in the AkbasCore 3.0 state model.
+
+
+IMPORTANT
+=========
+
+A residual difference does NOT prove that "semantics" itself is causal.
+
+It only rejects the tested scalar local-cosine explanation.
+
+No controller has been trained here.
+No parameter has been tuned from the outcome.
+No feature has been selected post-hoc.
+
+After TEST114, the next engineering step is the AkbasCore 3.0
+controller blueprint corresponding to the observed branch.
+"""
+)
+
+
+print(
+    "[16/16] TEST 114 tamamlandı."
+)
+
+
+# =============================================================================
+# CLEANUP
+# =============================================================================
+
+gc.collect()
+
+if torch.cuda.is_available():
+    torch.cuda.empty_cache()
