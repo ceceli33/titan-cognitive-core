@@ -1,0 +1,3821 @@
+# =============================================================================
+# TEST 110 — BLIND SENSOR VALIDATION
+# =============================================================================
+#
+# Qwen/Qwen2.5-7B-Instruct · AkbasCore DRA
+#
+# AMAÇ
+# ----
+# TEST 109'da keşfedilen PRE-STEERING context-geometry sensörlerinin
+# TAMAMEN YENİ promptlarda directional steering response'u öngörüp
+# öngöremediğini doğrulamak.
+#
+# BU TEST:
+#
+#   - yeni sensor keşfetmez
+#   - controller geliştirmez
+#   - gain değiştirmez
+#   - layer değiştirmez
+#   - dose değiştirmez
+#   - semantic vector değiştirmez
+#
+# TEST 109'DA ÖNCEDEN SEÇİLMİŞ VE BU TEST İÇİN KİLİTLİ 4 SENSOR:
+#
+#   S1 = cos(h10, A)
+#
+#   S2 = ||Proj_span(A,B)(h10)|| / ||h10||
+#
+#   S3 = cos(h10, A_perp_B)
+#
+#   S4 = cos(h10, normalize(A-B))
+#
+#
+# PRIMARY TARGET:
+#
+#   DDS_AB =
+#       DLM_AB(ABOVE intervention)
+#       -
+#       DLM_AB(BELOW intervention)
+#
+# where:
+#
+#   DLM_AB = logit(" above") - logit(" below")
+#
+#
+# SECONDARY TRANSFER TARGET:
+#
+#   DDS_OU =
+#       DLM_OU(ABOVE intervention)
+#       -
+#       DLM_OU(BELOW intervention)
+#
+#   DLM_OU = logit(" over") - logit(" under")
+#
+#
+# TEST 109 → TEST 110 OUT-OF-SAMPLE PREDICTION
+# --------------------------------------------
+#
+# TEST 109'un aynı 40 promptu yalnızca REFERANS / TRAIN calibration setidir.
+#
+# Her S1-S4 için:
+#
+#   DDS_109 = beta0 + beta1 * sensor_109
+#
+# katsayıları TEST 109 referans verisinden fit edilir.
+#
+# Bu beta'lar daha sonra DONDURULUR.
+#
+# TEST 110'da yeniden fit YOKTUR:
+#
+#   DDS_pred_110 =
+#       beta0_109
+#       +
+#       beta1_109 * sensor_110
+#
+#
+# Sonra:
+#
+#   corr(pred_110, DDS_110)
+#   MAE
+#   RMSE
+#   R2_out_of_sample
+#   sign accuracy
+#
+# ölçülür.
+#
+#
+# CONFIRMATORY PRINCIPLE
+# ----------------------
+#
+# Sadece S1-S4 raporlanır.
+#
+# TEST 110 sonuçlarına baktıktan sonra:
+#
+#   - başka sensor seçilmeyecek
+#   - prompt silinmeyecek
+#   - family çıkarılmayacak
+#   - sensor formülü değiştirilmeyecek
+#
+# TEST 110 başarısız olursa sensor hipotezi doğrulanmamış sayılır.
+#
+#
+# NOT
+# ---
+# Bu deneyde "p-value" yerine:
+#
+#   - effect direction
+#   - Pearson
+#   - Spearman
+#   - frozen-model OOS prediction
+#   - family consistency
+#
+# birlikte okunacaktır.
+#
+# =============================================================================
+
+
+# =============================================================================
+# 0. IMPORTS
+# =============================================================================
+
+import json
+import math
+import random
+
+import numpy as np
+import torch
+
+from transformers import (
+    AutoTokenizer,
+    AutoModelForCausalLM,
+)
+
+
+# =============================================================================
+# 1. LOCKED CONFIG
+# =============================================================================
+
+MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 42
+
+N_LAYERS = 20
+HIDDEN = 3584
+
+ACTIVE_LAYERS = [10, 11]
+
+SENSOR_LAYER = 10
+
+IVME = 0.10
+
+SQRT_K = math.sqrt(N_LAYERS)
+
+
+# -----------------------------------------------------------------------------
+# DRA — LOCKED
+# -----------------------------------------------------------------------------
+
+SONUM = 0.30
+ZIRVE = 0.70
+TABAN = 0.20
+
+COS_BRAKE_HIGH = 0.75
+COS_BRAKE_LOW = -0.40
+
+BRAKE_HIGH_DENOM = 0.25
+BRAKE_LOW_GAIN = 1.60
+
+
+# =============================================================================
+# 2. DETERMINISM
+# =============================================================================
+
+def set_seed(seed):
+
+    random.seed(seed)
+    np.random.seed(seed)
+
+    torch.manual_seed(seed)
+
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+set_seed(SEED)
+
+
+# =============================================================================
+# 3. LOCKED SEMANTIC TRAINING DATA
+# =============================================================================
+
+ABOVE_TRAIN = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+
+BELOW_TRAIN = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+
+NEUTRAL_TRAIN = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 4. TEST 109 REFERENCE PROMPTS — LOCKED CALIBRATION SET
+# =============================================================================
+#
+# Bunlar TEST 110 validation promptları DEĞİLDİR.
+# Yalnızca beta_109 katsayılarını yeniden üretmek için kullanılır.
+#
+# =============================================================================
+
+REFERENCE_109_PROMPTS = [
+
+    # FAMILY 1
+
+    "Elena is at a different elevation from the railway viaduct. Relative to the viaduct, Elena is",
+
+    "A stone aqueduct provides the reference height for Daniel. Daniel is",
+
+    "Mira and an observation platform occupy different elevations. Relative to the platform, Mira is",
+
+    "Jonas has a vertical position with respect to the pedestrian walkway. Jonas is",
+
+    "The reference structure is an elevated rail deck. Priya's position relative to that deck is",
+
+    "A viewing platform and Omar are located at different heights. Relative to the platform, Omar is",
+
+    "Lucia's elevation is being described with respect to a concrete viaduct. Lucia is",
+
+    "A raised roadway serves as the spatial reference for Ethan. Ethan is",
+
+
+    # FAMILY 2
+
+    "A red balloon occupies a different elevation from the roofline. Relative to the roofline, the balloon is",
+
+    "A drone has a vertical position relative to the stadium roof. The drone is",
+
+    "A lantern is located at a different height from the balcony railing. Relative to the railing, the lantern is",
+
+    "A kite and a cliff edge occupy different elevations. Relative to the cliff edge, the kite is",
+
+    "A camera is positioned at a different vertical level from the stage platform. The camera is",
+
+    "A signal light has an elevation relative to the warehouse roof. The light is",
+
+    "A small aircraft occupies a vertical position relative to the mountain ridge. The aircraft is",
+
+    "A suspended sensor has a different elevation from the tunnel entrance. Relative to the entrance, the sensor is",
+
+
+    # FAMILY 3
+
+    "Using the castle wall as the reference elevation, the flag's vertical position is",
+
+    "Taking the canyon rim as the reference level, the helicopter is",
+
+    "With the ship's deck treated as the reference height, the seabird is",
+
+    "Using the tower balcony as the reference level, the maintenance worker is",
+
+    "Taking the dam crest as the reference elevation, the inspection drone is",
+
+    "With the monument base serving as the reference height, the camera is",
+
+    "Using the tree canopy as the reference level, the weather balloon is",
+
+    "Taking the stadium lights as the reference elevation, the aircraft is",
+
+
+    # FAMILY 4
+
+    "Where is Sofia in vertical relation to the footbridge? Sofia is",
+
+    "Where is the drone in vertical relation to the tower roof? The drone is",
+
+    "How should Noah's elevation be described relative to the platform? Noah is",
+
+    "What is the balloon's vertical relation to the building roof? The balloon is",
+
+    "How is Ava positioned vertically relative to the walkway? Ava is",
+
+    "What is the bird's elevation relative to the cliff edge? The bird is",
+
+    "Where is Liam vertically with respect to the viaduct deck? Liam is",
+
+    "How is the helicopter positioned in elevation relative to the ridge? The helicopter is",
+
+
+    # FAMILY 5
+
+    "In a harbor scene, a gull and the deck of a cargo ship appear at distinct elevations. Relative to the deck, the gull is",
+
+    "During a mountain survey, a drone and the ridge line are seen at different heights. Relative to the ridge, the drone is",
+
+    "At a construction site, Maya and a scaffold platform occupy different vertical levels. Relative to the platform, Maya is",
+
+    "In the city square, a camera and the monument pedestal are located at distinct elevations. Relative to the pedestal, the camera is",
+
+    "During an inspection, a technician and the catwalk are positioned at different heights. Relative to the catwalk, the technician is",
+
+    "In an aerial scene, a balloon and the top edge of a tower occupy different elevations. Relative to the tower edge, the balloon is",
+
+    "At the canyon, a rescue worker and a viewing ledge appear at distinct vertical levels. Relative to the ledge, the worker is",
+
+    "During the event, a filming drone and the stadium roof occupy different heights. Relative to the roof, the drone is",
+]
+
+
+assert len(REFERENCE_109_PROMPTS) == 40
+
+
+# =============================================================================
+# 5. TEST 110 — NEW BLIND VALIDATION PROMPTS
+# =============================================================================
+#
+# 5 YENİ DİLSEL AİLE × 8 = 40
+#
+# Bunlar TEST 108/109 promptlarının paraphrase kopyası değildir.
+#
+# Aileler:
+#
+#   1. MAP_REPORT
+#   2. WITNESS_STATEMENT
+#   3. TECHNICAL_LOG
+#   4. COMPARATIVE_FRAGMENT
+#   5. INDIRECT_DESCRIPTION
+#
+# Hedef kelimeler prompt içinde bulunmamalı:
+#
+#   above
+#   below
+#   over
+#   under
+#   overhead
+#   underneath
+#   beneath
+#
+# =============================================================================
+
+VALIDATION_110_PROMPTS = [
+
+    # -------------------------------------------------------------------------
+    # FAMILY 1 — MAP_REPORT
+    # -------------------------------------------------------------------------
+
+    "The site map marks Clara at one elevation and the pedestrian deck at another. In relation to the deck, Clara is",
+
+    "According to the survey map, a weather balloon and the observatory roof occupy separate vertical levels. The balloon is",
+
+    "The diagram places a rescue drone at one height and the canyon rim at another. Relative to the rim, the drone is",
+
+    "On the engineering map, Marcus and the service platform are shown at distinct vertical positions. Marcus is",
+
+    "The location chart records a beacon at one elevation and the lighthouse balcony at another. Relative to the balcony, the beacon is",
+
+    "A terrain diagram shows a helicopter at a different height from the ridge line. The helicopter is",
+
+    "The architectural plan indicates Nina at one vertical level and the terrace edge at another. Nina is",
+
+    "The field map places a bird at a different elevation from the tower ledge. Relative to the ledge, the bird is",
+
+
+    # -------------------------------------------------------------------------
+    # FAMILY 2 — WITNESS_STATEMENT
+    # -------------------------------------------------------------------------
+
+    "A witness describes Leo and the footbridge as occupying different vertical positions. Relative to the footbridge, Leo is",
+
+    "The observer reports that a drone and the warehouse roof were at different heights. The drone was",
+
+    "A witness saw a lantern at a different elevation from the balcony rail. Relative to the rail, the lantern was",
+
+    "The observer describes Emma's vertical position with respect to the railway deck. Emma was",
+
+    "A witness reports a kite and the cliff rim at distinct elevations. Relative to the rim, the kite was",
+
+    "The observer noted that a camera and the stage floor occupied different vertical levels. The camera was",
+
+    "A witness describes a small aircraft at a different height from the mountain crest. The aircraft was",
+
+    "The observer reports that Daniel and the raised walkway occupied distinct elevations. Daniel was",
+
+
+    # -------------------------------------------------------------------------
+    # FAMILY 3 — TECHNICAL_LOG
+    # -------------------------------------------------------------------------
+
+    "Inspection log: sensor altitude differs from the platform elevation. Relative to the platform, the sensor is",
+
+    "Flight log: drone altitude differs from the roof reference level. The drone is",
+
+    "Survey record: the marker and the retaining wall top are registered at different elevations. Relative to the wall top, the marker is",
+
+    "Maintenance log: the technician's vertical position differs from the catwalk level. The technician is",
+
+    "Navigation record: the balloon and the tower crown occupy separate elevation readings. Relative to the tower crown, the balloon is",
+
+    "Site log: the camera height differs from the monument base reference. The camera is",
+
+    "Aviation record: the helicopter and the ridge have different altitude readings. Relative to the ridge, the helicopter is",
+
+    "Inspection record: the worker's elevation differs from the bridge deck reference. The worker is",
+
+
+    # -------------------------------------------------------------------------
+    # FAMILY 4 — COMPARATIVE_FRAGMENT
+    # -------------------------------------------------------------------------
+
+    "Relative elevation: Olivia versus the stone bridge. Olivia is",
+
+    "Vertical comparison: drone versus stadium roof. The drone is",
+
+    "Height relation: beacon versus tower balcony. The beacon is",
+
+    "Elevation comparison: Samuel versus observation deck. Samuel is",
+
+    "Vertical relation: balloon versus building roofline. The balloon is",
+
+    "Height comparison: bird versus cliff edge. The bird is",
+
+    "Elevation relation: camera versus platform surface. The camera is",
+
+    "Vertical comparison: helicopter versus mountain ridge. The helicopter is",
+
+
+    # -------------------------------------------------------------------------
+    # FAMILY 5 — INDIRECT_DESCRIPTION
+    # -------------------------------------------------------------------------
+
+    "To describe Rosa's vertical placement, the old viaduct is used as the reference structure. Rosa is",
+
+    "The stadium roof serves only as a reference for describing the drone's elevation. The drone is",
+
+    "For the lantern's vertical placement, the balcony edge provides the comparison level. The lantern is",
+
+    "The mountain crest is the reference used to state the aircraft's elevation. The aircraft is",
+
+    "A scaffold deck provides the comparison height for Isaac's vertical position. Isaac is",
+
+    "The monument pedestal is used as the reference for the camera's vertical placement. The camera is",
+
+    "The canyon rim provides the comparison level for the rescue balloon's elevation. The balloon is",
+
+    "The elevated walkway serves as the reference structure for Maya's vertical placement. Maya is",
+]
+
+
+assert len(VALIDATION_110_PROMPTS) == 40
+
+
+VALIDATION_FAMILIES = [
+    "MAP_REPORT",
+    "WITNESS_STATEMENT",
+    "TECHNICAL_LOG",
+    "COMPARATIVE_FRAGMENT",
+    "INDIRECT_DESCRIPTION",
+]
+
+
+# =============================================================================
+# 6. LEXICAL LEAK CHECK
+# =============================================================================
+
+FORBIDDEN_TERMS = [
+    "above",
+    "below",
+    "over",
+    "under",
+    "overhead",
+    "underneath",
+    "beneath",
+]
+
+
+def lexical_leak_check(prompts):
+
+    violations = []
+
+    for i, prompt in enumerate(prompts):
+
+        low = prompt.lower()
+
+        padded = (
+            " "
+            + low
+            .replace(".", " ")
+            .replace(",", " ")
+            .replace("?", " ")
+            .replace(":", " ")
+            .replace(";", " ")
+            + " "
+        )
+
+        for term in FORBIDDEN_TERMS:
+
+            needle = (
+                " "
+                + term
+                + " "
+            )
+
+            if needle in padded:
+
+                violations.append(
+                    (
+                        i + 1,
+                        term,
+                        prompt
+                    )
+                )
+
+    return violations
+
+
+leaks = lexical_leak_check(
+    VALIDATION_110_PROMPTS
+)
+
+
+if leaks:
+
+    print(
+        "LEXICAL LEAK DETECTED:"
+    )
+
+    for item in leaks:
+        print(item)
+
+    raise RuntimeError(
+        "TEST 110 prompt set contains forbidden target terms."
+    )
+
+
+# =============================================================================
+# 7. BASIC HELPERS
+# =============================================================================
+
+def normalize_np(v, eps=1e-12):
+
+    v = np.asarray(
+        v,
+        dtype=np.float64
+    )
+
+    n = np.linalg.norm(v)
+
+    if n < eps:
+        return v.astype(np.float32)
+
+    return (
+        v / n
+    ).astype(np.float32)
+
+
+def cosine_np(a, b, eps=1e-12):
+
+    a = np.asarray(
+        a,
+        dtype=np.float64
+    )
+
+    b = np.asarray(
+        b,
+        dtype=np.float64
+    )
+
+    na = np.linalg.norm(a)
+    nb = np.linalg.norm(b)
+
+    if (
+        na < eps
+        or
+        nb < eps
+    ):
+        return 0.0
+
+    return float(
+        np.dot(a, b)
+        /
+        (
+            na * nb
+        )
+    )
+
+
+def rankdata_average(x):
+
+    x = np.asarray(
+        x,
+        dtype=np.float64
+    )
+
+    order = np.argsort(
+        x,
+        kind="mergesort"
+    )
+
+    ranks = np.empty(
+        len(x),
+        dtype=np.float64
+    )
+
+    i = 0
+
+    while i < len(x):
+
+        j = i + 1
+
+        while (
+            j < len(x)
+            and
+            x[order[j]]
+            ==
+            x[order[i]]
+        ):
+            j += 1
+
+        average_rank = (
+            (i + 1 + j)
+            / 2.0
+        )
+
+        ranks[
+            order[i:j]
+        ] = average_rank
+
+        i = j
+
+    return ranks
+
+
+def pearson_r(x, y):
+
+    x = np.asarray(
+        x,
+        dtype=np.float64
+    )
+
+    y = np.asarray(
+        y,
+        dtype=np.float64
+    )
+
+    if (
+        np.std(x) < 1e-15
+        or
+        np.std(y) < 1e-15
+    ):
+        return 0.0
+
+    return float(
+        np.corrcoef(
+            x,
+            y
+        )[0, 1]
+    )
+
+
+def spearman_rho(x, y):
+
+    return pearson_r(
+        rankdata_average(x),
+        rankdata_average(y)
+    )
+
+
+def fit_simple_ols(
+    x,
+    y
+):
+
+    x = np.asarray(
+        x,
+        dtype=np.float64
+    )
+
+    y = np.asarray(
+        y,
+        dtype=np.float64
+    )
+
+    X = np.column_stack([
+        np.ones(len(x)),
+        x
+    ])
+
+    beta = np.linalg.lstsq(
+        X,
+        y,
+        rcond=None
+    )[0]
+
+    return (
+        float(beta[0]),
+        float(beta[1])
+    )
+
+
+def prediction_metrics(
+    y_true,
+    y_pred
+):
+
+    y_true = np.asarray(
+        y_true,
+        dtype=np.float64
+    )
+
+    y_pred = np.asarray(
+        y_pred,
+        dtype=np.float64
+    )
+
+    residual = (
+        y_true
+        - y_pred
+    )
+
+    mae = float(
+        np.mean(
+            np.abs(residual)
+        )
+    )
+
+    rmse = float(
+        np.sqrt(
+            np.mean(
+                residual ** 2
+            )
+        )
+    )
+
+    ss_res = float(
+        np.sum(
+            residual ** 2
+        )
+    )
+
+    ss_tot = float(
+        np.sum(
+            (
+                y_true
+                - y_true.mean()
+            ) ** 2
+        )
+    )
+
+    if ss_tot > 1e-15:
+
+        r2_oos = (
+            1.0
+            - ss_res / ss_tot
+        )
+
+    else:
+
+        r2_oos = 0.0
+
+
+    pred_corr = pearson_r(
+        y_pred,
+        y_true
+    )
+
+
+    valid = (
+        (y_pred != 0)
+        &
+        (y_true != 0)
+    )
+
+    if valid.sum() > 0:
+
+        sign_acc = float(
+            np.mean(
+                np.sign(
+                    y_pred[valid]
+                )
+                ==
+                np.sign(
+                    y_true[valid]
+                )
+            )
+        )
+
+    else:
+
+        sign_acc = 0.0
+
+
+    return {
+
+        "prediction_correlation":
+            pred_corr,
+
+        "mae":
+            mae,
+
+        "rmse":
+            rmse,
+
+        "r2_out_of_sample":
+            float(r2_oos),
+
+        "sign_accuracy":
+            sign_acc,
+    }
+
+
+# =============================================================================
+# 8. LOAD MODEL
+# =============================================================================
+
+print(
+    "\n"
+    + "=" * 154
+)
+
+print(
+    "TEST 110 — BLIND SENSOR VALIDATION"
+)
+
+print(
+    "=" * 154
+)
+
+
+print(
+    "\n[1/16] Model yükleniyor..."
+)
+
+
+tokenizer = (
+    AutoTokenizer
+    .from_pretrained(
+        MODEL_NAME,
+        trust_remote_code=True,
+    )
+)
+
+
+if tokenizer.pad_token_id is None:
+
+    tokenizer.pad_token = (
+        tokenizer.eos_token
+    )
+
+
+model = (
+    AutoModelForCausalLM
+    .from_pretrained(
+        MODEL_NAME,
+        dtype=torch.bfloat16,
+        device_map="auto",
+        trust_remote_code=True,
+    )
+)
+
+
+model.eval()
+
+
+print(
+    "Model              :",
+    MODEL_NAME
+)
+
+print(
+    "Device             :",
+    model.device
+)
+
+print(
+    "dtype              :",
+    next(
+        model.parameters()
+    ).dtype
+)
+
+print(
+    "Model layers       :",
+    len(
+        model.model.layers
+    )
+)
+
+print(
+    "Steering layers    :",
+    ACTIVE_LAYERS
+)
+
+print(
+    "Sensor layer       :",
+    SENSOR_LAYER
+)
+
+print(
+    "Hidden             :",
+    HIDDEN
+)
+
+print(
+    "IVME               :",
+    IVME
+)
+
+print(
+    "SQRT_K             :",
+    SQRT_K
+)
+
+print(
+    "Reference prompts  :",
+    len(
+        REFERENCE_109_PROMPTS
+    )
+)
+
+print(
+    "Validation prompts :",
+    len(
+        VALIDATION_110_PROMPTS
+    )
+)
+
+print(
+    "Lexical leak check : PASS"
+)
+
+
+# =============================================================================
+# 9. TARGET TOKENS
+# =============================================================================
+
+print(
+    "\n[2/16] Target tokenlar doğrulanıyor..."
+)
+
+
+TARGET_STRINGS = {
+
+    "above":
+        " above",
+
+    "below":
+        " below",
+
+    "over":
+        " over",
+
+    "under":
+        " under",
+}
+
+
+TARGET_IDS = {}
+
+
+for name, text in (
+    TARGET_STRINGS.items()
+):
+
+    ids = tokenizer.encode(
+        text,
+        add_special_tokens=False
+    )
+
+    print(
+        f"{name:<8} | "
+        f"{repr(text):<12} | "
+        f"{ids}"
+    )
+
+    if len(ids) != 1:
+
+        raise RuntimeError(
+            f"{name} tek token değil: {ids}"
+        )
+
+    TARGET_IDS[
+        name
+    ] = ids[0]
+
+
+TARGET_ID_LIST = [
+
+    TARGET_IDS[
+        "above"
+    ],
+
+    TARGET_IDS[
+        "below"
+    ],
+
+    TARGET_IDS[
+        "over"
+    ],
+
+    TARGET_IDS[
+        "under"
+    ],
+]
+
+
+# =============================================================================
+# 10. EXTRACT SEMANTIC DIRECTIONS
+# =============================================================================
+
+@torch.no_grad()
+def extract_layerwise_activations(
+    texts,
+    max_length=128
+):
+
+    encoded = tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=max_length,
+    )
+
+
+    input_ids = (
+        encoded[
+            "input_ids"
+        ].to(
+            model.device
+        )
+    )
+
+    attention_mask = (
+        encoded[
+            "attention_mask"
+        ].to(
+            model.device
+        )
+    )
+
+
+    captured = [
+        None
+        for _ in range(
+            N_LAYERS
+        )
+    ]
+
+
+    handles = []
+
+
+    def make_hook(
+        layer_idx
+    ):
+
+        def hook(
+            module,
+            inputs,
+            output
+        ):
+
+            hidden = (
+                output[0]
+                if isinstance(
+                    output,
+                    tuple
+                )
+                else output
+            )
+
+            captured[
+                layer_idx
+            ] = (
+                hidden.detach()
+            )
+
+        return hook
+
+
+    for layer_idx in range(
+        N_LAYERS
+    ):
+
+        handles.append(
+            model.model.layers[
+                layer_idx
+            ].register_forward_hook(
+                make_hook(
+                    layer_idx
+                )
+            )
+        )
+
+
+    _ = model(
+        input_ids=input_ids,
+        attention_mask=attention_mask,
+        use_cache=False,
+    )
+
+
+    for handle in handles:
+        handle.remove()
+
+
+    lengths = (
+        attention_mask
+        .sum(
+            dim=1
+        )
+        .cpu()
+        .numpy()
+    )
+
+
+    result = np.zeros(
+        (
+            len(texts),
+            N_LAYERS,
+            HIDDEN
+        ),
+        dtype=np.float32
+    )
+
+
+    for layer_idx in range(
+        N_LAYERS
+    ):
+
+        hidden = (
+            captured[
+                layer_idx
+            ]
+            .float()
+            .cpu()
+            .numpy()
+        )
+
+
+        for sample_idx in range(
+            len(texts)
+        ):
+
+            last_idx = (
+                int(
+                    lengths[
+                        sample_idx
+                    ]
+                )
+                - 1
+            )
+
+            result[
+                sample_idx,
+                layer_idx
+            ] = hidden[
+                sample_idx,
+                last_idx
+            ]
+
+
+    return result
+
+
+print(
+    "\n[3/16] Locked semantic directions çıkarılıyor..."
+)
+
+
+ACT_ABOVE = (
+    extract_layerwise_activations(
+        ABOVE_TRAIN
+    )
+)
+
+ACT_BELOW = (
+    extract_layerwise_activations(
+        BELOW_TRAIN
+    )
+)
+
+ACT_NEUTRAL = (
+    extract_layerwise_activations(
+        NEUTRAL_TRAIN
+    )
+)
+
+
+MEAN_ABOVE = (
+    ACT_ABOVE.mean(
+        axis=0
+    )
+)
+
+MEAN_BELOW = (
+    ACT_BELOW.mean(
+        axis=0
+    )
+)
+
+MEAN_NEUTRAL = (
+    ACT_NEUTRAL.mean(
+        axis=0
+    )
+)
+
+
+IND_ABOVE = (
+    MEAN_ABOVE
+    - MEAN_NEUTRAL
+).astype(
+    np.float32
+)
+
+
+IND_BELOW = (
+    MEAN_BELOW
+    - MEAN_NEUTRAL
+).astype(
+    np.float32
+)
+
+
+for layer_idx in range(
+    N_LAYERS
+):
+
+    IND_ABOVE[
+        layer_idx
+    ] = normalize_np(
+        IND_ABOVE[
+            layer_idx
+        ]
+    )
+
+    IND_BELOW[
+        layer_idx
+    ] = normalize_np(
+        IND_BELOW[
+            layer_idx
+        ]
+    )
+
+
+print(
+    "\nSemantic geometry:"
+)
+
+
+for layer_idx in (
+    ACTIVE_LAYERS
+):
+
+    print(
+        f"L{layer_idx:02d} | "
+        f"cos(A,B)="
+        f"{cosine_np(IND_ABOVE[layer_idx], IND_BELOW[layer_idx]):+.6f}"
+    )
+
+
+# =============================================================================
+# 11. LOCKED SENSOR BASIS — L10
+# =============================================================================
+
+print(
+    "\n[4/16] Dört locked sensor hazırlanıyor..."
+)
+
+
+A10 = (
+    IND_ABOVE[
+        SENSOR_LAYER
+    ]
+    .astype(
+        np.float64
+    )
+)
+
+
+B10 = (
+    IND_BELOW[
+        SENSOR_LAYER
+    ]
+    .astype(
+        np.float64
+    )
+)
+
+
+A10 = (
+    A10
+    /
+    np.linalg.norm(
+        A10
+    )
+)
+
+
+B10 = (
+    B10
+    /
+    np.linalg.norm(
+        B10
+    )
+)
+
+
+SEPARATOR10 = (
+    A10
+    - B10
+)
+
+
+SEPARATOR10 = (
+    SEPARATOR10
+    /
+    np.linalg.norm(
+        SEPARATOR10
+    )
+)
+
+
+COMMON10 = (
+    A10
+    + B10
+)
+
+
+COMMON10 = (
+    COMMON10
+    /
+    np.linalg.norm(
+        COMMON10
+    )
+)
+
+
+A_RESIDUAL10 = (
+    A10
+    -
+    np.dot(
+        A10,
+        B10
+    )
+    * B10
+)
+
+
+A_RESIDUAL10 = (
+    A_RESIDUAL10
+    /
+    np.linalg.norm(
+        A_RESIDUAL10
+    )
+)
+
+
+print(
+    "S1 = cos(h10,A)"
+)
+
+print(
+    "S2 = span(A,B) projection ratio"
+)
+
+print(
+    "S3 = cos(h10,A_perp_B)"
+)
+
+print(
+    "S4 = cos(h10,A-B)"
+)
+
+print(
+    "cos(A,B) =",
+    f"{cosine_np(A10,B10):+.9f}"
+)
+
+print(
+    "dot(COMMON,SEPARATOR) =",
+    f"{np.dot(COMMON10,SEPARATOR10):+.12f}"
+)
+
+
+# =============================================================================
+# 12. PRE-STEERING SENSOR CAPTURE
+# =============================================================================
+
+@torch.no_grad()
+def capture_l10_hidden(
+    prompt
+):
+
+    encoded = tokenizer(
+        prompt,
+        return_tensors="pt"
+    ).to(
+        model.device
+    )
+
+
+    capture = {
+        "h": None
+    }
+
+
+    def hook(
+        module,
+        inputs,
+        output
+    ):
+
+        hidden = (
+            output[0]
+            if isinstance(
+                output,
+                tuple
+            )
+            else output
+        )
+
+
+        capture[
+            "h"
+        ] = (
+            hidden[
+                0,
+                -1,
+                :
+            ]
+            .detach()
+            .float()
+            .cpu()
+            .numpy()
+            .astype(
+                np.float64
+            )
+        )
+
+
+    handle = (
+        model.model.layers[
+            SENSOR_LAYER
+        ].register_forward_hook(
+            hook
+        )
+    )
+
+
+    try:
+
+        _ = model(
+            **encoded,
+            use_cache=False
+        )
+
+    finally:
+
+        handle.remove()
+
+
+    return capture[
+        "h"
+    ]
+
+
+def locked_sensor_values(
+    h
+):
+
+    h = np.asarray(
+        h,
+        dtype=np.float64
+    )
+
+
+    h_norm = float(
+        np.linalg.norm(
+            h
+        )
+    )
+
+
+    if h_norm < 1e-12:
+
+        h_unit = h.copy()
+
+    else:
+
+        h_unit = (
+            h
+            /
+            h_norm
+        )
+
+
+    # -------------------------------------------------------------------------
+    # S1
+    # -------------------------------------------------------------------------
+
+    s1 = float(
+        np.dot(
+            h_unit,
+            A10
+        )
+    )
+
+
+    # -------------------------------------------------------------------------
+    # S2
+    #
+    # COMMON and SEPARATOR are orthonormal for normalized A/B.
+    # -------------------------------------------------------------------------
+
+    common_raw = float(
+        np.dot(
+            h,
+            COMMON10
+        )
+    )
+
+
+    separator_raw = float(
+        np.dot(
+            h,
+            SEPARATOR10
+        )
+    )
+
+
+    span_norm = math.sqrt(
+        common_raw ** 2
+        +
+        separator_raw ** 2
+    )
+
+
+    s2 = (
+        span_norm
+        /
+        h_norm
+        if h_norm > 1e-12
+        else 0.0
+    )
+
+
+    # -------------------------------------------------------------------------
+    # S3
+    # -------------------------------------------------------------------------
+
+    s3 = float(
+        np.dot(
+            h_unit,
+            A_RESIDUAL10
+        )
+    )
+
+
+    # -------------------------------------------------------------------------
+    # S4
+    # -------------------------------------------------------------------------
+
+    s4 = float(
+        np.dot(
+            h_unit,
+            SEPARATOR10
+        )
+    )
+
+
+    return {
+
+        "S1_cos_A":
+            s1,
+
+        "S2_span_ratio":
+            float(
+                s2
+            ),
+
+        "S3_cos_A_residual":
+            s3,
+
+        "S4_cos_separator":
+            s4,
+    }
+
+
+LOCKED_SENSOR_NAMES = [
+
+    "S1_cos_A",
+
+    "S2_span_ratio",
+
+    "S3_cos_A_residual",
+
+    "S4_cos_separator",
+]
+
+
+# =============================================================================
+# 13. DRA
+# =============================================================================
+
+def dra_parameters(
+    cosine_value,
+    layer_idx
+):
+
+    uncertainty = (
+        1.0
+        -
+        abs(
+            cosine_value
+        )
+    )
+
+
+    dw = (
+        SONUM
+        +
+        uncertainty
+        * 0.20
+    )
+
+
+    t = float(
+        layer_idx
+    )
+
+
+    kb = (
+        ZIRVE
+        *
+        math.exp(
+            -dw * t
+        )
+        *
+        (
+            1.0
+            +
+            dw * t
+        )
+        +
+        TABAN
+    )
+
+
+    envelope = (
+        kb
+        /
+        (
+            ZIRVE
+            +
+            TABAN
+        )
+    )
+
+
+    if (
+        cosine_value
+        >
+        COS_BRAKE_HIGH
+    ):
+
+        brake = (
+            (
+                1.0
+                -
+                cosine_value
+            )
+            /
+            BRAKE_HIGH_DENOM
+        )
+
+    elif (
+        cosine_value
+        <
+        COS_BRAKE_LOW
+    ):
+
+        brake = (
+            BRAKE_LOW_GAIN
+        )
+
+    else:
+
+        brake = 1.0
+
+
+    return (
+        envelope,
+        brake
+    )
+
+
+# =============================================================================
+# 14. FP32 FINAL READOUT
+# =============================================================================
+
+def qwen_rmsnorm_fp32(
+    hidden_fp32
+):
+
+    norm_module = (
+        model.model.norm
+    )
+
+
+    weight = (
+        norm_module.weight
+        .detach()
+        .float()
+    )
+
+
+    eps = float(
+        norm_module.variance_epsilon
+    )
+
+
+    variance = (
+        hidden_fp32
+        .pow(2)
+        .mean(
+            dim=-1,
+            keepdim=True
+        )
+    )
+
+
+    normalized = (
+        hidden_fp32
+        *
+        torch.rsqrt(
+            variance
+            +
+            eps
+        )
+    )
+
+
+    return (
+        normalized
+        *
+        weight
+    )
+
+
+@torch.no_grad()
+def hp_target_logits(
+    final_hidden_last
+):
+
+    h = (
+        final_hidden_last
+        .float()
+    )
+
+
+    h_norm = (
+        qwen_rmsnorm_fp32(
+            h
+        )
+    )
+
+
+    target_weights = (
+        model.lm_head.weight[
+            TARGET_ID_LIST
+        ]
+        .detach()
+        .float()
+    )
+
+
+    logits = torch.matmul(
+        target_weights,
+        h_norm
+    )
+
+
+    return {
+
+        "above":
+            float(
+                logits[0]
+                .cpu()
+            ),
+
+        "below":
+            float(
+                logits[1]
+                .cpu()
+            ),
+
+        "over":
+            float(
+                logits[2]
+                .cpu()
+            ),
+
+        "under":
+            float(
+                logits[3]
+                .cpu()
+            ),
+    }
+
+
+def measure_target_logits(
+    logits
+):
+
+    return {
+
+        "dlm_above_below":
+            float(
+                logits[
+                    "above"
+                ]
+                -
+                logits[
+                    "below"
+                ]
+            ),
+
+        "dlm_over_under":
+            float(
+                logits[
+                    "over"
+                ]
+                -
+                logits[
+                    "under"
+                ]
+            ),
+    }
+
+
+# =============================================================================
+# 15. LOCKED FORWARD ENGINE
+# =============================================================================
+
+@torch.no_grad()
+def run_forward(
+    prompt,
+    vectors=None
+):
+
+    steering_handles = []
+
+
+    final_capture = {
+        "hidden": None
+    }
+
+
+    telemetry = []
+
+
+    def final_norm_pre_hook(
+        module,
+        inputs
+    ):
+
+        final_capture[
+            "hidden"
+        ] = (
+            inputs[0]
+            .detach()
+        )
+
+
+    capture_handle = (
+        model.model.norm
+        .register_forward_pre_hook(
+            final_norm_pre_hook
+        )
+    )
+
+
+    if vectors is not None:
+
+        def make_hook(
+            layer_idx
+        ):
+
+            def hook(
+                module,
+                inputs,
+                output
+            ):
+
+                hidden = (
+                    output[0]
+                    if isinstance(
+                        output,
+                        tuple
+                    )
+                    else output
+                )
+
+
+                vector = (
+                    torch.as_tensor(
+                        vectors[
+                            layer_idx
+                        ],
+                        device=hidden.device,
+                        dtype=hidden.dtype,
+                    )
+                    .unsqueeze(0)
+                )
+
+
+                h = hidden[
+                    :,
+                    -1,
+                    :
+                ]
+
+
+                h_norm = (
+                    torch.linalg.norm(
+                        h,
+                        dim=-1,
+                        keepdim=True
+                    )
+                )
+
+
+                v_norm = (
+                    torch.linalg.norm(
+                        vector,
+                        dim=-1,
+                        keepdim=True
+                    )
+                )
+
+
+                cosine = (
+                    torch.sum(
+                        h
+                        *
+                        vector,
+                        dim=-1,
+                        keepdim=True
+                    )
+                    /
+                    (
+                        h_norm
+                        *
+                        v_norm
+                        +
+                        1e-12
+                    )
+                )
+
+
+                cosine_value = float(
+                    cosine
+                    .mean()
+                    .detach()
+                    .cpu()
+                )
+
+
+                envelope, brake = (
+                    dra_parameters(
+                        cosine_value,
+                        layer_idx
+                    )
+                )
+
+
+                contribution = (
+                    IVME
+                    *
+                    h_norm
+                    /
+                    SQRT_K
+                    *
+                    envelope
+                    *
+                    brake
+                )
+
+
+                delta = (
+                    contribution
+                    *
+                    vector
+                )
+
+
+                telemetry.append({
+
+                    "layer":
+                        int(
+                            layer_idx
+                        ),
+
+                    "cosine":
+                        cosine_value,
+
+                    "envelope":
+                        float(
+                            envelope
+                        ),
+
+                    "brake":
+                        float(
+                            brake
+                        ),
+
+                    "contribution_mean":
+                        float(
+                            contribution
+                            .mean()
+                            .detach()
+                            .cpu()
+                        ),
+                })
+
+
+                hidden_new = (
+                    hidden.clone()
+                )
+
+
+                hidden_new[
+                    :,
+                    -1,
+                    :
+                ] = (
+                    hidden_new[
+                        :,
+                        -1,
+                        :
+                    ]
+                    +
+                    delta
+                )
+
+
+                if isinstance(
+                    output,
+                    tuple
+                ):
+
+                    return (
+                        hidden_new,
+                        *output[1:]
+                    )
+
+
+                return hidden_new
+
+
+            return hook
+
+
+        for layer_idx in (
+            ACTIVE_LAYERS
+        ):
+
+            steering_handles.append(
+
+                model.model.layers[
+                    layer_idx
+                ].register_forward_hook(
+
+                    make_hook(
+                        layer_idx
+                    )
+                )
+            )
+
+
+    try:
+
+        encoded = tokenizer(
+            prompt,
+            return_tensors="pt"
+        ).to(
+            model.device
+        )
+
+
+        _ = model(
+            **encoded,
+            use_cache=False
+        )
+
+
+        last_hidden = (
+            final_capture[
+                "hidden"
+            ][
+                0,
+                -1,
+                :
+            ]
+        )
+
+
+        logits = (
+            hp_target_logits(
+                last_hidden
+            )
+        )
+
+
+        measurement = (
+            measure_target_logits(
+                logits
+            )
+        )
+
+
+    finally:
+
+        for handle in (
+            steering_handles
+        ):
+            handle.remove()
+
+
+        capture_handle.remove()
+
+
+    return (
+        measurement,
+        telemetry
+    )
+
+
+# =============================================================================
+# 16. RUN DATASET
+# =============================================================================
+
+def run_dataset(
+    prompts,
+    label
+):
+
+    print(
+        f"\n{label}"
+    )
+
+
+    sensors = []
+
+
+    baseline_results = []
+    above_results = []
+    below_results = []
+
+
+    above_telemetry = []
+    below_telemetry = []
+
+
+    for i, prompt in enumerate(
+        prompts
+    ):
+
+        # ---------------------------------------------------------------------
+        # PRE-STEERING sensor
+        # ---------------------------------------------------------------------
+
+        h10 = (
+            capture_l10_hidden(
+                prompt
+            )
+        )
+
+
+        sensors.append(
+            locked_sensor_values(
+                h10
+            )
+        )
+
+
+        # ---------------------------------------------------------------------
+        # Baseline
+        # ---------------------------------------------------------------------
+
+        baseline, _ = (
+            run_forward(
+                prompt,
+                None
+            )
+        )
+
+
+        # ---------------------------------------------------------------------
+        # ABOVE
+        # ---------------------------------------------------------------------
+
+        above, tel_a = (
+            run_forward(
+                prompt,
+                IND_ABOVE
+            )
+        )
+
+
+        # ---------------------------------------------------------------------
+        # BELOW
+        # ---------------------------------------------------------------------
+
+        below, tel_b = (
+            run_forward(
+                prompt,
+                IND_BELOW
+            )
+        )
+
+
+        baseline_results.append(
+            baseline
+        )
+
+        above_results.append(
+            above
+        )
+
+        below_results.append(
+            below
+        )
+
+
+        above_telemetry.extend(
+            tel_a
+        )
+
+        below_telemetry.extend(
+            tel_b
+        )
+
+
+        print(
+            f"{i+1:02d}/{len(prompts):02d}",
+            end="\r"
+        )
+
+
+    print(
+        " " * 40,
+        end="\r"
+    )
+
+
+    return {
+
+        "sensors":
+            sensors,
+
+        "baseline":
+            baseline_results,
+
+        "above":
+            above_results,
+
+        "below":
+            below_results,
+
+        "telemetry_above":
+            above_telemetry,
+
+        "telemetry_below":
+            below_telemetry,
+    }
+
+
+# =============================================================================
+# 17. RUN TEST 109 REFERENCE
+# =============================================================================
+
+print(
+    "\n[5/16] TEST 109 reference set yeniden çalıştırılıyor..."
+)
+
+
+REF = run_dataset(
+    REFERENCE_109_PROMPTS,
+    "REFERENCE 109"
+)
+
+
+# =============================================================================
+# 18. RUN TEST 110 VALIDATION
+# =============================================================================
+
+print(
+    "\n[6/16] TEST 110 blind validation set çalıştırılıyor..."
+)
+
+
+VAL = run_dataset(
+    VALIDATION_110_PROMPTS,
+    "VALIDATION 110"
+)
+
+
+# =============================================================================
+# 19. BUILD DDS
+# =============================================================================
+
+def metric_array(
+    rows,
+    key
+):
+
+    return np.asarray(
+        [
+            row[
+                key
+            ]
+            for row in rows
+        ],
+        dtype=np.float64
+    )
+
+
+def build_dds(
+    dataset
+):
+
+    above_ab = metric_array(
+        dataset[
+            "above"
+        ],
+        "dlm_above_below"
+    )
+
+
+    below_ab = metric_array(
+        dataset[
+            "below"
+        ],
+        "dlm_above_below"
+    )
+
+
+    above_ou = metric_array(
+        dataset[
+            "above"
+        ],
+        "dlm_over_under"
+    )
+
+
+    below_ou = metric_array(
+        dataset[
+            "below"
+        ],
+        "dlm_over_under"
+    )
+
+
+    return {
+
+        "AB":
+            (
+                above_ab
+                -
+                below_ab
+            ),
+
+        "OU":
+            (
+                above_ou
+                -
+                below_ou
+            ),
+    }
+
+
+DDS_REF = (
+    build_dds(
+        REF
+    )
+)
+
+
+DDS_VAL = (
+    build_dds(
+        VAL
+    )
+)
+
+
+print(
+    "\n[7/16] TEST 109 reproduction kontrolü..."
+)
+
+
+EXPECTED_109_AB = (
+    0.001314950
+)
+
+EXPECTED_109_OU = (
+    0.002066803
+)
+
+
+print(
+    "REF AB mean =",
+    f"{DDS_REF['AB'].mean():+.9f}"
+)
+
+print(
+    "REF OU mean =",
+    f"{DDS_REF['OU'].mean():+.9f}"
+)
+
+print(
+    "Δ AB vs TEST109 =",
+    f"{DDS_REF['AB'].mean()-EXPECTED_109_AB:+.9e}"
+)
+
+print(
+    "Δ OU vs TEST109 =",
+    f"{DDS_REF['OU'].mean()-EXPECTED_109_OU:+.9e}"
+)
+
+
+# =============================================================================
+# 20. SENSOR MATRICES
+# =============================================================================
+
+def build_sensor_matrix(
+    dataset
+):
+
+    result = {}
+
+
+    for sensor_name in (
+        LOCKED_SENSOR_NAMES
+    ):
+
+        result[
+            sensor_name
+        ] = np.asarray(
+            [
+                row[
+                    sensor_name
+                ]
+                for row in dataset[
+                    "sensors"
+                ]
+            ],
+            dtype=np.float64
+        )
+
+
+    return result
+
+
+SENS_REF = (
+    build_sensor_matrix(
+        REF
+    )
+)
+
+
+SENS_VAL = (
+    build_sensor_matrix(
+        VAL
+    )
+)
+
+
+# =============================================================================
+# 21. FREEZE TEST 109 REGRESSION COEFFICIENTS
+# =============================================================================
+
+print(
+    "\n[8/16] TEST 109 regression coefficients fit edilip donduruluyor..."
+)
+
+
+FROZEN_MODELS = {}
+
+
+for sensor_name in (
+    LOCKED_SENSOR_NAMES
+):
+
+    beta0, beta1 = (
+        fit_simple_ols(
+            SENS_REF[
+                sensor_name
+            ],
+            DDS_REF[
+                "AB"
+            ]
+        )
+    )
+
+
+    FROZEN_MODELS[
+        sensor_name
+    ] = {
+
+        "beta0":
+            beta0,
+
+        "beta1":
+            beta1,
+
+        "reference_pearson":
+            pearson_r(
+                SENS_REF[
+                    sensor_name
+                ],
+                DDS_REF[
+                    "AB"
+                ]
+            ),
+
+        "reference_spearman":
+            spearman_rho(
+                SENS_REF[
+                    sensor_name
+                ],
+                DDS_REF[
+                    "AB"
+                ]
+            ),
+    }
+
+
+    print(
+        f"{sensor_name:<24} | "
+        f"beta0={beta0:+.9f} | "
+        f"beta1={beta1:+.9f} | "
+        f"r109={FROZEN_MODELS[sensor_name]['reference_pearson']:+.5f}"
+    )
+
+
+# =============================================================================
+# 22. BLIND VALIDATION — PRIMARY AB
+# =============================================================================
+
+print(
+    "\n[9/16] PRIMARY — frozen TEST109 sensor models → TEST110 DDS_AB..."
+)
+
+
+VALIDATION_RESULTS_AB = {}
+
+
+for sensor_name in (
+    LOCKED_SENSOR_NAMES
+):
+
+    x = (
+        SENS_VAL[
+            sensor_name
+        ]
+    )
+
+
+    y = (
+        DDS_VAL[
+            "AB"
+        ]
+    )
+
+
+    beta0 = (
+        FROZEN_MODELS[
+            sensor_name
+        ][
+            "beta0"
+        ]
+    )
+
+
+    beta1 = (
+        FROZEN_MODELS[
+            sensor_name
+        ][
+            "beta1"
+        ]
+    )
+
+
+    pred = (
+        beta0
+        +
+        beta1
+        *
+        x
+    )
+
+
+    metrics = (
+        prediction_metrics(
+            y,
+            pred
+        )
+    )
+
+
+    VALIDATION_RESULTS_AB[
+        sensor_name
+    ] = {
+
+        "sensor_vs_dds_pearson":
+            pearson_r(
+                x,
+                y
+            ),
+
+        "sensor_vs_dds_spearman":
+            spearman_rho(
+                x,
+                y
+            ),
+
+        "frozen_beta0":
+            beta0,
+
+        "frozen_beta1":
+            beta1,
+
+        "prediction_correlation":
+            metrics[
+                "prediction_correlation"
+            ],
+
+        "prediction_mae":
+            metrics[
+                "mae"
+            ],
+
+        "prediction_rmse":
+            metrics[
+                "rmse"
+            ],
+
+        "r2_out_of_sample":
+            metrics[
+                "r2_out_of_sample"
+            ],
+
+        "prediction_sign_accuracy":
+            metrics[
+                "sign_accuracy"
+            ],
+
+        "predictions":
+            pred.tolist(),
+    }
+
+
+# =============================================================================
+# 23. SECONDARY — OU TRANSFER
+# =============================================================================
+
+print(
+    "\n[10/16] SECONDARY — aynı locked sensors → TEST110 DDS_OU..."
+)
+
+
+VALIDATION_RESULTS_OU = {}
+
+
+for sensor_name in (
+    LOCKED_SENSOR_NAMES
+):
+
+    x_ref = (
+        SENS_REF[
+            sensor_name
+        ]
+    )
+
+
+    y_ref = (
+        DDS_REF[
+            "OU"
+        ]
+    )
+
+
+    beta0_ou, beta1_ou = (
+        fit_simple_ols(
+            x_ref,
+            y_ref
+        )
+    )
+
+
+    x_val = (
+        SENS_VAL[
+            sensor_name
+        ]
+    )
+
+
+    y_val = (
+        DDS_VAL[
+            "OU"
+        ]
+    )
+
+
+    pred = (
+        beta0_ou
+        +
+        beta1_ou
+        *
+        x_val
+    )
+
+
+    metrics = (
+        prediction_metrics(
+            y_val,
+            pred
+        )
+    )
+
+
+    VALIDATION_RESULTS_OU[
+        sensor_name
+    ] = {
+
+        "reference_beta0":
+            beta0_ou,
+
+        "reference_beta1":
+            beta1_ou,
+
+        "reference_pearson":
+            pearson_r(
+                x_ref,
+                y_ref
+            ),
+
+        "validation_sensor_pearson":
+            pearson_r(
+                x_val,
+                y_val
+            ),
+
+        "validation_sensor_spearman":
+            spearman_rho(
+                x_val,
+                y_val
+            ),
+
+        "prediction_correlation":
+            metrics[
+                "prediction_correlation"
+            ],
+
+        "prediction_mae":
+            metrics[
+                "mae"
+            ],
+
+        "prediction_rmse":
+            metrics[
+                "rmse"
+            ],
+
+        "r2_out_of_sample":
+            metrics[
+                "r2_out_of_sample"
+            ],
+
+        "prediction_sign_accuracy":
+            metrics[
+                "sign_accuracy"
+            ],
+
+        "predictions":
+            pred.tolist(),
+    }
+
+
+# =============================================================================
+# 24. PRIMARY TABLE
+# =============================================================================
+
+print(
+    "\n"
+    + "=" * 154
+)
+
+print(
+    "TEST 110 — PRIMARY BLIND SENSOR VALIDATION — ABOVE / BELOW"
+)
+
+print(
+    "=" * 154
+)
+
+
+print(
+    f"{'SENSOR':<25}"
+    f"{'r109':>10}"
+    f"{'r110':>10}"
+    f"{'rho110':>10}"
+    f"{'PRED-r':>10}"
+    f"{'OOS-R2':>11}"
+    f"{'MAE':>11}"
+    f"{'SIGN':>9}"
+)
+
+
+print(
+    "-" * 96
+)
+
+
+for sensor_name in (
+    LOCKED_SENSOR_NAMES
+):
+
+    ref_r = (
+        FROZEN_MODELS[
+            sensor_name
+        ][
+            "reference_pearson"
+        ]
+    )
+
+
+    m = (
+        VALIDATION_RESULTS_AB[
+            sensor_name
+        ]
+    )
+
+
+    print(
+        f"{sensor_name:<25}"
+
+        f"{ref_r:>+10.4f}"
+
+        f"{m['sensor_vs_dds_pearson']:>+10.4f}"
+
+        f"{m['sensor_vs_dds_spearman']:>+10.4f}"
+
+        f"{m['prediction_correlation']:>+10.4f}"
+
+        f"{m['r2_out_of_sample']:>+11.4f}"
+
+        f"{m['prediction_mae']:>11.6f}"
+
+        f"{m['prediction_sign_accuracy']:>9.3f}"
+    )
+
+
+# =============================================================================
+# 25. SECONDARY OU TABLE
+# =============================================================================
+
+print(
+    "\n"
+    + "=" * 154
+)
+
+print(
+    "TEST 110 — SECONDARY CROSS-LEXICAL VALIDATION — OVER / UNDER"
+)
+
+print(
+    "=" * 154
+)
+
+
+print(
+    f"{'SENSOR':<25}"
+    f"{'r109':>10}"
+    f"{'r110':>10}"
+    f"{'rho110':>10}"
+    f"{'PRED-r':>10}"
+    f"{'OOS-R2':>11}"
+    f"{'MAE':>11}"
+)
+
+
+print(
+    "-" * 88
+)
+
+
+for sensor_name in (
+    LOCKED_SENSOR_NAMES
+):
+
+    m = (
+        VALIDATION_RESULTS_OU[
+            sensor_name
+        ]
+    )
+
+
+    print(
+        f"{sensor_name:<25}"
+
+        f"{m['reference_pearson']:>+10.4f}"
+
+        f"{m['validation_sensor_pearson']:>+10.4f}"
+
+        f"{m['validation_sensor_spearman']:>+10.4f}"
+
+        f"{m['prediction_correlation']:>+10.4f}"
+
+        f"{m['r2_out_of_sample']:>+11.4f}"
+
+        f"{m['prediction_mae']:>11.6f}"
+    )
+
+
+# =============================================================================
+# 26. FAMILY ANALYSIS — DESCRIPTIVE ONLY
+# =============================================================================
+
+print(
+    "\n[11/16] Validation family analysis..."
+)
+
+
+FAMILY_RESULTS = {}
+
+
+print(
+    "\n"
+    + "=" * 154
+)
+
+print(
+    "SECONDARY / DESCRIPTIVE — TEST 110 FAMILY ANALYSIS"
+)
+
+print(
+    "=" * 154
+)
+
+
+print(
+    f"{'FAMILY':<25}"
+    f"{'AB DDS':>12}"
+    f"{'OU DDS':>12}"
+    f"{'S1 mean':>12}"
+    f"{'S2 mean':>12}"
+    f"{'S3 mean':>12}"
+    f"{'S4 mean':>12}"
+)
+
+
+print(
+    "-" * 100
+)
+
+
+for family_idx, family_name in enumerate(
+    VALIDATION_FAMILIES
+):
+
+    start = (
+        family_idx * 8
+    )
+
+    end = (
+        start + 8
+    )
+
+
+    data = {
+
+        "dds_ab_mean":
+            float(
+                DDS_VAL[
+                    "AB"
+                ][
+                    start:end
+                ].mean()
+            ),
+
+        "dds_ou_mean":
+            float(
+                DDS_VAL[
+                    "OU"
+                ][
+                    start:end
+                ].mean()
+            ),
+    }
+
+
+    for sensor_name in (
+        LOCKED_SENSOR_NAMES
+    ):
+
+        data[
+            sensor_name
+        ] = float(
+            SENS_VAL[
+                sensor_name
+            ][
+                start:end
+            ].mean()
+        )
+
+
+    FAMILY_RESULTS[
+        family_name
+    ] = data
+
+
+    print(
+        f"{family_name:<25}"
+
+        f"{data['dds_ab_mean']:>+12.6f}"
+
+        f"{data['dds_ou_mean']:>+12.6f}"
+
+        f"{data['S1_cos_A']:>+12.6f}"
+
+        f"{data['S2_span_ratio']:>+12.6f}"
+
+        f"{data['S3_cos_A_residual']:>+12.6f}"
+
+        f"{data['S4_cos_separator']:>+12.6f}"
+    )
+
+
+# =============================================================================
+# 27. TELEMETRY SUMMARY
+# =============================================================================
+
+def telemetry_summary(
+    rows
+):
+
+    if not rows:
+
+        return {}
+
+
+    return {
+
+        "mean_cosine":
+            float(
+                np.mean(
+                    [
+                        x[
+                            "cosine"
+                        ]
+                        for x in rows
+                    ]
+                )
+            ),
+
+        "mean_envelope":
+            float(
+                np.mean(
+                    [
+                        x[
+                            "envelope"
+                        ]
+                        for x in rows
+                    ]
+                )
+            ),
+
+        "mean_brake":
+            float(
+                np.mean(
+                    [
+                        x[
+                            "brake"
+                        ]
+                        for x in rows
+                    ]
+                )
+            ),
+
+        "mean_contribution":
+            float(
+                np.mean(
+                    [
+                        x[
+                            "contribution_mean"
+                        ]
+                        for x in rows
+                    ]
+                )
+            ),
+    }
+
+
+TEL_A = telemetry_summary(
+    VAL[
+        "telemetry_above"
+    ]
+)
+
+
+TEL_B = telemetry_summary(
+    VAL[
+        "telemetry_below"
+    ]
+)
+
+
+print(
+    "\n"
+    + "=" * 154
+)
+
+print(
+    "DRA TELEMETRY — TEST 110"
+)
+
+print(
+    "=" * 154
+)
+
+
+print(
+    f"{'ARM':<18}"
+    f"{'COS':>14}"
+    f"{'CONTRIB':>14}"
+    f"{'ENV':>14}"
+    f"{'BRAKE':>14}"
+)
+
+
+print(
+    "-" * 74
+)
+
+
+for name, tel in [
+
+    (
+        "ABOVE_IND",
+        TEL_A
+    ),
+
+    (
+        "BELOW_IND",
+        TEL_B
+    ),
+
+]:
+
+    print(
+        f"{name:<18}"
+
+        f"{tel['mean_cosine']:>+14.6f}"
+
+        f"{tel['mean_contribution']:>14.6f}"
+
+        f"{tel['mean_envelope']:>14.6f}"
+
+        f"{tel['mean_brake']:>14.6f}"
+    )
+
+
+# =============================================================================
+# 28. PROMPT LEVEL
+# =============================================================================
+
+print(
+    "\n"
+    + "=" * 154
+)
+
+print(
+    "TEST 110 — PROMPT LEVEL"
+)
+
+print(
+    "=" * 154
+)
+
+
+print(
+    f"{'P':<4}"
+    f"{'FAMILY':<22}"
+    f"{'S1':>10}"
+    f"{'S2':>10}"
+    f"{'S3':>10}"
+    f"{'S4':>10}"
+    f"{'AB DDS':>12}"
+    f"{'OU DDS':>12}"
+)
+
+
+print(
+    "-" * 96
+)
+
+
+for i in range(
+    40
+):
+
+    print(
+        f"{i+1:<4}"
+
+        f"{VALIDATION_FAMILIES[i//8]:<22}"
+
+        f"{SENS_VAL['S1_cos_A'][i]:>+10.5f}"
+
+        f"{SENS_VAL['S2_span_ratio'][i]:>+10.5f}"
+
+        f"{SENS_VAL['S3_cos_A_residual'][i]:>+10.5f}"
+
+        f"{SENS_VAL['S4_cos_separator'][i]:>+10.5f}"
+
+        f"{DDS_VAL['AB'][i]:>+12.6f}"
+
+        f"{DDS_VAL['OU'][i]:>+12.6f}"
+    )
+
+
+# =============================================================================
+# 29. CONSISTENCY SUMMARY
+# =============================================================================
+
+print(
+    "\n[12/16] Directional consistency hesaplanıyor..."
+)
+
+
+CONSISTENCY = {}
+
+
+for sensor_name in (
+    LOCKED_SENSOR_NAMES
+):
+
+    r109 = (
+        FROZEN_MODELS[
+            sensor_name
+        ][
+            "reference_pearson"
+        ]
+    )
+
+
+    r110 = (
+        VALIDATION_RESULTS_AB[
+            sensor_name
+        ][
+            "sensor_vs_dds_pearson"
+        ]
+    )
+
+
+    rho110 = (
+        VALIDATION_RESULTS_AB[
+            sensor_name
+        ][
+            "sensor_vs_dds_spearman"
+        ]
+    )
+
+
+    same_direction = bool(
+        np.sign(
+            r109
+        )
+        ==
+        np.sign(
+            r110
+        )
+    )
+
+
+    CONSISTENCY[
+        sensor_name
+    ] = {
+
+        "r109":
+            float(
+                r109
+            ),
+
+        "r110":
+            float(
+                r110
+            ),
+
+        "rho110":
+            float(
+                rho110
+            ),
+
+        "same_pearson_direction":
+            same_direction,
+
+        "magnitude_ratio_abs_r110_over_r109":
+            float(
+                abs(
+                    r110
+                )
+                /
+                (
+                    abs(
+                        r109
+                    )
+                    +
+                    1e-12
+                )
+            ),
+    }
+
+
+# =============================================================================
+# 30. JSON
+# =============================================================================
+
+print(
+    "\n[13/16] JSON hazırlanıyor..."
+)
+
+
+OUTPUT = {
+
+    "test":
+        "TEST 110",
+
+    "title":
+        "Blind Sensor Validation",
+
+    "status":
+        "Confirmatory validation of four predeclared TEST 109 sensors",
+
+    "model":
+        MODEL_NAME,
+
+    "active_layers":
+        ACTIVE_LAYERS,
+
+    "sensor_layer":
+        SENSOR_LAYER,
+
+    "ivme":
+        IVME,
+
+    "sqrt_k":
+        SQRT_K,
+
+    "locked_sensors":
+        LOCKED_SENSOR_NAMES,
+
+    "reference_prompts":
+        REFERENCE_109_PROMPTS,
+
+    "validation_prompts":
+        VALIDATION_110_PROMPTS,
+
+    "validation_families":
+        VALIDATION_FAMILIES,
+
+    "lexical_leak_check":
+        "PASS",
+
+    "reference_reproduction": {
+
+        "expected_ab":
+            EXPECTED_109_AB,
+
+        "observed_ab":
+            float(
+                DDS_REF[
+                    "AB"
+                ].mean()
+            ),
+
+        "difference_ab":
+            float(
+                DDS_REF[
+                    "AB"
+                ].mean()
+                -
+                EXPECTED_109_AB
+            ),
+
+        "expected_ou":
+            EXPECTED_109_OU,
+
+        "observed_ou":
+            float(
+                DDS_REF[
+                    "OU"
+                ].mean()
+            ),
+
+        "difference_ou":
+            float(
+                DDS_REF[
+                    "OU"
+                ].mean()
+                -
+                EXPECTED_109_OU
+            ),
+    },
+
+    "reference_dds": {
+
+        "AB":
+            DDS_REF[
+                "AB"
+            ].tolist(),
+
+        "OU":
+            DDS_REF[
+                "OU"
+            ].tolist(),
+    },
+
+    "validation_dds": {
+
+        "AB":
+            DDS_VAL[
+                "AB"
+            ].tolist(),
+
+        "OU":
+            DDS_VAL[
+                "OU"
+            ].tolist(),
+
+        "AB_mean":
+            float(
+                DDS_VAL[
+                    "AB"
+                ].mean()
+            ),
+
+        "AB_median":
+            float(
+                np.median(
+                    DDS_VAL[
+                        "AB"
+                    ]
+                )
+            ),
+
+        "OU_mean":
+            float(
+                DDS_VAL[
+                    "OU"
+                ].mean()
+            ),
+
+        "OU_median":
+            float(
+                np.median(
+                    DDS_VAL[
+                        "OU"
+                    ]
+                )
+            ),
+    },
+
+    "reference_sensors": {
+
+        name:
+            SENS_REF[
+                name
+            ].tolist()
+
+        for name in (
+            LOCKED_SENSOR_NAMES
+        )
+    },
+
+    "validation_sensors": {
+
+        name:
+            SENS_VAL[
+                name
+            ].tolist()
+
+        for name in (
+            LOCKED_SENSOR_NAMES
+        )
+    },
+
+    "frozen_models_ab":
+        FROZEN_MODELS,
+
+    "validation_results_ab":
+        VALIDATION_RESULTS_AB,
+
+    "validation_results_ou":
+        VALIDATION_RESULTS_OU,
+
+    "consistency":
+        CONSISTENCY,
+
+    "family_results":
+        FAMILY_RESULTS,
+
+    "telemetry": {
+
+        "ABOVE":
+            TEL_A,
+
+        "BELOW":
+            TEL_B,
+    },
+
+    "methodological_lock":
+        (
+            "Only S1-S4 are confirmatory sensors. "
+            "No additional sensor may be selected from TEST 110 "
+            "after observing results. Family analysis is secondary/descriptive. "
+            "Frozen TEST 109 regression coefficients are evaluated out-of-sample "
+            "on the new TEST 110 prompt set."
+        ),
+}
+
+
+OUTPUT_FILE = (
+    "TEST_110_BLIND_SENSOR_VALIDATION.json"
+)
+
+
+with open(
+    OUTPUT_FILE,
+    "w",
+    encoding="utf-8"
+) as f:
+
+    json.dump(
+        OUTPUT,
+        f,
+        indent=2,
+        ensure_ascii=False
+    )
+
+
+print(
+    "Kaydedildi:",
+    OUTPUT_FILE
+)
+
+
+# =============================================================================
+# 31. FINAL SUMMARY
+# =============================================================================
+
+print(
+    "\n"
+    + "=" * 154
+)
+
+print(
+    "TEST 110 — FINAL SUMMARY"
+)
+
+print(
+    "=" * 154
+)
+
+
+print(
+    "\nREFERENCE REPRODUCTION"
+)
+
+
+print(
+    f"TEST109 AB expected = "
+    f"{EXPECTED_109_AB:+.9f}"
+)
+
+print(
+    f"Reference observed  = "
+    f"{DDS_REF['AB'].mean():+.9f}"
+)
+
+print(
+    f"Difference          = "
+    f"{DDS_REF['AB'].mean()-EXPECTED_109_AB:+.9e}"
+)
+
+
+print(
+    f"\nTEST109 OU expected = "
+    f"{EXPECTED_109_OU:+.9f}"
+)
+
+print(
+    f"Reference observed  = "
+    f"{DDS_REF['OU'].mean():+.9f}"
+)
+
+print(
+    f"Difference          = "
+    f"{DDS_REF['OU'].mean()-EXPECTED_109_OU:+.9e}"
+)
+
+
+print(
+    "\nTEST 110 VALIDATION DDS"
+)
+
+
+print(
+    f"AB mean             = "
+    f"{DDS_VAL['AB'].mean():+.9f}"
+)
+
+print(
+    f"AB median           = "
+    f"{np.median(DDS_VAL['AB']):+.9f}"
+)
+
+
+print(
+    f"OU mean             = "
+    f"{DDS_VAL['OU'].mean():+.9f}"
+)
+
+print(
+    f"OU median           = "
+    f"{np.median(DDS_VAL['OU']):+.9f}"
+)
+
+
+print(
+    "\nLOCKED SENSOR VALIDATION — AB"
+)
+
+
+for sensor_name in (
+    LOCKED_SENSOR_NAMES
+):
+
+    c = (
+        CONSISTENCY[
+            sensor_name
+        ]
+    )
+
+    m = (
+        VALIDATION_RESULTS_AB[
+            sensor_name
+        ]
+    )
+
+
+    print(
+        f"\n{sensor_name}"
+    )
+
+    print(
+        f"  r109              = "
+        f"{c['r109']:+.6f}"
+    )
+
+    print(
+        f"  r110              = "
+        f"{c['r110']:+.6f}"
+    )
+
+    print(
+        f"  rho110            = "
+        f"{c['rho110']:+.6f}"
+    )
+
+    print(
+        f"  same direction    = "
+        f"{c['same_pearson_direction']}"
+    )
+
+    print(
+        f"  |r110|/|r109|     = "
+        f"{c['magnitude_ratio_abs_r110_over_r109']:.4f}"
+    )
+
+    print(
+        f"  frozen pred-r     = "
+        f"{m['prediction_correlation']:+.6f}"
+    )
+
+    print(
+        f"  OOS R2            = "
+        f"{m['r2_out_of_sample']:+.6f}"
+    )
+
+    print(
+        f"  prediction MAE    = "
+        f"{m['prediction_mae']:.6f}"
+    )
+
+    print(
+        f"  sign accuracy     = "
+        f"{m['prediction_sign_accuracy']:.3f}"
+    )
+
+
+print(
+    "\n"
+    + "=" * 154
+)
+
+print(
+    "INTERPRETATION LOCK"
+)
+
+print(
+    "=" * 154
+)
+
+
+print(
+"""
+TEST 110'un ana sorusu:
+
+    TEST 109'da keşfedilen dört PRE-STEERING geometry sensor,
+    yeni ve önceden kullanılmamış dilsel bağlamlarda DDS_AB ile
+    aynı ilişkiyi koruyor mu?
+
+Dört sensor önceden kilitlidir:
+
+    S1 = cos(h10,A)
+
+    S2 = ||Proj_span(A,B)(h10)|| / ||h10||
+
+    S3 = cos(h10,A_perp_B)
+
+    S4 = cos(h10,A-B)
+
+Öncelikli olarak birlikte okunacak ölçümler:
+
+    1. r109 ile r110 aynı yönde mi?
+
+    2. TEST110 Pearson ve Spearman aynı genel deseni gösteriyor mu?
+
+    3. TEST109'da fit edilen beta0/beta1,
+       TEST110 DDS'yi out-of-sample tahmin edebiliyor mu?
+
+    4. Frozen prediction correlation pozitif mi?
+
+    5. OOS R² sıfırın üzerinde mi?
+
+    6. Sonuç tek bir validation family tarafından mı sürükleniyor?
+
+ÖNEMLİ:
+
+    Pozitif correlation tek başına AkbasCore 3.0 controller'ı
+    doğrulamaz.
+
+    TEST 110 yalnızca SENSOR hipotezini doğrular veya doğrulamaz.
+
+    TEST 110 sonuçlarından sonra yeni sensor aramak bu testin
+    confirmatory statüsünü bozar.
+
+Eğer S1/S2/S3/S4'ün hiçbiri yeni set üzerinde taşınmazsa:
+
+    context geometry hipotezinin bu basit lokal sensorlarla
+    genellenmediği kabul edilir.
+
+Eğer bir veya daha fazla önceden kilitli sensor,
+aynı yönde ve gerçek out-of-sample predictive signal gösterirse:
+
+    o sensor AkbasCore 3.0 controller tasarımı için
+    doğrulanmış ADAY haline gelir.
+
+Controller ancak bundan SONRA tasarlanacaktır.
+"""
+)
+
+
+print(
+    "[14/16] Blind sensor validation tamamlandı."
+)
+
+print(
+    "[15/16] JSON kaydedildi."
+)
+
+print(
+    "[16/16] TEST 110 bitti."
+)
