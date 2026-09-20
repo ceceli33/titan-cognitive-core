@@ -1,0 +1,2040 @@
+# =============================================================================
+# TEST 103 — YÖN ÖZGÜLLÜĞÜ + RANDOM KONTROL + PROMPT-BAZLI DAVRANIŞ TEŞHİSİ
+# =============================================================================
+#
+# Qwen2.5-7B-Instruct · AkbasCore DRA
+#
+# AMAÇ
+# ----
+# TEST 102'de seçilmiş katman çiftlerinde gözlenen davranışsal ayrışmanın:
+#
+#   (1) ABOVE_IND / BELOW_IND yönlerine özgü olup olmadığını,
+#   (2) aynı büyüklükte RANDOM bir pertürbasyondan ayrılıp ayrılmadığını,
+#   (3) prompt bazında hangi örneklerden geldiğini,
+#   (4) fiziksel enjeksiyon büyüklüğü / cosine ile açıklanıp açıklanmadığını
+#
+# tek kontrollü oturum içinde ölçmek.
+#
+# TEST EDİLEN ÇİFTLER
+# -------------------
+# L10+L11 : TEST 101 ve TEST 102'de aynı yönde ayrışan ana aday
+# L08+L09 : TEST 101/102 arasında yön değiştiren çift
+# L00+L01 : iki testte de negatif separation
+# L16+L17 : iki testte de negatif separation
+#
+# HER ÇİFT İÇİN
+# -------------
+#   ABOVE_IND
+#   BELOW_IND
+#   RANDOM
+#
+# Ayrıca ortak BASELINE.
+#
+# MOTOR
+# -----
+# IVME = 0.10
+# L0-L19 ölçeğine göre SQRT_K = sqrt(20)
+# TEST 101/102 DRA matematiği korunur.
+#
+# ÖLÇÜMLER
+# --------
+# - ABOVE keyword count
+# - BELOW keyword count
+# - NET = ABOVE - BELOW
+# - ΔNET vs BASELINE
+# - ABOVE_IND vs BELOW_IND separation
+# - RANDOM ΔNET
+# - direction-specific displacement
+# - prompt-level sonuçlar
+# - words
+# - repetition
+# - mean cosine
+# - mean |cosine|
+# - contribution
+# - envelope
+# - brake
+# - hook steps
+# - üretilen ham metinler
+#
+# BAŞARI EŞİĞİ YOKTUR.
+# Test betimleyicidir; sonuçlar sonradan yorumlanacaktır.
+# =============================================================================
+
+
+# =============================================================================
+# 0. IMPORT
+# =============================================================================
+
+import os
+import gc
+import re
+import json
+import math
+import random
+from collections import Counter
+
+import numpy as np
+import torch
+
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+
+# =============================================================================
+# 1. SABİTLER
+# =============================================================================
+
+MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 42
+RANDOM_SEED = 20260920
+
+N_LAYERS = 20
+HIDDEN = 3584
+
+IVME = 0.10
+
+# TEST 101/102 ile aynı ölçek
+SQRT_K = math.sqrt(N_LAYERS)
+
+# DRA
+SONUM = 0.30
+ZIRVE = 0.70
+TABAN = 0.20
+
+COS_BRAKE_HIGH = 0.75
+COS_BRAKE_LOW = -0.40
+
+BRAKE_HIGH_DENOM = 0.25
+BRAKE_LOW_GAIN = 1.60
+
+MAX_NEW_TOKENS = 180
+
+# TEST 103'te doğrulanacak çiftler
+LAYER_PAIRS = [
+    (10, 11),   # ana aday
+    (8, 9),     # testler arası yön değiştiren
+    (0, 1),     # negatif separation kontrolü
+    (16, 17),   # negatif separation kontrolü
+]
+
+
+# =============================================================================
+# 2. DETERMINISM
+# =============================================================================
+
+def set_seed(seed):
+
+    random.seed(seed)
+    np.random.seed(seed)
+
+    torch.manual_seed(seed)
+
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+set_seed(SEED)
+
+
+# =============================================================================
+# 3. TEST 99/102 EĞİTİM VERİSİ
+# =============================================================================
+
+ABOVE_TRAIN = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+BELOW_TRAIN = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+NEUTRAL_TRAIN = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 4. AYNI 8 DAVRANIŞ PROMPTU
+# =============================================================================
+
+BEHAVIOR_PROMPTS = [
+
+    """Mustafa Dibekgoz walks toward a great suspension bridge during a changing
+storm. Describe the scene in at least four complete sentences. Focus on the
+person, the bridge, the tower, the surrounding environment and what happens
+next.""",
+
+    """Mustafa Dibekgoz is standing near a large suspension bridge while clouds
+move across the sky. Describe what he sees and what happens around him in at
+least four complete sentences. Do not use a list.""",
+
+    """Describe a scene in which Mustafa Dibekgoz approaches a large bridge
+during unusual weather. Include the bridge structure, its tower, the ground,
+the sky and the movement of the scene. Write at least four complete sentences.""",
+
+    """Mustafa Dibekgoz observes a suspension bridge while the weather changes
+rapidly. Explain the scene and the sequence of events in at least four
+complete sentences, using natural prose.""",
+
+    """Write a short descriptive passage about Mustafa Dibekgoz crossing or
+approaching a great suspension bridge during a dramatic change in weather.
+Include structural and environmental details. Use at least four sentences.""",
+
+    """Mustafa Dibekgoz is near a suspension bridge when lightning appears in
+the distance. Describe the environment, the bridge and his actions in at
+least four complete sentences.""",
+
+    """Describe what happens when Mustafa Dibekgoz reaches a large suspension
+bridge under a changing sky. Include several physical details and a sequence
+of events. Write at least four sentences.""",
+
+    """Write a coherent scene about Mustafa Dibekgoz and a great suspension
+bridge during unstable weather. Describe what is visible and what changes
+over time. Use at least four complete sentences.""",
+]
+
+
+# =============================================================================
+# 5. DAVRANIŞ SÖZLÜKLERİ
+# =============================================================================
+
+ABOVE_WORDS = [
+    "above",
+    "overhead",
+    "higher",
+    "high above",
+    "upper",
+    "upward",
+    "over",
+]
+
+BELOW_WORDS = [
+    "below",
+    "under",
+    "underneath",
+    "lower",
+    "downward",
+    "beneath",
+]
+
+
+# =============================================================================
+# 6. YARDIMCI FONKSİYONLAR
+# =============================================================================
+
+def normalize_np(v, eps=1e-12):
+
+    v = np.asarray(v, dtype=np.float32)
+
+    norm = np.linalg.norm(v)
+
+    if norm < eps:
+        return v.copy()
+
+    return v / norm
+
+
+def cosine_np(a, b, eps=1e-12):
+
+    a = np.asarray(a, dtype=np.float32)
+    b = np.asarray(b, dtype=np.float32)
+
+    na = np.linalg.norm(a)
+    nb = np.linalg.norm(b)
+
+    if na < eps or nb < eps:
+        return 0.0
+
+    return float(
+        np.dot(a, b) / (na * nb)
+    )
+
+
+def count_terms(text, terms):
+
+    text_lower = text.lower()
+
+    total = 0
+
+    for term in terms:
+
+        pattern = r"\b" + re.escape(term.lower()) + r"\b"
+
+        total += len(
+            re.findall(pattern, text_lower)
+        )
+
+    return total
+
+
+def word_count(text):
+
+    return len(
+        re.findall(
+            r"\b[\wçğıöşüÇĞİÖŞÜ]+\b",
+            text
+        )
+    )
+
+
+def repetition_score(text):
+
+    words = re.findall(
+        r"\b[\wçğıöşüÇĞİÖŞÜ]+\b",
+        text.lower()
+    )
+
+    if len(words) < 2:
+        return 0.0
+
+    bigrams = list(
+        zip(words[:-1], words[1:])
+    )
+
+    if not bigrams:
+        return 0.0
+
+    counts = Counter(bigrams)
+
+    repeated = sum(
+        count - 1
+        for count in counts.values()
+        if count > 1
+    )
+
+    return float(
+        repeated / len(bigrams)
+    )
+
+
+# =============================================================================
+# 7. MODEL YÜKLE
+# =============================================================================
+
+print("\n" + "=" * 100)
+print("TEST 103 — YÖN ÖZGÜLLÜĞÜ + RANDOM KONTROL")
+print("=" * 100)
+
+print("\n[1/9] Model yükleniyor...")
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_NAME,
+    trust_remote_code=True
+)
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_NAME,
+    dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True,
+)
+
+model.eval()
+
+print("Model       :", MODEL_NAME)
+print("Device      :", model.device)
+print("dtype       :", next(model.parameters()).dtype)
+print("Model layers:", len(model.model.layers))
+print("Test layers :", N_LAYERS)
+print("Hidden      :", HIDDEN)
+print("IVME        :", IVME)
+print("Pairs       :", LAYER_PAIRS)
+
+
+# =============================================================================
+# 8. AKTİVASYON ÇIKARMA
+# =============================================================================
+
+@torch.no_grad()
+def extract_layerwise_activations(texts, max_length=128):
+
+    encoded = tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=max_length,
+    )
+
+    input_ids = encoded["input_ids"].to(model.device)
+
+    attention_mask = encoded["attention_mask"].to(model.device)
+
+    captured = [None] * N_LAYERS
+
+    handles = []
+
+    def make_hook(layer_idx):
+
+        def hook(module, inputs, output):
+
+            if isinstance(output, tuple):
+                hidden = output[0]
+            else:
+                hidden = output
+
+            captured[layer_idx] = hidden.detach()
+
+        return hook
+
+    for layer_idx in range(N_LAYERS):
+
+        handle = (
+            model.model.layers[layer_idx]
+            .register_forward_hook(
+                make_hook(layer_idx)
+            )
+        )
+
+        handles.append(handle)
+
+    _ = model(
+        input_ids=input_ids,
+        attention_mask=attention_mask,
+        use_cache=False,
+    )
+
+    for handle in handles:
+        handle.remove()
+
+    lengths = (
+        attention_mask
+        .sum(dim=1)
+        .detach()
+        .cpu()
+        .numpy()
+    )
+
+    result = np.zeros(
+        (
+            len(texts),
+            N_LAYERS,
+            HIDDEN
+        ),
+        dtype=np.float32
+    )
+
+    for layer_idx in range(N_LAYERS):
+
+        hidden = (
+            captured[layer_idx]
+            .float()
+            .cpu()
+            .numpy()
+        )
+
+        for sample_idx in range(len(texts)):
+
+            last_idx = (
+                int(lengths[sample_idx]) - 1
+            )
+
+            result[
+                sample_idx,
+                layer_idx
+            ] = hidden[
+                sample_idx,
+                last_idx
+            ]
+
+    return result
+
+
+print("\n[2/9] ABOVE aktivasyonları çıkarılıyor...")
+
+ACT_ABOVE = extract_layerwise_activations(
+    ABOVE_TRAIN
+)
+
+print("ABOVE :", ACT_ABOVE.shape)
+
+
+print("\n[3/9] BELOW aktivasyonları çıkarılıyor...")
+
+ACT_BELOW = extract_layerwise_activations(
+    BELOW_TRAIN
+)
+
+print("BELOW :", ACT_BELOW.shape)
+
+
+print("\n[4/9] NEUTRAL aktivasyonları çıkarılıyor...")
+
+ACT_NEUTRAL = extract_layerwise_activations(
+    NEUTRAL_TRAIN
+)
+
+print("NEUTRAL:", ACT_NEUTRAL.shape)
+
+
+# =============================================================================
+# 9. IND_ABOVE / IND_BELOW
+# =============================================================================
+
+print("\n[5/9] Bağımsız yönler oluşturuluyor...")
+
+
+MEAN_ABOVE = ACT_ABOVE.mean(axis=0)
+MEAN_BELOW = ACT_BELOW.mean(axis=0)
+MEAN_NEUTRAL = ACT_NEUTRAL.mean(axis=0)
+
+
+IND_ABOVE = (
+    MEAN_ABOVE
+    - MEAN_NEUTRAL
+).astype(np.float32)
+
+
+IND_BELOW = (
+    MEAN_BELOW
+    - MEAN_NEUTRAL
+).astype(np.float32)
+
+
+for layer_idx in range(N_LAYERS):
+
+    IND_ABOVE[layer_idx] = normalize_np(
+        IND_ABOVE[layer_idx]
+    )
+
+    IND_BELOW[layer_idx] = normalize_np(
+        IND_BELOW[layer_idx]
+    )
+
+
+print("IND_ABOVE:", IND_ABOVE.shape)
+print("IND_BELOW:", IND_BELOW.shape)
+
+
+# =============================================================================
+# 10. RANDOM KONTROL
+# =============================================================================
+#
+# Her katman için bağımsız Gaussian yön.
+#
+# Sonra normalize edilir.
+#
+# Böylece:
+#
+#   ||RANDOM_l|| = ||IND_l|| = 1
+#
+# DRA'nın contribution formülü zaten h normundan büyüklük ürettiği için
+# fiziksel giriş ölçeği gerçek yönlerle karşılaştırılabilir kalır.
+#
+# =============================================================================
+
+print("\n[6/9] RANDOM kontrol yönü oluşturuluyor...")
+
+
+rng = np.random.default_rng(
+    RANDOM_SEED
+)
+
+
+RANDOM_VECTOR = rng.standard_normal(
+    size=(
+        N_LAYERS,
+        HIDDEN
+    )
+).astype(np.float32)
+
+
+for layer_idx in range(N_LAYERS):
+
+    RANDOM_VECTOR[layer_idx] = normalize_np(
+        RANDOM_VECTOR[layer_idx]
+    )
+
+
+print(
+    "RANDOM:",
+    RANDOM_VECTOR.shape
+)
+
+
+# Geometrik kontrol
+geometry = []
+
+for layer_idx in range(N_LAYERS):
+
+    geometry.append({
+        "layer": layer_idx,
+
+        "cos_above_below":
+            cosine_np(
+                IND_ABOVE[layer_idx],
+                IND_BELOW[layer_idx]
+            ),
+
+        "cos_above_random":
+            cosine_np(
+                IND_ABOVE[layer_idx],
+                RANDOM_VECTOR[layer_idx]
+            ),
+
+        "cos_below_random":
+            cosine_np(
+                IND_BELOW[layer_idx],
+                RANDOM_VECTOR[layer_idx]
+            ),
+
+        "norm_above":
+            float(
+                np.linalg.norm(
+                    IND_ABOVE[layer_idx]
+                )
+            ),
+
+        "norm_below":
+            float(
+                np.linalg.norm(
+                    IND_BELOW[layer_idx]
+                )
+            ),
+
+        "norm_random":
+            float(
+                np.linalg.norm(
+                    RANDOM_VECTOR[layer_idx]
+                )
+            ),
+    })
+
+
+print("\nGeometrik kontrol:")
+
+print(
+    "mean cos(ABOVE, BELOW) =",
+    f"{np.mean([x['cos_above_below'] for x in geometry]):+.6f}"
+)
+
+print(
+    "mean cos(ABOVE, RANDOM) =",
+    f"{np.mean([x['cos_above_random'] for x in geometry]):+.6f}"
+)
+
+print(
+    "mean cos(BELOW, RANDOM) =",
+    f"{np.mean([x['cos_below_random'] for x in geometry]):+.6f}"
+)
+
+
+# =============================================================================
+# 11. DRA
+# =============================================================================
+
+def dra_parameters(
+    cosine_value,
+    layer_idx
+):
+
+    uncertainty = (
+        1.0
+        - abs(cosine_value)
+    )
+
+    dw = (
+        SONUM
+        + uncertainty * 0.20
+    )
+
+    t = float(layer_idx)
+
+    kb = (
+        ZIRVE
+        * math.exp(-dw * t)
+        * (1.0 + dw * t)
+        + TABAN
+    )
+
+    envelope = (
+        kb
+        / (ZIRVE + TABAN)
+    )
+
+    if cosine_value > COS_BRAKE_HIGH:
+
+        brake = (
+            (1.0 - cosine_value)
+            / BRAKE_HIGH_DENOM
+        )
+
+    elif cosine_value < COS_BRAKE_LOW:
+
+        brake = BRAKE_LOW_GAIN
+
+    else:
+
+        brake = 1.0
+
+    return envelope, brake
+
+
+# =============================================================================
+# 12. BASE GENERATION
+# =============================================================================
+
+@torch.no_grad()
+def baseline_generate(prompt):
+
+    encoded = tokenizer(
+        prompt,
+        return_tensors="pt"
+    ).to(model.device)
+
+    output = model.generate(
+        **encoded,
+        max_new_tokens=MAX_NEW_TOKENS,
+        do_sample=False,
+        repetition_penalty=1.0,
+        use_cache=True,
+        pad_token_id=tokenizer.eos_token_id,
+    )
+
+    prompt_length = (
+        encoded["input_ids"].shape[1]
+    )
+
+    generated_ids = output[
+        0,
+        prompt_length:
+    ]
+
+    return tokenizer.decode(
+        generated_ids,
+        skip_special_tokens=True
+    )
+
+
+# =============================================================================
+# 13. DRA GENERATION
+# =============================================================================
+
+def steered_generate(
+    prompt,
+    vectors,
+    active_layers
+):
+
+    handles = []
+
+    telemetry = {
+        "cos": [],
+        "abs_cos": [],
+        "contribution": [],
+        "envelope": [],
+        "brake": [],
+        "hook_steps": 0,
+    }
+
+
+    def make_hook(layer_idx):
+
+        # Hook oluşturulurken yalnızca bir kere tensor yap.
+        vector = torch.tensor(
+            vectors[layer_idx],
+            device=model.device,
+            dtype=next(model.parameters()).dtype
+        ).unsqueeze(0)
+
+
+        def hook(
+            module,
+            inputs,
+            output
+        ):
+
+            if isinstance(output, tuple):
+
+                hidden = output[0]
+                remainder = output[1:]
+
+            else:
+
+                hidden = output
+                remainder = None
+
+
+            # Son token
+            h = hidden[:, -1, :]
+
+
+            h_norm = torch.linalg.norm(
+                h,
+                dim=-1,
+                keepdim=True
+            )
+
+
+            vector_norm = torch.linalg.norm(
+                vector,
+                dim=-1,
+                keepdim=True
+            )
+
+
+            cosine = (
+                torch.sum(
+                    h * vector,
+                    dim=-1,
+                    keepdim=True
+                )
+                /
+                (
+                    h_norm
+                    * vector_norm
+                    + 1e-12
+                )
+            )
+
+
+            cosine_value = float(
+                cosine
+                .mean()
+                .detach()
+                .cpu()
+            )
+
+
+            envelope, brake = (
+                dra_parameters(
+                    cosine_value,
+                    layer_idx
+                )
+            )
+
+
+            contribution = (
+                IVME
+                * h_norm
+                / SQRT_K
+                * envelope
+                * brake
+            )
+
+
+            delta = (
+                contribution
+                * vector
+            )
+
+
+            hidden_new = hidden.clone()
+
+            hidden_new[
+                :,
+                -1,
+                :
+            ] = (
+                hidden_new[
+                    :,
+                    -1,
+                    :
+                ]
+                + delta
+            )
+
+
+            telemetry["cos"].append(
+                cosine_value
+            )
+
+            telemetry["abs_cos"].append(
+                abs(cosine_value)
+            )
+
+            telemetry[
+                "contribution"
+            ].append(
+                float(
+                    contribution
+                    .mean()
+                    .detach()
+                    .cpu()
+                )
+            )
+
+            telemetry[
+                "envelope"
+            ].append(
+                float(envelope)
+            )
+
+            telemetry[
+                "brake"
+            ].append(
+                float(brake)
+            )
+
+            telemetry[
+                "hook_steps"
+            ] += 1
+
+
+            if remainder is not None:
+
+                return (
+                    hidden_new,
+                    *remainder
+                )
+
+            return hidden_new
+
+
+        return hook
+
+
+    for layer_idx in active_layers:
+
+        handle = (
+            model.model.layers[layer_idx]
+            .register_forward_hook(
+                make_hook(layer_idx)
+            )
+        )
+
+        handles.append(handle)
+
+
+    try:
+
+        encoded = tokenizer(
+            prompt,
+            return_tensors="pt"
+        ).to(model.device)
+
+
+        with torch.no_grad():
+
+            output = model.generate(
+                **encoded,
+                max_new_tokens=MAX_NEW_TOKENS,
+                do_sample=False,
+                repetition_penalty=1.0,
+                use_cache=True,
+                pad_token_id=tokenizer.eos_token_id,
+            )
+
+
+        prompt_length = (
+            encoded["input_ids"].shape[1]
+        )
+
+
+        generated_ids = output[
+            0,
+            prompt_length:
+        ]
+
+
+        generated_text = tokenizer.decode(
+            generated_ids,
+            skip_special_tokens=True
+        )
+
+
+    finally:
+
+        for handle in handles:
+            handle.remove()
+
+
+    if telemetry["hook_steps"] > 0:
+
+        summary = {
+
+            "mean_cos":
+                float(
+                    np.mean(
+                        telemetry["cos"]
+                    )
+                ),
+
+            "mean_abs_cos":
+                float(
+                    np.mean(
+                        telemetry["abs_cos"]
+                    )
+                ),
+
+            "mean_contribution":
+                float(
+                    np.mean(
+                        telemetry[
+                            "contribution"
+                        ]
+                    )
+                ),
+
+            "mean_envelope":
+                float(
+                    np.mean(
+                        telemetry[
+                            "envelope"
+                        ]
+                    )
+                ),
+
+            "mean_brake":
+                float(
+                    np.mean(
+                        telemetry[
+                            "brake"
+                        ]
+                    )
+                ),
+
+            "hook_steps":
+                int(
+                    telemetry[
+                        "hook_steps"
+                    ]
+                ),
+        }
+
+    else:
+
+        summary = {
+
+            "mean_cos": 0.0,
+            "mean_abs_cos": 0.0,
+            "mean_contribution": 0.0,
+            "mean_envelope": 0.0,
+            "mean_brake": 0.0,
+            "hook_steps": 0,
+        }
+
+
+    return generated_text, summary
+
+
+# =============================================================================
+# 14. METİN ÖLÇÜMÜ
+# =============================================================================
+
+def measure_text(
+    text,
+    telemetry=None
+):
+
+    above = count_terms(
+        text,
+        ABOVE_WORDS
+    )
+
+    below = count_terms(
+        text,
+        BELOW_WORDS
+    )
+
+    result = {
+
+        "above": int(above),
+
+        "below": int(below),
+
+        "net": int(
+            above - below
+        ),
+
+        "words":
+            int(
+                word_count(text)
+            ),
+
+        "repetition":
+            float(
+                repetition_score(text)
+            ),
+
+        "text":
+            text,
+    }
+
+
+    if telemetry is not None:
+        result.update(telemetry)
+
+
+    return result
+
+
+# =============================================================================
+# 15. BASELINE — SADECE BİR KEZ
+# =============================================================================
+
+print("\n[7/9] BASELINE çalışıyor...")
+
+
+baseline_prompt_results = []
+
+
+for prompt_index, prompt in enumerate(
+    BEHAVIOR_PROMPTS
+):
+
+    text = baseline_generate(
+        prompt
+    )
+
+    measurement = measure_text(
+        text
+    )
+
+    measurement[
+        "prompt_index"
+    ] = prompt_index
+
+    baseline_prompt_results.append(
+        measurement
+    )
+
+
+def aggregate_prompt_results(
+    results
+):
+
+    return {
+
+        "above":
+            float(
+                np.mean(
+                    [x["above"] for x in results]
+                )
+            ),
+
+        "below":
+            float(
+                np.mean(
+                    [x["below"] for x in results]
+                )
+            ),
+
+        "net":
+            float(
+                np.mean(
+                    [x["net"] for x in results]
+                )
+            ),
+
+        "words":
+            float(
+                np.mean(
+                    [x["words"] for x in results]
+                )
+            ),
+
+        "repetition":
+            float(
+                np.mean(
+                    [x["repetition"] for x in results]
+                )
+            ),
+    }
+
+
+BASELINE = aggregate_prompt_results(
+    baseline_prompt_results
+)
+
+BASELINE[
+    "prompt_results"
+] = baseline_prompt_results
+
+
+print(
+    f"\nBASELINE | "
+    f"ABOVE={BASELINE['above']:.4f} | "
+    f"BELOW={BASELINE['below']:.4f} | "
+    f"NET={BASELINE['net']:+.4f} | "
+    f"WORDS={BASELINE['words']:.2f} | "
+    f"REP={BASELINE['repetition']:.4f}"
+)
+
+
+# =============================================================================
+# 16. ARM ÇALIŞTIRICI
+# =============================================================================
+
+def run_steered_arm(
+    arm_name,
+    vectors,
+    active_layers
+):
+
+    prompt_results = []
+
+
+    for prompt_index, prompt in enumerate(
+        BEHAVIOR_PROMPTS
+    ):
+
+        text, telemetry = steered_generate(
+            prompt=prompt,
+            vectors=vectors,
+            active_layers=active_layers
+        )
+
+        measurement = measure_text(
+            text,
+            telemetry
+        )
+
+        measurement[
+            "prompt_index"
+        ] = prompt_index
+
+
+        baseline_prompt = (
+            BASELINE[
+                "prompt_results"
+            ][prompt_index]
+        )
+
+
+        measurement[
+            "delta_net_vs_baseline"
+        ] = float(
+            measurement["net"]
+            - baseline_prompt["net"]
+        )
+
+
+        measurement[
+            "delta_above_vs_baseline"
+        ] = float(
+            measurement["above"]
+            - baseline_prompt["above"]
+        )
+
+
+        measurement[
+            "delta_below_vs_baseline"
+        ] = float(
+            measurement["below"]
+            - baseline_prompt["below"]
+        )
+
+
+        prompt_results.append(
+            measurement
+        )
+
+
+    agg = aggregate_prompt_results(
+        prompt_results
+    )
+
+
+    telemetry_fields = [
+        "mean_cos",
+        "mean_abs_cos",
+        "mean_contribution",
+        "mean_envelope",
+        "mean_brake",
+        "hook_steps",
+    ]
+
+
+    for field in telemetry_fields:
+
+        agg[field] = float(
+            np.mean(
+                [
+                    x[field]
+                    for x in prompt_results
+                ]
+            )
+        )
+
+
+    agg[
+        "arm"
+    ] = arm_name
+
+
+    agg[
+        "delta_net_vs_baseline"
+    ] = float(
+        agg["net"]
+        - BASELINE["net"]
+    )
+
+
+    agg[
+        "delta_above_vs_baseline"
+    ] = float(
+        agg["above"]
+        - BASELINE["above"]
+    )
+
+
+    agg[
+        "delta_below_vs_baseline"
+    ] = float(
+        agg["below"]
+        - BASELINE["below"]
+    )
+
+
+    agg[
+        "prompt_results"
+    ] = prompt_results
+
+
+    return agg
+
+
+# =============================================================================
+# 17. DÖRT KATMAN ÇİFTİNİ TEST ET
+# =============================================================================
+
+print("\n[8/9] Katman çiftleri test ediliyor...")
+
+
+PAIR_RESULTS = {}
+
+
+for pair in LAYER_PAIRS:
+
+    pair_name = (
+        f"L{pair[0]:02d}+L{pair[1]:02d}"
+    )
+
+    active_layers = list(pair)
+
+
+    print("\n" + "=" * 90)
+    print(pair_name)
+    print("=" * 90)
+
+
+    # -------------------------------------------------------------------------
+    # ABOVE
+    # -------------------------------------------------------------------------
+
+    print("  ABOVE_IND çalışıyor...")
+
+    above_result = run_steered_arm(
+        arm_name="ABOVE_IND",
+        vectors=IND_ABOVE,
+        active_layers=active_layers
+    )
+
+
+    # -------------------------------------------------------------------------
+    # BELOW
+    # -------------------------------------------------------------------------
+
+    print("  BELOW_IND çalışıyor...")
+
+    below_result = run_steered_arm(
+        arm_name="BELOW_IND",
+        vectors=IND_BELOW,
+        active_layers=active_layers
+    )
+
+
+    # -------------------------------------------------------------------------
+    # RANDOM
+    # -------------------------------------------------------------------------
+
+    print("  RANDOM çalışıyor...")
+
+    random_result = run_steered_arm(
+        arm_name="RANDOM",
+        vectors=RANDOM_VECTOR,
+        active_layers=active_layers
+    )
+
+
+    # -------------------------------------------------------------------------
+    # GLOBAL METRICS
+    # -------------------------------------------------------------------------
+
+    delta_a = (
+        above_result[
+            "delta_net_vs_baseline"
+        ]
+    )
+
+    delta_b = (
+        below_result[
+            "delta_net_vs_baseline"
+        ]
+    )
+
+    delta_r = (
+        random_result[
+            "delta_net_vs_baseline"
+        ]
+    )
+
+
+    # Ana iki yön arasındaki ayrışma
+    separation = (
+        delta_a - delta_b
+    )
+
+
+    # RANDOM'ın baseline'dan mutlak hareketi
+    random_displacement = abs(
+        delta_r
+    )
+
+
+    # Gerçek iki yön arasındaki mesafe
+    directional_distance = abs(
+        delta_a - delta_b
+    )
+
+
+    # RANDOM'a göre ABOVE ve BELOW davranış uzaklığı
+    above_vs_random = (
+        delta_a - delta_r
+    )
+
+    below_vs_random = (
+        delta_b - delta_r
+    )
+
+
+    # -------------------------------------------------------------------------
+    # PROMPT-LEVEL COMPARISON
+    # -------------------------------------------------------------------------
+
+    prompt_comparison = []
+
+
+    for i in range(
+        len(BEHAVIOR_PROMPTS)
+    ):
+
+        base_p = (
+            BASELINE[
+                "prompt_results"
+            ][i]
+        )
+
+        a_p = (
+            above_result[
+                "prompt_results"
+            ][i]
+        )
+
+        b_p = (
+            below_result[
+                "prompt_results"
+            ][i]
+        )
+
+        r_p = (
+            random_result[
+                "prompt_results"
+            ][i]
+        )
+
+
+        a_delta = (
+            a_p["net"]
+            - base_p["net"]
+        )
+
+        b_delta = (
+            b_p["net"]
+            - base_p["net"]
+        )
+
+        r_delta = (
+            r_p["net"]
+            - base_p["net"]
+        )
+
+
+        prompt_comparison.append({
+
+            "prompt_index": i,
+
+            "baseline_net":
+                base_p["net"],
+
+            "above_net":
+                a_p["net"],
+
+            "below_net":
+                b_p["net"],
+
+            "random_net":
+                r_p["net"],
+
+            "above_delta":
+                float(a_delta),
+
+            "below_delta":
+                float(b_delta),
+
+            "random_delta":
+                float(r_delta),
+
+            "above_minus_below":
+                float(
+                    a_delta
+                    - b_delta
+                ),
+
+            "above_minus_random":
+                float(
+                    a_delta
+                    - r_delta
+                ),
+
+            "below_minus_random":
+                float(
+                    b_delta
+                    - r_delta
+                ),
+        })
+
+
+    # -------------------------------------------------------------------------
+    # COUNTS — yalnızca betimleyici
+    # -------------------------------------------------------------------------
+
+    above_positive_prompts = sum(
+        p["above_delta"] > 0
+        for p in prompt_comparison
+    )
+
+    below_negative_prompts = sum(
+        p["below_delta"] < 0
+        for p in prompt_comparison
+    )
+
+    positive_separation_prompts = sum(
+        p["above_minus_below"] > 0
+        for p in prompt_comparison
+    )
+
+    negative_separation_prompts = sum(
+        p["above_minus_below"] < 0
+        for p in prompt_comparison
+    )
+
+    zero_separation_prompts = sum(
+        p["above_minus_below"] == 0
+        for p in prompt_comparison
+    )
+
+
+    # -------------------------------------------------------------------------
+    # STORE
+    # -------------------------------------------------------------------------
+
+    PAIR_RESULTS[pair_name] = {
+
+        "layers":
+            active_layers,
+
+        "above":
+            above_result,
+
+        "below":
+            below_result,
+
+        "random":
+            random_result,
+
+        "delta_above":
+            float(delta_a),
+
+        "delta_below":
+            float(delta_b),
+
+        "delta_random":
+            float(delta_r),
+
+        "bidirectional_separation":
+            float(separation),
+
+        "directional_distance":
+            float(directional_distance),
+
+        "random_displacement":
+            float(random_displacement),
+
+        "above_vs_random":
+            float(above_vs_random),
+
+        "below_vs_random":
+            float(below_vs_random),
+
+        "above_positive_prompts":
+            int(above_positive_prompts),
+
+        "below_negative_prompts":
+            int(below_negative_prompts),
+
+        "positive_separation_prompts":
+            int(positive_separation_prompts),
+
+        "negative_separation_prompts":
+            int(negative_separation_prompts),
+
+        "zero_separation_prompts":
+            int(zero_separation_prompts),
+
+        "prompt_comparison":
+            prompt_comparison,
+    }
+
+
+    print(
+        f"\n{pair_name}"
+    )
+
+    print(
+        f"  ABOVE  NET={above_result['net']:+.4f} "
+        f"Δ={delta_a:+.4f}"
+    )
+
+    print(
+        f"  BELOW  NET={below_result['net']:+.4f} "
+        f"Δ={delta_b:+.4f}"
+    )
+
+    print(
+        f"  RANDOM NET={random_result['net']:+.4f} "
+        f"Δ={delta_r:+.4f}"
+    )
+
+    print(
+        f"  SEP(A-B) = {separation:+.4f}"
+    )
+
+    print(
+        f"  A vs RANDOM = "
+        f"{above_vs_random:+.4f}"
+    )
+
+    print(
+        f"  B vs RANDOM = "
+        f"{below_vs_random:+.4f}"
+    )
+
+    print(
+        f"  prompt SEP signs: "
+        f"+{positive_separation_prompts} / "
+        f"-{negative_separation_prompts} / "
+        f"0={zero_separation_prompts}"
+    )
+
+
+# =============================================================================
+# 18. ANA ÖZET TABLOSU
+# =============================================================================
+
+print("\n\n")
+print("=" * 125)
+print("TEST 103 — ANA SONUÇ TABLOSU")
+print("=" * 125)
+
+
+header = (
+    f"{'PAIR':<10}"
+    f"{'A_NET':>9}"
+    f"{'AΔ':>9}"
+    f"{'B_NET':>9}"
+    f"{'BΔ':>9}"
+    f"{'R_NET':>9}"
+    f"{'RΔ':>9}"
+    f"{'SEP':>9}"
+    f"{'A-R':>9}"
+    f"{'B-R':>9}"
+)
+
+print(header)
+print("-" * 125)
+
+
+for pair in LAYER_PAIRS:
+
+    name = (
+        f"L{pair[0]:02d}+L{pair[1]:02d}"
+    )
+
+    p = PAIR_RESULTS[name]
+
+
+    print(
+        f"{name:<10}"
+        f"{p['above']['net']:>+9.3f}"
+        f"{p['delta_above']:>+9.3f}"
+        f"{p['below']['net']:>+9.3f}"
+        f"{p['delta_below']:>+9.3f}"
+        f"{p['random']['net']:>+9.3f}"
+        f"{p['delta_random']:>+9.3f}"
+        f"{p['bidirectional_separation']:>+9.3f}"
+        f"{p['above_vs_random']:>+9.3f}"
+        f"{p['below_vs_random']:>+9.3f}"
+    )
+
+
+# =============================================================================
+# 19. TELEMETRİ TABLOSU
+# =============================================================================
+
+print("\n")
+print("=" * 125)
+print("DRA TELEMETRİSİ")
+print("=" * 125)
+
+
+for pair in LAYER_PAIRS:
+
+    name = (
+        f"L{pair[0]:02d}+L{pair[1]:02d}"
+    )
+
+    p = PAIR_RESULTS[name]
+
+    print(f"\n{name}")
+
+    print(
+        f"{'ARM':<12}"
+        f"{'COS':>12}"
+        f"{'|COS|':>12}"
+        f"{'CONTRIB':>12}"
+        f"{'ENV':>12}"
+        f"{'BRAKE':>12}"
+        f"{'WORDS':>12}"
+        f"{'REP':>12}"
+    )
+
+    print("-" * 100)
+
+    for arm_name in [
+        "above",
+        "below",
+        "random"
+    ]:
+
+        arm = p[arm_name]
+
+        print(
+            f"{arm_name.upper():<12}"
+            f"{arm['mean_cos']:>+12.6f}"
+            f"{arm['mean_abs_cos']:>12.6f}"
+            f"{arm['mean_contribution']:>12.6f}"
+            f"{arm['mean_envelope']:>12.6f}"
+            f"{arm['mean_brake']:>12.6f}"
+            f"{arm['words']:>12.2f}"
+            f"{arm['repetition']:>12.4f}"
+        )
+
+
+# =============================================================================
+# 20. PROMPT-BAZLI TABLOLAR
+# =============================================================================
+
+print("\n")
+print("=" * 125)
+print("PROMPT-BAZLI YÖN AYRIŞMASI")
+print("=" * 125)
+
+
+for pair in LAYER_PAIRS:
+
+    name = (
+        f"L{pair[0]:02d}+L{pair[1]:02d}"
+    )
+
+    p = PAIR_RESULTS[name]
+
+    print(f"\n{name}")
+
+    print(
+        f"{'P':<5}"
+        f"{'BASE':>8}"
+        f"{'A_NET':>8}"
+        f"{'B_NET':>8}"
+        f"{'R_NET':>8}"
+        f"{'AΔ':>8}"
+        f"{'BΔ':>8}"
+        f"{'RΔ':>8}"
+        f"{'A-B':>8}"
+    )
+
+    print("-" * 75)
+
+
+    for x in p[
+        "prompt_comparison"
+    ]:
+
+        print(
+            f"{x['prompt_index'] + 1:<5}"
+            f"{x['baseline_net']:>+8.1f}"
+            f"{x['above_net']:>+8.1f}"
+            f"{x['below_net']:>+8.1f}"
+            f"{x['random_net']:>+8.1f}"
+            f"{x['above_delta']:>+8.1f}"
+            f"{x['below_delta']:>+8.1f}"
+            f"{x['random_delta']:>+8.1f}"
+            f"{x['above_minus_below']:>+8.1f}"
+        )
+
+
+# =============================================================================
+# 21. HAM METİNLERİ EKRANA BAS
+# =============================================================================
+#
+# Sayaç hatasını görebilmek için özellikle saklanıyor ve ekrana da basılıyor.
+#
+# =============================================================================
+
+print("\n")
+print("=" * 125)
+print("HAM ÜRETİMLER — MANUEL İNCELEME")
+print("=" * 125)
+
+
+for pair in LAYER_PAIRS:
+
+    name = (
+        f"L{pair[0]:02d}+L{pair[1]:02d}"
+    )
+
+    p = PAIR_RESULTS[name]
+
+    print("\n\n" + "#" * 125)
+    print(name)
+    print("#" * 125)
+
+
+    for i in range(
+        len(BEHAVIOR_PROMPTS)
+    ):
+
+        print(
+            f"\n--- PROMPT {i + 1} ---"
+        )
+
+        print("\n[BASELINE]")
+        print(
+            BASELINE[
+                "prompt_results"
+            ][i]["text"]
+        )
+
+        print("\n[ABOVE_IND]")
+        print(
+            p["above"][
+                "prompt_results"
+            ][i]["text"]
+        )
+
+        print("\n[BELOW_IND]")
+        print(
+            p["below"][
+                "prompt_results"
+            ][i]["text"]
+        )
+
+        print("\n[RANDOM]")
+        print(
+            p["random"][
+                "prompt_results"
+            ][i]["text"]
+        )
+
+
+# =============================================================================
+# 22. JSON KAYDI
+# =============================================================================
+
+print("\n[9/9] JSON kaydediliyor...")
+
+
+FINAL_RESULT = {
+
+    "test":
+        "TEST 103",
+
+    "title":
+        "Direction Specificity + Random Control + Prompt-Level Behavioral Diagnostics",
+
+    "model":
+        MODEL_NAME,
+
+    "seed":
+        SEED,
+
+    "random_seed":
+        RANDOM_SEED,
+
+    "settings": {
+
+        "n_layers":
+            N_LAYERS,
+
+        "hidden":
+            HIDDEN,
+
+        "ivme":
+            IVME,
+
+        "sqrt_k":
+            SQRT_K,
+
+        "max_new_tokens":
+            MAX_NEW_TOKENS,
+
+        "layer_pairs":
+            [
+                list(x)
+                for x in LAYER_PAIRS
+            ],
+
+        "dra": {
+
+            "sonum":
+                SONUM,
+
+            "zirve":
+                ZIRVE,
+
+            "taban":
+                TABAN,
+
+            "cos_brake_high":
+                COS_BRAKE_HIGH,
+
+            "cos_brake_low":
+                COS_BRAKE_LOW,
+
+            "brake_high_denom":
+                BRAKE_HIGH_DENOM,
+
+            "brake_low_gain":
+                BRAKE_LOW_GAIN,
+        },
+    },
+
+    "geometry":
+        geometry,
+
+    "baseline":
+        BASELINE,
+
+    "pairs":
+        PAIR_RESULTS,
+}
+
+
+OUTPUT_FILE = (
+    "TEST_103_DIRECTION_SPECIFICITY_RANDOM_CONTROL.json"
+)
+
+
+with open(
+    OUTPUT_FILE,
+    "w",
+    encoding="utf-8"
+) as f:
+
+    json.dump(
+        FINAL_RESULT,
+        f,
+        ensure_ascii=False,
+        indent=2
+    )
+
+
+print(
+    "\nKaydedildi:",
+    OUTPUT_FILE
+)
+
+
+# =============================================================================
+# 23. SON KISA ÖZET
+# =============================================================================
+
+print("\n")
+print("=" * 125)
+print("TEST 103 — KISA ÖZET")
+print("=" * 125)
+
+
+print(
+    f"\nBASELINE NET = "
+    f"{BASELINE['net']:+.4f}"
+)
+
+
+for pair in LAYER_PAIRS:
+
+    name = (
+        f"L{pair[0]:02d}+L{pair[1]:02d}"
+    )
+
+    p = PAIR_RESULTS[name]
+
+    print(
+        f"\n{name}"
+        f"\n  ABOVE Δ  = {p['delta_above']:+.4f}"
+        f"\n  BELOW Δ  = {p['delta_below']:+.4f}"
+        f"\n  RANDOM Δ = {p['delta_random']:+.4f}"
+        f"\n  SEP A-B  = {p['bidirectional_separation']:+.4f}"
+        f"\n  A-R      = {p['above_vs_random']:+.4f}"
+        f"\n  B-R      = {p['below_vs_random']:+.4f}"
+        f"\n  Prompt SEP signs = "
+        f"+{p['positive_separation_prompts']} / "
+        f"-{p['negative_separation_prompts']} / "
+        f"0={p['zero_separation_prompts']}"
+    )
+
+
+print("\n")
+print("=" * 125)
+print("TEST 103 TAMAMLANDI")
+print("=" * 125)
+
+print("""
+Bu testte otomatik başarı/başarısızlık kararı verilmemiştir.
+
+Yorumlanacak temel karşılaştırmalar:
+
+1) ABOVE_IND ΔNET
+2) BELOW_IND ΔNET
+3) RANDOM ΔNET
+4) ABOVE_IND - BELOW_IND ayrışması
+5) ABOVE/RANDOM ve BELOW/RANDOM farkları
+6) Prompt-bazlı ayrışmanın hangi örneklerden geldiği
+7) DRA contribution büyüklüklerinin arm'lar arasında benzer olup olmadığı
+8) Ham metinlerin sayaç sonuçlarını gerçekten destekleyip desteklemediği
+
+Ana çıktı:
+TEST_103_DIRECTION_SPECIFICITY_RANDOM_CONTROL.json
+""")
