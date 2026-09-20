@@ -1,0 +1,3656 @@
+# =============================================================================
+# TEST 112 — PERTURBATION ROTATION & SEMANTIC ENERGY DECOMPOSITION
+# =============================================================================
+#
+# Qwen/Qwen2.5-7B-Instruct · AkbasCore DRA
+#
+# ---------------------------------------------------------------------------
+# PURPOSE
+# ---------------------------------------------------------------------------
+#
+# TEST 111 established:
+#
+#   - physical perturbation ||δh||/||h|| survives deeply
+#   - separator semantic displacement Δe strongly attenuates L11 -> L19
+#
+# TEST 112 asks:
+#
+#   WHERE DOES THE PERTURBATION GO?
+#
+# No controller.
+# No gain tuning.
+# No layer tuning.
+# No new sensor search.
+# No new prompt family.
+# No random null.
+#
+# Same locked TEST110/111 system:
+#
+#   Model        : Qwen/Qwen2.5-7B-Instruct
+#   Vectors      : exact ABOVE_IND / BELOW_IND recipe
+#   Steering     : L10 + L11
+#   IVME         : 0.10
+#   sqrt(K)      : sqrt(20)
+#   Prompts      : same TEST110/111 40 validation prompts
+#
+# ---------------------------------------------------------------------------
+# CORE DEFINITIONS
+# ---------------------------------------------------------------------------
+#
+# For each layer:
+#
+#   δh_l = h_l^steered - h_l^baseline
+#
+# Layerwise semantic basis:
+#
+#   A_l = normalized ABOVE direction
+#   B_l = normalized BELOW direction
+#
+#   S_l = normalize(A_l - B_l)      separator
+#   C_l = normalize(A_l + B_l)      common
+#
+# Because S and C are orthogonal when A/B are unit vectors:
+#
+#   dot(S_l, C_l) ≈ 0
+#
+#
+# ---------------------------------------------------------------------------
+# ENERGY DECOMPOSITION
+# ---------------------------------------------------------------------------
+#
+# Unit perturbation:
+#
+#   d_l = δh_l / ||δh_l||
+#
+# Separator energy fraction:
+#
+#   E_S = (d_l · S_l)^2
+#
+# Common energy fraction:
+#
+#   E_C = (d_l · C_l)^2
+#
+# Semantic-plane energy:
+#
+#   E_SC = E_S + E_C
+#
+# Orthogonal residual energy:
+#
+#   E_PERP = 1 - E_SC
+#
+# IMPORTANT:
+#
+# These are squared geometric projection fractions.
+# They do NOT mean transformer "energy" in a physical thermodynamic sense.
+#
+#
+# ---------------------------------------------------------------------------
+# PERTURBATION ORIENTATION
+# ---------------------------------------------------------------------------
+#
+#   cos(δh_l, S_l)
+#   cos(δh_l, C_l)
+#   cos(δh_l, A_l)
+#   cos(δh_l, B_l)
+#
+#
+# ---------------------------------------------------------------------------
+# LAYER-TO-LAYER DIRECTIONAL CONTINUITY
+# ---------------------------------------------------------------------------
+#
+#   continuity_l = cos(δh_l, δh_(l+1))
+#
+# This measures whether the raw perturbation vector remains geometrically
+# aligned between adjacent residual-stream outputs.
+#
+# It is descriptive. It is NOT by itself proof of causal "rotation".
+#
+#
+# ---------------------------------------------------------------------------
+# CUMULATIVE ROTATION FROM L11
+# ---------------------------------------------------------------------------
+#
+#   retention_l = cos(δh_11, δh_l)
+#
+# This directly asks how much the later perturbation direction resembles
+# the perturbation present immediately after the final active steering layer.
+#
+#
+# ---------------------------------------------------------------------------
+# SEMANTIC PLANE ANGLE
+# ---------------------------------------------------------------------------
+#
+# Within span(S,C):
+#
+#   theta_l = atan2(proj_S, proj_C)
+#
+# This shows whether the perturbation rotates INSIDE the A/B semantic plane.
+#
+# If E_SC collapses while physical ||δh|| survives:
+#
+#   perturbation leaves the measured semantic plane.
+#
+# If E_SC survives but theta changes:
+#
+#   perturbation rotates within the semantic plane.
+#
+# If both happen:
+#
+#   both mechanisms contribute.
+#
+#
+# ---------------------------------------------------------------------------
+# IMPORTANT BOUNDARY
+# ---------------------------------------------------------------------------
+#
+# A/B vectors exist only L0-L19.
+#
+# Therefore semantic energy decomposition is L10-L19.
+#
+# Physical perturbation magnitude and raw directional continuity are measured
+# through L27.
+#
+# No fake/interpolated semantic vectors are created for L20-L27.
+#
+# =============================================================================
+
+
+# =============================================================================
+# 0. IMPORTS
+# =============================================================================
+
+import json
+import math
+import random
+
+import numpy as np
+import torch
+
+from transformers import (
+    AutoTokenizer,
+    AutoModelForCausalLM,
+)
+
+
+# =============================================================================
+# 1. LOCKED CONFIG
+# =============================================================================
+
+MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 42
+
+MODEL_LAYERS = 28
+VECTOR_LAYERS = 20
+HIDDEN = 3584
+
+ACTIVE_LAYERS = [10, 11]
+
+IVME = 0.10
+SQRT_K = math.sqrt(VECTOR_LAYERS)
+
+EPS = 1e-12
+
+
+# DRA locked constants
+
+SONUM = 0.30
+ZIRVE = 0.70
+TABAN = 0.20
+
+COS_BRAKE_HIGH = 0.75
+COS_BRAKE_LOW = -0.40
+
+BRAKE_HIGH_DENOM = 0.25
+BRAKE_LOW_GAIN = 1.60
+
+
+# TEST110/111 exact expected outputs
+
+EXPECTED_AB = 0.007351959
+EXPECTED_OU = 0.002256775
+
+
+# =============================================================================
+# 2. DETERMINISM
+# =============================================================================
+
+def set_seed(seed):
+
+    random.seed(seed)
+    np.random.seed(seed)
+
+    torch.manual_seed(seed)
+
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+set_seed(SEED)
+
+
+# =============================================================================
+# 3. EXACT LOCKED SEMANTIC TRAINING DATA
+# =============================================================================
+
+ABOVE_TRAIN = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+
+BELOW_TRAIN = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+
+NEUTRAL_TRAIN = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 4. EXACT TEST110/111 40 PROMPTS
+# =============================================================================
+
+PROMPTS = [
+
+    # MAP_REPORT
+    "The site map marks Clara at one elevation and the pedestrian deck at another. In relation to the deck, Clara is",
+    "According to the survey map, a weather balloon and the observatory roof occupy separate vertical levels. The balloon is",
+    "The diagram places a rescue drone at one height and the canyon rim at another. Relative to the rim, the drone is",
+    "On the engineering map, Marcus and the service platform are shown at distinct vertical positions. Marcus is",
+    "The location chart records a beacon at one elevation and the lighthouse balcony at another. Relative to the balcony, the beacon is",
+    "A terrain diagram shows a helicopter at a different height from the ridge line. The helicopter is",
+    "The architectural plan indicates Nina at one vertical level and the terrace edge at another. Nina is",
+    "The field map places a bird at a different elevation from the tower ledge. Relative to the ledge, the bird is",
+
+    # WITNESS_STATEMENT
+    "A witness describes Leo and the footbridge as occupying different vertical positions. Relative to the footbridge, Leo is",
+    "The observer reports that a drone and the warehouse roof were at different heights. The drone was",
+    "A witness saw a lantern at a different elevation from the balcony rail. Relative to the rail, the lantern was",
+    "The observer describes Emma's vertical position with respect to the railway deck. Emma was",
+    "A witness reports a kite and the cliff rim at distinct elevations. Relative to the rim, the kite was",
+    "The observer noted that a camera and the stage floor occupied different vertical levels. The camera was",
+    "A witness describes a small aircraft at a different height from the mountain crest. The aircraft was",
+    "The observer reports that Daniel and the raised walkway occupied distinct elevations. Daniel was",
+
+    # TECHNICAL_LOG
+    "Inspection log: sensor altitude differs from the platform elevation. Relative to the platform, the sensor is",
+    "Flight log: drone altitude differs from the roof reference level. The drone is",
+    "Survey record: the marker and the retaining wall top are registered at different elevations. Relative to the wall top, the marker is",
+    "Maintenance log: the technician's vertical position differs from the catwalk level. The technician is",
+    "Navigation record: the balloon and the tower crown occupy separate elevation readings. Relative to the tower crown, the balloon is",
+    "Site log: the camera height differs from the monument base reference. The camera is",
+    "Aviation record: the helicopter and the ridge have different altitude readings. Relative to the ridge, the helicopter is",
+    "Inspection record: the worker's elevation differs from the bridge deck reference. The worker is",
+
+    # COMPARATIVE_FRAGMENT
+    "Relative elevation: Olivia versus the stone bridge. Olivia is",
+    "Vertical comparison: drone versus stadium roof. The drone is",
+    "Height relation: beacon versus tower balcony. The beacon is",
+    "Elevation comparison: Samuel versus observation deck. Samuel is",
+    "Vertical relation: balloon versus building roofline. The balloon is",
+    "Height comparison: bird versus cliff edge. The bird is",
+    "Elevation relation: camera versus platform surface. The camera is",
+    "Vertical comparison: helicopter versus mountain ridge. The helicopter is",
+
+    # INDIRECT_DESCRIPTION
+    "To describe Rosa's vertical placement, the old viaduct is used as the reference structure. Rosa is",
+    "The stadium roof serves only as a reference for describing the drone's elevation. The drone is",
+    "For the lantern's vertical placement, the balcony edge provides the comparison level. The lantern is",
+    "The mountain crest is the reference used to state the aircraft's elevation. The aircraft is",
+    "A scaffold deck provides the comparison height for Isaac's vertical position. Isaac is",
+    "The monument pedestal is used as the reference for the camera's vertical placement. The camera is",
+    "The canyon rim provides the comparison level for the rescue balloon's elevation. The balloon is",
+    "The elevated walkway serves as the reference structure for Maya's vertical placement. Maya is",
+]
+
+
+FAMILIES = [
+    "MAP_REPORT",
+    "WITNESS_STATEMENT",
+    "TECHNICAL_LOG",
+    "COMPARATIVE_FRAGMENT",
+    "INDIRECT_DESCRIPTION",
+]
+
+
+assert len(PROMPTS) == 40
+
+
+# =============================================================================
+# 5. NUMERIC HELPERS
+# =============================================================================
+
+def normalize_np(v, eps=1e-12):
+
+    v = np.asarray(v, dtype=np.float64)
+
+    n = np.linalg.norm(v)
+
+    if n < eps:
+        return np.zeros_like(v, dtype=np.float32)
+
+    return (v / n).astype(np.float32)
+
+
+def cosine_np(a, b, eps=1e-12):
+
+    a = np.asarray(a, dtype=np.float64)
+    b = np.asarray(b, dtype=np.float64)
+
+    na = np.linalg.norm(a)
+    nb = np.linalg.norm(b)
+
+    if na < eps or nb < eps:
+        return 0.0
+
+    return float(
+        np.dot(a, b) / (na * nb)
+    )
+
+
+def pearson_r(x, y):
+
+    x = np.asarray(x, dtype=np.float64)
+    y = np.asarray(y, dtype=np.float64)
+
+    if len(x) < 2:
+        return 0.0
+
+    if np.std(x) < 1e-15 or np.std(y) < 1e-15:
+        return 0.0
+
+    return float(
+        np.corrcoef(x, y)[0, 1]
+    )
+
+
+def rankdata_average(x):
+
+    x = np.asarray(x, dtype=np.float64)
+
+    order = np.argsort(
+        x,
+        kind="mergesort"
+    )
+
+    ranks = np.empty(
+        len(x),
+        dtype=np.float64
+    )
+
+    i = 0
+
+    while i < len(x):
+
+        j = i + 1
+
+        while (
+            j < len(x)
+            and
+            x[order[j]] == x[order[i]]
+        ):
+            j += 1
+
+        ranks[order[i:j]] = (
+            i + 1 + j
+        ) / 2.0
+
+        i = j
+
+    return ranks
+
+
+def spearman_rho(x, y):
+
+    return pearson_r(
+        rankdata_average(x),
+        rankdata_average(y)
+    )
+
+
+def circular_difference_deg(a, b):
+
+    """
+    Smallest signed angular difference:
+    a - b in [-180, 180]
+    """
+
+    return float(
+        (a - b + 180.0) % 360.0 - 180.0
+    )
+
+
+# =============================================================================
+# 6. LOAD MODEL
+# =============================================================================
+
+print(
+    "\n"
+    + "=" * 180
+)
+
+print(
+    "TEST 112 — PERTURBATION ROTATION & SEMANTIC ENERGY DECOMPOSITION"
+)
+
+print(
+    "=" * 180
+)
+
+print(
+    "\n[1/16] Model yükleniyor..."
+)
+
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_NAME,
+    trust_remote_code=True,
+)
+
+
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_NAME,
+    dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True,
+)
+
+
+model.eval()
+
+
+print("Model             :", MODEL_NAME)
+print("Device            :", model.device)
+print("dtype             :", next(model.parameters()).dtype)
+print("Model layers      :", len(model.model.layers))
+print("Semantic layers   : 0–19")
+print("Steering layers   :", ACTIVE_LAYERS)
+print("Physical layers   : 0–27")
+print("Hidden            :", HIDDEN)
+print("IVME              :", IVME)
+print("SQRT_K            :", SQRT_K)
+print("Prompts           :", len(PROMPTS))
+
+
+# =============================================================================
+# 7. TARGET TOKENS
+# =============================================================================
+
+print(
+    "\n[2/16] Target tokenlar doğrulanıyor..."
+)
+
+
+TARGET_STRINGS = {
+    "above": " above",
+    "below": " below",
+    "over": " over",
+    "under": " under",
+}
+
+
+TARGET_IDS = {}
+
+
+for name, text in TARGET_STRINGS.items():
+
+    ids = tokenizer.encode(
+        text,
+        add_special_tokens=False
+    )
+
+    print(
+        f"{name:<8} | "
+        f"{repr(text):<12} | "
+        f"{ids}"
+    )
+
+    if len(ids) != 1:
+
+        raise RuntimeError(
+            f"{name} tek token değil: {ids}"
+        )
+
+    TARGET_IDS[name] = ids[0]
+
+
+TARGET_ID_LIST = [
+    TARGET_IDS["above"],
+    TARGET_IDS["below"],
+    TARGET_IDS["over"],
+    TARGET_IDS["under"],
+]
+
+
+# =============================================================================
+# 8. EXTRACT LOCKED LAYERWISE VECTORS
+# =============================================================================
+
+@torch.no_grad()
+def extract_layerwise_activations(
+    texts,
+    max_length=128
+):
+
+    encoded = tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=max_length,
+    )
+
+    input_ids = encoded["input_ids"].to(
+        model.device
+    )
+
+    attention_mask = encoded["attention_mask"].to(
+        model.device
+    )
+
+
+    captured = [
+        None
+        for _ in range(VECTOR_LAYERS)
+    ]
+
+
+    handles = []
+
+
+    def make_hook(layer_idx):
+
+        def hook(module, inputs, output):
+
+            hidden = (
+                output[0]
+                if isinstance(output, tuple)
+                else output
+            )
+
+            captured[layer_idx] = hidden.detach()
+
+        return hook
+
+
+    for layer_idx in range(VECTOR_LAYERS):
+
+        handles.append(
+            model.model.layers[
+                layer_idx
+            ].register_forward_hook(
+                make_hook(layer_idx)
+            )
+        )
+
+
+    _ = model(
+        input_ids=input_ids,
+        attention_mask=attention_mask,
+        use_cache=False,
+    )
+
+
+    for handle in handles:
+        handle.remove()
+
+
+    lengths = (
+        attention_mask
+        .sum(dim=1)
+        .cpu()
+        .numpy()
+    )
+
+
+    result = np.zeros(
+        (
+            len(texts),
+            VECTOR_LAYERS,
+            HIDDEN
+        ),
+        dtype=np.float32
+    )
+
+
+    for layer_idx in range(VECTOR_LAYERS):
+
+        hidden = (
+            captured[layer_idx]
+            .float()
+            .cpu()
+            .numpy()
+        )
+
+        for sample_idx in range(len(texts)):
+
+            last_idx = (
+                int(lengths[sample_idx])
+                - 1
+            )
+
+            result[
+                sample_idx,
+                layer_idx
+            ] = hidden[
+                sample_idx,
+                last_idx
+            ]
+
+
+    return result
+
+
+print(
+    "\n[3/16] Locked semantic directions çıkarılıyor..."
+)
+
+
+ACT_ABOVE = extract_layerwise_activations(
+    ABOVE_TRAIN
+)
+
+ACT_BELOW = extract_layerwise_activations(
+    BELOW_TRAIN
+)
+
+ACT_NEUTRAL = extract_layerwise_activations(
+    NEUTRAL_TRAIN
+)
+
+
+MEAN_ABOVE = ACT_ABOVE.mean(axis=0)
+MEAN_BELOW = ACT_BELOW.mean(axis=0)
+MEAN_NEUTRAL = ACT_NEUTRAL.mean(axis=0)
+
+
+IND_ABOVE = (
+    MEAN_ABOVE
+    -
+    MEAN_NEUTRAL
+).astype(np.float32)
+
+
+IND_BELOW = (
+    MEAN_BELOW
+    -
+    MEAN_NEUTRAL
+).astype(np.float32)
+
+
+for layer_idx in range(VECTOR_LAYERS):
+
+    IND_ABOVE[layer_idx] = normalize_np(
+        IND_ABOVE[layer_idx]
+    )
+
+    IND_BELOW[layer_idx] = normalize_np(
+        IND_BELOW[layer_idx]
+    )
+
+
+print("\nSemantic geometry:")
+
+for layer_idx in ACTIVE_LAYERS:
+
+    print(
+        f"L{layer_idx:02d} | "
+        f"cos(A,B)="
+        f"{cosine_np(IND_ABOVE[layer_idx],IND_BELOW[layer_idx]):+.6f}"
+    )
+
+
+# Hard geometry integrity check
+
+if abs(
+    cosine_np(
+        IND_ABOVE[10],
+        IND_BELOW[10]
+    )
+    - 0.656545
+) > 5e-6:
+
+    raise RuntimeError(
+        "L10 semantic geometry TEST111 ile eşleşmiyor."
+    )
+
+
+if abs(
+    cosine_np(
+        IND_ABOVE[11],
+        IND_BELOW[11]
+    )
+    - 0.658274
+) > 5e-6:
+
+    raise RuntimeError(
+        "L11 semantic geometry TEST111 ile eşleşmiyor."
+    )
+
+
+# =============================================================================
+# 9. BUILD SEMANTIC BASIS
+# =============================================================================
+
+print(
+    "\n[4/16] A/B → COMMON/SEPARATOR orthogonal basis hazırlanıyor..."
+)
+
+
+SEPARATOR = np.zeros(
+    (
+        VECTOR_LAYERS,
+        HIDDEN
+    ),
+    dtype=np.float32
+)
+
+
+COMMON = np.zeros(
+    (
+        VECTOR_LAYERS,
+        HIDDEN
+    ),
+    dtype=np.float32
+)
+
+
+for layer_idx in range(VECTOR_LAYERS):
+
+    a = IND_ABOVE[
+        layer_idx
+    ].astype(np.float64)
+
+    b = IND_BELOW[
+        layer_idx
+    ].astype(np.float64)
+
+
+    SEPARATOR[layer_idx] = normalize_np(
+        a - b
+    )
+
+    COMMON[layer_idx] = normalize_np(
+        a + b
+    )
+
+
+max_sc_dot = 0.0
+
+
+for layer_idx in range(VECTOR_LAYERS):
+
+    dot_sc = abs(
+        float(
+            np.dot(
+                SEPARATOR[layer_idx].astype(np.float64),
+                COMMON[layer_idx].astype(np.float64)
+            )
+        )
+    )
+
+    max_sc_dot = max(
+        max_sc_dot,
+        dot_sc
+    )
+
+
+print(
+    f"max |dot(S,C)| = "
+    f"{max_sc_dot:.12e}"
+)
+
+print(
+    "Semantic decomposition : L10–L19"
+)
+
+print(
+    "Physical propagation   : L10–L27"
+)
+
+
+# =============================================================================
+# 10. DRA
+# =============================================================================
+
+def dra_parameters(
+    cosine_value,
+    layer_idx
+):
+
+    uncertainty = (
+        1.0
+        -
+        abs(cosine_value)
+    )
+
+
+    dw = (
+        SONUM
+        +
+        uncertainty * 0.20
+    )
+
+
+    t = float(layer_idx)
+
+
+    kb = (
+        ZIRVE
+        *
+        math.exp(-dw * t)
+        *
+        (
+            1.0
+            +
+            dw * t
+        )
+        +
+        TABAN
+    )
+
+
+    envelope = (
+        kb
+        /
+        (
+            ZIRVE
+            +
+            TABAN
+        )
+    )
+
+
+    if cosine_value > COS_BRAKE_HIGH:
+
+        brake = (
+            1.0
+            -
+            cosine_value
+        ) / BRAKE_HIGH_DENOM
+
+    elif cosine_value < COS_BRAKE_LOW:
+
+        brake = BRAKE_LOW_GAIN
+
+    else:
+
+        brake = 1.0
+
+
+    return envelope, brake
+
+
+# =============================================================================
+# 11. FP32 TARGET READOUT
+# =============================================================================
+
+def qwen_rmsnorm_fp32(
+    hidden_fp32
+):
+
+    norm_module = model.model.norm
+
+    weight = (
+        norm_module.weight
+        .detach()
+        .float()
+    )
+
+    eps = float(
+        norm_module.variance_epsilon
+    )
+
+
+    variance = (
+        hidden_fp32
+        .pow(2)
+        .mean(
+            dim=-1,
+            keepdim=True
+        )
+    )
+
+
+    normalized = (
+        hidden_fp32
+        *
+        torch.rsqrt(
+            variance + eps
+        )
+    )
+
+
+    return normalized * weight
+
+
+@torch.no_grad()
+def hp_target_logits(
+    final_hidden_last
+):
+
+    h = final_hidden_last.float()
+
+    h_norm = qwen_rmsnorm_fp32(
+        h
+    )
+
+
+    target_weights = (
+        model.lm_head.weight[
+            TARGET_ID_LIST
+        ]
+        .detach()
+        .float()
+    )
+
+
+    logits = torch.matmul(
+        target_weights,
+        h_norm
+    )
+
+
+    return {
+        "above": float(logits[0].cpu()),
+        "below": float(logits[1].cpu()),
+        "over": float(logits[2].cpu()),
+        "under": float(logits[3].cpu()),
+    }
+
+
+def make_readout(logits):
+
+    return {
+
+        "AB": float(
+            logits["above"]
+            -
+            logits["below"]
+        ),
+
+        "OU": float(
+            logits["over"]
+            -
+            logits["under"]
+        ),
+    }
+
+
+# =============================================================================
+# 12. FULL TRAJECTORY FORWARD
+# =============================================================================
+
+@torch.no_grad()
+def trajectory_forward(
+    prompt,
+    vectors=None,
+    arm_name="BASELINE"
+):
+
+    layer_post = [
+        None
+        for _ in range(MODEL_LAYERS)
+    ]
+
+
+    telemetry = []
+
+
+    final_capture = {
+        "hidden": None
+    }
+
+
+    handles = []
+
+
+    def make_output_hook(
+        layer_idx
+    ):
+
+        def hook(
+            module,
+            inputs,
+            output
+        ):
+
+            hidden = (
+                output[0]
+                if isinstance(output, tuple)
+                else output
+            )
+
+
+            hidden_new = hidden
+
+
+            if (
+                vectors is not None
+                and
+                layer_idx in ACTIVE_LAYERS
+            ):
+
+                vector = (
+                    torch.as_tensor(
+                        vectors[layer_idx],
+                        device=hidden.device,
+                        dtype=hidden.dtype,
+                    )
+                    .unsqueeze(0)
+                )
+
+
+                h = hidden[
+                    :,
+                    -1,
+                    :
+                ]
+
+
+                h_norm = torch.linalg.norm(
+                    h,
+                    dim=-1,
+                    keepdim=True
+                )
+
+
+                v_norm = torch.linalg.norm(
+                    vector,
+                    dim=-1,
+                    keepdim=True
+                )
+
+
+                cosine = (
+                    torch.sum(
+                        h * vector,
+                        dim=-1,
+                        keepdim=True
+                    )
+                    /
+                    (
+                        h_norm
+                        *
+                        v_norm
+                        +
+                        1e-12
+                    )
+                )
+
+
+                cosine_value = float(
+                    cosine
+                    .mean()
+                    .detach()
+                    .cpu()
+                )
+
+
+                envelope, brake = dra_parameters(
+                    cosine_value,
+                    layer_idx
+                )
+
+
+                contribution = (
+                    IVME
+                    *
+                    h_norm
+                    /
+                    SQRT_K
+                    *
+                    envelope
+                    *
+                    brake
+                )
+
+
+                delta = (
+                    contribution
+                    *
+                    vector
+                )
+
+
+                hidden_new = hidden.clone()
+
+
+                hidden_new[
+                    :,
+                    -1,
+                    :
+                ] = (
+                    hidden_new[
+                        :,
+                        -1,
+                        :
+                    ]
+                    +
+                    delta
+                )
+
+
+                relative_delta = (
+                    torch.linalg.norm(
+                        delta,
+                        dim=-1
+                    )
+                    /
+                    (
+                        h_norm.squeeze(-1)
+                        +
+                        1e-12
+                    )
+                )
+
+
+                telemetry.append({
+
+                    "arm":
+                        arm_name,
+
+                    "layer":
+                        int(layer_idx),
+
+                    "cosine":
+                        cosine_value,
+
+                    "envelope":
+                        float(envelope),
+
+                    "brake":
+                        float(brake),
+
+                    "contribution":
+                        float(
+                            contribution
+                            .mean()
+                            .detach()
+                            .cpu()
+                        ),
+
+                    "direct_relative_delta":
+                        float(
+                            relative_delta
+                            .mean()
+                            .detach()
+                            .cpu()
+                        ),
+                })
+
+
+            layer_post[
+                layer_idx
+            ] = (
+                hidden_new[
+                    0,
+                    -1,
+                    :
+                ]
+                .detach()
+                .float()
+                .cpu()
+                .numpy()
+                .astype(np.float64)
+            )
+
+
+            if isinstance(output, tuple):
+
+                return (
+                    hidden_new,
+                    *output[1:]
+                )
+
+
+            return hidden_new
+
+
+        return hook
+
+
+    for layer_idx in range(MODEL_LAYERS):
+
+        handles.append(
+            model.model.layers[
+                layer_idx
+            ].register_forward_hook(
+                make_output_hook(layer_idx)
+            )
+        )
+
+
+    def final_norm_pre_hook(
+        module,
+        inputs
+    ):
+
+        final_capture[
+            "hidden"
+        ] = inputs[0].detach()
+
+
+    final_handle = (
+        model.model.norm
+        .register_forward_pre_hook(
+            final_norm_pre_hook
+        )
+    )
+
+
+    encoded = tokenizer(
+        prompt,
+        return_tensors="pt"
+    ).to(
+        model.device
+    )
+
+
+    try:
+
+        _ = model(
+            **encoded,
+            use_cache=False
+        )
+
+
+        final_hidden = (
+            final_capture[
+                "hidden"
+            ][
+                0,
+                -1,
+                :
+            ]
+        )
+
+
+        logits = hp_target_logits(
+            final_hidden
+        )
+
+
+        readout = make_readout(
+            logits
+        )
+
+
+    finally:
+
+        for handle in handles:
+            handle.remove()
+
+        final_handle.remove()
+
+
+    return {
+        "layer_post": layer_post,
+        "telemetry": telemetry,
+        "logits": logits,
+        "readout": readout,
+    }
+
+
+# =============================================================================
+# 13. PERTURBATION GEOMETRY ANALYSIS
+# =============================================================================
+
+def analyze_perturbation_geometry(
+    baseline,
+    steered,
+    arm_name
+):
+
+    physical = []
+
+    semantic = []
+
+
+    # -------------------------------------------------------------------------
+    # Raw perturbation vectors L0-L27
+    # -------------------------------------------------------------------------
+
+    deltas = []
+
+
+    for layer_idx in range(MODEL_LAYERS):
+
+        h0 = baseline[
+            "layer_post"
+        ][layer_idx]
+
+
+        hs = steered[
+            "layer_post"
+        ][layer_idx]
+
+
+        delta = (
+            hs
+            -
+            h0
+        )
+
+
+        deltas.append(
+            delta
+        )
+
+
+    # -------------------------------------------------------------------------
+    # Physical trajectory
+    # -------------------------------------------------------------------------
+
+    for layer_idx in range(MODEL_LAYERS):
+
+        delta = deltas[
+            layer_idx
+        ]
+
+
+        h0 = baseline[
+            "layer_post"
+        ][layer_idx]
+
+
+        delta_norm = float(
+            np.linalg.norm(delta)
+        )
+
+
+        base_norm = float(
+            np.linalg.norm(h0)
+        )
+
+
+        relative_delta = (
+            delta_norm
+            /
+            (
+                base_norm
+                +
+                EPS
+            )
+        )
+
+
+        # Adjacent directional continuity
+
+        if (
+            layer_idx >= 10
+            and
+            layer_idx < MODEL_LAYERS - 1
+        ):
+
+            adjacent_cos = cosine_np(
+                delta,
+                deltas[layer_idx + 1]
+            )
+
+        else:
+
+            adjacent_cos = None
+
+
+        # Direction retention relative to L11
+
+        if layer_idx >= 11:
+
+            retention_L11 = cosine_np(
+                deltas[11],
+                delta
+            )
+
+        else:
+
+            retention_L11 = None
+
+
+        physical.append({
+
+            "layer":
+                int(layer_idx),
+
+            "delta_norm":
+                delta_norm,
+
+            "baseline_norm":
+                base_norm,
+
+            "relative_delta":
+                float(relative_delta),
+
+            "adjacent_direction_cos":
+                (
+                    None
+                    if adjacent_cos is None
+                    else float(adjacent_cos)
+                ),
+
+            "direction_retention_vs_L11":
+                (
+                    None
+                    if retention_L11 is None
+                    else float(retention_L11)
+                ),
+        })
+
+
+    # -------------------------------------------------------------------------
+    # Semantic decomposition L10-L19
+    # -------------------------------------------------------------------------
+
+    for layer_idx in range(
+        10,
+        VECTOR_LAYERS
+    ):
+
+        delta = deltas[
+            layer_idx
+        ]
+
+
+        delta_norm = float(
+            np.linalg.norm(delta)
+        )
+
+
+        if delta_norm < EPS:
+
+            unit_delta = np.zeros_like(
+                delta,
+                dtype=np.float64
+            )
+
+        else:
+
+            unit_delta = (
+                delta
+                /
+                delta_norm
+            )
+
+
+        A = IND_ABOVE[
+            layer_idx
+        ].astype(np.float64)
+
+
+        B = IND_BELOW[
+            layer_idx
+        ].astype(np.float64)
+
+
+        S = SEPARATOR[
+            layer_idx
+        ].astype(np.float64)
+
+
+        C = COMMON[
+            layer_idx
+        ].astype(np.float64)
+
+
+        # ---------------------------------------------------------------------
+        # Signed projections of UNIT perturbation
+        # ---------------------------------------------------------------------
+
+        proj_A = float(
+            np.dot(
+                unit_delta,
+                A
+            )
+        )
+
+
+        proj_B = float(
+            np.dot(
+                unit_delta,
+                B
+            )
+        )
+
+
+        proj_S = float(
+            np.dot(
+                unit_delta,
+                S
+            )
+        )
+
+
+        proj_C = float(
+            np.dot(
+                unit_delta,
+                C
+            )
+        )
+
+
+        # ---------------------------------------------------------------------
+        # Squared projection fractions
+        # ---------------------------------------------------------------------
+
+        E_S = float(
+            proj_S ** 2
+        )
+
+
+        E_C = float(
+            proj_C ** 2
+        )
+
+
+        E_SC = float(
+            E_S
+            +
+            E_C
+        )
+
+
+        # Numerical clamp
+
+        E_SC_clamped = float(
+            min(
+                max(
+                    E_SC,
+                    0.0
+                ),
+                1.0
+            )
+        )
+
+
+        E_PERP = float(
+            max(
+                0.0,
+                1.0
+                -
+                E_SC_clamped
+            )
+        )
+
+
+        # ---------------------------------------------------------------------
+        # Actual norm of each component
+        # ---------------------------------------------------------------------
+
+        separator_component_norm = float(
+            abs(proj_S)
+            *
+            delta_norm
+        )
+
+
+        common_component_norm = float(
+            abs(proj_C)
+            *
+            delta_norm
+        )
+
+
+        semantic_plane_component_norm = float(
+            math.sqrt(
+                E_SC_clamped
+            )
+            *
+            delta_norm
+        )
+
+
+        perpendicular_component_norm = float(
+            math.sqrt(
+                E_PERP
+            )
+            *
+            delta_norm
+        )
+
+
+        # ---------------------------------------------------------------------
+        # Angle inside S/C plane
+        # ---------------------------------------------------------------------
+
+        plane_angle_deg = float(
+            math.degrees(
+                math.atan2(
+                    proj_S,
+                    proj_C
+                )
+            )
+        )
+
+
+        semantic.append({
+
+            "layer":
+                int(layer_idx),
+
+            "delta_norm":
+                delta_norm,
+
+            "cos_delta_A":
+                proj_A,
+
+            "cos_delta_B":
+                proj_B,
+
+            "cos_delta_separator":
+                proj_S,
+
+            "cos_delta_common":
+                proj_C,
+
+            "separator_energy_fraction":
+                E_S,
+
+            "common_energy_fraction":
+                E_C,
+
+            "semantic_plane_energy_fraction":
+                E_SC_clamped,
+
+            "orthogonal_energy_fraction":
+                E_PERP,
+
+            "separator_component_norm":
+                separator_component_norm,
+
+            "common_component_norm":
+                common_component_norm,
+
+            "semantic_plane_component_norm":
+                semantic_plane_component_norm,
+
+            "orthogonal_component_norm":
+                perpendicular_component_norm,
+
+            "semantic_plane_angle_deg":
+                plane_angle_deg,
+        })
+
+
+    # -------------------------------------------------------------------------
+    # Relative angle change from L11
+    # -------------------------------------------------------------------------
+
+    angle_L11 = None
+
+
+    for row in semantic:
+
+        if row["layer"] == 11:
+
+            angle_L11 = row[
+                "semantic_plane_angle_deg"
+            ]
+
+            break
+
+
+    for row in semantic:
+
+        if (
+            angle_L11 is not None
+            and
+            row["layer"] >= 11
+        ):
+
+            row[
+                "plane_angle_change_vs_L11_deg"
+            ] = circular_difference_deg(
+                row[
+                    "semantic_plane_angle_deg"
+                ],
+                angle_L11
+            )
+
+        else:
+
+            row[
+                "plane_angle_change_vs_L11_deg"
+            ] = None
+
+
+    return {
+
+        "arm":
+            arm_name,
+
+        "physical":
+            physical,
+
+        "semantic":
+            semantic,
+    }
+
+
+# =============================================================================
+# 14. RUN LOCKED EXPERIMENT
+# =============================================================================
+
+print(
+    "\n[5/16] 40 prompt × BASELINE / ABOVE / BELOW trajectory çalıştırılıyor..."
+)
+
+
+RESULTS = []
+
+
+for prompt_idx, prompt in enumerate(PROMPTS):
+
+    family = FAMILIES[
+        prompt_idx // 8
+    ]
+
+
+    baseline = trajectory_forward(
+        prompt,
+        vectors=None,
+        arm_name="BASELINE"
+    )
+
+
+    above = trajectory_forward(
+        prompt,
+        vectors=IND_ABOVE,
+        arm_name="ABOVE"
+    )
+
+
+    below = trajectory_forward(
+        prompt,
+        vectors=IND_BELOW,
+        arm_name="BELOW"
+    )
+
+
+    above_geometry = analyze_perturbation_geometry(
+        baseline,
+        above,
+        "ABOVE"
+    )
+
+
+    below_geometry = analyze_perturbation_geometry(
+        baseline,
+        below,
+        "BELOW"
+    )
+
+
+    DDS_AB = float(
+        above["readout"]["AB"]
+        -
+        below["readout"]["AB"]
+    )
+
+
+    DDS_OU = float(
+        above["readout"]["OU"]
+        -
+        below["readout"]["OU"]
+    )
+
+
+    RESULTS.append({
+
+        "prompt_index":
+            int(prompt_idx + 1),
+
+        "family":
+            family,
+
+        "prompt":
+            prompt,
+
+        "DDS_AB":
+            DDS_AB,
+
+        "DDS_OU":
+            DDS_OU,
+
+        "baseline_readout":
+            baseline["readout"],
+
+        "above_readout":
+            above["readout"],
+
+        "below_readout":
+            below["readout"],
+
+        "ABOVE":
+            above_geometry,
+
+        "BELOW":
+            below_geometry,
+
+        "ABOVE_telemetry":
+            above["telemetry"],
+
+        "BELOW_telemetry":
+            below["telemetry"],
+    })
+
+
+    print(
+        f"{prompt_idx+1:02d}/40 | "
+        f"{family:<22} | "
+        f"DDS_AB={DDS_AB:+.6f} | "
+        f"DDS_OU={DDS_OU:+.6f}",
+        end="\r"
+    )
+
+
+print(
+    " " * 140,
+    end="\r"
+)
+
+
+# =============================================================================
+# 15. HARD REPRODUCTION CHECK
+# =============================================================================
+
+print(
+    "\n[6/16] TEST110/111 reproduction kontrolü..."
+)
+
+
+DDS_AB_ARRAY = np.asarray(
+    [
+        x["DDS_AB"]
+        for x in RESULTS
+    ],
+    dtype=np.float64
+)
+
+
+DDS_OU_ARRAY = np.asarray(
+    [
+        x["DDS_OU"]
+        for x in RESULTS
+    ],
+    dtype=np.float64
+)
+
+
+OBS_AB = float(
+    DDS_AB_ARRAY.mean()
+)
+
+
+OBS_OU = float(
+    DDS_OU_ARRAY.mean()
+)
+
+
+DIFF_AB = (
+    OBS_AB
+    -
+    EXPECTED_AB
+)
+
+
+DIFF_OU = (
+    OBS_OU
+    -
+    EXPECTED_OU
+)
+
+
+print(
+    f"DDS_AB observed  = {OBS_AB:+.9f}"
+)
+
+print(
+    f"DDS_AB expected  = {EXPECTED_AB:+.9f}"
+)
+
+print(
+    f"Difference        = {DIFF_AB:+.9e}"
+)
+
+
+print(
+    f"\nDDS_OU observed  = {OBS_OU:+.9f}"
+)
+
+print(
+    f"DDS_OU expected  = {EXPECTED_OU:+.9f}"
+)
+
+print(
+    f"Difference        = {DIFF_OU:+.9e}"
+)
+
+
+# Hard abort if system drifted materially
+
+if abs(DIFF_AB) > 1e-6:
+
+    raise RuntimeError(
+        "TEST112 AB reproduction FAILED. "
+        "System-ID sonuçları yorumlanmamalı."
+    )
+
+
+if abs(DIFF_OU) > 1e-6:
+
+    raise RuntimeError(
+        "TEST112 OU reproduction FAILED. "
+        "System-ID sonuçları yorumlanmamalı."
+    )
+
+
+print(
+    "\nReproduction integrity: PASS"
+)
+
+
+# =============================================================================
+# 16. ACCESS HELPERS
+# =============================================================================
+
+def semantic_metric(
+    arm,
+    layer_idx,
+    key
+):
+
+    semantic_index = (
+        layer_idx
+        -
+        10
+    )
+
+    return np.asarray(
+        [
+            item[
+                arm
+            ][
+                "semantic"
+            ][
+                semantic_index
+            ][key]
+            for item in RESULTS
+        ],
+        dtype=np.float64
+    )
+
+
+def physical_metric(
+    arm,
+    layer_idx,
+    key
+):
+
+    values = []
+
+    for item in RESULTS:
+
+        value = item[
+            arm
+        ][
+            "physical"
+        ][
+            layer_idx
+        ][key]
+
+        values.append(
+            np.nan
+            if value is None
+            else value
+        )
+
+
+    return np.asarray(
+        values,
+        dtype=np.float64
+    )
+
+
+# =============================================================================
+# 17. SEMANTIC ENERGY TABLE
+# =============================================================================
+
+print(
+    "\n[7/16] Semantic-plane energy decomposition..."
+)
+
+
+ENERGY_SUMMARY = []
+
+
+print(
+    "\n"
+    + "=" * 180
+)
+
+print(
+    "SEMANTIC ENERGY DECOMPOSITION — FRACTION OF ||δh||²"
+)
+
+print(
+    "=" * 180
+)
+
+
+print(
+    f"{'L':<4}"
+    f"{'A E_sep':>11}"
+    f"{'A E_com':>11}"
+    f"{'A E_plane':>12}"
+    f"{'A E_perp':>11}"
+    f"{'B E_sep':>11}"
+    f"{'B E_com':>11}"
+    f"{'B E_plane':>12}"
+    f"{'B E_perp':>11}"
+)
+
+
+print(
+    "-" * 96
+)
+
+
+for layer_idx in range(
+    10,
+    VECTOR_LAYERS
+):
+
+    A_ES = semantic_metric(
+        "ABOVE",
+        layer_idx,
+        "separator_energy_fraction"
+    )
+
+    A_EC = semantic_metric(
+        "ABOVE",
+        layer_idx,
+        "common_energy_fraction"
+    )
+
+    A_EP = semantic_metric(
+        "ABOVE",
+        layer_idx,
+        "semantic_plane_energy_fraction"
+    )
+
+    A_EPERP = semantic_metric(
+        "ABOVE",
+        layer_idx,
+        "orthogonal_energy_fraction"
+    )
+
+
+    B_ES = semantic_metric(
+        "BELOW",
+        layer_idx,
+        "separator_energy_fraction"
+    )
+
+    B_EC = semantic_metric(
+        "BELOW",
+        layer_idx,
+        "common_energy_fraction"
+    )
+
+    B_EP = semantic_metric(
+        "BELOW",
+        layer_idx,
+        "semantic_plane_energy_fraction"
+    )
+
+    B_EPERP = semantic_metric(
+        "BELOW",
+        layer_idx,
+        "orthogonal_energy_fraction"
+    )
+
+
+    ENERGY_SUMMARY.append({
+
+        "layer":
+            int(layer_idx),
+
+        "above_separator_energy":
+            float(A_ES.mean()),
+
+        "above_common_energy":
+            float(A_EC.mean()),
+
+        "above_semantic_plane_energy":
+            float(A_EP.mean()),
+
+        "above_orthogonal_energy":
+            float(A_EPERP.mean()),
+
+        "below_separator_energy":
+            float(B_ES.mean()),
+
+        "below_common_energy":
+            float(B_EC.mean()),
+
+        "below_semantic_plane_energy":
+            float(B_EP.mean()),
+
+        "below_orthogonal_energy":
+            float(B_EPERP.mean()),
+    })
+
+
+    print(
+        f"{layer_idx:<4}"
+        f"{A_ES.mean():>11.6f}"
+        f"{A_EC.mean():>11.6f}"
+        f"{A_EP.mean():>12.6f}"
+        f"{A_EPERP.mean():>11.6f}"
+        f"{B_ES.mean():>11.6f}"
+        f"{B_EC.mean():>11.6f}"
+        f"{B_EP.mean():>12.6f}"
+        f"{B_EPERP.mean():>11.6f}"
+    )
+
+
+# =============================================================================
+# 18. SIGNED ORIENTATION TABLE
+# =============================================================================
+
+print(
+    "\n[8/16] Perturbation semantic orientation..."
+)
+
+
+ORIENTATION_SUMMARY = []
+
+
+print(
+    "\n"
+    + "=" * 180
+)
+
+print(
+    "SIGNED PERTURBATION ORIENTATION"
+)
+
+print(
+    "=" * 180
+)
+
+
+print(
+    f"{'L':<4}"
+    f"{'A cosS':>11}"
+    f"{'A cosC':>11}"
+    f"{'A cosA':>11}"
+    f"{'A cosB':>11}"
+    f"{'B cosS':>11}"
+    f"{'B cosC':>11}"
+    f"{'B cosA':>11}"
+    f"{'B cosB':>11}"
+)
+
+
+print(
+    "-" * 94
+)
+
+
+for layer_idx in range(
+    10,
+    VECTOR_LAYERS
+):
+
+    values = {}
+
+
+    for arm in [
+        "ABOVE",
+        "BELOW"
+    ]:
+
+        values[
+            arm
+        ] = {
+
+            "S":
+                semantic_metric(
+                    arm,
+                    layer_idx,
+                    "cos_delta_separator"
+                ),
+
+            "C":
+                semantic_metric(
+                    arm,
+                    layer_idx,
+                    "cos_delta_common"
+                ),
+
+            "A":
+                semantic_metric(
+                    arm,
+                    layer_idx,
+                    "cos_delta_A"
+                ),
+
+            "B":
+                semantic_metric(
+                    arm,
+                    layer_idx,
+                    "cos_delta_B"
+                ),
+        }
+
+
+    ORIENTATION_SUMMARY.append({
+
+        "layer":
+            int(layer_idx),
+
+        "above_cos_separator":
+            float(
+                values[
+                    "ABOVE"
+                ][
+                    "S"
+                ].mean()
+            ),
+
+        "above_cos_common":
+            float(
+                values[
+                    "ABOVE"
+                ][
+                    "C"
+                ].mean()
+            ),
+
+        "above_cos_A":
+            float(
+                values[
+                    "ABOVE"
+                ][
+                    "A"
+                ].mean()
+            ),
+
+        "above_cos_B":
+            float(
+                values[
+                    "ABOVE"
+                ][
+                    "B"
+                ].mean()
+            ),
+
+        "below_cos_separator":
+            float(
+                values[
+                    "BELOW"
+                ][
+                    "S"
+                ].mean()
+            ),
+
+        "below_cos_common":
+            float(
+                values[
+                    "BELOW"
+                ][
+                    "C"
+                ].mean()
+            ),
+
+        "below_cos_A":
+            float(
+                values[
+                    "BELOW"
+                ][
+                    "A"
+                ].mean()
+            ),
+
+        "below_cos_B":
+            float(
+                values[
+                    "BELOW"
+                ][
+                    "B"
+                ].mean()
+            ),
+    })
+
+
+    print(
+        f"{layer_idx:<4}"
+
+        f"{values['ABOVE']['S'].mean():>+11.6f}"
+        f"{values['ABOVE']['C'].mean():>+11.6f}"
+        f"{values['ABOVE']['A'].mean():>+11.6f}"
+        f"{values['ABOVE']['B'].mean():>+11.6f}"
+
+        f"{values['BELOW']['S'].mean():>+11.6f}"
+        f"{values['BELOW']['C'].mean():>+11.6f}"
+        f"{values['BELOW']['A'].mean():>+11.6f}"
+        f"{values['BELOW']['B'].mean():>+11.6f}"
+    )
+
+
+# =============================================================================
+# 19. SEMANTIC PLANE COMPONENT NORMS
+# =============================================================================
+
+print(
+    "\n[9/16] Semantic-plane vs orthogonal component normları..."
+)
+
+
+COMPONENT_SUMMARY = []
+
+
+print(
+    "\n"
+    + "=" * 180
+)
+
+print(
+    "PERTURBATION COMPONENT NORMS"
+)
+
+print(
+    "=" * 180
+)
+
+
+print(
+    f"{'L':<4}"
+    f"{'A ||δ||':>12}"
+    f"{'A ||SC||':>12}"
+    f"{'A ||⊥||':>12}"
+    f"{'B ||δ||':>12}"
+    f"{'B ||SC||':>12}"
+    f"{'B ||⊥||':>12}"
+)
+
+
+print(
+    "-" * 80
+)
+
+
+for layer_idx in range(
+    10,
+    VECTOR_LAYERS
+):
+
+    A_D = semantic_metric(
+        "ABOVE",
+        layer_idx,
+        "delta_norm"
+    )
+
+    A_SC = semantic_metric(
+        "ABOVE",
+        layer_idx,
+        "semantic_plane_component_norm"
+    )
+
+    A_PERP = semantic_metric(
+        "ABOVE",
+        layer_idx,
+        "orthogonal_component_norm"
+    )
+
+
+    B_D = semantic_metric(
+        "BELOW",
+        layer_idx,
+        "delta_norm"
+    )
+
+    B_SC = semantic_metric(
+        "BELOW",
+        layer_idx,
+        "semantic_plane_component_norm"
+    )
+
+    B_PERP = semantic_metric(
+        "BELOW",
+        layer_idx,
+        "orthogonal_component_norm"
+    )
+
+
+    COMPONENT_SUMMARY.append({
+
+        "layer":
+            int(layer_idx),
+
+        "above_delta_norm":
+            float(A_D.mean()),
+
+        "above_semantic_plane_norm":
+            float(A_SC.mean()),
+
+        "above_orthogonal_norm":
+            float(A_PERP.mean()),
+
+        "below_delta_norm":
+            float(B_D.mean()),
+
+        "below_semantic_plane_norm":
+            float(B_SC.mean()),
+
+        "below_orthogonal_norm":
+            float(B_PERP.mean()),
+    })
+
+
+    print(
+        f"{layer_idx:<4}"
+
+        f"{A_D.mean():>12.6f}"
+        f"{A_SC.mean():>12.6f}"
+        f"{A_PERP.mean():>12.6f}"
+
+        f"{B_D.mean():>12.6f}"
+        f"{B_SC.mean():>12.6f}"
+        f"{B_PERP.mean():>12.6f}"
+    )
+
+
+# =============================================================================
+# 20. LAYER-TO-LAYER DIRECTIONAL CONTINUITY
+# =============================================================================
+
+print(
+    "\n[10/16] Raw perturbation directional continuity..."
+)
+
+
+CONTINUITY_SUMMARY = []
+
+
+print(
+    "\n"
+    + "=" * 180
+)
+
+print(
+    "RAW PERTURBATION DIRECTIONAL CONTINUITY"
+)
+
+print(
+    "=" * 180
+)
+
+
+print(
+    f"{'TRANSITION':<14}"
+    f"{'A adjacent cos':>18}"
+    f"{'B adjacent cos':>18}"
+    f"{'A retention L11':>20}"
+    f"{'B retention L11':>20}"
+)
+
+
+print(
+    "-" * 92
+)
+
+
+for layer_idx in range(
+    11,
+    MODEL_LAYERS
+):
+
+    if layer_idx < MODEL_LAYERS - 1:
+
+        A_ADJ = physical_metric(
+            "ABOVE",
+            layer_idx,
+            "adjacent_direction_cos"
+        )
+
+        B_ADJ = physical_metric(
+            "BELOW",
+            layer_idx,
+            "adjacent_direction_cos"
+        )
+
+    else:
+
+        A_ADJ = np.asarray(
+            [np.nan]
+        )
+
+        B_ADJ = np.asarray(
+            [np.nan]
+        )
+
+
+    A_RET = physical_metric(
+        "ABOVE",
+        layer_idx,
+        "direction_retention_vs_L11"
+    )
+
+    B_RET = physical_metric(
+        "BELOW",
+        layer_idx,
+        "direction_retention_vs_L11"
+    )
+
+
+    adj_a_mean = (
+        float(np.nanmean(A_ADJ))
+        if np.any(~np.isnan(A_ADJ))
+        else None
+    )
+
+
+    adj_b_mean = (
+        float(np.nanmean(B_ADJ))
+        if np.any(~np.isnan(B_ADJ))
+        else None
+    )
+
+
+    CONTINUITY_SUMMARY.append({
+
+        "layer":
+            int(layer_idx),
+
+        "transition_to":
+            (
+                int(layer_idx + 1)
+                if layer_idx < MODEL_LAYERS - 1
+                else None
+            ),
+
+        "above_adjacent_cos":
+            adj_a_mean,
+
+        "below_adjacent_cos":
+            adj_b_mean,
+
+        "above_retention_vs_L11":
+            float(
+                np.nanmean(A_RET)
+            ),
+
+        "below_retention_vs_L11":
+            float(
+                np.nanmean(B_RET)
+            ),
+    })
+
+
+    transition = (
+        f"L{layer_idx:02d}->L{layer_idx+1:02d}"
+        if layer_idx < MODEL_LAYERS - 1
+        else f"L{layer_idx:02d}"
+    )
+
+
+    a_adj_text = (
+        f"{adj_a_mean:+.6f}"
+        if adj_a_mean is not None
+        else "N/A"
+    )
+
+
+    b_adj_text = (
+        f"{adj_b_mean:+.6f}"
+        if adj_b_mean is not None
+        else "N/A"
+    )
+
+
+    print(
+        f"{transition:<14}"
+        f"{a_adj_text:>18}"
+        f"{b_adj_text:>18}"
+        f"{np.nanmean(A_RET):>+20.6f}"
+        f"{np.nanmean(B_RET):>+20.6f}"
+    )
+
+
+# =============================================================================
+# 21. SEMANTIC PLANE ANGLE
+# =============================================================================
+
+print(
+    "\n[11/16] Semantic-plane angle trajectory..."
+)
+
+
+ANGLE_SUMMARY = []
+
+
+print(
+    "\n"
+    + "=" * 180
+)
+
+print(
+    "SEMANTIC-PLANE ORIENTATION ANGLE"
+)
+
+print(
+    "=" * 180
+)
+
+
+print(
+    f"{'L':<4}"
+    f"{'A angle':>14}"
+    f"{'A ΔvsL11':>14}"
+    f"{'B angle':>14}"
+    f"{'B ΔvsL11':>14}"
+)
+
+
+print(
+    "-" * 64
+)
+
+
+for layer_idx in range(
+    11,
+    VECTOR_LAYERS
+):
+
+    A_ANGLE = semantic_metric(
+        "ABOVE",
+        layer_idx,
+        "semantic_plane_angle_deg"
+    )
+
+    A_CHANGE = semantic_metric(
+        "ABOVE",
+        layer_idx,
+        "plane_angle_change_vs_L11_deg"
+    )
+
+
+    B_ANGLE = semantic_metric(
+        "BELOW",
+        layer_idx,
+        "semantic_plane_angle_deg"
+    )
+
+    B_CHANGE = semantic_metric(
+        "BELOW",
+        layer_idx,
+        "plane_angle_change_vs_L11_deg"
+    )
+
+
+    ANGLE_SUMMARY.append({
+
+        "layer":
+            int(layer_idx),
+
+        "above_angle_mean_deg":
+            float(A_ANGLE.mean()),
+
+        "above_change_vs_L11_mean_deg":
+            float(A_CHANGE.mean()),
+
+        "below_angle_mean_deg":
+            float(B_ANGLE.mean()),
+
+        "below_change_vs_L11_mean_deg":
+            float(B_CHANGE.mean()),
+    })
+
+
+    print(
+        f"{layer_idx:<4}"
+        f"{A_ANGLE.mean():>+14.4f}"
+        f"{A_CHANGE.mean():>+14.4f}"
+        f"{B_ANGLE.mean():>+14.4f}"
+        f"{B_CHANGE.mean():>+14.4f}"
+    )
+
+
+# =============================================================================
+# 22. RELATION TO FINAL DDS — DESCRIPTIVE SYSTEM-ID
+# =============================================================================
+
+print(
+    "\n[12/16] Geometry ↔ final DDS descriptive relations..."
+)
+
+
+CORRELATION_SUMMARY = []
+
+
+print(
+    "\n"
+    + "=" * 180
+)
+
+print(
+    "GEOMETRIC TRAJECTORY FEATURES vs FINAL DDS_AB"
+)
+
+print(
+    "=" * 180
+)
+
+
+print(
+    f"{'FEATURE':<52}"
+    f"{'PEARSON':>14}"
+    f"{'SPEARMAN':>14}"
+)
+
+
+print(
+    "-" * 82
+)
+
+
+FEATURES = {}
+
+
+for arm in [
+    "ABOVE",
+    "BELOW"
+]:
+
+    prefix = (
+        "A"
+        if arm == "ABOVE"
+        else "B"
+    )
+
+
+    for layer_idx in [
+        11,
+        15,
+        17,
+        19
+    ]:
+
+        FEATURES[
+            f"{prefix}_L{layer_idx}_E_separator"
+        ] = semantic_metric(
+            arm,
+            layer_idx,
+            "separator_energy_fraction"
+        )
+
+
+        FEATURES[
+            f"{prefix}_L{layer_idx}_E_plane"
+        ] = semantic_metric(
+            arm,
+            layer_idx,
+            "semantic_plane_energy_fraction"
+        )
+
+
+        FEATURES[
+            f"{prefix}_L{layer_idx}_cos_separator"
+        ] = semantic_metric(
+            arm,
+            layer_idx,
+            "cos_delta_separator"
+        )
+
+
+        FEATURES[
+            f"{prefix}_L{layer_idx}_cos_common"
+        ] = semantic_metric(
+            arm,
+            layer_idx,
+            "cos_delta_common"
+        )
+
+
+        FEATURES[
+            f"{prefix}_L{layer_idx}_retention_L11"
+        ] = physical_metric(
+            arm,
+            layer_idx,
+            "direction_retention_vs_L11"
+        )
+
+
+# Mean post-actuation semantic-plane energy
+
+for arm in [
+    "ABOVE",
+    "BELOW"
+]:
+
+    prefix = (
+        "A"
+        if arm == "ABOVE"
+        else "B"
+    )
+
+
+    matrix_plane = np.stack(
+        [
+            semantic_metric(
+                arm,
+                layer_idx,
+                "semantic_plane_energy_fraction"
+            )
+            for layer_idx in range(
+                11,
+                VECTOR_LAYERS
+            )
+        ],
+        axis=1
+    )
+
+
+    matrix_sep = np.stack(
+        [
+            semantic_metric(
+                arm,
+                layer_idx,
+                "separator_energy_fraction"
+            )
+            for layer_idx in range(
+                11,
+                VECTOR_LAYERS
+            )
+        ],
+        axis=1
+    )
+
+
+    FEATURES[
+        f"{prefix}_mean_E_plane_L11_L19"
+    ] = matrix_plane.mean(axis=1)
+
+
+    FEATURES[
+        f"{prefix}_mean_E_separator_L11_L19"
+    ] = matrix_sep.mean(axis=1)
+
+
+for feature_name, values in FEATURES.items():
+
+    r = pearson_r(
+        values,
+        DDS_AB_ARRAY
+    )
+
+
+    rho = spearman_rho(
+        values,
+        DDS_AB_ARRAY
+    )
+
+
+    CORRELATION_SUMMARY.append({
+
+        "feature":
+            feature_name,
+
+        "pearson":
+            float(r),
+
+        "spearman":
+            float(rho),
+    })
+
+
+for row in sorted(
+    CORRELATION_SUMMARY,
+    key=lambda x: abs(x["pearson"]),
+    reverse=True
+):
+
+    print(
+        f"{row['feature']:<52}"
+        f"{row['pearson']:>+14.5f}"
+        f"{row['spearman']:>+14.5f}"
+    )
+
+
+# =============================================================================
+# 23. FAMILY DESCRIPTIVE SUMMARY
+# =============================================================================
+
+print(
+    "\n[13/16] Family-level geometric decomposition..."
+)
+
+
+FAMILY_SUMMARY = {}
+
+
+print(
+    "\n"
+    + "=" * 180
+)
+
+print(
+    "FAMILY-LEVEL GEOMETRY — DESCRIPTIVE ONLY"
+)
+
+print(
+    "=" * 180
+)
+
+
+print(
+    f"{'FAMILY':<24}"
+    f"{'DDS_AB':>12}"
+    f"{'A L11 plane':>14}"
+    f"{'A L19 plane':>14}"
+    f"{'B L11 plane':>14}"
+    f"{'B L19 plane':>14}"
+    f"{'A ret19':>12}"
+    f"{'B ret19':>12}"
+)
+
+
+print(
+    "-" * 120
+)
+
+
+for family_idx, family in enumerate(FAMILIES):
+
+    start = family_idx * 8
+    end = start + 8
+
+
+    idx = np.arange(
+        start,
+        end
+    )
+
+
+    A_L11 = semantic_metric(
+        "ABOVE",
+        11,
+        "semantic_plane_energy_fraction"
+    )[idx]
+
+
+    A_L19 = semantic_metric(
+        "ABOVE",
+        19,
+        "semantic_plane_energy_fraction"
+    )[idx]
+
+
+    B_L11 = semantic_metric(
+        "BELOW",
+        11,
+        "semantic_plane_energy_fraction"
+    )[idx]
+
+
+    B_L19 = semantic_metric(
+        "BELOW",
+        19,
+        "semantic_plane_energy_fraction"
+    )[idx]
+
+
+    A_RET19 = physical_metric(
+        "ABOVE",
+        19,
+        "direction_retention_vs_L11"
+    )[idx]
+
+
+    B_RET19 = physical_metric(
+        "BELOW",
+        19,
+        "direction_retention_vs_L11"
+    )[idx]
+
+
+    family_dds = DDS_AB_ARRAY[
+        idx
+    ]
+
+
+    summary = {
+
+        "DDS_AB":
+            float(family_dds.mean()),
+
+        "above_L11_plane_energy":
+            float(A_L11.mean()),
+
+        "above_L19_plane_energy":
+            float(A_L19.mean()),
+
+        "below_L11_plane_energy":
+            float(B_L11.mean()),
+
+        "below_L19_plane_energy":
+            float(B_L19.mean()),
+
+        "above_L19_direction_retention":
+            float(A_RET19.mean()),
+
+        "below_L19_direction_retention":
+            float(B_RET19.mean()),
+    }
+
+
+    FAMILY_SUMMARY[
+        family
+    ] = summary
+
+
+    print(
+        f"{family:<24}"
+        f"{summary['DDS_AB']:>+12.6f}"
+        f"{summary['above_L11_plane_energy']:>14.6f}"
+        f"{summary['above_L19_plane_energy']:>14.6f}"
+        f"{summary['below_L11_plane_energy']:>14.6f}"
+        f"{summary['below_L19_plane_energy']:>14.6f}"
+        f"{summary['above_L19_direction_retention']:>+12.6f}"
+        f"{summary['below_L19_direction_retention']:>+12.6f}"
+    )
+
+
+# =============================================================================
+# 24. CORE HYPOTHESIS RATIOS
+# =============================================================================
+
+print(
+    "\n[14/16] Core attenuation/rotation ratios..."
+)
+
+
+def mean_sem(
+    arm,
+    layer,
+    metric
+):
+
+    return float(
+        semantic_metric(
+            arm,
+            layer,
+            metric
+        ).mean()
+    )
+
+
+def mean_phys(
+    arm,
+    layer,
+    metric
+):
+
+    return float(
+        physical_metric(
+            arm,
+            layer,
+            metric
+        ).mean()
+    )
+
+
+CORE = {}
+
+
+for arm in [
+    "ABOVE",
+    "BELOW"
+]:
+
+    plane11 = mean_sem(
+        arm,
+        11,
+        "semantic_plane_energy_fraction"
+    )
+
+
+    plane19 = mean_sem(
+        arm,
+        19,
+        "semantic_plane_energy_fraction"
+    )
+
+
+    sep11 = mean_sem(
+        arm,
+        11,
+        "separator_energy_fraction"
+    )
+
+
+    sep19 = mean_sem(
+        arm,
+        19,
+        "separator_energy_fraction"
+    )
+
+
+    physical11 = mean_phys(
+        arm,
+        11,
+        "relative_delta"
+    )
+
+
+    physical19 = mean_phys(
+        arm,
+        19,
+        "relative_delta"
+    )
+
+
+    retention19 = mean_phys(
+        arm,
+        19,
+        "direction_retention_vs_L11"
+    )
+
+
+    CORE[arm] = {
+
+        "semantic_plane_energy_L11":
+            plane11,
+
+        "semantic_plane_energy_L19":
+            plane19,
+
+        "semantic_plane_energy_retention_ratio":
+            float(
+                plane19
+                /
+                (
+                    plane11
+                    +
+                    EPS
+                )
+            ),
+
+        "separator_energy_L11":
+            sep11,
+
+        "separator_energy_L19":
+            sep19,
+
+        "separator_energy_retention_ratio":
+            float(
+                sep19
+                /
+                (
+                    sep11
+                    +
+                    EPS
+                )
+            ),
+
+        "physical_relative_L11":
+            physical11,
+
+        "physical_relative_L19":
+            physical19,
+
+        "physical_retention_ratio":
+            float(
+                physical19
+                /
+                (
+                    physical11
+                    +
+                    EPS
+                )
+            ),
+
+        "raw_direction_retention_L19_vs_L11":
+            retention19,
+    }
+
+
+print(
+    "\n"
+    + "=" * 180
+)
+
+print(
+    "CORE L11 → L19 DECOMPOSITION"
+)
+
+print(
+    "=" * 180
+)
+
+
+for arm in [
+    "ABOVE",
+    "BELOW"
+]:
+
+    x = CORE[arm]
+
+    print(
+        f"\n{arm}"
+    )
+
+    print(
+        f"  physical retention         = "
+        f"{x['physical_retention_ratio']:.6f}"
+    )
+
+    print(
+        f"  separator-energy retention = "
+        f"{x['separator_energy_retention_ratio']:.6f}"
+    )
+
+    print(
+        f"  semantic-plane retention   = "
+        f"{x['semantic_plane_energy_retention_ratio']:.6f}"
+    )
+
+    print(
+        f"  raw direction cos L11→L19  = "
+        f"{x['raw_direction_retention_L19_vs_L11']:+.6f}"
+    )
+
+
+# =============================================================================
+# 25. JSON
+# =============================================================================
+
+print(
+    "\n[15/16] JSON hazırlanıyor..."
+)
+
+
+OUTPUT = {
+
+    "test":
+        "TEST 112",
+
+    "title":
+        "Perturbation Rotation and Semantic Energy Decomposition",
+
+    "model":
+        MODEL_NAME,
+
+    "method": {
+
+        "model_layers":
+            MODEL_LAYERS,
+
+        "semantic_layers":
+            VECTOR_LAYERS,
+
+        "active_layers":
+            ACTIVE_LAYERS,
+
+        "ivme":
+            IVME,
+
+        "sqrt_k":
+            SQRT_K,
+
+        "prompts":
+            len(PROMPTS),
+
+        "controller":
+            "NONE",
+
+        "optimization":
+            "NONE",
+
+        "semantic_basis":
+            "S=normalize(A-B), C=normalize(A+B)",
+
+        "semantic_decomposition_layers":
+            "10-19",
+
+        "physical_trajectory_layers":
+            "0-27",
+    },
+
+    "reproduction": {
+
+        "expected_AB":
+            EXPECTED_AB,
+
+        "observed_AB":
+            OBS_AB,
+
+        "difference_AB":
+            float(DIFF_AB),
+
+        "expected_OU":
+            EXPECTED_OU,
+
+        "observed_OU":
+            OBS_OU,
+
+        "difference_OU":
+            float(DIFF_OU),
+
+        "integrity":
+            "PASS",
+    },
+
+    "core_L11_to_L19":
+        CORE,
+
+    "energy_summary":
+        ENERGY_SUMMARY,
+
+    "orientation_summary":
+        ORIENTATION_SUMMARY,
+
+    "component_summary":
+        COMPONENT_SUMMARY,
+
+    "continuity_summary":
+        CONTINUITY_SUMMARY,
+
+    "angle_summary":
+        ANGLE_SUMMARY,
+
+    "correlation_summary":
+        CORRELATION_SUMMARY,
+
+    "family_summary":
+        FAMILY_SUMMARY,
+
+    "prompt_results":
+        RESULTS,
+
+    "interpretation_lock":
+        (
+            "TEST112 is descriptive system identification on the locked "
+            "TEST110/111 system. Squared projection fractions are geometric "
+            "energy-like quantities, not physical energy. Adjacent-vector "
+            "cosines and L11-retention quantify perturbation orientation "
+            "changes but do not alone establish a causal rotation mechanism. "
+            "No controller is validated by this test."
+        ),
+}
+
+
+OUTPUT_FILE = (
+    "TEST_112_PERTURBATION_ROTATION_ENERGY.json"
+)
+
+
+with open(
+    OUTPUT_FILE,
+    "w",
+    encoding="utf-8"
+) as f:
+
+    json.dump(
+        OUTPUT,
+        f,
+        indent=2,
+        ensure_ascii=False
+    )
+
+
+print(
+    "Kaydedildi:",
+    OUTPUT_FILE
+)
+
+
+# =============================================================================
+# 26. FINAL SUMMARY
+# =============================================================================
+
+print(
+    "\n"
+    + "=" * 180
+)
+
+print(
+    "TEST 112 — FINAL SUMMARY"
+)
+
+print(
+    "=" * 180
+)
+
+
+print(
+    "\nREPRODUCTION"
+)
+
+print(
+    f"AB expected = {EXPECTED_AB:+.9f}"
+)
+
+print(
+    f"AB observed = {OBS_AB:+.9f}"
+)
+
+print(
+    f"AB diff     = {DIFF_AB:+.9e}"
+)
+
+print(
+    f"\nOU expected = {EXPECTED_OU:+.9f}"
+)
+
+print(
+    f"OU observed = {OBS_OU:+.9f}"
+)
+
+print(
+    f"OU diff     = {DIFF_OU:+.9e}"
+)
+
+
+print(
+    "\nCORE L11 → L19"
+)
+
+
+for arm in [
+    "ABOVE",
+    "BELOW"
+]:
+
+    x = CORE[arm]
+
+    print(
+        f"\n{arm}:"
+    )
+
+    print(
+        f"  physical perturbation retention : "
+        f"{x['physical_retention_ratio']:.6f}"
+    )
+
+    print(
+        f"  separator-energy retention      : "
+        f"{x['separator_energy_retention_ratio']:.6f}"
+    )
+
+    print(
+        f"  semantic-plane energy retention : "
+        f"{x['semantic_plane_energy_retention_ratio']:.6f}"
+    )
+
+    print(
+        f"  direction retention cos(L11,L19): "
+        f"{x['raw_direction_retention_L19_vs_L11']:+.6f}"
+    )
+
+
+# Top DDS associations
+
+ranked_corr = sorted(
+    CORRELATION_SUMMARY,
+    key=lambda x: abs(
+        x["pearson"]
+    ),
+    reverse=True
+)
+
+
+print(
+    "\nTOP DESCRIPTIVE GEOMETRIC FEATURES vs DDS_AB"
+)
+
+
+for idx, row in enumerate(
+    ranked_corr[:12]
+):
+
+    print(
+        f"{idx+1:02d}. "
+        f"{row['feature']:<50} | "
+        f"r={row['pearson']:+.5f} | "
+        f"rho={row['spearman']:+.5f}"
+    )
+
+
+print(
+    "\n"
+    + "=" * 180
+)
+
+print(
+    "INTERPRETATION LOCK"
+)
+
+print(
+    "=" * 180
+)
+
+
+print(
+r"""
+TEST 112'NİN ANA SORUSU:
+
+    TEST111'de gördüğümüz semantic separator attenuation,
+
+        A) perturbation'ın fiziksel olarak yok olması mı,
+
+        B) perturbation'ın A/B semantic plane dışına taşınması mı,
+
+        C) A/B plane içinde separator -> common yönünde dönmesi mi,
+
+        D) bunların birleşimi mi?
+
+
+ÖLÇÜMLER:
+
+    E_separator
+        perturbation normunun karesinin separator eksenine düşen oranı
+
+    E_common
+        common eksene düşen oran
+
+    E_plane
+        span(separator, common) içindeki toplam oran
+
+    E_perp
+        bu iki boyutlu semantic plane dışındaki oran
+
+
+EĞER:
+
+    physical retention ≈ 1
+
+ama
+
+    E_separator retention << 1
+
+ise:
+
+    separator bileşeni kaybolurken perturbation fiziksel olarak yaşamaktadır.
+
+
+EĞER AYNI ZAMANDA:
+
+    E_plane retention << 1
+
+ise:
+
+    perturbation yalnız separator -> common dönüşümü yaşamıyor;
+    ölçülen A/B semantic plane dışına da dağılıyor.
+
+
+EĞER:
+
+    E_plane korunuyor
+
+ama
+
+    E_separator azalıyor
+    E_common artıyor
+
+ise:
+
+    semantic plane içinde yön değişimi daha güçlü açıklamadır.
+
+
+RAW DIRECTION RETENTION:
+
+    cos(δh_11, δh_l)
+
+perturbation'ın başlangıç yönünü ne ölçüde koruduğunu gösterir.
+
+Bu ölçüm tek başına nedensel "rotation" kanıtı değildir.
+
+
+ÖNEMLİ:
+
+    TEST112 controller testi değildir.
+
+    TEST112 sonucunda yeni controller katsayıları seçilmeyecektir.
+
+    Önce perturbation geometrisinin gerçek mekanik rejimi belirlenecektir.
+
+    Controller ancak mekanizma tanımlandıktan ve daha sonra
+    bağımsız holdout üzerinde sınanabilecek biçimde dondurulduktan
+    sonra kurulacaktır.
+"""
+)
+
+
+print(
+    "[16/16] TEST 112 tamamlandı."
+)
