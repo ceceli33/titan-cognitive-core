@@ -1,0 +1,4153 @@
+# =============================================================================
+# TEST 111 — LAYERWISE PERTURBATION RESPONSE SYSTEM IDENTIFICATION
+# =============================================================================
+#
+# Qwen/Qwen2.5-7B-Instruct · AkbasCore DRA
+#
+# AMAÇ
+# ----
+# TEST 108–110 sonrası paradigma değişimi:
+#
+#     PRE-STATE SENSOR  ---> FINAL DDS tahmini
+#
+# yerine:
+#
+#     CONTROLLED PERTURBATION
+#              |
+#              v
+#     LOCAL SEMANTIC RESPONSE
+#              |
+#              v
+#     LAYERWISE TRANSMISSION / DECAY / REVERSAL
+#              |
+#              v
+#          FINAL DDS
+#
+#
+# BU TEST:
+#
+#   - yeni sensor aramaz
+#   - controller kurmaz
+#   - gain optimize etmez
+#   - layer seçmez
+#   - dose taramaz
+#   - prompt silmez
+#   - yeni semantic vector üretmez
+#
+# TEST 110'daki locked sistem korunur:
+#
+#   Model          : Qwen/Qwen2.5-7B-Instruct
+#   Steering       : L10 + L11
+#   IVME           : 0.10
+#   sqrt(K)        : sqrt(20)
+#   Vector         : ABOVE_IND / BELOW_IND
+#   Readout        : FP32 final RMSNorm + target-only FP32 LM head
+#   Prompts        : TEST 110'un aynı 40 validation promptu
+#
+#
+# ---------------------------------------------------------------------------
+# TEMEL ÖLÇÜMLER
+# ---------------------------------------------------------------------------
+#
+# Her layer l için baseline:
+#
+#     h_l^0
+#
+# ABOVE intervention:
+#
+#     h_l^A
+#
+# BELOW intervention:
+#
+#     h_l^B
+#
+#
+# Layerwise separator:
+#
+#     s_l = normalize(A_l - B_l)
+#
+# Common:
+#
+#     c_l = normalize(A_l + B_l)
+#
+#
+# Baseline separator coordinate:
+#
+#     e_l^0 = cos(h_l^0, s_l)
+#
+# ABOVE:
+#
+#     e_l^A = cos(h_l^A, s_l)
+#
+# BELOW:
+#
+#     e_l^B = cos(h_l^B, s_l)
+#
+#
+# Semantic displacement:
+#
+#     Δe_l^A = e_l^A - e_l^0
+#
+#     Δe_l^B = e_l^B - e_l^0
+#
+#
+# Physical state displacement:
+#
+#     u_l^A = ||h_l^A - h_l^0|| / ||h_l^0||
+#
+#     u_l^B = ||h_l^B - h_l^0|| / ||h_l^0||
+#
+#
+# Steering Susceptibility / Directional Response:
+#
+#     R_l^A = Δe_l^A / (u_l^A + eps)
+#
+#     R_l^B = Δe_l^B / (u_l^B + eps)
+#
+#
+# IMPORTANT:
+#
+# BELOW yönünün separator eksenindeki "istenen" hareketi negatiftir.
+#
+# Bu yüzden signed target-aligned response ayrıca:
+#
+#     Q_l^A = +Δe_l^A
+#
+#     Q_l^B = -Δe_l^B
+#
+# ve:
+#
+#     R_target_l^A = +Δe_l^A / u_l^A
+#
+#     R_target_l^B = -Δe_l^B / u_l^B
+#
+# hesaplanır.
+#
+#
+# ---------------------------------------------------------------------------
+# TRANSMISSION
+# ---------------------------------------------------------------------------
+#
+# Naif oran:
+#
+#     T_l->l+1 = Δe_(l+1) / Δe_l
+#
+# küçük denominatorlarda patlayabilir.
+#
+# Bu yüzden iki sürüm tutulur:
+#
+# 1) raw ratio:
+#
+#     T_raw = Δe_(l+1)/(Δe_l + signed_eps)
+#
+# 2) stable signed transmission:
+#
+#     T_stable =
+#         sign(Δe_l * Δe_(l+1))
+#         * |Δe_(l+1)| / (|Δe_l| + eps)
+#
+#
+# Ayrıca absolute survival:
+#
+#     S_l = |Δe_l| / (|Δe_11| + eps)
+#
+# L11 son aktif steering layer olduğu için post-actuation propagation
+# açısından doğal referanstır.
+#
+#
+# ---------------------------------------------------------------------------
+# CRITICAL HOOK DISTINCTION
+# ---------------------------------------------------------------------------
+#
+# layer_output_baseline[l]
+#     = baseline layer l output
+#
+# layer_output_steered[l]
+#     = intervention forward'ında layer l output AFTER hook intervention
+#
+# local_pre[l]
+#     = L10/L11'de injection uygulanmadan hemen önceki layer output
+#
+# local_post[l]
+#     = aynı state'e injection eklendikten hemen sonraki state
+#
+# Böylece:
+#
+#     direct_local_delta = local_post - local_pre
+#
+# ile:
+#
+#     propagated_delta = steered trajectory - baseline trajectory
+#
+# birbirinden ayrılır.
+#
+#
+# ---------------------------------------------------------------------------
+# PRIMARY SYSTEM-ID QUESTIONS
+# ---------------------------------------------------------------------------
+#
+# 1. Aynı fiziksel perturbation farklı promptlarda farklı Δe üretiyor mu?
+#
+# 2. L10/L11 local response ile sonraki layer response arasında
+#    sistematik transmission var mı?
+#
+# 3. Semantic displacement hangi layerlarda sönüyor / büyüyor / ters dönüyor?
+#
+# 4. Final DDS ile en güçlü ilişki:
+#
+#       pre-state geometry mi,
+#       local response mu,
+#       late propagated response mu,
+#       trajectory summary mi?
+#
+# 5. ABOVE ve BELOW aynı fiziksel gain altında farklı susceptibility
+#    gösteriyor mu?
+#
+#
+# Bu TEST 111 SYSTEM IDENTIFICATION'dır.
+# Korelasyonlar mekanistik tanımlama içindir; confirmatory p-value değildir.
+#
+# =============================================================================
+
+
+# =============================================================================
+# 0. IMPORTS
+# =============================================================================
+
+import json
+import math
+import random
+
+import numpy as np
+import torch
+
+from transformers import (
+    AutoTokenizer,
+    AutoModelForCausalLM,
+)
+
+
+# =============================================================================
+# 1. LOCKED CONFIG
+# =============================================================================
+
+MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 42
+
+MODEL_LAYERS = 28
+VECTOR_LAYERS = 20
+
+HIDDEN = 3584
+
+ACTIVE_LAYERS = [10, 11]
+
+IVME = 0.10
+
+SQRT_K = math.sqrt(VECTOR_LAYERS)
+
+EPS = 1e-12
+
+
+# -----------------------------------------------------------------------------
+# DRA — SAME LOCKED TEST ENGINE
+# -----------------------------------------------------------------------------
+
+SONUM = 0.30
+ZIRVE = 0.70
+TABAN = 0.20
+
+COS_BRAKE_HIGH = 0.75
+COS_BRAKE_LOW = -0.40
+
+BRAKE_HIGH_DENOM = 0.25
+BRAKE_LOW_GAIN = 1.60
+
+
+# =============================================================================
+# 2. DETERMINISM
+# =============================================================================
+
+def set_seed(seed):
+
+    random.seed(seed)
+    np.random.seed(seed)
+
+    torch.manual_seed(seed)
+
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+set_seed(SEED)
+
+
+# =============================================================================
+# 3. LOCKED SEMANTIC TRAINING DATA
+# =============================================================================
+
+ABOVE_TRAIN = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+
+BELOW_TRAIN = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+
+NEUTRAL_TRAIN = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 4. TEST 110 VALIDATION PROMPTS — EXACTLY REUSED
+# =============================================================================
+
+PROMPTS = [
+
+    # MAP_REPORT
+
+    "The site map marks Clara at one elevation and the pedestrian deck at another. In relation to the deck, Clara is",
+
+    "According to the survey map, a weather balloon and the observatory roof occupy separate vertical levels. The balloon is",
+
+    "The diagram places a rescue drone at one height and the canyon rim at another. Relative to the rim, the drone is",
+
+    "On the engineering map, Marcus and the service platform are shown at distinct vertical positions. Marcus is",
+
+    "The location chart records a beacon at one elevation and the lighthouse balcony at another. Relative to the balcony, the beacon is",
+
+    "A terrain diagram shows a helicopter at a different height from the ridge line. The helicopter is",
+
+    "The architectural plan indicates Nina at one vertical level and the terrace edge at another. Nina is",
+
+    "The field map places a bird at a different elevation from the tower ledge. Relative to the ledge, the bird is",
+
+
+    # WITNESS_STATEMENT
+
+    "A witness describes Leo and the footbridge as occupying different vertical positions. Relative to the footbridge, Leo is",
+
+    "The observer reports that a drone and the warehouse roof were at different heights. The drone was",
+
+    "A witness saw a lantern at a different elevation from the balcony rail. Relative to the rail, the lantern was",
+
+    "The observer describes Emma's vertical position with respect to the railway deck. Emma was",
+
+    "A witness reports a kite and the cliff rim at distinct elevations. Relative to the rim, the kite was",
+
+    "The observer noted that a camera and the stage floor occupied different vertical levels. The camera was",
+
+    "A witness describes a small aircraft at a different height from the mountain crest. The aircraft was",
+
+    "The observer reports that Daniel and the raised walkway occupied distinct elevations. Daniel was",
+
+
+    # TECHNICAL_LOG
+
+    "Inspection log: sensor altitude differs from the platform elevation. Relative to the platform, the sensor is",
+
+    "Flight log: drone altitude differs from the roof reference level. The drone is",
+
+    "Survey record: the marker and the retaining wall top are registered at different elevations. Relative to the wall top, the marker is",
+
+    "Maintenance log: the technician's vertical position differs from the catwalk level. The technician is",
+
+    "Navigation record: the balloon and the tower crown occupy separate elevation readings. Relative to the tower crown, the balloon is",
+
+    "Site log: the camera height differs from the monument base reference. The camera is",
+
+    "Aviation record: the helicopter and the ridge have different altitude readings. Relative to the ridge, the helicopter is",
+
+    "Inspection record: the worker's elevation differs from the bridge deck reference. The worker is",
+
+
+    # COMPARATIVE_FRAGMENT
+
+    "Relative elevation: Olivia versus the stone bridge. Olivia is",
+
+    "Vertical comparison: drone versus stadium roof. The drone is",
+
+    "Height relation: beacon versus tower balcony. The beacon is",
+
+    "Elevation comparison: Samuel versus observation deck. Samuel is",
+
+    "Vertical relation: balloon versus building roofline. The balloon is",
+
+    "Height comparison: bird versus cliff edge. The bird is",
+
+    "Elevation relation: camera versus platform surface. The camera is",
+
+    "Vertical comparison: helicopter versus mountain ridge. The helicopter is",
+
+
+    # INDIRECT_DESCRIPTION
+
+    "To describe Rosa's vertical placement, the old viaduct is used as the reference structure. Rosa is",
+
+    "The stadium roof serves only as a reference for describing the drone's elevation. The drone is",
+
+    "For the lantern's vertical placement, the balcony edge provides the comparison level. The lantern is",
+
+    "The mountain crest is the reference used to state the aircraft's elevation. The aircraft is",
+
+    "A scaffold deck provides the comparison height for Isaac's vertical position. Isaac is",
+
+    "The monument pedestal is used as the reference for the camera's vertical placement. The camera is",
+
+    "The canyon rim provides the comparison level for the rescue balloon's elevation. The balloon is",
+
+    "The elevated walkway serves as the reference structure for Maya's vertical placement. Maya is",
+]
+
+
+FAMILIES = [
+    "MAP_REPORT",
+    "WITNESS_STATEMENT",
+    "TECHNICAL_LOG",
+    "COMPARATIVE_FRAGMENT",
+    "INDIRECT_DESCRIPTION",
+]
+
+
+assert len(PROMPTS) == 40
+
+
+# =============================================================================
+# 5. NUMERIC HELPERS
+# =============================================================================
+
+def normalize_np(v, eps=1e-12):
+
+    v = np.asarray(
+        v,
+        dtype=np.float64
+    )
+
+    n = np.linalg.norm(v)
+
+    if n < eps:
+        return v.astype(np.float32)
+
+    return (
+        v / n
+    ).astype(np.float32)
+
+
+def cosine_np(a, b, eps=1e-12):
+
+    a = np.asarray(
+        a,
+        dtype=np.float64
+    )
+
+    b = np.asarray(
+        b,
+        dtype=np.float64
+    )
+
+    na = np.linalg.norm(a)
+    nb = np.linalg.norm(b)
+
+    if (
+        na < eps
+        or
+        nb < eps
+    ):
+        return 0.0
+
+    return float(
+        np.dot(a, b)
+        /
+        (
+            na * nb
+        )
+    )
+
+
+def pearson_r(x, y):
+
+    x = np.asarray(
+        x,
+        dtype=np.float64
+    )
+
+    y = np.asarray(
+        y,
+        dtype=np.float64
+    )
+
+    if (
+        len(x) < 2
+        or
+        np.std(x) < 1e-15
+        or
+        np.std(y) < 1e-15
+    ):
+        return 0.0
+
+    return float(
+        np.corrcoef(
+            x,
+            y
+        )[0, 1]
+    )
+
+
+def rankdata_average(x):
+
+    x = np.asarray(
+        x,
+        dtype=np.float64
+    )
+
+    order = np.argsort(
+        x,
+        kind="mergesort"
+    )
+
+    ranks = np.empty(
+        len(x),
+        dtype=np.float64
+    )
+
+    i = 0
+
+    while i < len(x):
+
+        j = i + 1
+
+        while (
+            j < len(x)
+            and
+            x[order[j]]
+            ==
+            x[order[i]]
+        ):
+            j += 1
+
+        ranks[
+            order[i:j]
+        ] = (
+            i + 1 + j
+        ) / 2.0
+
+        i = j
+
+    return ranks
+
+
+def spearman_rho(x, y):
+
+    return pearson_r(
+        rankdata_average(x),
+        rankdata_average(y)
+    )
+
+
+def safe_signed_transmission(
+    previous,
+    current,
+    eps=1e-12
+):
+
+    sign = np.sign(
+        previous * current
+    )
+
+    return float(
+        sign
+        *
+        abs(current)
+        /
+        (
+            abs(previous)
+            +
+            eps
+        )
+    )
+
+
+# =============================================================================
+# 6. LOAD MODEL
+# =============================================================================
+
+print(
+    "\n"
+    + "=" * 170
+)
+
+print(
+    "TEST 111 — LAYERWISE PERTURBATION RESPONSE SYSTEM IDENTIFICATION"
+)
+
+print(
+    "=" * 170
+)
+
+
+print(
+    "\n[1/15] Model yükleniyor..."
+)
+
+
+tokenizer = (
+    AutoTokenizer
+    .from_pretrained(
+        MODEL_NAME,
+        trust_remote_code=True,
+    )
+)
+
+
+if tokenizer.pad_token_id is None:
+
+    tokenizer.pad_token = tokenizer.eos_token
+
+
+model = (
+    AutoModelForCausalLM
+    .from_pretrained(
+        MODEL_NAME,
+        dtype=torch.bfloat16,
+        device_map="auto",
+        trust_remote_code=True,
+    )
+)
+
+
+model.eval()
+
+
+print(
+    "Model             :",
+    MODEL_NAME
+)
+
+print(
+    "Device            :",
+    model.device
+)
+
+print(
+    "dtype             :",
+    next(model.parameters()).dtype
+)
+
+print(
+    "Model layers      :",
+    len(model.model.layers)
+)
+
+print(
+    "Vector layers     :",
+    VECTOR_LAYERS
+)
+
+print(
+    "Steering layers   :",
+    ACTIVE_LAYERS
+)
+
+print(
+    "Measured layers   : 0–27"
+)
+
+print(
+    "Hidden            :",
+    HIDDEN
+)
+
+print(
+    "IVME              :",
+    IVME
+)
+
+print(
+    "SQRT_K            :",
+    SQRT_K
+)
+
+print(
+    "Prompts           :",
+    len(PROMPTS)
+)
+
+
+# =============================================================================
+# 7. TARGET TOKENS
+# =============================================================================
+
+print(
+    "\n[2/15] Target tokenlar doğrulanıyor..."
+)
+
+
+TARGET_STRINGS = {
+    "above": " above",
+    "below": " below",
+    "over": " over",
+    "under": " under",
+}
+
+
+TARGET_IDS = {}
+
+
+for name, text in TARGET_STRINGS.items():
+
+    ids = tokenizer.encode(
+        text,
+        add_special_tokens=False
+    )
+
+    print(
+        f"{name:<8} | "
+        f"{repr(text):<12} | "
+        f"{ids}"
+    )
+
+    if len(ids) != 1:
+
+        raise RuntimeError(
+            f"{name} tek token değil: {ids}"
+        )
+
+    TARGET_IDS[name] = ids[0]
+
+
+TARGET_ID_LIST = [
+    TARGET_IDS["above"],
+    TARGET_IDS["below"],
+    TARGET_IDS["over"],
+    TARGET_IDS["under"],
+]
+
+
+# =============================================================================
+# 8. EXTRACT LOCKED SEMANTIC VECTORS
+# =============================================================================
+
+@torch.no_grad()
+def extract_layerwise_activations(
+    texts,
+    max_length=128
+):
+
+    encoded = tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=max_length,
+    )
+
+
+    input_ids = encoded["input_ids"].to(
+        model.device
+    )
+
+    attention_mask = encoded["attention_mask"].to(
+        model.device
+    )
+
+
+    captured = [
+        None
+        for _ in range(VECTOR_LAYERS)
+    ]
+
+
+    handles = []
+
+
+    def make_hook(layer_idx):
+
+        def hook(
+            module,
+            inputs,
+            output
+        ):
+
+            hidden = (
+                output[0]
+                if isinstance(output, tuple)
+                else output
+            )
+
+            captured[layer_idx] = (
+                hidden.detach()
+            )
+
+        return hook
+
+
+    for layer_idx in range(
+        VECTOR_LAYERS
+    ):
+
+        handles.append(
+            model.model.layers[
+                layer_idx
+            ].register_forward_hook(
+                make_hook(layer_idx)
+            )
+        )
+
+
+    _ = model(
+        input_ids=input_ids,
+        attention_mask=attention_mask,
+        use_cache=False,
+    )
+
+
+    for handle in handles:
+        handle.remove()
+
+
+    lengths = (
+        attention_mask
+        .sum(dim=1)
+        .cpu()
+        .numpy()
+    )
+
+
+    result = np.zeros(
+        (
+            len(texts),
+            VECTOR_LAYERS,
+            HIDDEN
+        ),
+        dtype=np.float32
+    )
+
+
+    for layer_idx in range(
+        VECTOR_LAYERS
+    ):
+
+        hidden = (
+            captured[layer_idx]
+            .float()
+            .cpu()
+            .numpy()
+        )
+
+
+        for sample_idx in range(
+            len(texts)
+        ):
+
+            last_idx = (
+                int(lengths[sample_idx])
+                - 1
+            )
+
+            result[
+                sample_idx,
+                layer_idx
+            ] = hidden[
+                sample_idx,
+                last_idx
+            ]
+
+
+    return result
+
+
+print(
+    "\n[3/15] Locked ABOVE / BELOW vectors çıkarılıyor..."
+)
+
+
+ACT_ABOVE = extract_layerwise_activations(
+    ABOVE_TRAIN
+)
+
+ACT_BELOW = extract_layerwise_activations(
+    BELOW_TRAIN
+)
+
+ACT_NEUTRAL = extract_layerwise_activations(
+    NEUTRAL_TRAIN
+)
+
+
+MEAN_ABOVE = ACT_ABOVE.mean(axis=0)
+MEAN_BELOW = ACT_BELOW.mean(axis=0)
+MEAN_NEUTRAL = ACT_NEUTRAL.mean(axis=0)
+
+
+IND_ABOVE = (
+    MEAN_ABOVE
+    -
+    MEAN_NEUTRAL
+).astype(np.float32)
+
+
+IND_BELOW = (
+    MEAN_BELOW
+    -
+    MEAN_NEUTRAL
+).astype(np.float32)
+
+
+for layer_idx in range(
+    VECTOR_LAYERS
+):
+
+    IND_ABOVE[layer_idx] = normalize_np(
+        IND_ABOVE[layer_idx]
+    )
+
+    IND_BELOW[layer_idx] = normalize_np(
+        IND_BELOW[layer_idx]
+    )
+
+
+for layer_idx in ACTIVE_LAYERS:
+
+    print(
+        f"L{layer_idx:02d} | "
+        f"cos(A,B)="
+        f"{cosine_np(IND_ABOVE[layer_idx],IND_BELOW[layer_idx]):+.6f}"
+    )
+
+
+# =============================================================================
+# 9. BUILD LAYERWISE SEMANTIC COORDINATE BASIS
+# =============================================================================
+#
+# Vectors exist L0–L19.
+#
+# For L20–L27 we do NOT invent semantic vectors.
+#
+# Therefore:
+#
+#   semantic coordinate analysis = L0–L19
+#
+# but:
+#
+#   physical hidden trajectory = L0–L27
+#
+# This distinction is deliberate.
+#
+# =============================================================================
+
+print(
+    "\n[4/15] Layerwise COMMON / SEPARATOR basis hazırlanıyor..."
+)
+
+
+SEPARATOR = np.zeros(
+    (
+        VECTOR_LAYERS,
+        HIDDEN
+    ),
+    dtype=np.float32
+)
+
+
+COMMON = np.zeros(
+    (
+        VECTOR_LAYERS,
+        HIDDEN
+    ),
+    dtype=np.float32
+)
+
+
+for layer_idx in range(
+    VECTOR_LAYERS
+):
+
+    a = IND_ABOVE[
+        layer_idx
+    ].astype(np.float64)
+
+    b = IND_BELOW[
+        layer_idx
+    ].astype(np.float64)
+
+
+    sep = a - b
+    com = a + b
+
+
+    SEPARATOR[layer_idx] = normalize_np(
+        sep
+    )
+
+    COMMON[layer_idx] = normalize_np(
+        com
+    )
+
+
+print(
+    "Semantic coordinate layers : 0–19"
+)
+
+print(
+    "Physical trajectory layers  : 0–27"
+)
+
+print(
+    "No synthetic L20–27 semantic basis created."
+)
+
+
+# =============================================================================
+# 10. DRA
+# =============================================================================
+
+def dra_parameters(
+    cosine_value,
+    layer_idx
+):
+
+    uncertainty = (
+        1.0
+        -
+        abs(cosine_value)
+    )
+
+
+    dw = (
+        SONUM
+        +
+        uncertainty
+        * 0.20
+    )
+
+
+    t = float(layer_idx)
+
+
+    kb = (
+        ZIRVE
+        *
+        math.exp(
+            -dw * t
+        )
+        *
+        (
+            1.0
+            +
+            dw * t
+        )
+        +
+        TABAN
+    )
+
+
+    envelope = (
+        kb
+        /
+        (
+            ZIRVE
+            +
+            TABAN
+        )
+    )
+
+
+    if cosine_value > COS_BRAKE_HIGH:
+
+        brake = (
+            (
+                1.0
+                -
+                cosine_value
+            )
+            /
+            BRAKE_HIGH_DENOM
+        )
+
+    elif cosine_value < COS_BRAKE_LOW:
+
+        brake = BRAKE_LOW_GAIN
+
+    else:
+
+        brake = 1.0
+
+
+    return (
+        envelope,
+        brake
+    )
+
+
+# =============================================================================
+# 11. FP32 FINAL READOUT
+# =============================================================================
+
+def qwen_rmsnorm_fp32(
+    hidden_fp32
+):
+
+    norm_module = model.model.norm
+
+    weight = (
+        norm_module.weight
+        .detach()
+        .float()
+    )
+
+    eps = float(
+        norm_module.variance_epsilon
+    )
+
+
+    variance = (
+        hidden_fp32
+        .pow(2)
+        .mean(
+            dim=-1,
+            keepdim=True
+        )
+    )
+
+
+    normalized = (
+        hidden_fp32
+        *
+        torch.rsqrt(
+            variance + eps
+        )
+    )
+
+
+    return normalized * weight
+
+
+@torch.no_grad()
+def hp_target_logits(
+    final_hidden_last
+):
+
+    h = final_hidden_last.float()
+
+    h_norm = qwen_rmsnorm_fp32(
+        h
+    )
+
+
+    target_weights = (
+        model.lm_head.weight[
+            TARGET_ID_LIST
+        ]
+        .detach()
+        .float()
+    )
+
+
+    logits = torch.matmul(
+        target_weights,
+        h_norm
+    )
+
+
+    return {
+        "above": float(logits[0].cpu()),
+        "below": float(logits[1].cpu()),
+        "over": float(logits[2].cpu()),
+        "under": float(logits[3].cpu()),
+    }
+
+
+def make_readout(
+    logits
+):
+
+    return {
+        "AB": float(
+            logits["above"]
+            -
+            logits["below"]
+        ),
+
+        "OU": float(
+            logits["over"]
+            -
+            logits["under"]
+        ),
+    }
+
+
+# =============================================================================
+# 12. FULL TRAJECTORY FORWARD
+# =============================================================================
+
+@torch.no_grad()
+def trajectory_forward(
+    prompt,
+    vectors=None,
+    arm_name="BASELINE"
+):
+
+    # -------------------------------------------------------------------------
+    # layer_input[l]
+    #     input residual stream entering transformer layer l
+    #
+    # layer_pre[l]
+    #     raw transformer layer output BEFORE steering hook modification
+    #
+    # layer_post[l]
+    #     actual output leaving layer after optional steering
+    #
+    # -------------------------------------------------------------------------
+
+    layer_input = [
+        None
+        for _ in range(MODEL_LAYERS)
+    ]
+
+    layer_pre = [
+        None
+        for _ in range(MODEL_LAYERS)
+    ]
+
+    layer_post = [
+        None
+        for _ in range(MODEL_LAYERS)
+    ]
+
+
+    telemetry = []
+
+
+    final_capture = {
+        "hidden": None
+    }
+
+
+    handles = []
+
+
+    # -------------------------------------------------------------------------
+    # INPUT PRE-HOOK
+    # -------------------------------------------------------------------------
+
+    def make_input_hook(
+        layer_idx
+    ):
+
+        def pre_hook(
+            module,
+            inputs
+        ):
+
+            h = inputs[0]
+
+            layer_input[
+                layer_idx
+            ] = (
+                h[
+                    0,
+                    -1,
+                    :
+                ]
+                .detach()
+                .float()
+                .cpu()
+                .numpy()
+                .astype(np.float64)
+            )
+
+        return pre_hook
+
+
+    # -------------------------------------------------------------------------
+    # OUTPUT + STEERING HOOK
+    # -------------------------------------------------------------------------
+
+    def make_output_hook(
+        layer_idx
+    ):
+
+        def hook(
+            module,
+            inputs,
+            output
+        ):
+
+            hidden = (
+                output[0]
+                if isinstance(output, tuple)
+                else output
+            )
+
+
+            # -------------------------------------------------------------
+            # PRE-STEERING layer output
+            # -------------------------------------------------------------
+
+            pre_last = (
+                hidden[
+                    0,
+                    -1,
+                    :
+                ]
+                .detach()
+                .float()
+                .cpu()
+                .numpy()
+                .astype(np.float64)
+            )
+
+
+            layer_pre[
+                layer_idx
+            ] = pre_last
+
+
+            hidden_new = hidden
+
+
+            # -------------------------------------------------------------
+            # APPLY DRA ONLY L10/L11
+            # -------------------------------------------------------------
+
+            if (
+                vectors is not None
+                and
+                layer_idx in ACTIVE_LAYERS
+            ):
+
+                vector = (
+                    torch.as_tensor(
+                        vectors[
+                            layer_idx
+                        ],
+                        device=hidden.device,
+                        dtype=hidden.dtype,
+                    )
+                    .unsqueeze(0)
+                )
+
+
+                h = hidden[
+                    :,
+                    -1,
+                    :
+                ]
+
+
+                h_norm = (
+                    torch.linalg.norm(
+                        h,
+                        dim=-1,
+                        keepdim=True
+                    )
+                )
+
+
+                v_norm = (
+                    torch.linalg.norm(
+                        vector,
+                        dim=-1,
+                        keepdim=True
+                    )
+                )
+
+
+                cosine = (
+                    torch.sum(
+                        h * vector,
+                        dim=-1,
+                        keepdim=True
+                    )
+                    /
+                    (
+                        h_norm
+                        *
+                        v_norm
+                        +
+                        1e-12
+                    )
+                )
+
+
+                cosine_value = float(
+                    cosine
+                    .mean()
+                    .detach()
+                    .cpu()
+                )
+
+
+                envelope, brake = (
+                    dra_parameters(
+                        cosine_value,
+                        layer_idx
+                    )
+                )
+
+
+                contribution = (
+                    IVME
+                    *
+                    h_norm
+                    /
+                    SQRT_K
+                    *
+                    envelope
+                    *
+                    brake
+                )
+
+
+                delta = (
+                    contribution
+                    *
+                    vector
+                )
+
+
+                hidden_new = hidden.clone()
+
+
+                hidden_new[
+                    :,
+                    -1,
+                    :
+                ] = (
+                    hidden_new[
+                        :,
+                        -1,
+                        :
+                    ]
+                    +
+                    delta
+                )
+
+
+                delta_norm = (
+                    torch.linalg.norm(
+                        delta,
+                        dim=-1
+                    )
+                )
+
+
+                relative_delta = (
+                    delta_norm
+                    /
+                    (
+                        h_norm.squeeze(-1)
+                        +
+                        1e-12
+                    )
+                )
+
+
+                telemetry.append({
+                    "arm": arm_name,
+                    "layer": int(layer_idx),
+                    "cosine": cosine_value,
+                    "envelope": float(envelope),
+                    "brake": float(brake),
+                    "contribution": float(
+                        contribution
+                        .mean()
+                        .detach()
+                        .cpu()
+                    ),
+                    "direct_delta_norm": float(
+                        delta_norm
+                        .mean()
+                        .detach()
+                        .cpu()
+                    ),
+                    "direct_relative_delta": float(
+                        relative_delta
+                        .mean()
+                        .detach()
+                        .cpu()
+                    ),
+                })
+
+
+            # -------------------------------------------------------------
+            # POST-STEERING ACTUAL OUTPUT
+            # -------------------------------------------------------------
+
+            post_last = (
+                hidden_new[
+                    0,
+                    -1,
+                    :
+                ]
+                .detach()
+                .float()
+                .cpu()
+                .numpy()
+                .astype(np.float64)
+            )
+
+
+            layer_post[
+                layer_idx
+            ] = post_last
+
+
+            if isinstance(output, tuple):
+
+                return (
+                    hidden_new,
+                    *output[1:]
+                )
+
+
+            return hidden_new
+
+
+        return hook
+
+
+    # -------------------------------------------------------------------------
+    # REGISTER
+    # -------------------------------------------------------------------------
+
+    for layer_idx in range(
+        MODEL_LAYERS
+    ):
+
+        handles.append(
+            model.model.layers[
+                layer_idx
+            ].register_forward_pre_hook(
+                make_input_hook(
+                    layer_idx
+                )
+            )
+        )
+
+        handles.append(
+            model.model.layers[
+                layer_idx
+            ].register_forward_hook(
+                make_output_hook(
+                    layer_idx
+                )
+            )
+        )
+
+
+    # -------------------------------------------------------------------------
+    # FINAL NORM PRE-HOOK
+    # -------------------------------------------------------------------------
+
+    def final_norm_pre_hook(
+        module,
+        inputs
+    ):
+
+        final_capture[
+            "hidden"
+        ] = (
+            inputs[0]
+            .detach()
+        )
+
+
+    final_handle = (
+        model.model.norm
+        .register_forward_pre_hook(
+            final_norm_pre_hook
+        )
+    )
+
+
+    # -------------------------------------------------------------------------
+    # FORWARD
+    # -------------------------------------------------------------------------
+
+    encoded = tokenizer(
+        prompt,
+        return_tensors="pt"
+    ).to(
+        model.device
+    )
+
+
+    try:
+
+        _ = model(
+            **encoded,
+            use_cache=False
+        )
+
+
+        final_hidden = (
+            final_capture[
+                "hidden"
+            ][
+                0,
+                -1,
+                :
+            ]
+        )
+
+
+        logits = hp_target_logits(
+            final_hidden
+        )
+
+
+        readout = make_readout(
+            logits
+        )
+
+
+    finally:
+
+        for handle in handles:
+            handle.remove()
+
+        final_handle.remove()
+
+
+    return {
+        "layer_input": layer_input,
+        "layer_pre": layer_pre,
+        "layer_post": layer_post,
+        "telemetry": telemetry,
+        "logits": logits,
+        "readout": readout,
+    }
+
+
+# =============================================================================
+# 13. SYSTEM IDENTIFICATION METRICS
+# =============================================================================
+
+def analyze_arm(
+    baseline,
+    steered,
+    arm
+):
+
+    assert arm in (
+        "ABOVE",
+        "BELOW"
+    )
+
+
+    target_sign = (
+        +1.0
+        if arm == "ABOVE"
+        else -1.0
+    )
+
+
+    rows = []
+
+
+    # -------------------------------------------------------------------------
+    # Semantic trajectory L0–L19
+    # -------------------------------------------------------------------------
+
+    for layer_idx in range(
+        VECTOR_LAYERS
+    ):
+
+        h0 = baseline[
+            "layer_post"
+        ][
+            layer_idx
+        ]
+
+
+        hs = steered[
+            "layer_post"
+        ][
+            layer_idx
+        ]
+
+
+        sep = SEPARATOR[
+            layer_idx
+        ].astype(np.float64)
+
+
+        com = COMMON[
+            layer_idx
+        ].astype(np.float64)
+
+
+        # ---------------------------------------------------------------------
+        # Coordinates
+        # ---------------------------------------------------------------------
+
+        e0 = cosine_np(
+            h0,
+            sep
+        )
+
+        es = cosine_np(
+            hs,
+            sep
+        )
+
+
+        c0 = cosine_np(
+            h0,
+            com
+        )
+
+        cs = cosine_np(
+            hs,
+            com
+        )
+
+
+        delta_e = (
+            es
+            -
+            e0
+        )
+
+
+        delta_common = (
+            cs
+            -
+            c0
+        )
+
+
+        # ---------------------------------------------------------------------
+        # Physical trajectory displacement
+        # ---------------------------------------------------------------------
+
+        physical_delta = (
+            hs
+            -
+            h0
+        )
+
+
+        physical_delta_norm = float(
+            np.linalg.norm(
+                physical_delta
+            )
+        )
+
+
+        baseline_norm = float(
+            np.linalg.norm(
+                h0
+            )
+        )
+
+
+        relative_physical = (
+            physical_delta_norm
+            /
+            (
+                baseline_norm
+                +
+                EPS
+            )
+        )
+
+
+        # ---------------------------------------------------------------------
+        # Response
+        # ---------------------------------------------------------------------
+
+        response = (
+            delta_e
+            /
+            (
+                relative_physical
+                +
+                EPS
+            )
+        )
+
+
+        target_aligned_delta = (
+            target_sign
+            *
+            delta_e
+        )
+
+
+        target_response = (
+            target_aligned_delta
+            /
+            (
+                relative_physical
+                +
+                EPS
+            )
+        )
+
+
+        rows.append({
+            "layer": int(layer_idx),
+
+            "baseline_separator_cos":
+                float(e0),
+
+            "steered_separator_cos":
+                float(es),
+
+            "delta_separator":
+                float(delta_e),
+
+            "target_aligned_delta_separator":
+                float(target_aligned_delta),
+
+            "baseline_common_cos":
+                float(c0),
+
+            "steered_common_cos":
+                float(cs),
+
+            "delta_common":
+                float(delta_common),
+
+            "physical_delta_norm":
+                float(physical_delta_norm),
+
+            "baseline_hidden_norm":
+                float(baseline_norm),
+
+            "relative_physical_delta":
+                float(relative_physical),
+
+            "response_R":
+                float(response),
+
+            "target_response_R":
+                float(target_response),
+        })
+
+
+    # -------------------------------------------------------------------------
+    # Transmission
+    # -------------------------------------------------------------------------
+
+    for layer_idx in range(
+        VECTOR_LAYERS
+    ):
+
+        if layer_idx == 0:
+
+            rows[
+                layer_idx
+            ][
+                "transmission_raw_from_prev"
+            ] = None
+
+            rows[
+                layer_idx
+            ][
+                "transmission_stable_from_prev"
+            ] = None
+
+        else:
+
+            prev = rows[
+                layer_idx - 1
+            ][
+                "delta_separator"
+            ]
+
+            curr = rows[
+                layer_idx
+            ][
+                "delta_separator"
+            ]
+
+
+            signed_eps = (
+                EPS
+                if prev >= 0
+                else -EPS
+            )
+
+
+            raw_t = (
+                curr
+                /
+                (
+                    prev
+                    +
+                    signed_eps
+                )
+            )
+
+
+            stable_t = (
+                safe_signed_transmission(
+                    prev,
+                    curr,
+                    EPS
+                )
+            )
+
+
+            rows[
+                layer_idx
+            ][
+                "transmission_raw_from_prev"
+            ] = float(raw_t)
+
+
+            rows[
+                layer_idx
+            ][
+                "transmission_stable_from_prev"
+            ] = float(stable_t)
+
+
+    # -------------------------------------------------------------------------
+    # Survival relative to L11
+    # -------------------------------------------------------------------------
+
+    reference_layer = 11
+
+    reference_delta = rows[
+        reference_layer
+    ][
+        "delta_separator"
+    ]
+
+
+    for layer_idx in range(
+        VECTOR_LAYERS
+    ):
+
+        delta = rows[
+            layer_idx
+        ][
+            "delta_separator"
+        ]
+
+
+        rows[
+            layer_idx
+        ][
+            "absolute_survival_vs_L11"
+        ] = float(
+            abs(delta)
+            /
+            (
+                abs(reference_delta)
+                +
+                EPS
+            )
+        )
+
+
+        rows[
+            layer_idx
+        ][
+            "signed_survival_vs_L11"
+        ] = float(
+            delta
+            /
+            (
+                reference_delta
+                +
+                (
+                    EPS
+                    if reference_delta >= 0
+                    else -EPS
+                )
+            )
+        )
+
+
+    # -------------------------------------------------------------------------
+    # Local direct intervention at L10/L11
+    #
+    # IMPORTANT:
+    #
+    # steered.layer_pre  = before injection
+    # steered.layer_post = after injection
+    #
+    # This is different from trajectory delta vs baseline.
+    # -------------------------------------------------------------------------
+
+    local = {}
+
+
+    for layer_idx in ACTIVE_LAYERS:
+
+        pre = steered[
+            "layer_pre"
+        ][
+            layer_idx
+        ]
+
+
+        post = steered[
+            "layer_post"
+        ][
+            layer_idx
+        ]
+
+
+        direct_delta = (
+            post
+            -
+            pre
+        )
+
+
+        direct_rel = (
+            np.linalg.norm(
+                direct_delta
+            )
+            /
+            (
+                np.linalg.norm(
+                    pre
+                )
+                +
+                EPS
+            )
+        )
+
+
+        sep = SEPARATOR[
+            layer_idx
+        ].astype(np.float64)
+
+
+        pre_e = cosine_np(
+            pre,
+            sep
+        )
+
+
+        post_e = cosine_np(
+            post,
+            sep
+        )
+
+
+        direct_delta_e = (
+            post_e
+            -
+            pre_e
+        )
+
+
+        direct_R = (
+            direct_delta_e
+            /
+            (
+                direct_rel
+                +
+                EPS
+            )
+        )
+
+
+        direct_target_R = (
+            target_sign
+            *
+            direct_delta_e
+            /
+            (
+                direct_rel
+                +
+                EPS
+            )
+        )
+
+
+        local[
+            str(layer_idx)
+        ] = {
+
+            "pre_separator_cos":
+                float(pre_e),
+
+            "post_separator_cos":
+                float(post_e),
+
+            "direct_delta_separator":
+                float(direct_delta_e),
+
+            "target_aligned_direct_delta_separator":
+                float(
+                    target_sign
+                    *
+                    direct_delta_e
+                ),
+
+            "direct_relative_physical_delta":
+                float(direct_rel),
+
+            "direct_response_R":
+                float(direct_R),
+
+            "direct_target_response_R":
+                float(direct_target_R),
+        }
+
+
+    # -------------------------------------------------------------------------
+    # Full physical propagation L0–L27
+    # -------------------------------------------------------------------------
+
+    physical_all_layers = []
+
+
+    for layer_idx in range(
+        MODEL_LAYERS
+    ):
+
+        h0 = baseline[
+            "layer_post"
+        ][
+            layer_idx
+        ]
+
+
+        hs = steered[
+            "layer_post"
+        ][
+            layer_idx
+        ]
+
+
+        diff = (
+            hs
+            -
+            h0
+        )
+
+
+        diff_norm = float(
+            np.linalg.norm(
+                diff
+            )
+        )
+
+
+        base_norm = float(
+            np.linalg.norm(
+                h0
+            )
+        )
+
+
+        rel = (
+            diff_norm
+            /
+            (
+                base_norm
+                +
+                EPS
+            )
+        )
+
+
+        physical_all_layers.append({
+
+            "layer":
+                int(layer_idx),
+
+            "physical_delta_norm":
+                diff_norm,
+
+            "baseline_hidden_norm":
+                base_norm,
+
+            "relative_physical_delta":
+                float(rel),
+        })
+
+
+    return {
+        "semantic_layers": rows,
+        "local_intervention": local,
+        "physical_all_layers": physical_all_layers,
+    }
+
+
+# =============================================================================
+# 14. RUN 40 PROMPTS
+# =============================================================================
+
+print(
+    "\n[5/15] 40 prompt için BASELINE / ABOVE / BELOW trajectories çalıştırılıyor..."
+)
+
+
+RESULTS = []
+
+
+for prompt_idx, prompt in enumerate(
+    PROMPTS
+):
+
+    family = FAMILIES[
+        prompt_idx // 8
+    ]
+
+
+    baseline = trajectory_forward(
+        prompt,
+        vectors=None,
+        arm_name="BASELINE"
+    )
+
+
+    above = trajectory_forward(
+        prompt,
+        vectors=IND_ABOVE,
+        arm_name="ABOVE"
+    )
+
+
+    below = trajectory_forward(
+        prompt,
+        vectors=IND_BELOW,
+        arm_name="BELOW"
+    )
+
+
+    above_analysis = analyze_arm(
+        baseline,
+        above,
+        "ABOVE"
+    )
+
+
+    below_analysis = analyze_arm(
+        baseline,
+        below,
+        "BELOW"
+    )
+
+
+    dds_ab = (
+        above[
+            "readout"
+        ][
+            "AB"
+        ]
+        -
+        below[
+            "readout"
+        ][
+            "AB"
+        ]
+    )
+
+
+    dds_ou = (
+        above[
+            "readout"
+        ][
+            "OU"
+        ]
+        -
+        below[
+            "readout"
+        ][
+            "OU"
+        ]
+    )
+
+
+    RESULTS.append({
+
+        "prompt_index":
+            int(
+                prompt_idx + 1
+            ),
+
+        "family":
+            family,
+
+        "prompt":
+            prompt,
+
+        "baseline_readout":
+            baseline[
+                "readout"
+            ],
+
+        "above_readout":
+            above[
+                "readout"
+            ],
+
+        "below_readout":
+            below[
+                "readout"
+            ],
+
+        "DDS_AB":
+            float(dds_ab),
+
+        "DDS_OU":
+            float(dds_ou),
+
+        "ABOVE":
+            above_analysis,
+
+        "BELOW":
+            below_analysis,
+
+        "ABOVE_telemetry":
+            above[
+                "telemetry"
+            ],
+
+        "BELOW_telemetry":
+            below[
+                "telemetry"
+            ],
+    })
+
+
+    print(
+        f"{prompt_idx+1:02d}/40 | "
+        f"{family:<22} | "
+        f"DDS_AB={dds_ab:+.6f} | "
+        f"DDS_OU={dds_ou:+.6f}",
+        end="\r"
+    )
+
+
+print(
+    " " * 130,
+    end="\r"
+)
+
+
+# =============================================================================
+# 15. REPRODUCTION CHECK
+# =============================================================================
+
+print(
+    "\n[6/15] TEST 110 reproduction check..."
+)
+
+
+DDS_AB = np.asarray(
+    [
+        x[
+            "DDS_AB"
+        ]
+        for x in RESULTS
+    ],
+    dtype=np.float64
+)
+
+
+DDS_OU = np.asarray(
+    [
+        x[
+            "DDS_OU"
+        ]
+        for x in RESULTS
+    ],
+    dtype=np.float64
+)
+
+
+EXPECTED_110_AB = (
+    0.007351959
+)
+
+EXPECTED_110_OU = (
+    0.002256775
+)
+
+
+print(
+    f"DDS_AB mean          = "
+    f"{DDS_AB.mean():+.9f}"
+)
+
+print(
+    f"TEST110 expected      = "
+    f"{EXPECTED_110_AB:+.9f}"
+)
+
+print(
+    f"Difference            = "
+    f"{DDS_AB.mean()-EXPECTED_110_AB:+.9e}"
+)
+
+
+print(
+    f"\nDDS_OU mean          = "
+    f"{DDS_OU.mean():+.9f}"
+)
+
+print(
+    f"TEST110 expected      = "
+    f"{EXPECTED_110_OU:+.9f}"
+)
+
+print(
+    f"Difference            = "
+    f"{DDS_OU.mean()-EXPECTED_110_OU:+.9e}"
+)
+
+
+# =============================================================================
+# 16. BUILD LAYERWISE MATRICES
+# =============================================================================
+
+print(
+    "\n[7/15] Layerwise response matrices hazırlanıyor..."
+)
+
+
+def get_layer_metric(
+    arm,
+    layer_idx,
+    metric
+):
+
+    return np.asarray(
+        [
+            item[
+                arm
+            ][
+                "semantic_layers"
+            ][
+                layer_idx
+            ][
+                metric
+            ]
+            for item in RESULTS
+        ],
+        dtype=np.float64
+    )
+
+
+def get_local_metric(
+    arm,
+    layer_idx,
+    metric
+):
+
+    return np.asarray(
+        [
+            item[
+                arm
+            ][
+                "local_intervention"
+            ][
+                str(layer_idx)
+            ][
+                metric
+            ]
+            for item in RESULTS
+        ],
+        dtype=np.float64
+    )
+
+
+# =============================================================================
+# 17. LAYERWISE SYSTEM IDENTIFICATION SUMMARY
+# =============================================================================
+
+print(
+    "\n"
+    + "=" * 170
+)
+
+print(
+    "LAYERWISE SYSTEM IDENTIFICATION — TARGET-ALIGNED SEMANTIC RESPONSE"
+)
+
+print(
+    "=" * 170
+)
+
+
+print(
+    f"{'L':<4}"
+    f"{'A Δe':>11}"
+    f"{'B Δe':>11}"
+    f"{'A target':>11}"
+    f"{'B target':>11}"
+    f"{'A u':>11}"
+    f"{'B u':>11}"
+    f"{'A Rtarget':>13}"
+    f"{'B Rtarget':>13}"
+    f"{'A rDDS':>11}"
+    f"{'B rDDS':>11}"
+)
+
+
+print(
+    "-" * 118
+)
+
+
+LAYER_SUMMARY = []
+
+
+for layer_idx in range(
+    VECTOR_LAYERS
+):
+
+    a_de = get_layer_metric(
+        "ABOVE",
+        layer_idx,
+        "delta_separator"
+    )
+
+    b_de = get_layer_metric(
+        "BELOW",
+        layer_idx,
+        "delta_separator"
+    )
+
+
+    a_target = get_layer_metric(
+        "ABOVE",
+        layer_idx,
+        "target_aligned_delta_separator"
+    )
+
+    b_target = get_layer_metric(
+        "BELOW",
+        layer_idx,
+        "target_aligned_delta_separator"
+    )
+
+
+    a_u = get_layer_metric(
+        "ABOVE",
+        layer_idx,
+        "relative_physical_delta"
+    )
+
+    b_u = get_layer_metric(
+        "BELOW",
+        layer_idx,
+        "relative_physical_delta"
+    )
+
+
+    a_r = get_layer_metric(
+        "ABOVE",
+        layer_idx,
+        "target_response_R"
+    )
+
+    b_r = get_layer_metric(
+        "BELOW",
+        layer_idx,
+        "target_response_R"
+    )
+
+
+    a_corr = pearson_r(
+        a_target,
+        DDS_AB
+    )
+
+    b_corr = pearson_r(
+        b_target,
+        DDS_AB
+    )
+
+
+    LAYER_SUMMARY.append({
+
+        "layer":
+            int(layer_idx),
+
+        "above_delta_separator_mean":
+            float(a_de.mean()),
+
+        "below_delta_separator_mean":
+            float(b_de.mean()),
+
+        "above_target_delta_mean":
+            float(a_target.mean()),
+
+        "below_target_delta_mean":
+            float(b_target.mean()),
+
+        "above_relative_physical_mean":
+            float(a_u.mean()),
+
+        "below_relative_physical_mean":
+            float(b_u.mean()),
+
+        "above_target_R_mean":
+            float(a_r.mean()),
+
+        "below_target_R_mean":
+            float(b_r.mean()),
+
+        "above_target_delta_vs_DDS_AB_r":
+            float(a_corr),
+
+        "below_target_delta_vs_DDS_AB_r":
+            float(b_corr),
+    })
+
+
+    print(
+        f"{layer_idx:<4}"
+
+        f"{a_de.mean():>+11.6f}"
+
+        f"{b_de.mean():>+11.6f}"
+
+        f"{a_target.mean():>+11.6f}"
+
+        f"{b_target.mean():>+11.6f}"
+
+        f"{a_u.mean():>11.6f}"
+
+        f"{b_u.mean():>11.6f}"
+
+        f"{a_r.mean():>+13.6f}"
+
+        f"{b_r.mean():>+13.6f}"
+
+        f"{a_corr:>+11.4f}"
+
+        f"{b_corr:>+11.4f}"
+    )
+
+
+# =============================================================================
+# 18. LOCAL DIRECT RESPONSE
+# =============================================================================
+
+print(
+    "\n"
+    + "=" * 170
+)
+
+print(
+    "LOCAL DIRECT INTERVENTION RESPONSE — BEFORE vs IMMEDIATELY AFTER INJECTION"
+)
+
+print(
+    "=" * 170
+)
+
+
+print(
+    f"{'ARM':<10}"
+    f"{'LAYER':<8}"
+    f"{'DIRECT Δe':>14}"
+    f"{'TARGET Δe':>14}"
+    f"{'DIRECT u':>14}"
+    f"{'R':>14}"
+    f"{'R target':>14}"
+    f"{'r(DDS_AB)':>14}"
+    f"{'rho(DDS)':>14}"
+)
+
+
+print(
+    "-" * 118
+)
+
+
+LOCAL_SUMMARY = []
+
+
+for arm in [
+    "ABOVE",
+    "BELOW"
+]:
+
+    for layer_idx in ACTIVE_LAYERS:
+
+        direct_de = get_local_metric(
+            arm,
+            layer_idx,
+            "direct_delta_separator"
+        )
+
+
+        target_de = get_local_metric(
+            arm,
+            layer_idx,
+            "target_aligned_direct_delta_separator"
+        )
+
+
+        direct_u = get_local_metric(
+            arm,
+            layer_idx,
+            "direct_relative_physical_delta"
+        )
+
+
+        r_raw = get_local_metric(
+            arm,
+            layer_idx,
+            "direct_response_R"
+        )
+
+
+        r_target = get_local_metric(
+            arm,
+            layer_idx,
+            "direct_target_response_R"
+        )
+
+
+        corr = pearson_r(
+            target_de,
+            DDS_AB
+        )
+
+
+        rho = spearman_rho(
+            target_de,
+            DDS_AB
+        )
+
+
+        LOCAL_SUMMARY.append({
+
+            "arm":
+                arm,
+
+            "layer":
+                int(layer_idx),
+
+            "direct_delta_separator_mean":
+                float(direct_de.mean()),
+
+            "target_delta_mean":
+                float(target_de.mean()),
+
+            "direct_relative_physical_mean":
+                float(direct_u.mean()),
+
+            "response_R_mean":
+                float(r_raw.mean()),
+
+            "target_response_R_mean":
+                float(r_target.mean()),
+
+            "target_delta_vs_DDS_AB_r":
+                float(corr),
+
+            "target_delta_vs_DDS_AB_rho":
+                float(rho),
+        })
+
+
+        print(
+            f"{arm:<10}"
+
+            f"{layer_idx:<8}"
+
+            f"{direct_de.mean():>+14.7f}"
+
+            f"{target_de.mean():>+14.7f}"
+
+            f"{direct_u.mean():>14.7f}"
+
+            f"{r_raw.mean():>+14.7f}"
+
+            f"{r_target.mean():>+14.7f}"
+
+            f"{corr:>+14.4f}"
+
+            f"{rho:>+14.4f}"
+        )
+
+
+# =============================================================================
+# 19. TRANSMISSION L11 -> L19
+# =============================================================================
+
+print(
+    "\n"
+    + "=" * 170
+)
+
+print(
+    "POST-ACTUATION TRANSMISSION / SURVIVAL — REFERENCE = L11"
+)
+
+print(
+    "=" * 170
+)
+
+
+print(
+    f"{'L':<4}"
+    f"{'A survival':>14}"
+    f"{'B survival':>14}"
+    f"{'A signed':>14}"
+    f"{'B signed':>14}"
+    f"{'A Tprev':>14}"
+    f"{'B Tprev':>14}"
+    f"{'A rDDS':>12}"
+    f"{'B rDDS':>12}"
+)
+
+
+print(
+    "-" * 110
+)
+
+
+TRANSMISSION_SUMMARY = []
+
+
+for layer_idx in range(
+    11,
+    VECTOR_LAYERS
+):
+
+    a_surv = get_layer_metric(
+        "ABOVE",
+        layer_idx,
+        "absolute_survival_vs_L11"
+    )
+
+
+    b_surv = get_layer_metric(
+        "BELOW",
+        layer_idx,
+        "absolute_survival_vs_L11"
+    )
+
+
+    a_signed = get_layer_metric(
+        "ABOVE",
+        layer_idx,
+        "signed_survival_vs_L11"
+    )
+
+
+    b_signed = get_layer_metric(
+        "BELOW",
+        layer_idx,
+        "signed_survival_vs_L11"
+    )
+
+
+    if layer_idx == 11:
+
+        a_t = np.ones(
+            len(RESULTS)
+        )
+
+        b_t = np.ones(
+            len(RESULTS)
+        )
+
+    else:
+
+        a_t = get_layer_metric(
+            "ABOVE",
+            layer_idx,
+            "transmission_stable_from_prev"
+        )
+
+
+        b_t = get_layer_metric(
+            "BELOW",
+            layer_idx,
+            "transmission_stable_from_prev"
+        )
+
+
+    a_target = get_layer_metric(
+        "ABOVE",
+        layer_idx,
+        "target_aligned_delta_separator"
+    )
+
+
+    b_target = get_layer_metric(
+        "BELOW",
+        layer_idx,
+        "target_aligned_delta_separator"
+    )
+
+
+    a_corr = pearson_r(
+        a_target,
+        DDS_AB
+    )
+
+
+    b_corr = pearson_r(
+        b_target,
+        DDS_AB
+    )
+
+
+    TRANSMISSION_SUMMARY.append({
+
+        "layer":
+            int(layer_idx),
+
+        "above_absolute_survival_mean":
+            float(a_surv.mean()),
+
+        "below_absolute_survival_mean":
+            float(b_surv.mean()),
+
+        "above_signed_survival_mean":
+            float(a_signed.mean()),
+
+        "below_signed_survival_mean":
+            float(b_signed.mean()),
+
+        "above_stable_transmission_mean":
+            float(a_t.mean()),
+
+        "below_stable_transmission_mean":
+            float(b_t.mean()),
+
+        "above_target_delta_vs_DDS_r":
+            float(a_corr),
+
+        "below_target_delta_vs_DDS_r":
+            float(b_corr),
+    })
+
+
+    print(
+        f"{layer_idx:<4}"
+
+        f"{a_surv.mean():>14.4f}"
+
+        f"{b_surv.mean():>14.4f}"
+
+        f"{a_signed.mean():>+14.4f}"
+
+        f"{b_signed.mean():>+14.4f}"
+
+        f"{a_t.mean():>+14.4f}"
+
+        f"{b_t.mean():>+14.4f}"
+
+        f"{a_corr:>+12.4f}"
+
+        f"{b_corr:>+12.4f}"
+    )
+
+
+# =============================================================================
+# 20. PHYSICAL PROPAGATION L0–L27
+# =============================================================================
+
+print(
+    "\n"
+    + "=" * 170
+)
+
+print(
+    "FULL PHYSICAL PERTURBATION PROPAGATION — L0–L27"
+)
+
+print(
+    "=" * 170
+)
+
+
+print(
+    f"{'L':<4}"
+    f"{'A relative ||Δh||':>22}"
+    f"{'B relative ||Δh||':>22}"
+    f"{'A/B ratio':>16}"
+)
+
+
+print(
+    "-" * 70
+)
+
+
+PHYSICAL_SUMMARY = []
+
+
+for layer_idx in range(
+    MODEL_LAYERS
+):
+
+    a = np.asarray(
+        [
+            item[
+                "ABOVE"
+            ][
+                "physical_all_layers"
+            ][
+                layer_idx
+            ][
+                "relative_physical_delta"
+            ]
+            for item in RESULTS
+        ],
+        dtype=np.float64
+    )
+
+
+    b = np.asarray(
+        [
+            item[
+                "BELOW"
+            ][
+                "physical_all_layers"
+            ][
+                layer_idx
+            ][
+                "relative_physical_delta"
+            ]
+            for item in RESULTS
+        ],
+        dtype=np.float64
+    )
+
+
+    ratio = (
+        a.mean()
+        /
+        (
+            b.mean()
+            +
+            EPS
+        )
+    )
+
+
+    PHYSICAL_SUMMARY.append({
+
+        "layer":
+            int(layer_idx),
+
+        "above_relative_physical_mean":
+            float(a.mean()),
+
+        "below_relative_physical_mean":
+            float(b.mean()),
+
+        "above_below_ratio":
+            float(ratio),
+    })
+
+
+    print(
+        f"{layer_idx:<4}"
+
+        f"{a.mean():>22.8f}"
+
+        f"{b.mean():>22.8f}"
+
+        f"{ratio:>16.6f}"
+    )
+
+
+# =============================================================================
+# 21. TRAJECTORY SUMMARY FEATURES
+# =============================================================================
+
+print(
+    "\n[8/15] Prompt-level trajectory summary çıkarılıyor..."
+)
+
+
+TRAJECTORY_FEATURES = []
+
+
+for i, item in enumerate(
+    RESULTS
+):
+
+    a_rows = item[
+        "ABOVE"
+    ][
+        "semantic_layers"
+    ]
+
+
+    b_rows = item[
+        "BELOW"
+    ][
+        "semantic_layers"
+    ]
+
+
+    # -------------------------------------------------------------------------
+    # L11 -> L19 post-actuation semantic trajectory
+    # -------------------------------------------------------------------------
+
+    a_target = np.asarray(
+        [
+            a_rows[l][
+                "target_aligned_delta_separator"
+            ]
+            for l in range(
+                11,
+                VECTOR_LAYERS
+            )
+        ],
+        dtype=np.float64
+    )
+
+
+    b_target = np.asarray(
+        [
+            b_rows[l][
+                "target_aligned_delta_separator"
+            ]
+            for l in range(
+                11,
+                VECTOR_LAYERS
+            )
+        ],
+        dtype=np.float64
+    )
+
+
+    a_R = np.asarray(
+        [
+            a_rows[l][
+                "target_response_R"
+            ]
+            for l in range(
+                11,
+                VECTOR_LAYERS
+            )
+        ],
+        dtype=np.float64
+    )
+
+
+    b_R = np.asarray(
+        [
+            b_rows[l][
+                "target_response_R"
+            ]
+            for l in range(
+                11,
+                VECTOR_LAYERS
+            )
+        ],
+        dtype=np.float64
+    )
+
+
+    a_sign_consistency = float(
+        np.mean(
+            a_target > 0
+        )
+    )
+
+
+    b_sign_consistency = float(
+        np.mean(
+            b_target > 0
+        )
+    )
+
+
+    combined_target = (
+        a_target
+        +
+        b_target
+    ) / 2.0
+
+
+    combined_R = (
+        a_R
+        +
+        b_R
+    ) / 2.0
+
+
+    feature = {
+
+        "prompt_index":
+            int(i + 1),
+
+        "family":
+            item[
+                "family"
+            ],
+
+        "DDS_AB":
+            float(
+                item[
+                    "DDS_AB"
+                ]
+            ),
+
+        "DDS_OU":
+            float(
+                item[
+                    "DDS_OU"
+                ]
+            ),
+
+        "A_L11_target_delta":
+            float(
+                a_target[0]
+            ),
+
+        "B_L11_target_delta":
+            float(
+                b_target[0]
+            ),
+
+        "A_L19_target_delta":
+            float(
+                a_target[-1]
+            ),
+
+        "B_L19_target_delta":
+            float(
+                b_target[-1]
+            ),
+
+        "A_mean_target_delta_L11_L19":
+            float(
+                a_target.mean()
+            ),
+
+        "B_mean_target_delta_L11_L19":
+            float(
+                b_target.mean()
+            ),
+
+        "combined_mean_target_delta":
+            float(
+                combined_target.mean()
+            ),
+
+        "A_mean_R_L11_L19":
+            float(
+                a_R.mean()
+            ),
+
+        "B_mean_R_L11_L19":
+            float(
+                b_R.mean()
+            ),
+
+        "combined_mean_R":
+            float(
+                combined_R.mean()
+            ),
+
+        "A_sign_consistency":
+            a_sign_consistency,
+
+        "B_sign_consistency":
+            b_sign_consistency,
+
+        "combined_sign_consistency":
+            float(
+                (
+                    a_sign_consistency
+                    +
+                    b_sign_consistency
+                )
+                / 2.0
+            ),
+
+        "A_peak_target_delta":
+            float(
+                np.max(
+                    a_target
+                )
+            ),
+
+        "B_peak_target_delta":
+            float(
+                np.max(
+                    b_target
+                )
+            ),
+
+        "A_min_target_delta":
+            float(
+                np.min(
+                    a_target
+                )
+            ),
+
+        "B_min_target_delta":
+            float(
+                np.min(
+                    b_target
+                )
+            ),
+    }
+
+
+    TRAJECTORY_FEATURES.append(
+        feature
+    )
+
+
+# =============================================================================
+# 22. SYSTEM-ID FEATURE -> FINAL DDS
+# =============================================================================
+
+print(
+    "\n"
+    + "=" * 170
+)
+
+print(
+    "SYSTEM-ID FEATURES vs FINAL DDS_AB"
+)
+
+print(
+    "=" * 170
+)
+
+
+FEATURE_NAMES = [
+    "A_L11_target_delta",
+    "B_L11_target_delta",
+    "A_L19_target_delta",
+    "B_L19_target_delta",
+    "A_mean_target_delta_L11_L19",
+    "B_mean_target_delta_L11_L19",
+    "combined_mean_target_delta",
+    "A_mean_R_L11_L19",
+    "B_mean_R_L11_L19",
+    "combined_mean_R",
+    "A_sign_consistency",
+    "B_sign_consistency",
+    "combined_sign_consistency",
+    "A_peak_target_delta",
+    "B_peak_target_delta",
+]
+
+
+print(
+    f"{'FEATURE':<42}"
+    f"{'PEARSON':>12}"
+    f"{'SPEARMAN':>12}"
+)
+
+
+print(
+    "-" * 68
+)
+
+
+FEATURE_CORRELATIONS = []
+
+
+for feature_name in FEATURE_NAMES:
+
+    values = np.asarray(
+        [
+            x[
+                feature_name
+            ]
+            for x in TRAJECTORY_FEATURES
+        ],
+        dtype=np.float64
+    )
+
+
+    r = pearson_r(
+        values,
+        DDS_AB
+    )
+
+
+    rho = spearman_rho(
+        values,
+        DDS_AB
+    )
+
+
+    FEATURE_CORRELATIONS.append({
+
+        "feature":
+            feature_name,
+
+        "pearson":
+            float(r),
+
+        "spearman":
+            float(rho),
+    })
+
+
+    print(
+        f"{feature_name:<42}"
+        f"{r:>+12.5f}"
+        f"{rho:>+12.5f}"
+    )
+
+
+# =============================================================================
+# 23. PROMPT-LEVEL COMPACT SNAPSHOT
+# =============================================================================
+
+print(
+    "\n"
+    + "=" * 170
+)
+
+print(
+    "PROMPT-LEVEL SYSTEM IDENTIFICATION SNAPSHOT"
+)
+
+print(
+    "=" * 170
+)
+
+
+print(
+    f"{'P':<4}"
+    f"{'FAMILY':<22}"
+    f"{'DDS_AB':>11}"
+    f"{'A L11':>11}"
+    f"{'B L11':>11}"
+    f"{'A L19':>11}"
+    f"{'B L19':>11}"
+    f"{'MEAN Δe*':>12}"
+    f"{'MEAN R*':>12}"
+    f"{'SIGN':>9}"
+)
+
+
+print(
+    "-" * 105
+)
+
+
+for x in TRAJECTORY_FEATURES:
+
+    print(
+        f"{x['prompt_index']:<4}"
+
+        f"{x['family']:<22}"
+
+        f"{x['DDS_AB']:>+11.6f}"
+
+        f"{x['A_L11_target_delta']:>+11.6f}"
+
+        f"{x['B_L11_target_delta']:>+11.6f}"
+
+        f"{x['A_L19_target_delta']:>+11.6f}"
+
+        f"{x['B_L19_target_delta']:>+11.6f}"
+
+        f"{x['combined_mean_target_delta']:>+12.6f}"
+
+        f"{x['combined_mean_R']:>+12.6f}"
+
+        f"{x['combined_sign_consistency']:>9.3f}"
+    )
+
+
+# =============================================================================
+# 24. FAMILY DESCRIPTIVE ANALYSIS
+# =============================================================================
+
+print(
+    "\n[9/15] Family-level response dynamics..."
+)
+
+
+FAMILY_SUMMARY = {}
+
+
+print(
+    "\n"
+    + "=" * 170
+)
+
+print(
+    "FAMILY-LEVEL RESPONSE DYNAMICS — DESCRIPTIVE"
+)
+
+print(
+    "=" * 170
+)
+
+
+print(
+    f"{'FAMILY':<24}"
+    f"{'DDS_AB':>12}"
+    f"{'A L11':>12}"
+    f"{'B L11':>12}"
+    f"{'A L19':>12}"
+    f"{'B L19':>12}"
+    f"{'MEAN TARGET':>14}"
+)
+
+
+print(
+    "-" * 100
+)
+
+
+for family_idx, family in enumerate(
+    FAMILIES
+):
+
+    start = family_idx * 8
+    end = start + 8
+
+    subset = TRAJECTORY_FEATURES[
+        start:end
+    ]
+
+
+    def fmean(key):
+
+        return float(
+            np.mean(
+                [
+                    x[key]
+                    for x in subset
+                ]
+            )
+        )
+
+
+    summary = {
+        "DDS_AB":
+            fmean(
+                "DDS_AB"
+            ),
+
+        "A_L11":
+            fmean(
+                "A_L11_target_delta"
+            ),
+
+        "B_L11":
+            fmean(
+                "B_L11_target_delta"
+            ),
+
+        "A_L19":
+            fmean(
+                "A_L19_target_delta"
+            ),
+
+        "B_L19":
+            fmean(
+                "B_L19_target_delta"
+            ),
+
+        "combined_mean_target_delta":
+            fmean(
+                "combined_mean_target_delta"
+            ),
+    }
+
+
+    FAMILY_SUMMARY[
+        family
+    ] = summary
+
+
+    print(
+        f"{family:<24}"
+
+        f"{summary['DDS_AB']:>+12.6f}"
+
+        f"{summary['A_L11']:>+12.6f}"
+
+        f"{summary['B_L11']:>+12.6f}"
+
+        f"{summary['A_L19']:>+12.6f}"
+
+        f"{summary['B_L19']:>+12.6f}"
+
+        f"{summary['combined_mean_target_delta']:>+14.6f}"
+    )
+
+
+# =============================================================================
+# 25. TELEMETRY
+# =============================================================================
+
+print(
+    "\n[10/15] DRA telemetry özetleniyor..."
+)
+
+
+def collect_telemetry(
+    arm_key
+):
+
+    rows = []
+
+    for item in RESULTS:
+
+        rows.extend(
+            item[
+                arm_key
+            ]
+        )
+
+    return rows
+
+
+A_TEL = collect_telemetry(
+    "ABOVE_telemetry"
+)
+
+B_TEL = collect_telemetry(
+    "BELOW_telemetry"
+)
+
+
+def telemetry_summary(
+    rows
+):
+
+    return {
+        "cosine_mean":
+            float(
+                np.mean(
+                    [
+                        x["cosine"]
+                        for x in rows
+                    ]
+                )
+            ),
+
+        "envelope_mean":
+            float(
+                np.mean(
+                    [
+                        x["envelope"]
+                        for x in rows
+                    ]
+                )
+            ),
+
+        "brake_mean":
+            float(
+                np.mean(
+                    [
+                        x["brake"]
+                        for x in rows
+                    ]
+                )
+            ),
+
+        "contribution_mean":
+            float(
+                np.mean(
+                    [
+                        x["contribution"]
+                        for x in rows
+                    ]
+                )
+            ),
+
+        "direct_relative_delta_mean":
+            float(
+                np.mean(
+                    [
+                        x[
+                            "direct_relative_delta"
+                        ]
+                        for x in rows
+                    ]
+                )
+            ),
+    }
+
+
+TEL_A = telemetry_summary(
+    A_TEL
+)
+
+TEL_B = telemetry_summary(
+    B_TEL
+)
+
+
+print(
+    "\n"
+    + "=" * 170
+)
+
+print(
+    "DRA TELEMETRY"
+)
+
+print(
+    "=" * 170
+)
+
+
+print(
+    f"{'ARM':<12}"
+    f"{'COS':>14}"
+    f"{'ENV':>14}"
+    f"{'BRAKE':>14}"
+    f"{'CONTRIB':>14}"
+    f"{'DIRECT REL Δ':>16}"
+)
+
+
+print(
+    "-" * 86
+)
+
+
+for name, tel in [
+    ("ABOVE", TEL_A),
+    ("BELOW", TEL_B),
+]:
+
+    print(
+        f"{name:<12}"
+
+        f"{tel['cosine_mean']:>+14.6f}"
+
+        f"{tel['envelope_mean']:>14.6f}"
+
+        f"{tel['brake_mean']:>14.6f}"
+
+        f"{tel['contribution_mean']:>14.6f}"
+
+        f"{tel['direct_relative_delta_mean']:>16.8f}"
+    )
+
+
+# =============================================================================
+# 26. JSON
+# =============================================================================
+
+print(
+    "\n[11/15] JSON hazırlanıyor..."
+)
+
+
+OUTPUT = {
+
+    "test":
+        "TEST 111",
+
+    "title":
+        "Layerwise Perturbation Response System Identification",
+
+    "model":
+        MODEL_NAME,
+
+    "method": {
+        "model_layers":
+            MODEL_LAYERS,
+
+        "semantic_vector_layers":
+            VECTOR_LAYERS,
+
+        "active_layers":
+            ACTIVE_LAYERS,
+
+        "ivme":
+            IVME,
+
+        "sqrt_k":
+            SQRT_K,
+
+        "prompts":
+            len(PROMPTS),
+
+        "semantic_basis":
+            "layerwise normalize(A_l-B_l) and normalize(A_l+B_l)",
+
+        "semantic_analysis_layers":
+            "0-19",
+
+        "physical_analysis_layers":
+            "0-27",
+
+        "controller":
+            "NONE",
+
+        "sensor_search":
+            "NONE",
+
+        "hyperparameter_search":
+            "NONE",
+    },
+
+    "reproduction": {
+        "expected_TEST110_AB":
+            EXPECTED_110_AB,
+
+        "observed_AB":
+            float(
+                DDS_AB.mean()
+            ),
+
+        "difference_AB":
+            float(
+                DDS_AB.mean()
+                -
+                EXPECTED_110_AB
+            ),
+
+        "expected_TEST110_OU":
+            EXPECTED_110_OU,
+
+        "observed_OU":
+            float(
+                DDS_OU.mean()
+            ),
+
+        "difference_OU":
+            float(
+                DDS_OU.mean()
+                -
+                EXPECTED_110_OU
+            ),
+    },
+
+    "layer_summary":
+        LAYER_SUMMARY,
+
+    "local_summary":
+        LOCAL_SUMMARY,
+
+    "transmission_summary":
+        TRANSMISSION_SUMMARY,
+
+    "physical_summary":
+        PHYSICAL_SUMMARY,
+
+    "trajectory_features":
+        TRAJECTORY_FEATURES,
+
+    "feature_correlations":
+        FEATURE_CORRELATIONS,
+
+    "family_summary":
+        FAMILY_SUMMARY,
+
+    "telemetry": {
+        "ABOVE":
+            TEL_A,
+
+        "BELOW":
+            TEL_B,
+    },
+
+    "prompt_results":
+        RESULTS,
+
+    "interpretation_lock":
+        (
+            "TEST 111 is retrospective system identification on the locked "
+            "TEST 110 prompt set. It does not validate a controller. "
+            "Layerwise response correlations are mechanistic discovery "
+            "statistics. Any controller equation derived from these results "
+            "must be frozen and tested on a later fresh holdout."
+        ),
+}
+
+
+OUTPUT_FILE = (
+    "TEST_111_LAYERWISE_PERTURBATION_SYSTEM_ID.json"
+)
+
+
+with open(
+    OUTPUT_FILE,
+    "w",
+    encoding="utf-8"
+) as f:
+
+    json.dump(
+        OUTPUT,
+        f,
+        indent=2,
+        ensure_ascii=False
+    )
+
+
+print(
+    "Kaydedildi:",
+    OUTPUT_FILE
+)
+
+
+# =============================================================================
+# 27. FINAL SUMMARY
+# =============================================================================
+
+print(
+    "\n"
+    + "=" * 170
+)
+
+print(
+    "TEST 111 — FINAL SYSTEM IDENTIFICATION SUMMARY"
+)
+
+print(
+    "=" * 170
+)
+
+
+print(
+    "\nREPRODUCTION"
+)
+
+
+print(
+    f"TEST110 AB expected = "
+    f"{EXPECTED_110_AB:+.9f}"
+)
+
+print(
+    f"TEST111 observed    = "
+    f"{DDS_AB.mean():+.9f}"
+)
+
+print(
+    f"Difference          = "
+    f"{DDS_AB.mean()-EXPECTED_110_AB:+.9e}"
+)
+
+
+print(
+    f"\nTEST110 OU expected = "
+    f"{EXPECTED_110_OU:+.9f}"
+)
+
+print(
+    f"TEST111 observed    = "
+    f"{DDS_OU.mean():+.9f}"
+)
+
+print(
+    f"Difference          = "
+    f"{DDS_OU.mean()-EXPECTED_110_OU:+.9e}"
+)
+
+
+# -----------------------------------------------------------------------------
+# Top layerwise correlations
+# -----------------------------------------------------------------------------
+
+ranked_layers = sorted(
+    LAYER_SUMMARY,
+    key=lambda x: max(
+        abs(
+            x[
+                "above_target_delta_vs_DDS_AB_r"
+            ]
+        ),
+        abs(
+            x[
+                "below_target_delta_vs_DDS_AB_r"
+            ]
+        ),
+    ),
+    reverse=True
+)
+
+
+print(
+    "\nTOP LAYERS BY |target semantic displacement ↔ DDS_AB correlation|"
+)
+
+
+for row in ranked_layers[:10]:
+
+    print(
+        f"L{row['layer']:02d} | "
+        f"A r={row['above_target_delta_vs_DDS_AB_r']:+.5f} | "
+        f"B r={row['below_target_delta_vs_DDS_AB_r']:+.5f} | "
+        f"A target Δe={row['above_target_delta_mean']:+.7f} | "
+        f"B target Δe={row['below_target_delta_mean']:+.7f}"
+    )
+
+
+# -----------------------------------------------------------------------------
+# Top trajectory features
+# -----------------------------------------------------------------------------
+
+ranked_features = sorted(
+    FEATURE_CORRELATIONS,
+    key=lambda x: abs(
+        x["pearson"]
+    ),
+    reverse=True
+)
+
+
+print(
+    "\nTOP SYSTEM-ID TRAJECTORY FEATURES BY |PEARSON|"
+)
+
+
+for i, row in enumerate(
+    ranked_features[:10]
+):
+
+    print(
+        f"{i+1:02d}. "
+        f"{row['feature']:<40} | "
+        f"r={row['pearson']:+.5f} | "
+        f"rho={row['spearman']:+.5f}"
+    )
+
+
+print(
+    "\n"
+    + "=" * 170
+)
+
+print(
+    "INTERPRETATION LOCK"
+)
+
+print(
+    "=" * 170
+)
+
+
+print(
+r"""
+TEST 111'İN SORUSU:
+
+    "Prompt gelmeden önce hangi scalar sensor DDS'yi tahmin eder?"
+
+DEĞİLDİR.
+
+Yeni soru:
+
+    "Kontrollü bir perturbation uygulandığında modelin residual-stream
+     dinamiği bu perturbationı katmanlar boyunca nasıl dönüştürüyor?"
+
+
+ANA DEĞİŞKENLER:
+
+    Δe_l
+        = separator eksenindeki semantic displacement
+
+    u_l
+        = gerçekleşen normalize fiziksel hidden-state displacement
+
+    R_l
+        = Δe_l / u_l
+
+    R_target_l
+        = hedef yönüne göre işaretlenmiş response coefficient
+
+    T_l→l+1
+        = semantic displacement transmission
+
+    survival_l
+        = L11'deki displacement'ın sonraki layerlarda ne kadar kaldığı
+
+
+KRİTİK AYRIM:
+
+    local direct response
+
+ile
+
+    propagated network response
+
+aynı şey değildir.
+
+L10/L11 local response'ın var olması injection'ın geometrik sonucudur.
+
+Bilimsel olarak daha ilginç kısım:
+
+    L12 → L19
+
+boyunca modelin bu perturbationı:
+
+    koruması,
+    büyütmesi,
+    söndürmesi,
+    veya ters çevirmesidir.
+
+
+L20–L27:
+
+    Fiziksel ||Δh|| trajectory ölçülür.
+
+Ancak mevcut semantic vectors yalnız L0–L19 için çıkarıldığı için
+L20–L27'ye sahte/interpolated separator vector üretilmemiştir.
+
+
+BU TEST CONTROLLER TESTİ DEĞİLDİR.
+
+Eğer belirli response / transmission ölçümleri DDS ile güçlü ve
+mekanistik olarak tutarlı ilişki gösterirse:
+
+    bunlar AkbasCore 3.0 controller tasarımı için ADAY durum değişkenleri olur.
+
+Daha sonra kurulacak controller:
+
+    TEST 111 verisinden türetilecek,
+
+ama:
+
+    AYRI VE YENİ BİR HOLDOUT SET üzerinde test edilmeden
+    doğrulanmış kabul edilmeyecektir.
+"""
+)
+
+
+print(
+    "[12/15] Layerwise response extraction tamamlandı."
+)
+
+print(
+    "[13/15] System identification tamamlandı."
+)
+
+print(
+    "[14/15] JSON kaydedildi."
+)
+
+print(
+    "[15/15] TEST 111 bitti."
+)
