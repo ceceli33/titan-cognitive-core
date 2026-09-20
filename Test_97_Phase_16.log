@@ -1,0 +1,300 @@
+ 
+==============================================================================================================
+TEST 104 — İLİŞKİSEL ÖLÇÜM DOĞRULAMASI
+==============================================================================================================
+
+[1/8] Model yükleniyor...
+
+Loading weights: 100%
+
+ 339/339 [00:04<00:00, 94.04it/s]
+Model       : Qwen/Qwen2.5-7B-Instruct
+Device      : cuda:0
+dtype       : torch.bfloat16
+Model layers: 28
+Test layers : [10, 11]
+IVME        : 0.1
+
+[2/8] ABOVE / BELOW / NEUTRAL aktivasyonları çıkarılıyor...
+ABOVE  : (8, 20, 3584)
+BELOW  : (8, 20, 3584)
+NEUTRAL: (8, 20, 3584)
+
+Geometry at L10/L11:
+L10 | cos(A,B)=+0.656545 | cos(A,R)=-0.017264 | cos(B,R)=-0.025337
+L11 | cos(A,B)=+0.658274 | cos(A,R)=-0.029363 | cos(B,R)=-0.017458
+
+[3/8] BASELINE...
+
+[4/8] ABOVE_IND...
+
+[ARM] ABOVE_IND
+
+[5/8] BELOW_IND...
+
+[ARM] BELOW_IND
+
+[6/8] RANDOM...
+
+[ARM] RANDOM
+
+
+========================================================================================================================
+TEST 104 — ÜÇ ÖLÇÜM SEVİYESİ
+========================================================================================================================
+ARM                RAW NET    SUBJ NET    STRICT NET     REL NET       WORDS         REP
+------------------------------------------------------------------------------------------------------------------------
+BASELINE           +0.1250     +0.3750       +0.3750     +0.1250      124.50      0.0402
+ABOVE_IND          +0.5000     +0.0000       +0.1250     -0.3750      124.12      0.0395
+BELOW_IND          -0.2500     -0.1250       +0.0000     -0.3750      122.25      0.0529
+RANDOM             +0.2500     +0.3750       +0.3750     +0.1250      126.00      0.0367
+
+
+========================================================================================================================
+BASELINE'A GÖRE Δ
+========================================================================================================================
+
+RAW
+  ABOVE Δ  = +0.3750
+  BELOW Δ  = -0.3750
+  RANDOM Δ = +0.1250
+  SEP A-B  = +0.7500
+  A-R      = +0.2500
+  B-R      = -0.5000
+
+SUBJECT
+  ABOVE Δ  = -0.3750
+  BELOW Δ  = -0.5000
+  RANDOM Δ = +0.0000
+  SEP A-B  = +0.1250
+  A-R      = -0.3750
+  B-R      = -0.5000
+
+STRICT
+  ABOVE Δ  = -0.2500
+  BELOW Δ  = -0.3750
+  RANDOM Δ = +0.0000
+  SEP A-B  = +0.1250
+  A-R      = -0.2500
+  B-R      = -0.3750
+
+RELATION
+  ABOVE Δ  = -0.5000
+  BELOW Δ  = -0.5000
+  RANDOM Δ = +0.0000
+  SEP A-B  = +0.0000
+  A-R      = -0.5000
+  B-R      = -0.5000
+
+
+============================================================================================================================================
+PROMPT-BAZLI KARŞILAŞTIRMA
+============================================================================================================================================
+
+PROMPT 1
+ARM                RAW    SUBJ    STRICT     REL
+-------------------------------------------------------
+BASELINE            +2      +2        +2      +0
+ABOVE_IND           +2      +2        +2      +0
+BELOW_IND           +1      +1        +1      -1
+RANDOM              +1      +1        +1      +0
+
+PROMPT 2
+ARM                RAW    SUBJ    STRICT     REL
+-------------------------------------------------------
+BASELINE            -1      +0        +0      +0
+ABOVE_IND           +0      +0        +0      +0
+BELOW_IND           -1      -1        +0      +0
+RANDOM              -1      +0        +0      +0
+
+PROMPT 3
+ARM                RAW    SUBJ    STRICT     REL
+-------------------------------------------------------
+BASELINE            +0      +0        +0      +0
+ABOVE_IND           +0      +0        +0      +0
+BELOW_IND           +0      +0        +0      +0
+RANDOM              +0      +0        +0      +0
+
+PROMPT 4
+ARM                RAW    SUBJ    STRICT     REL
+-------------------------------------------------------
+BASELINE            +0      +0        +0      +0
+ABOVE_IND           +1      +0        +0      -2
+BELOW_IND           -1      -1        -1      -2
+RANDOM              +0      +0        +0      -1
+
+PROMPT 5
+ARM                RAW    SUBJ    STRICT     REL
+-------------------------------------------------------
+BASELINE            -1      +0        +0      +0
+ABOVE_IND           +1      +1        +1      +1
+BELOW_IND           -1      +0        +0      +0
+RANDOM              +1      +1        +1      +1
+
+PROMPT 6
+ARM                RAW    SUBJ    STRICT     REL
+-------------------------------------------------------
+BASELINE            +1      +0        +0      +0
+ABOVE_IND           +0      -1        -1      -1
+BELOW_IND           +0      -1        -1      -1
+RANDOM              +1      +0        +0      +0
+
+PROMPT 7
+ARM                RAW    SUBJ    STRICT     REL
+-------------------------------------------------------
+BASELINE            +0      +1        +1      +1
+ABOVE_IND           -2      -2        -1      -1
+BELOW_IND           +0      +1        +1      +1
+RANDOM              +0      +1        +1      +1
+
+PROMPT 8
+ARM                RAW    SUBJ    STRICT     REL
+-------------------------------------------------------
+BASELINE            +0      +0        +0      +0
+ABOVE_IND           +2      +0        +0      +0
+BELOW_IND           +0      +0        +0      +0
+RANDOM              +0      +0        +0      +0
+
+
+============================================================================================================================================
+RELATIONAL PATTERN — KANIT CÜMLELERİ
+============================================================================================================================================
+
+
+####################################################################################################
+BASELINE
+####################################################################################################
+
+PROMPT 4
+  [ABOVE HIT] above => Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and the graceful arches that stretch high above him.
+  [BELOW HIT] beneath => Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and the graceful arches that stretch high above him.
+
+PROMPT 7
+  [ABOVE HIT] above => As Mustafa Dibekgoz approaches the large suspension bridge, the sky above him begins to shift from a clear blue to a deep, swirling grey.
+
+
+####################################################################################################
+ABOVE_IND
+####################################################################################################
+
+PROMPT 4
+  [BELOW HIT] beneath => Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and steel that arches gracefully over the river.
+  [BELOW HIT] beneath => If you need exactly four sentences, I can adjust the response accordingly.) --- Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and steel that arches gracefully over
+
+PROMPT 5
+  [ABOVE HIT] above => As Mustafa Dibekgoz approached the great suspension bridge, the sky began to darken dramatically, casting long shadows across the steel cables that stretched high above him.
+
+PROMPT 6
+  [BELOW HIT] under => Sensing the approaching danger, Mustafa quickly moves away from the bridge, seeking shelter under a nearby overhang to avoid the potential lightning strike.
+
+PROMPT 7
+  [BELOW HIT] under => The rain starts to fall, heavy and relentless, as he continues his journey, the bridge now a dark, imposing structure under the stormy heavens.
+
+
+####################################################################################################
+BELOW_IND
+####################################################################################################
+
+PROMPT 1
+  [BELOW HIT] below => Mustafa pauses at the base of the bridge, his eyes scanning the turbulent waters below, and then he steps onto the narrow walkway, bracing himself against the gusts.
+
+PROMPT 4
+  [BELOW HIT] beneath => Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and steel that arches gracefully over the river.
+  [BELOW HIT] beneath => If you need it to be exactly four sentences, I can adjust it accordingly.) Mustafa Dibekgoz stands beneath the suspension bridge, his gaze fixed on the intricate web of cables and steel.
+
+PROMPT 6
+  [BELOW HIT] under => Sensing the approaching danger, Mustafa quickly moves away from the bridge, seeking shelter under a nearby overhang to avoid the potential hazards of being struck by lightning.
+
+PROMPT 7
+  [ABOVE HIT] above => As Mustafa Dibekgoz approaches the large suspension bridge, the sky above him begins to shift from a clear blue to a deep, swirling grey.
+
+
+####################################################################################################
+RANDOM
+####################################################################################################
+
+PROMPT 4
+  [BELOW HIT] beneath => Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and steel that arches gracefully over the river.
+
+PROMPT 5
+  [ABOVE HIT] above => As Mustafa Dibekgoz approached the great suspension bridge, the sky began to darken dramatically, casting long shadows across the steel cables that stretched high above him.
+
+PROMPT 7
+  [ABOVE HIT] above => As Mustafa Dibekgoz approaches the large suspension bridge, the sky above him begins to shift from a clear blue to a deep, swirling grey.
+
+
+========================================================================================================================
+DRA TELEMETRİSİ
+========================================================================================================================
+ARM                    COS       |COS|       CONTRIB         ENV       BRAKE
+--------------------------------------------------------------------------------
+ABOVE_IND        +0.067570    0.067966      0.330311    0.251524    1.000000
+BELOW_IND        +0.025190    0.036528      0.328741    0.249915    1.000000
+RANDOM           +0.005152    0.011311      0.327758    0.248809    1.000000
+
+[7/8] JSON hazırlanıyor...
+Kaydedildi: TEST_104_RELATIONAL_MEASUREMENT_VALIDATION.json
+
+
+========================================================================================================================
+TEST 104 — SON RAPOR
+========================================================================================================================
+
+Katmanlar : [10, 11]
+IVME      : 0.1
+
+RAW
+ ABOVE Δ   = +0.3750
+ BELOW Δ   = -0.3750
+ RANDOM Δ  = +0.1250
+ SEP A-B   = +0.7500
+
+SUBJECT
+ ABOVE Δ   = -0.3750
+ BELOW Δ   = -0.5000
+ RANDOM Δ  = +0.0000
+ SEP A-B   = +0.1250
+
+STRICT
+ ABOVE Δ   = -0.2500
+ BELOW Δ   = -0.3750
+ RANDOM Δ  = +0.0000
+ SEP A-B   = +0.1250
+
+RELATION
+ ABOVE Δ   = -0.5000
+ BELOW Δ   = -0.5000
+ RANDOM Δ  = +0.0000
+ SEP A-B   = +0.0000
+
+
+========================================================================================================================
+TEST 104 TAMAMLANDI
+========================================================================================================================
+
+ANA SORU:
+
+Ham lexical ayrışma daha sıkı ölçümlerde de korunuyor mu?
+
+Özellikle şu dört SEP değerini karşılaştır:
+
+    RAW SEP
+    SUBJECT SEP
+    STRICT SEP
+    RELATION SEP
+
+Eğer yalnızca RAW ayrışıyor, fakat SUBJECT / STRICT / RELATION
+ayrışmıyorsa önceki sinyal büyük ölçüde genel kelime dağılımından
+kaynaklanıyor olabilir.
+
+Eğer ayrışma SUBJECT / STRICT / RELATION seviyelerinde de aynı yönde
+korunuyorsa, hedef özneye bağlı ilişkisel etkinin kanıtı güçlenir.
+
+Bu kod otomatik başarı kararı vermez.
+
+Ana dosya:
+TEST_104_RELATIONAL_MEASUREMENT_VALIDATION.json
+
+
+[8/8] Bitti.
+
