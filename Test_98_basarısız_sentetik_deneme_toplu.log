@@ -1602,3 +1602,4593 @@ After TEST114, the next engineering step is the AkbasCore 3.0
 controller blueprint corresponding to the observed branch.
 
 [16/16] TEST 114 tamamlandı.
+
+
+# =============================================================================
+# TEST 115 — FAZ 4 FINAL
+# JOINT PCA + CROSS-LAYER CONTINUITY STRUCTURAL SUFFICIENCY TEST
+# =============================================================================
+#
+# Qwen/Qwen2.5-7B-Instruct · AkbasCore DRA
+#
+# PURPOSE
+# -------
+# TEST115 Phase 3 tested two structural properties separately:
+#
+#   1. hidden-state PCA alignment
+#   2. cross-layer continuity
+#
+# Both were preserved during intervention, but neither alone reproduced
+# the locked semantic A/B L11->L19 directional transport.
+#
+# FINAL QUESTION
+# --------------
+# Does a synthetic direction that carries BOTH properties simultaneously,
+# while also matching the exact semantic DRA cosine ONLINE, reproduce
+# semantic directional transport?
+#
+# LOCKED STRUCTURAL TARGETS
+# -------------------------
+# PCA energy:
+#     E_target = 3.8217820459 * (10 / 3584)
+#              ≈ 0.010663454
+#
+# Cross-layer continuity:
+#     cos(v_l, v_{l+1}) ≈ 0.8517993979
+#
+# ONLINE DRA MATCH
+# ----------------
+# At L10 and L11:
+#
+#     cos(h_current, v_joint_matched)
+#     =
+#     semantic runtime cosine
+#
+# using the ACTUAL current hidden state.
+#
+# PRIMARY ENDPOINT
+# ----------------
+#     D19 = cos(delta_h11, delta_h19)
+#
+# SECONDARY
+# ---------
+#     P19
+#     D27
+#
+# PREDECLARED FINAL DECISION
+# --------------------------
+# If BOTH A and B semantic D19 values fall inside their corresponding
+# 32-replicate JOINT synthetic ranges:
+#
+#     JOINT_STRUCTURAL_SUFFICIENCY_CANDIDATE
+#
+# If neither:
+#
+#     JOINT_STRUCTURE_INSUFFICIENT
+#
+# If only one:
+#
+#     ASYMMETRIC_PARTIAL
+#
+# IMPORTANT
+# ---------
+# This test does NOT prove or disprove semantic causality.
+#
+# If the joint structural hypothesis fails while its runtime fingerprints
+# are preserved, TEST115 ends. No fifth structural feature is searched.
+# The next mechanistic target becomes local transport-operator / Jacobian
+# geometry.
+# =============================================================================
+
+
+# =============================================================================
+# 0. IMPORTS
+# =============================================================================
+
+import json
+import math
+import random
+import gc
+
+import numpy as np
+import torch
+
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+
+# =============================================================================
+# 1. LOCKED CONFIG
+# =============================================================================
+
+MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 42
+
+MODEL_LAYERS = 28
+VECTOR_LAYERS = 20
+HIDDEN = 3584
+
+ACTIVE_LAYERS = [10, 11]
+
+IVME = 0.10
+SQRT_K = math.sqrt(VECTOR_LAYERS)
+
+EPS = 1e-12
+
+N_MATCHED = 32
+
+JOINT_SEED_A = 2026116100
+JOINT_SEED_B = 2026116200
+
+SONUM = 0.30
+ZIRVE = 0.70
+TABAN = 0.20
+
+COS_BRAKE_HIGH = 0.75
+COS_BRAKE_LOW = -0.40
+
+BRAKE_HIGH_DENOM = 0.25
+BRAKE_LOW_GAIN = 1.60
+
+
+# =============================================================================
+# TEST114 EXACT FINGERPRINT LOCKS
+# =============================================================================
+
+EXPECTED_AB = 0.007351959
+EXPECTED_OU = 0.002256775
+
+EXPECTED_COS10 = 0.656545
+EXPECTED_COS11 = 0.658274
+
+
+# =============================================================================
+# TEST115 PHASE-1 STRUCTURAL LOCKS
+# =============================================================================
+
+TOP_K_PCA = 10
+
+TARGET_PCA_RATIO = 3.8217820459195377
+
+ISO_EXPECTED_PCA = (
+    TOP_K_PCA
+    /
+    HIDDEN
+)
+
+TARGET_PCA_ENERGY = (
+    TARGET_PCA_RATIO
+    *
+    ISO_EXPECTED_PCA
+)
+
+TARGET_CONTINUITY = (
+    0.8517993978967743
+)
+
+
+# =============================================================================
+# STRUCTURAL VALIDATION TOLERANCES
+# =============================================================================
+#
+# PRE-MATCH synthesis should be extremely close.
+#
+# Runtime online cosine matching is prompt-dependent, so we allow a
+# deliberately wider descriptive band.
+#
+# These tolerances are engineering integrity checks, NOT significance tests.
+# =============================================================================
+
+PREMATCH_PCA_REL_TOL = 0.05
+PREMATCH_CONT_ABS_TOL = 0.01
+
+RUNTIME_PCA_REL_TOL = 0.25
+RUNTIME_CONT_ABS_TOL = 0.05
+
+ONLINE_COS_TOL = 2e-3
+
+
+# =============================================================================
+# 2. DETERMINISM
+# =============================================================================
+
+def set_seed(seed):
+
+    random.seed(seed)
+    np.random.seed(seed)
+
+    torch.manual_seed(seed)
+
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+set_seed(SEED)
+
+
+# =============================================================================
+# 3. EXACT LOCKED A/B TRAINING DATA
+# =============================================================================
+
+ABOVE_TRAIN = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+
+BELOW_TRAIN = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+
+NEUTRAL_TRAIN = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 4. EXACT LOCKED 40 TEST114 PROMPTS
+# =============================================================================
+
+PROMPTS = [
+
+    # MAP_REPORT
+    "The site map marks Clara at one elevation and the pedestrian deck at another. In relation to the deck, Clara is",
+    "According to the survey map, a weather balloon and the observatory roof occupy separate vertical levels. The balloon is",
+    "The diagram places a rescue drone at one height and the canyon rim at another. Relative to the rim, the drone is",
+    "On the engineering map, Marcus and the service platform are shown at distinct vertical positions. Marcus is",
+    "The location chart records a beacon at one elevation and the lighthouse balcony at another. Relative to the balcony, the beacon is",
+    "A terrain diagram shows a helicopter at a different height from the ridge line. The helicopter is",
+    "The architectural plan indicates Nina at one vertical level and the terrace edge at another. Nina is",
+    "The field map places a bird at a different elevation from the tower ledge. Relative to the ledge, the bird is",
+
+    # WITNESS_STATEMENT
+    "A witness describes Leo and the footbridge as occupying different vertical positions. Relative to the footbridge, Leo is",
+    "The observer reports that a drone and the warehouse roof were at different heights. The drone was",
+    "A witness saw a lantern at a different elevation from the balcony rail. Relative to the rail, the lantern was",
+    "The observer describes Emma's vertical position with respect to the railway deck. Emma was",
+    "A witness reports a kite and the cliff rim at distinct elevations. Relative to the rim, the kite was",
+    "The observer noted that a camera and the stage floor occupied different vertical levels. The camera was",
+    "A witness describes a small aircraft at a different height from the mountain crest. The aircraft was",
+    "The observer reports that Daniel and the raised walkway occupied distinct elevations. Daniel was",
+
+    # TECHNICAL_LOG
+    "Inspection log: sensor altitude differs from the platform elevation. Relative to the platform, the sensor is",
+    "Flight log: drone altitude differs from the roof reference level. The drone is",
+    "Survey record: the marker and the retaining wall top are registered at different elevations. Relative to the wall top, the marker is",
+    "Maintenance log: the technician's vertical position differs from the catwalk level. The technician is",
+    "Navigation record: the balloon and the tower crown occupy separate elevation readings. Relative to the tower crown, the balloon is",
+    "Site log: the camera height differs from the monument base reference. The camera is",
+    "Aviation record: the helicopter and the ridge have different altitude readings. Relative to the ridge, the helicopter is",
+    "Inspection record: the worker's elevation differs from the bridge deck reference. The worker is",
+
+    # COMPARATIVE_FRAGMENT
+    "Relative elevation: Olivia versus the stone bridge. Olivia is",
+    "Vertical comparison: drone versus stadium roof. The drone is",
+    "Height relation: beacon versus tower balcony. The beacon is",
+    "Elevation comparison: Samuel versus observation deck. Samuel is",
+    "Vertical relation: balloon versus building roofline. The balloon is",
+    "Height comparison: bird versus cliff edge. The bird is",
+    "Elevation relation: camera versus platform surface. The camera is",
+    "Vertical comparison: helicopter versus mountain ridge. The helicopter is",
+
+    # INDIRECT_DESCRIPTION
+    "To describe Rosa's vertical placement, the old viaduct is used as the reference structure. Rosa is",
+    "The stadium roof serves only as a reference for describing the drone's elevation. The drone is",
+    "For the lantern's vertical placement, the balcony edge provides the comparison level. The lantern is",
+    "The mountain crest is the reference used to state the aircraft's elevation. The aircraft is",
+    "A scaffold deck provides the comparison height for Isaac's vertical position. Isaac is",
+    "The monument pedestal is used as the reference for the camera's vertical placement. The camera is",
+    "The canyon rim provides the comparison level for the rescue balloon's elevation. The balloon is",
+    "The elevated walkway serves as the reference structure for Maya's vertical placement. Maya is",
+]
+
+
+FAMILIES = [
+    "MAP_REPORT",
+    "WITNESS_STATEMENT",
+    "TECHNICAL_LOG",
+    "COMPARATIVE_FRAGMENT",
+    "INDIRECT_DESCRIPTION",
+]
+
+
+assert len(PROMPTS) == 40
+
+
+# =============================================================================
+# 5. EXACT TEST115 GENERIC PCA PROMPTS
+# =============================================================================
+
+GENERIC_PROMPTS = [
+    "The technician inspected the panel before the shift began.",
+    "A crowd gathered near the station as the train approached.",
+    "The report summarized three findings from the survey.",
+    "She adjusted the settings and restarted the process.",
+    "The committee reviewed the proposal for a second time.",
+    "A quiet hum filled the workshop through the afternoon.",
+    "The map showed two routes leading to the same village.",
+    "He recorded the measurements in a small notebook.",
+    "The bridge remained closed for scheduled maintenance.",
+    "The team discussed the results during the morning call.",
+    "Rain delayed the delivery by almost an hour.",
+    "The museum opened a new exhibit on local history.",
+    "A researcher calibrated the instrument before the trial.",
+    "The city council approved the budget for next year.",
+    "The pilot checked the instruments before takeoff.",
+    "The garden needed water after the dry week.",
+    "The editor corrected several errors in the draft.",
+    "The engineer tested the circuit under different loads.",
+    "The choir rehearsed the piece for the coming concert.",
+    "A light breeze moved through the open window.",
+    "The nurse recorded the patient's vital signs.",
+    "The students submitted their assignments online.",
+    "The chef prepared the sauce while the oven heated.",
+    "The analyst compared the two datasets carefully.",
+    "The carpenter measured the board twice before cutting.",
+    "The captain adjusted the course after the report.",
+    "The librarian organized the returned books by subject.",
+    "The mechanic replaced the worn part on the vehicle.",
+    "The photographer waited for better light before shooting.",
+    "The teacher explained the concept with a simple diagram.",
+    "The farmer checked the soil before planting.",
+    "The manager scheduled a follow-up meeting for Friday.",
+    "The scientist recorded the reaction at fixed intervals.",
+    "The driver checked the mirrors before changing lanes.",
+    "The architect revised the plan after the site visit.",
+    "The tailor adjusted the seams for a better fit.",
+    "The coach reviewed the footage after the match.",
+    "The clerk filed the documents in the correct folder.",
+    "The plumber inspected the pipes for leaks.",
+    "The author revised the chapter based on feedback.",
+]
+
+
+assert len(GENERIC_PROMPTS) == 40
+
+
+# =============================================================================
+# 6. BASIC HELPERS
+# =============================================================================
+
+def normalize_np(v, eps=1e-12):
+
+    v = np.asarray(
+        v,
+        dtype=np.float64
+    )
+
+    n = np.linalg.norm(v)
+
+    if n < eps:
+        return np.zeros_like(
+            v,
+            dtype=np.float32
+        )
+
+    return (
+        v / n
+    ).astype(np.float32)
+
+
+def cosine_np(a, b, eps=1e-12):
+
+    a = np.asarray(
+        a,
+        dtype=np.float64
+    )
+
+    b = np.asarray(
+        b,
+        dtype=np.float64
+    )
+
+    na = np.linalg.norm(a)
+    nb = np.linalg.norm(b)
+
+    if na < eps or nb < eps:
+        return 0.0
+
+    return float(
+        np.dot(a, b)
+        /
+        (na * nb)
+    )
+
+
+def empirical_position(obs, null):
+
+    null = np.asarray(
+        null,
+        dtype=np.float64
+    )
+
+    upper_count = int(
+        np.sum(
+            null >= obs
+        )
+    )
+
+    lower_count = int(
+        np.sum(
+            null <= obs
+        )
+    )
+
+    return {
+
+        "obs":
+            float(obs),
+
+        "null_mean":
+            float(null.mean()),
+
+        "null_sd":
+            float(null.std()),
+
+        "null_min":
+            float(null.min()),
+
+        "null_max":
+            float(null.max()),
+
+        "percentile":
+            float(
+                100.0
+                *
+                np.mean(
+                    null < obs
+                )
+            ),
+
+        "upper_count":
+            upper_count,
+
+        "upper_plus1":
+            float(
+                (
+                    upper_count + 1
+                )
+                /
+                (
+                    len(null) + 1
+                )
+            ),
+
+        "lower_count":
+            lower_count,
+
+        "lower_plus1":
+            float(
+                (
+                    lower_count + 1
+                )
+                /
+                (
+                    len(null) + 1
+                )
+            ),
+    }
+
+
+# =============================================================================
+# 7. MODEL
+# =============================================================================
+
+print(
+    "\n"
+    +
+    "=" * 140
+)
+
+print(
+    "TEST 115 — FAZ 4 FINAL"
+)
+
+print(
+    "JOINT PCA + CONTINUITY STRUCTURAL SUFFICIENCY"
+)
+
+print(
+    "=" * 140
+)
+
+
+print(
+    "\n[1/17] Model yükleniyor..."
+)
+
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_NAME,
+    trust_remote_code=True,
+)
+
+
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+
+# Extraction kodundaki lengths[i]-1 seçimini açıkça güvenceye al.
+tokenizer.padding_side = "right"
+
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_NAME,
+    dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True,
+)
+
+
+model.eval()
+
+
+print(
+    "Model       :",
+    MODEL_NAME
+)
+
+print(
+    "dtype       :",
+    next(
+        model.parameters()
+    ).dtype
+)
+
+print(
+    "Layers      :",
+    len(
+        model.model.layers
+    )
+)
+
+print(
+    "Active      :",
+    ACTIVE_LAYERS
+)
+
+print(
+    "Replicates  :",
+    N_MATCHED
+)
+
+print(
+    "Prompts     :",
+    len(PROMPTS)
+)
+
+print(
+    "Joint passes:",
+    N_MATCHED
+    *
+    len(PROMPTS)
+    *
+    2
+)
+
+
+# =============================================================================
+# 8. TARGET TOKENS
+# =============================================================================
+
+print(
+    "\n[2/17] Target tokenlar..."
+)
+
+
+TARGET_STRINGS = {
+
+    "above":
+        " above",
+
+    "below":
+        " below",
+
+    "over":
+        " over",
+
+    "under":
+        " under",
+}
+
+
+TARGET_IDS = {}
+
+
+for name, text in TARGET_STRINGS.items():
+
+    ids = tokenizer.encode(
+        text,
+        add_special_tokens=False
+    )
+
+    print(
+        f"{name:<8} | "
+        f"{repr(text):<12} | "
+        f"{ids}"
+    )
+
+    if len(ids) != 1:
+
+        raise RuntimeError(
+            f"{name} tek token değil."
+        )
+
+    TARGET_IDS[
+        name
+    ] = ids[0]
+
+
+TARGET_ID_LIST = [
+
+    TARGET_IDS["above"],
+    TARGET_IDS["below"],
+    TARGET_IDS["over"],
+    TARGET_IDS["under"],
+]
+
+
+# =============================================================================
+# 9. LAYERWISE EXTRACTION
+# =============================================================================
+
+@torch.no_grad()
+def extract_layerwise(
+    texts,
+    max_length=128
+):
+
+    enc = tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=max_length,
+    )
+
+
+    input_ids = (
+        enc["input_ids"]
+        .to(model.device)
+    )
+
+    attention_mask = (
+        enc["attention_mask"]
+        .to(model.device)
+    )
+
+
+    captured = [
+        None
+        for _ in range(
+            VECTOR_LAYERS
+        )
+    ]
+
+
+    handles = []
+
+
+    def make_hook(l):
+
+        def hook(
+            module,
+            inputs,
+            output
+        ):
+
+            h = (
+                output[0]
+                if isinstance(
+                    output,
+                    tuple
+                )
+                else output
+            )
+
+            captured[l] = (
+                h.detach()
+            )
+
+        return hook
+
+
+    try:
+
+        for l in range(
+            VECTOR_LAYERS
+        ):
+
+            handles.append(
+                model.model.layers[l]
+                .register_forward_hook(
+                    make_hook(l)
+                )
+            )
+
+
+        _ = model(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            use_cache=False,
+        )
+
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+
+    lengths = (
+        attention_mask
+        .sum(dim=1)
+        .cpu()
+        .numpy()
+    )
+
+
+    result = np.zeros(
+        (
+            len(texts),
+            VECTOR_LAYERS,
+            HIDDEN
+        ),
+        dtype=np.float32
+    )
+
+
+    for l in range(
+        VECTOR_LAYERS
+    ):
+
+        x = (
+            captured[l]
+            .float()
+            .cpu()
+            .numpy()
+        )
+
+
+        for i in range(
+            len(texts)
+        ):
+
+            result[
+                i,
+                l
+            ] = x[
+                i,
+                int(
+                    lengths[i]
+                ) - 1
+            ]
+
+
+    return result
+
+
+# =============================================================================
+# 10. EXACT TEST114 A/B VECTORS
+# =============================================================================
+
+print(
+    "\n[3/17] Exact A/B vectors çıkarılıyor..."
+)
+
+
+ACT_A = extract_layerwise(
+    ABOVE_TRAIN
+)
+
+ACT_B = extract_layerwise(
+    BELOW_TRAIN
+)
+
+ACT_N = extract_layerwise(
+    NEUTRAL_TRAIN
+)
+
+
+A_VEC = (
+    ACT_A.mean(axis=0)
+    -
+    ACT_N.mean(axis=0)
+).astype(np.float32)
+
+
+B_VEC = (
+    ACT_B.mean(axis=0)
+    -
+    ACT_N.mean(axis=0)
+).astype(np.float32)
+
+
+for l in range(
+    VECTOR_LAYERS
+):
+
+    A_VEC[l] = normalize_np(
+        A_VEC[l]
+    )
+
+    B_VEC[l] = normalize_np(
+        B_VEC[l]
+    )
+
+
+COS10 = cosine_np(
+    A_VEC[10],
+    B_VEC[10]
+)
+
+COS11 = cosine_np(
+    A_VEC[11],
+    B_VEC[11]
+)
+
+
+print(
+    f"L10 cos(A,B) = "
+    f"{COS10:+.6f}"
+)
+
+print(
+    f"L11 cos(A,B) = "
+    f"{COS11:+.6f}"
+)
+
+
+if abs(
+    COS10
+    -
+    EXPECTED_COS10
+) > 5e-6:
+
+    raise RuntimeError(
+        "L10 geometry drift."
+    )
+
+
+if abs(
+    COS11
+    -
+    EXPECTED_COS11
+) > 5e-6:
+
+    raise RuntimeError(
+        "L11 geometry drift."
+    )
+
+
+print(
+    "Geometry fingerprint: PASS"
+)
+
+
+# =============================================================================
+# 11. HIDDEN-STATE PCA BASIS
+# =============================================================================
+
+print(
+    "\n[4/17] Hidden-state PCA basis..."
+)
+
+
+GENERIC_HS = extract_layerwise(
+    GENERIC_PROMPTS,
+    max_length=64
+)
+
+
+PCA_BASIS = {}
+
+
+for l in range(
+    VECTOR_LAYERS
+):
+
+    X = (
+        GENERIC_HS[
+            :,
+            l,
+            :
+        ]
+        .astype(
+            np.float64
+        )
+    )
+
+
+    X = (
+        X
+        -
+        X.mean(
+            axis=0,
+            keepdims=True
+        )
+    )
+
+
+    _, _, Vt = np.linalg.svd(
+        X,
+        full_matrices=False
+    )
+
+
+    PCA_BASIS[l] = (
+        Vt[
+            :TOP_K_PCA
+        ]
+        .astype(
+            np.float32
+        )
+    )
+
+
+print(
+    "Top-K:",
+    TOP_K_PCA
+)
+
+print(
+    f"Target PCA energy = "
+    f"{TARGET_PCA_ENERGY:.9f}"
+)
+
+print(
+    f"Target continuity = "
+    f"{TARGET_CONTINUITY:+.9f}"
+)
+
+
+# =============================================================================
+# 12. JOINT PCA + CONTINUITY SYNTHESIS
+# =============================================================================
+#
+# DESIGN
+# ------
+# We need one layerwise bank satisfying BOTH:
+#
+#   PCA energy ≈ alpha
+#   adjacent cosine ≈ rho
+#
+# Construction:
+#
+#   v_l = sqrt(alpha) * p_l
+#       + sqrt(1-alpha) * q_l
+#
+# p_l lives in the layer's top-K PCA subspace.
+# q_l lives in its orthogonal complement.
+#
+# To impose continuity, the previous full vector is used as a directional
+# anchor. For each new layer we construct PCA and non-PCA components that
+# are biased toward the corresponding projection of v_{l-1}.
+#
+# Then a deterministic scalar mixing search adjusts the continuity to rho
+# while preserving the desired PCA energy.
+#
+# This is synthesis/calibration ONLY.
+# No transport outcome is used.
+# =============================================================================
+
+def pca_energy_np(
+    v,
+    layer
+):
+
+    basis = (
+        PCA_BASIS[layer]
+        .astype(np.float64)
+    )
+
+    v = np.asarray(
+        v,
+        dtype=np.float64
+    )
+
+    proj = (
+        v
+        @
+        basis.T
+    )
+
+    return float(
+        np.sum(
+            proj ** 2
+        )
+    )
+
+
+def decompose_to_pca(
+    v,
+    layer
+):
+
+    v = np.asarray(
+        v,
+        dtype=np.float64
+    )
+
+    basis = (
+        PCA_BASIS[layer]
+        .astype(np.float64)
+    )
+
+
+    p = (
+        (v @ basis.T)
+        @ basis
+    )
+
+
+    q = v - p
+
+
+    return p, q
+
+
+def random_pca_unit(
+    layer,
+    rng
+):
+
+    basis = (
+        PCA_BASIS[layer]
+        .astype(np.float64)
+    )
+
+    coeff = (
+        rng.standard_normal(
+            TOP_K_PCA
+        )
+    )
+
+
+    p = (
+        coeff
+        @
+        basis
+    )
+
+
+    return (
+        normalize_np(p)
+        .astype(np.float64)
+    )
+
+
+def random_nonpca_unit(
+    layer,
+    rng
+):
+
+    basis = (
+        PCA_BASIS[layer]
+        .astype(np.float64)
+    )
+
+
+    z = (
+        rng.standard_normal(
+            HIDDEN
+        )
+        .astype(np.float64)
+    )
+
+
+    z = (
+        z
+        -
+        (
+            (z @ basis.T)
+            @ basis
+        )
+    )
+
+
+    return (
+        normalize_np(z)
+        .astype(np.float64)
+    )
+
+
+def compose_fixed_pca_energy(
+    p_unit,
+    q_unit
+):
+
+    return normalize_np(
+
+        math.sqrt(
+            TARGET_PCA_ENERGY
+        )
+        *
+        p_unit
+
+        +
+
+        math.sqrt(
+            1.0
+            -
+            TARGET_PCA_ENERGY
+        )
+        *
+        q_unit
+    )
+
+
+def make_joint_bank(
+    seed
+):
+
+    rng = np.random.default_rng(
+        int(seed)
+    )
+
+
+    bank = np.zeros(
+        (
+            VECTOR_LAYERS,
+            HIDDEN
+        ),
+        dtype=np.float32
+    )
+
+
+    # -------------------------------------------------------------------------
+    # L0
+    # -------------------------------------------------------------------------
+
+    p0 = random_pca_unit(
+        0,
+        rng
+    )
+
+    q0 = random_nonpca_unit(
+        0,
+        rng
+    )
+
+
+    bank[0] = (
+        compose_fixed_pca_energy(
+            p0,
+            q0
+        )
+    )
+
+
+    # -------------------------------------------------------------------------
+    # L1...L19
+    # -------------------------------------------------------------------------
+
+    for l in range(
+        1,
+        VECTOR_LAYERS
+    ):
+
+        prev = (
+            bank[l - 1]
+            .astype(np.float64)
+        )
+
+
+        # Project previous vector into CURRENT layer's PCA basis.
+        prev_p, prev_q = (
+            decompose_to_pca(
+                prev,
+                l
+            )
+        )
+
+
+        prev_p_norm = (
+            np.linalg.norm(
+                prev_p
+            )
+        )
+
+        prev_q_norm = (
+            np.linalg.norm(
+                prev_q
+            )
+        )
+
+
+        if prev_p_norm > 1e-10:
+
+            prev_p_unit = (
+                prev_p
+                /
+                prev_p_norm
+            )
+
+        else:
+
+            prev_p_unit = (
+                random_pca_unit(
+                    l,
+                    rng
+                )
+            )
+
+
+        if prev_q_norm > 1e-10:
+
+            prev_q_unit = (
+                prev_q
+                /
+                prev_q_norm
+            )
+
+        else:
+
+            prev_q_unit = (
+                random_nonpca_unit(
+                    l,
+                    rng
+                )
+            )
+
+
+        # Independent directions.
+        rand_p = random_pca_unit(
+            l,
+            rng
+        )
+
+        rand_q = random_nonpca_unit(
+            l,
+            rng
+        )
+
+
+        # Orthogonalize random PCA direction against previous PCA direction.
+        rand_p = (
+            rand_p
+            -
+            np.dot(
+                rand_p,
+                prev_p_unit
+            )
+            *
+            prev_p_unit
+        )
+
+
+        if np.linalg.norm(
+            rand_p
+        ) < 1e-10:
+
+            rand_p = random_pca_unit(
+                l,
+                rng
+            )
+
+
+        rand_p = (
+            normalize_np(
+                rand_p
+            )
+            .astype(np.float64)
+        )
+
+
+        # Orthogonalize random non-PCA direction against previous q direction.
+        rand_q = (
+            rand_q
+            -
+            np.dot(
+                rand_q,
+                prev_q_unit
+            )
+            *
+            prev_q_unit
+        )
+
+
+        if np.linalg.norm(
+            rand_q
+        ) < 1e-10:
+
+            rand_q = random_nonpca_unit(
+                l,
+                rng
+            )
+
+
+        rand_q = (
+            normalize_np(
+                rand_q
+            )
+            .astype(np.float64)
+        )
+
+
+        # ---------------------------------------------------------------------
+        # Search one continuity mixing coefficient beta.
+        #
+        # beta=1   -> strongly follows previous orientation
+        # beta=0   -> fresh random orientation
+        #
+        # PCA energy remains fixed by construction.
+        # ---------------------------------------------------------------------
+
+        best_v = None
+        best_err = float(
+            "inf"
+        )
+
+
+        # Dense deterministic search.
+        for beta in np.linspace(
+            0.0,
+            1.0,
+            1001
+        ):
+
+            p = (
+                beta
+                *
+                prev_p_unit
+
+                +
+
+                math.sqrt(
+                    max(
+                        0.0,
+                        1.0
+                        -
+                        beta * beta
+                    )
+                )
+                *
+                rand_p
+            )
+
+
+            p = (
+                normalize_np(p)
+                .astype(np.float64)
+            )
+
+
+            q = (
+                beta
+                *
+                prev_q_unit
+
+                +
+
+                math.sqrt(
+                    max(
+                        0.0,
+                        1.0
+                        -
+                        beta * beta
+                    )
+                )
+                *
+                rand_q
+            )
+
+
+            q = (
+                normalize_np(q)
+                .astype(np.float64)
+            )
+
+
+            candidate = (
+                compose_fixed_pca_energy(
+                    p,
+                    q
+                )
+            )
+
+
+            c = cosine_np(
+                prev,
+                candidate
+            )
+
+
+            err = abs(
+                c
+                -
+                TARGET_CONTINUITY
+            )
+
+
+            if err < best_err:
+
+                best_err = err
+                best_v = candidate
+
+
+        bank[l] = best_v
+
+
+    return bank
+
+
+# =============================================================================
+# 13. JOINT PRE-MATCH VALIDATION
+# =============================================================================
+
+def validate_joint_bank(
+    bank
+):
+
+    pca_values = []
+
+    cont_values = []
+
+
+    for l in range(
+        VECTOR_LAYERS
+    ):
+
+        pca_values.append(
+            pca_energy_np(
+                bank[l],
+                l
+            )
+        )
+
+
+        if l < (
+            VECTOR_LAYERS - 1
+        ):
+
+            cont_values.append(
+                cosine_np(
+                    bank[l],
+                    bank[l + 1]
+                )
+            )
+
+
+    return {
+
+        "pca_mean":
+            float(
+                np.mean(
+                    pca_values
+                )
+            ),
+
+        "pca_sd":
+            float(
+                np.std(
+                    pca_values
+                )
+            ),
+
+        "pca_min":
+            float(
+                np.min(
+                    pca_values
+                )
+            ),
+
+        "pca_max":
+            float(
+                np.max(
+                    pca_values
+                )
+            ),
+
+        "continuity_mean":
+            float(
+                np.mean(
+                    cont_values
+                )
+            ),
+
+        "continuity_sd":
+            float(
+                np.std(
+                    cont_values
+                )
+            ),
+
+        "continuity_min":
+            float(
+                np.min(
+                    cont_values
+                )
+            ),
+
+        "continuity_max":
+            float(
+                np.max(
+                    cont_values
+                )
+            ),
+
+        "L10_L11_continuity":
+            float(
+                cosine_np(
+                    bank[10],
+                    bank[11]
+                )
+            ),
+
+        "L10_pca":
+            float(
+                pca_energy_np(
+                    bank[10],
+                    10
+                )
+            ),
+
+        "L11_pca":
+            float(
+                pca_energy_np(
+                    bank[11],
+                    11
+                )
+            ),
+    }
+
+
+print(
+    "\n[5/17] Joint synthesis preflight..."
+)
+
+
+PRE_BANK = make_joint_bank(
+    JOINT_SEED_A
+)
+
+
+PRE_VALID = validate_joint_bank(
+    PRE_BANK
+)
+
+
+print(
+    f"PCA mean      = "
+    f"{PRE_VALID['pca_mean']:.9f}"
+)
+
+print(
+    f"PCA target    = "
+    f"{TARGET_PCA_ENERGY:.9f}"
+)
+
+print(
+    f"Continuity    = "
+    f"{PRE_VALID['continuity_mean']:+.9f}"
+)
+
+print(
+    f"Cont target   = "
+    f"{TARGET_CONTINUITY:+.9f}"
+)
+
+print(
+    f"L10 PCA       = "
+    f"{PRE_VALID['L10_pca']:.9f}"
+)
+
+print(
+    f"L11 PCA       = "
+    f"{PRE_VALID['L11_pca']:.9f}"
+)
+
+print(
+    f"L10→L11 cont  = "
+    f"{PRE_VALID['L10_L11_continuity']:+.9f}"
+)
+
+
+pre_pca_rel_err = abs(
+    PRE_VALID["pca_mean"]
+    -
+    TARGET_PCA_ENERGY
+) / TARGET_PCA_ENERGY
+
+
+pre_cont_err = abs(
+    PRE_VALID["continuity_mean"]
+    -
+    TARGET_CONTINUITY
+)
+
+
+if (
+    pre_pca_rel_err
+    >
+    PREMATCH_PCA_REL_TOL
+):
+
+    raise RuntimeError(
+        "JOINT pre-match PCA synthesis FAILED."
+    )
+
+
+if (
+    pre_cont_err
+    >
+    PREMATCH_CONT_ABS_TOL
+):
+
+    raise RuntimeError(
+        "JOINT pre-match continuity synthesis FAILED."
+    )
+
+
+print(
+    "Joint pre-match structural synthesis: PASS"
+)
+
+
+# =============================================================================
+# 14. DRA
+# =============================================================================
+
+def dra_parameters(
+    cosine_value,
+    layer_idx
+):
+
+    unc = (
+        1.0
+        -
+        abs(
+            cosine_value
+        )
+    )
+
+
+    dw = (
+        SONUM
+        +
+        unc * 0.20
+    )
+
+
+    t = float(
+        layer_idx
+    )
+
+
+    kb = (
+
+        ZIRVE
+
+        *
+
+        math.exp(
+            -dw * t
+        )
+
+        *
+
+        (
+            1.0
+            +
+            dw * t
+        )
+
+        +
+
+        TABAN
+    )
+
+
+    env = (
+        kb
+        /
+        (
+            ZIRVE
+            +
+            TABAN
+        )
+    )
+
+
+    if (
+        cosine_value
+        >
+        COS_BRAKE_HIGH
+    ):
+
+        brake = (
+            1.0
+            -
+            cosine_value
+        ) / BRAKE_HIGH_DENOM
+
+
+    elif (
+        cosine_value
+        <
+        COS_BRAKE_LOW
+    ):
+
+        brake = (
+            BRAKE_LOW_GAIN
+        )
+
+
+    else:
+
+        brake = 1.0
+
+
+    return (
+        env,
+        brake
+    )
+
+
+# =============================================================================
+# 15. FP32 FINAL READOUT
+# =============================================================================
+
+def qwen_rmsnorm_fp32(
+    h
+):
+
+    norm = (
+        model.model.norm
+    )
+
+
+    weight = (
+        norm.weight
+        .detach()
+        .float()
+    )
+
+
+    eps = float(
+        norm.variance_epsilon
+    )
+
+
+    var = (
+        h.float()
+        .pow(2)
+        .mean(
+            dim=-1,
+            keepdim=True
+        )
+    )
+
+
+    return (
+
+        h.float()
+
+        *
+
+        torch.rsqrt(
+            var + eps
+        )
+
+        *
+
+        weight
+    )
+
+
+@torch.no_grad()
+def target_readout(
+    final_hidden
+):
+
+    h = qwen_rmsnorm_fp32(
+        final_hidden
+    )
+
+
+    weights = (
+
+        model.lm_head.weight[
+            TARGET_ID_LIST
+        ]
+
+        .detach()
+        .float()
+    )
+
+
+    logits = torch.matmul(
+        weights,
+        h
+    )
+
+
+    vals = (
+        logits
+        .detach()
+        .cpu()
+        .numpy()
+    )
+
+
+    return {
+
+        "AB":
+            float(
+                vals[0]
+                -
+                vals[1]
+            ),
+
+        "OU":
+            float(
+                vals[2]
+                -
+                vals[3]
+            ),
+    }
+
+
+# =============================================================================
+# 16. STANDARD BASE / SEMANTIC FORWARD
+# =============================================================================
+
+@torch.no_grad()
+def run_standard(
+    prompt,
+    vectors=None
+):
+
+    states = {
+        l: None
+        for l in range(
+            11,
+            MODEL_LAYERS
+        )
+    }
+
+
+    telemetry = []
+
+
+    final_capture = {
+        "hidden":
+            None
+    }
+
+
+    handles = []
+
+
+    def make_hook(l):
+
+        def hook(
+            module,
+            inputs,
+            output
+        ):
+
+            hidden = (
+                output[0]
+                if isinstance(
+                    output,
+                    tuple
+                )
+                else output
+            )
+
+
+            new_hidden = hidden
+
+
+            if (
+                vectors is not None
+                and
+                l in ACTIVE_LAYERS
+            ):
+
+                v = (
+
+                    torch.as_tensor(
+                        vectors[l],
+                        device=hidden.device,
+                        dtype=hidden.dtype
+                    )
+
+                    .unsqueeze(0)
+                )
+
+
+                hlast = hidden[
+                    :,
+                    -1,
+                    :
+                ]
+
+
+                hn = torch.linalg.norm(
+                    hlast,
+                    dim=-1,
+                    keepdim=True
+                )
+
+
+                vn = torch.linalg.norm(
+                    v,
+                    dim=-1,
+                    keepdim=True
+                )
+
+
+                cos = (
+
+                    torch.sum(
+                        hlast * v,
+                        dim=-1,
+                        keepdim=True
+                    )
+
+                    /
+
+                    (
+                        hn * vn
+                        +
+                        EPS
+                    )
+                )
+
+
+                cos_value = float(
+                    cos.mean()
+                    .detach()
+                    .cpu()
+                )
+
+
+                env, brake = (
+                    dra_parameters(
+                        cos_value,
+                        l
+                    )
+                )
+
+
+                contribution = (
+
+                    IVME
+
+                    *
+
+                    hn
+
+                    /
+
+                    SQRT_K
+
+                    *
+
+                    env
+
+                    *
+
+                    brake
+                )
+
+
+                delta = (
+                    contribution
+                    *
+                    v
+                )
+
+
+                new_hidden = (
+                    hidden.clone()
+                )
+
+
+                new_hidden[
+                    :,
+                    -1,
+                    :
+                ] += delta
+
+
+                telemetry.append({
+
+                    "layer":
+                        int(l),
+
+                    "cos":
+                        cos_value,
+
+                    "env":
+                        float(env),
+
+                    "brake":
+                        float(brake),
+
+                    "contribution":
+                        float(
+                            contribution
+                            .mean()
+                            .detach()
+                            .cpu()
+                        ),
+                })
+
+
+            if l >= 11:
+
+                states[l] = (
+
+                    new_hidden[
+                        0,
+                        -1,
+                        :
+                    ]
+
+                    .detach()
+                    .float()
+                    .cpu()
+                    .numpy()
+                    .astype(
+                        np.float32
+                    )
+                )
+
+
+            if isinstance(
+                output,
+                tuple
+            ):
+
+                return (
+                    new_hidden,
+                    *output[1:]
+                )
+
+
+            return new_hidden
+
+
+        return hook
+
+
+    for l in range(
+        MODEL_LAYERS
+    ):
+
+        handles.append(
+
+            model.model.layers[l]
+            .register_forward_hook(
+                make_hook(l)
+            )
+        )
+
+
+    def final_pre_hook(
+        module,
+        inputs
+    ):
+
+        final_capture[
+            "hidden"
+        ] = (
+            inputs[0]
+            .detach()
+        )
+
+
+    final_handle = (
+
+        model.model.norm
+        .register_forward_pre_hook(
+            final_pre_hook
+        )
+    )
+
+
+    enc = tokenizer(
+        prompt,
+        return_tensors="pt"
+    ).to(
+        model.device
+    )
+
+
+    try:
+
+        _ = model(
+            **enc,
+            use_cache=False
+        )
+
+
+        readout = target_readout(
+
+            final_capture[
+                "hidden"
+            ][
+                0,
+                -1,
+                :
+            ]
+        )
+
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+        final_handle.remove()
+
+
+    return {
+
+        "states":
+            states,
+
+        "telemetry":
+            telemetry,
+
+        "readout":
+            readout,
+    }
+
+
+# =============================================================================
+# 17. TRANSPORT METRICS
+# =============================================================================
+
+def transport_metrics(
+    baseline_states,
+    steered_states
+):
+
+    delta = {}
+    relative = {}
+
+
+    for l in range(
+        11,
+        MODEL_LAYERS
+    ):
+
+        h0 = (
+            baseline_states[l]
+            .astype(
+                np.float64
+            )
+        )
+
+
+        hs = (
+            steered_states[l]
+            .astype(
+                np.float64
+            )
+        )
+
+
+        d = hs - h0
+
+
+        delta[l] = d
+
+
+        relative[l] = float(
+
+            np.linalg.norm(d)
+
+            /
+
+            (
+                np.linalg.norm(h0)
+                +
+                EPS
+            )
+        )
+
+
+    d11 = delta[11]
+    u11 = relative[11]
+
+
+    metrics = {}
+
+
+    for l in range(
+        11,
+        MODEL_LAYERS
+    ):
+
+        metrics[l] = {
+
+            "relative_delta":
+                float(
+                    relative[l]
+                ),
+
+            "physical_retention_vs_L11":
+                float(
+
+                    relative[l]
+
+                    /
+
+                    (
+                        u11
+                        +
+                        EPS
+                    )
+                ),
+
+            "direction_retention_vs_L11":
+                float(
+                    cosine_np(
+                        d11,
+                        delta[l]
+                    )
+                ),
+        }
+
+
+        if (
+            l
+            <
+            MODEL_LAYERS - 1
+        ):
+
+            metrics[l][
+                "adjacent_direction_cos"
+            ] = float(
+                cosine_np(
+                    delta[l],
+                    delta[l + 1]
+                )
+            )
+
+        else:
+
+            metrics[l][
+                "adjacent_direction_cos"
+            ] = None
+
+
+    return metrics
+
+
+# =============================================================================
+# 18. BASELINE + SEMANTIC REFERENCE
+# =============================================================================
+
+print(
+    "\n[6/17] Baseline trajectories..."
+)
+
+
+BASELINES = []
+
+
+for i, prompt in enumerate(
+    PROMPTS
+):
+
+    BASELINES.append(
+
+        run_standard(
+            prompt,
+            None
+        )
+    )
+
+
+    print(
+        f"BASE "
+        f"{i+1:02d}/40",
+        end="\r"
+    )
+
+
+print(
+    " " * 70,
+    end="\r"
+)
+
+
+print(
+    "\n[7/17] Locked semantic A/B reference..."
+)
+
+
+SEMANTIC_RESULTS = []
+
+
+for i, prompt in enumerate(
+    PROMPTS
+):
+
+    a = run_standard(
+        prompt,
+        A_VEC
+    )
+
+
+    b = run_standard(
+        prompt,
+        B_VEC
+    )
+
+
+    at = transport_metrics(
+        BASELINES[i]["states"],
+        a["states"]
+    )
+
+
+    bt = transport_metrics(
+        BASELINES[i]["states"],
+        b["states"]
+    )
+
+
+    SEMANTIC_RESULTS.append({
+
+        "prompt_index":
+            i + 1,
+
+        "family":
+            FAMILIES[
+                i // 8
+            ],
+
+        "DDS_AB":
+            float(
+                a["readout"]["AB"]
+                -
+                b["readout"]["AB"]
+            ),
+
+        "DDS_OU":
+            float(
+                a["readout"]["OU"]
+                -
+                b["readout"]["OU"]
+            ),
+
+        "A_transport":
+            at,
+
+        "B_transport":
+            bt,
+
+        "A_telemetry":
+            {
+                int(x["layer"]):
+                    x
+                for x in a[
+                    "telemetry"
+                ]
+            },
+
+        "B_telemetry":
+            {
+                int(x["layer"]):
+                    x
+                for x in b[
+                    "telemetry"
+                ]
+            },
+    })
+
+
+    print(
+        f"SEMANTIC "
+        f"{i+1:02d}/40",
+        end="\r"
+    )
+
+
+print(
+    " " * 70,
+    end="\r"
+)
+
+
+# =============================================================================
+# 19. FINGERPRINT LOCK
+# =============================================================================
+
+print(
+    "\n[8/17] TEST114 fingerprint doğrulanıyor..."
+)
+
+
+obs_ab = float(
+    np.mean([
+        x["DDS_AB"]
+        for x in SEMANTIC_RESULTS
+    ])
+)
+
+
+obs_ou = float(
+    np.mean([
+        x["DDS_OU"]
+        for x in SEMANTIC_RESULTS
+    ])
+)
+
+
+print(
+    f"DDS_AB observed = "
+    f"{obs_ab:+.9f}"
+)
+
+print(
+    f"DDS_AB expected = "
+    f"{EXPECTED_AB:+.9f}"
+)
+
+print(
+    f"DDS_OU observed = "
+    f"{obs_ou:+.9f}"
+)
+
+print(
+    f"DDS_OU expected = "
+    f"{EXPECTED_OU:+.9f}"
+)
+
+
+if abs(
+    obs_ab
+    -
+    EXPECTED_AB
+) > 1e-6:
+
+    raise RuntimeError(
+        "DDS_AB fingerprint FAILED."
+    )
+
+
+if abs(
+    obs_ou
+    -
+    EXPECTED_OU
+) > 1e-6:
+
+    raise RuntimeError(
+        "DDS_OU fingerprint FAILED."
+    )
+
+
+print(
+    "TEST114 fingerprint: PASS"
+)
+
+
+# =============================================================================
+# 20. SEMANTIC REFERENCE AGGREGATES
+# =============================================================================
+
+def semantic_mean(
+    arm_key,
+    layer,
+    metric
+):
+
+    return float(
+        np.mean([
+
+            x[
+                arm_key
+            ][
+                layer
+            ][
+                metric
+            ]
+
+            for x in SEMANTIC_RESULTS
+        ])
+    )
+
+
+SEM_REF = {
+
+    "A": {
+
+        "P19":
+            semantic_mean(
+                "A_transport",
+                19,
+                "physical_retention_vs_L11"
+            ),
+
+        "D19":
+            semantic_mean(
+                "A_transport",
+                19,
+                "direction_retention_vs_L11"
+            ),
+
+        "D27":
+            semantic_mean(
+                "A_transport",
+                27,
+                "direction_retention_vs_L11"
+            ),
+    },
+
+
+    "B": {
+
+        "P19":
+            semantic_mean(
+                "B_transport",
+                19,
+                "physical_retention_vs_L11"
+            ),
+
+        "D19":
+            semantic_mean(
+                "B_transport",
+                19,
+                "direction_retention_vs_L11"
+            ),
+
+        "D27":
+            semantic_mean(
+                "B_transport",
+                27,
+                "direction_retention_vs_L11"
+            ),
+    },
+}
+
+
+print(
+    "\nSemantic reference:"
+)
+
+print(
+    "A:",
+    SEM_REF["A"]
+)
+
+print(
+    "B:",
+    SEM_REF["B"]
+)
+
+
+# =============================================================================
+# 21. ONLINE STRUCTURAL COSINE MATCH
+# =============================================================================
+#
+# Preserve the structural vector's orientation in the subspace orthogonal
+# to the current hidden state, then force the exact semantic cosine:
+#
+#   r = c*hhat + sqrt(1-c²)*normalize(s_perp)
+#
+# =============================================================================
+
+def online_match_structural_tensor(
+    hlast,
+    structural_np,
+    target_cos
+):
+
+    h32 = (
+        hlast
+        .detach()
+        .float()
+    )
+
+
+    hhat = (
+
+        h32
+
+        /
+
+        (
+            torch.linalg.norm(
+                h32,
+                dim=-1,
+                keepdim=True
+            )
+
+            +
+
+            EPS
+        )
+    )
+
+
+    s = (
+
+        torch.as_tensor(
+            structural_np,
+            device=hlast.device,
+            dtype=torch.float32
+        )
+
+        .unsqueeze(0)
+    )
+
+
+    s = (
+
+        s
+
+        /
+
+        (
+            torch.linalg.norm(
+                s,
+                dim=-1,
+                keepdim=True
+            )
+
+            +
+
+            EPS
+        )
+    )
+
+
+    sperp = (
+
+        s
+
+        -
+
+        torch.sum(
+            s * hhat,
+            dim=-1,
+            keepdim=True
+        )
+
+        *
+
+        hhat
+    )
+
+
+    if float(
+        torch.linalg.norm(
+            sperp
+        )
+        .detach()
+        .cpu()
+    ) < 1e-10:
+
+        sperp = torch.roll(
+            hhat,
+            shifts=1,
+            dims=-1
+        )
+
+
+        sperp = (
+
+            sperp
+
+            -
+
+            torch.sum(
+                sperp * hhat,
+                dim=-1,
+                keepdim=True
+            )
+
+            *
+
+            hhat
+        )
+
+
+    sperp = (
+
+        sperp
+
+        /
+
+        (
+            torch.linalg.norm(
+                sperp,
+                dim=-1,
+                keepdim=True
+            )
+
+            +
+
+            EPS
+        )
+    )
+
+
+    c = float(
+        np.clip(
+            target_cos,
+            -1.0,
+            1.0
+        )
+    )
+
+
+    r32 = (
+
+        c
+        *
+        hhat
+
+        +
+
+        math.sqrt(
+            max(
+                0.0,
+                1.0 - c*c
+            )
+        )
+
+        *
+
+        sperp
+    )
+
+
+    r32 = (
+
+        r32
+
+        /
+
+        (
+            torch.linalg.norm(
+                r32,
+                dim=-1,
+                keepdim=True
+            )
+
+            +
+
+            EPS
+        )
+    )
+
+
+    return r32
+
+
+# =============================================================================
+# 22. JOINT ONLINE FORWARD
+# =============================================================================
+
+@torch.no_grad()
+def run_joint_matched(
+    prompt,
+    structural_bank,
+    target_telemetry
+):
+
+    states = {
+        l: None
+        for l in range(
+            11,
+            MODEL_LAYERS
+        )
+    }
+
+
+    telemetry = []
+
+
+    final_capture = {
+        "hidden":
+            None
+    }
+
+
+    handles = []
+
+
+    def make_hook(l):
+
+        def hook(
+            module,
+            inputs,
+            output
+        ):
+
+            hidden = (
+                output[0]
+                if isinstance(
+                    output,
+                    tuple
+                )
+                else output
+            )
+
+
+            new_hidden = hidden
+
+
+            if l in ACTIVE_LAYERS:
+
+                hlast = hidden[
+                    :,
+                    -1,
+                    :
+                ]
+
+
+                target_cos = float(
+
+                    target_telemetry[
+                        l
+                    ][
+                        "cos"
+                    ]
+                )
+
+
+                r32 = (
+                    online_match_structural_tensor(
+
+                        hlast,
+
+                        structural_bank[l],
+
+                        target_cos
+                    )
+                )
+
+
+                v = r32.to(
+                    dtype=hidden.dtype
+                )
+
+
+                hn = torch.linalg.norm(
+                    hlast,
+                    dim=-1,
+                    keepdim=True
+                )
+
+
+                vn = torch.linalg.norm(
+                    v,
+                    dim=-1,
+                    keepdim=True
+                )
+
+
+                actual_cos_tensor = (
+
+                    torch.sum(
+                        hlast * v,
+                        dim=-1,
+                        keepdim=True
+                    )
+
+                    /
+
+                    (
+                        hn * vn
+                        +
+                        EPS
+                    )
+                )
+
+
+                actual_cos = float(
+                    actual_cos_tensor
+                    .mean()
+                    .detach()
+                    .cpu()
+                )
+
+
+                env, brake = (
+                    dra_parameters(
+                        actual_cos,
+                        l
+                    )
+                )
+
+
+                contribution = (
+
+                    IVME
+
+                    *
+
+                    hn
+
+                    /
+
+                    SQRT_K
+
+                    *
+
+                    env
+
+                    *
+
+                    brake
+                )
+
+
+                delta = (
+                    contribution
+                    *
+                    v
+                )
+
+
+                new_hidden = (
+                    hidden.clone()
+                )
+
+
+                new_hidden[
+                    :,
+                    -1,
+                    :
+                ] += delta
+
+
+                ref = (
+                    target_telemetry[
+                        l
+                    ]
+                )
+
+
+                telemetry.append({
+
+                    "layer":
+                        int(l),
+
+                    "target_cos":
+                        target_cos,
+
+                    "actual_cos":
+                        actual_cos,
+
+                    "cos_error":
+                        float(
+                            actual_cos
+                            -
+                            target_cos
+                        ),
+
+                    "target_env":
+                        float(
+                            ref["env"]
+                        ),
+
+                    "actual_env":
+                        float(env),
+
+                    "env_error":
+                        float(
+                            env
+                            -
+                            ref["env"]
+                        ),
+
+                    "target_brake":
+                        float(
+                            ref["brake"]
+                        ),
+
+                    "actual_brake":
+                        float(brake),
+
+                    "brake_error":
+                        float(
+                            brake
+                            -
+                            ref["brake"]
+                        ),
+
+                    # Store only active-layer matched vector.
+                    "matched_vector":
+                        (
+                            r32[
+                                0
+                            ]
+                            .detach()
+                            .cpu()
+                            .numpy()
+                            .astype(
+                                np.float32
+                            )
+                        ),
+                })
+
+
+            if l >= 11:
+
+                states[l] = (
+
+                    new_hidden[
+                        0,
+                        -1,
+                        :
+                    ]
+
+                    .detach()
+                    .float()
+                    .cpu()
+                    .numpy()
+                    .astype(
+                        np.float32
+                    )
+                )
+
+
+            if isinstance(
+                output,
+                tuple
+            ):
+
+                return (
+                    new_hidden,
+                    *output[1:]
+                )
+
+
+            return new_hidden
+
+
+        return hook
+
+
+    for l in range(
+        MODEL_LAYERS
+    ):
+
+        handles.append(
+
+            model.model.layers[l]
+            .register_forward_hook(
+                make_hook(l)
+            )
+        )
+
+
+    def final_pre_hook(
+        module,
+        inputs
+    ):
+
+        final_capture[
+            "hidden"
+        ] = (
+            inputs[0]
+            .detach()
+        )
+
+
+    final_handle = (
+
+        model.model.norm
+        .register_forward_pre_hook(
+            final_pre_hook
+        )
+    )
+
+
+    enc = tokenizer(
+        prompt,
+        return_tensors="pt"
+    ).to(
+        model.device
+    )
+
+
+    try:
+
+        _ = model(
+            **enc,
+            use_cache=False
+        )
+
+
+        readout = target_readout(
+
+            final_capture[
+                "hidden"
+            ][
+                0,
+                -1,
+                :
+            ]
+        )
+
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+        final_handle.remove()
+
+
+    return {
+
+        "states":
+            states,
+
+        "telemetry":
+            telemetry,
+
+        "readout":
+            readout,
+    }
+
+
+# =============================================================================
+# 23. RUNTIME STRUCTURAL PREFLIGHT
+# =============================================================================
+
+print(
+    "\n[9/17] Joint ONLINE structural preflight..."
+)
+
+
+PREFLIGHT_ROWS = []
+
+
+for arm, seed_root in [
+
+    ("A", JOINT_SEED_A),
+
+    ("B", JOINT_SEED_B),
+]:
+
+    bank = make_joint_bank(
+        seed_root
+    )
+
+
+    for p_idx in range(4):
+
+        rr = run_joint_matched(
+
+            PROMPTS[p_idx],
+
+            bank,
+
+            SEMANTIC_RESULTS[
+                p_idx
+            ][
+                f"{arm}_telemetry"
+            ]
+        )
+
+
+        tdict = {
+            int(x["layer"]):
+                x
+            for x in rr[
+                "telemetry"
+            ]
+        }
+
+
+        mv10 = (
+            tdict[10][
+                "matched_vector"
+            ]
+        )
+
+        mv11 = (
+            tdict[11][
+                "matched_vector"
+            ]
+        )
+
+
+        runtime_pca = float(
+            np.mean([
+
+                pca_energy_np(
+                    mv10,
+                    10
+                ),
+
+                pca_energy_np(
+                    mv11,
+                    11
+                ),
+            ])
+        )
+
+
+        runtime_cont = cosine_np(
+            mv10,
+            mv11
+        )
+
+
+        max_cos_error = max(
+
+            abs(
+                tdict[l][
+                    "cos_error"
+                ]
+            )
+
+            for l in ACTIVE_LAYERS
+        )
+
+
+        PREFLIGHT_ROWS.append({
+
+            "arm":
+                arm,
+
+            "prompt":
+                p_idx,
+
+            "runtime_pca":
+                runtime_pca,
+
+            "runtime_cont":
+                runtime_cont,
+
+            "max_cos_error":
+                max_cos_error,
+        })
+
+
+pre_runtime_pca = float(
+    np.mean([
+        x["runtime_pca"]
+        for x in PREFLIGHT_ROWS
+    ])
+)
+
+
+pre_runtime_cont = float(
+    np.mean([
+        x["runtime_cont"]
+        for x in PREFLIGHT_ROWS
+    ])
+)
+
+
+pre_runtime_cos_error = float(
+    np.max([
+        x["max_cos_error"]
+        for x in PREFLIGHT_ROWS
+    ])
+)
+
+
+print(
+    f"Runtime PCA energy   = "
+    f"{pre_runtime_pca:.9f}"
+)
+
+print(
+    f"Target PCA energy    = "
+    f"{TARGET_PCA_ENERGY:.9f}"
+)
+
+print(
+    f"Runtime continuity   = "
+    f"{pre_runtime_cont:+.9f}"
+)
+
+print(
+    f"Target continuity    = "
+    f"{TARGET_CONTINUITY:+.9f}"
+)
+
+print(
+    f"Max |cos error|      = "
+    f"{pre_runtime_cos_error:.9e}"
+)
+
+
+if (
+    pre_runtime_cos_error
+    >
+    ONLINE_COS_TOL
+):
+
+    raise RuntimeError(
+        "Online cosine matching FAILED."
+    )
+
+
+# Do NOT abort here for structural drift.
+# We flag it and still save/report the result.
+# Final causal-sufficiency classification will only be valid if integrity PASS.
+
+pre_runtime_pca_rel_error = abs(
+    pre_runtime_pca
+    -
+    TARGET_PCA_ENERGY
+) / TARGET_PCA_ENERGY
+
+
+pre_runtime_cont_error = abs(
+    pre_runtime_cont
+    -
+    TARGET_CONTINUITY
+)
+
+
+PREFLIGHT_STRUCTURAL_PASS = bool(
+
+    pre_runtime_pca_rel_error
+    <=
+    RUNTIME_PCA_REL_TOL
+
+    and
+
+    pre_runtime_cont_error
+    <=
+    RUNTIME_CONT_ABS_TOL
+)
+
+
+print(
+    "Runtime structural preflight:",
+    (
+        "PASS"
+        if PREFLIGHT_STRUCTURAL_PASS
+        else "WARNING / DRIFT"
+    )
+)
+
+
+# =============================================================================
+# 24. FULL JOINT EXPERIMENT
+# =============================================================================
+
+print(
+    "\n[10/17] Full JOINT experiment..."
+)
+
+print(
+    f"{N_MATCHED} A-joint + "
+    f"{N_MATCHED} B-joint"
+)
+
+print(
+    "Total joint steered forwards =",
+    N_MATCHED
+    *
+    2
+    *
+    len(PROMPTS)
+)
+
+
+JOINT_RESULTS = {
+
+    "A": [],
+
+    "B": [],
+}
+
+
+for arm, seed_root in [
+
+    ("A", JOINT_SEED_A),
+
+    ("B", JOINT_SEED_B),
+]:
+
+    for r_idx in range(
+        N_MATCHED
+    ):
+
+        bank_seed = (
+            seed_root
+            +
+            r_idx
+            *
+            100000
+        )
+
+
+        bank = make_joint_bank(
+            bank_seed
+        )
+
+
+        bank_valid = (
+            validate_joint_bank(
+                bank
+            )
+        )
+
+
+        prompt_rows = []
+
+
+        for p_idx, prompt in enumerate(
+            PROMPTS
+        ):
+
+            rr = run_joint_matched(
+
+                prompt,
+
+                bank,
+
+                SEMANTIC_RESULTS[
+                    p_idx
+                ][
+                    f"{arm}_telemetry"
+                ]
+            )
+
+
+            tm = transport_metrics(
+
+                BASELINES[
+                    p_idx
+                ][
+                    "states"
+                ],
+
+                rr[
+                    "states"
+                ]
+            )
+
+
+            tdict = {
+                int(x["layer"]):
+                    x
+                for x in rr[
+                    "telemetry"
+                ]
+            }
+
+
+            mv10 = (
+                tdict[10][
+                    "matched_vector"
+                ]
+            )
+
+            mv11 = (
+                tdict[11][
+                    "matched_vector"
+                ]
+            )
+
+
+            runtime_pca = float(
+                np.mean([
+
+                    pca_energy_np(
+                        mv10,
+                        10
+                    ),
+
+                    pca_energy_np(
+                        mv11,
+                        11
+                    ),
+                ])
+            )
+
+
+            runtime_cont = cosine_np(
+                mv10,
+                mv11
+            )
+
+
+            max_cos_error = max(
+
+                abs(
+                    tdict[l][
+                        "cos_error"
+                    ]
+                )
+
+                for l in ACTIVE_LAYERS
+            )
+
+
+            prompt_rows.append({
+
+                "P19":
+                    tm[19][
+                        "physical_retention_vs_L11"
+                    ],
+
+                "D19":
+                    tm[19][
+                        "direction_retention_vs_L11"
+                    ],
+
+                "D27":
+                    tm[27][
+                        "direction_retention_vs_L11"
+                    ],
+
+                "runtime_pca":
+                    runtime_pca,
+
+                "runtime_cont":
+                    runtime_cont,
+
+                "max_cos_error":
+                    max_cos_error,
+            })
+
+
+            print(
+                f"JOINT-{arm} "
+                f"rep {r_idx+1:02d}/{N_MATCHED} "
+                f"| prompt "
+                f"{p_idx+1:02d}/40",
+                end="\r"
+            )
+
+
+        def mean_key(key):
+
+            return float(
+                np.mean([
+                    x[key]
+                    for x in prompt_rows
+                ])
+            )
+
+
+        JOINT_RESULTS[
+            arm
+        ].append({
+
+            "replicate":
+                int(r_idx),
+
+            "P19":
+                mean_key(
+                    "P19"
+                ),
+
+            "D19":
+                mean_key(
+                    "D19"
+                ),
+
+            "D27":
+                mean_key(
+                    "D27"
+                ),
+
+            "runtime_pca":
+                mean_key(
+                    "runtime_pca"
+                ),
+
+            "runtime_cont":
+                mean_key(
+                    "runtime_cont"
+                ),
+
+            "max_cos_error":
+                float(
+                    np.max([
+                        x[
+                            "max_cos_error"
+                        ]
+                        for x in prompt_rows
+                    ])
+                ),
+
+            "prematch_pca":
+                float(
+                    bank_valid[
+                        "pca_mean"
+                    ]
+                ),
+
+            "prematch_cont":
+                float(
+                    bank_valid[
+                        "continuity_mean"
+                    ]
+                ),
+        })
+
+
+print(
+    " " * 100,
+    end="\r"
+)
+
+
+# =============================================================================
+# 25. FULL INTEGRITY
+# =============================================================================
+
+print(
+    "\n[11/17] Full structural integrity..."
+)
+
+
+INTEGRITY = {}
+
+
+for arm in [
+    "A",
+    "B"
+]:
+
+    rows = (
+        JOINT_RESULTS[
+            arm
+        ]
+    )
+
+
+    runtime_pca = np.asarray(
+        [
+            x["runtime_pca"]
+            for x in rows
+        ],
+        dtype=np.float64
+    )
+
+
+    runtime_cont = np.asarray(
+        [
+            x["runtime_cont"]
+            for x in rows
+        ],
+        dtype=np.float64
+    )
+
+
+    max_cos = float(
+        np.max([
+            x["max_cos_error"]
+            for x in rows
+        ])
+    )
+
+
+    pca_mean = float(
+        runtime_pca.mean()
+    )
+
+
+    cont_mean = float(
+        runtime_cont.mean()
+    )
+
+
+    pca_rel_error = abs(
+        pca_mean
+        -
+        TARGET_PCA_ENERGY
+    ) / TARGET_PCA_ENERGY
+
+
+    cont_abs_error = abs(
+        cont_mean
+        -
+        TARGET_CONTINUITY
+    )
+
+
+    pass_flag = bool(
+
+        max_cos
+        <=
+        ONLINE_COS_TOL
+
+        and
+
+        pca_rel_error
+        <=
+        RUNTIME_PCA_REL_TOL
+
+        and
+
+        cont_abs_error
+        <=
+        RUNTIME_CONT_ABS_TOL
+    )
+
+
+    INTEGRITY[
+        arm
+    ] = {
+
+        "runtime_pca_mean":
+            pca_mean,
+
+        "runtime_pca_sd":
+            float(
+                runtime_pca.std()
+            ),
+
+        "runtime_pca_relative_error":
+            float(
+                pca_rel_error
+            ),
+
+        "runtime_continuity_mean":
+            cont_mean,
+
+        "runtime_continuity_sd":
+            float(
+                runtime_cont.std()
+            ),
+
+        "runtime_continuity_abs_error":
+            float(
+                cont_abs_error
+            ),
+
+        "max_cos_error":
+            max_cos,
+
+        "pass":
+            pass_flag,
+    }
+
+
+    print(
+        f"\nJOINT-{arm}"
+    )
+
+
+    print(
+        f"  PCA runtime   = "
+        f"{pca_mean:.9f} "
+        f"± {runtime_pca.std():.9f}"
+    )
+
+
+    print(
+        f"  PCA target    = "
+        f"{TARGET_PCA_ENERGY:.9f}"
+    )
+
+
+    print(
+        f"  continuity    = "
+        f"{cont_mean:+.9f} "
+        f"± {runtime_cont.std():.9f}"
+    )
+
+
+    print(
+        f"  cont target   = "
+        f"{TARGET_CONTINUITY:+.9f}"
+    )
+
+
+    print(
+        f"  max cos error = "
+        f"{max_cos:.9e}"
+    )
+
+
+    print(
+        "  integrity     =",
+        (
+            "PASS"
+            if pass_flag
+            else "FAIL"
+        )
+    )
+
+
+GLOBAL_STRUCTURAL_INTEGRITY = bool(
+
+    INTEGRITY[
+        "A"
+    ][
+        "pass"
+    ]
+
+    and
+
+    INTEGRITY[
+        "B"
+    ][
+        "pass"
+    ]
+)
+
+
+print(
+    "\nGLOBAL STRUCTURAL INTEGRITY:",
+    (
+        "PASS"
+        if GLOBAL_STRUCTURAL_INTEGRITY
+        else "FAIL"
+    )
+)
+
+
+# =============================================================================
+# 26. PRIMARY STATISTICS
+# =============================================================================
+
+print(
+    "\n[12/17] Primary D19 results..."
+)
+
+
+STATS = {}
+
+
+for arm in [
+    "A",
+    "B"
+]:
+
+    STATS[
+        arm
+    ] = {}
+
+
+    for metric in [
+        "P19",
+        "D19",
+        "D27"
+    ]:
+
+        arr = np.asarray(
+            [
+                x[metric]
+                for x in JOINT_RESULTS[
+                    arm
+                ]
+            ],
+            dtype=np.float64
+        )
+
+
+        STATS[
+            arm
+        ][
+            metric
+        ] = empirical_position(
+
+            SEM_REF[
+                arm
+            ][
+                metric
+            ],
+
+            arr
+        )
+
+
+print(
+    "\n"
+    +
+    "=" * 132
+)
+
+print(
+    "SEMANTIC vs JOINT PCA+CONTINUITY SYNTHETIC — L11 → L19"
+)
+
+print(
+    "=" * 132
+)
+
+
+print(
+    f"{'ARM':<8}"
+    f"{'METRIC':<10}"
+    f"{'SEMANTIC':>13}"
+    f"{'JOINT MEAN':>14}"
+    f"{'SD':>12}"
+    f"{'MIN':>12}"
+    f"{'MAX':>12}"
+    f"{'PCTL':>10}"
+    f"{'UP +1':>11}"
+)
+
+
+print(
+    "-" * 102
+)
+
+
+for arm in [
+    "A",
+    "B"
+]:
+
+    for metric in [
+        "P19",
+        "D19"
+    ]:
+
+        x = (
+            STATS[
+                arm
+            ][
+                metric
+            ]
+        )
+
+
+        print(
+            f"{arm:<8}"
+            f"{metric:<10}"
+            f"{x['obs']:>13.6f}"
+            f"{x['null_mean']:>14.6f}"
+            f"{x['null_sd']:>12.6f}"
+            f"{x['null_min']:>12.6f}"
+            f"{x['null_max']:>12.6f}"
+            f"{x['percentile']:>9.2f}%"
+            f"{x['upper_plus1']:>11.6f}"
+        )
+
+
+# =============================================================================
+# 27. SECONDARY D27
+# =============================================================================
+
+print(
+    "\n[13/17] Secondary D27..."
+)
+
+
+for arm in [
+    "A",
+    "B"
+]:
+
+    x = (
+        STATS[
+            arm
+        ][
+            "D27"
+        ]
+    )
+
+
+    print(
+        f"{arm} | "
+        f"semantic="
+        f"{x['obs']:+.6f} | "
+        f"joint="
+        f"{x['null_mean']:+.6f} "
+        f"± {x['null_sd']:.6f} | "
+        f"range=["
+        f"{x['null_min']:+.6f}, "
+        f"{x['null_max']:+.6f}]"
+    )
+
+
+# =============================================================================
+# 28. FINAL PREDECLARED DECISION
+# =============================================================================
+
+A_D19_NULL = np.asarray(
+    [
+        x["D19"]
+        for x in JOINT_RESULTS[
+            "A"
+        ]
+    ],
+    dtype=np.float64
+)
+
+
+B_D19_NULL = np.asarray(
+    [
+        x["D19"]
+        for x in JOINT_RESULTS[
+            "B"
+        ]
+    ],
+    dtype=np.float64
+)
+
+
+A_INSIDE = bool(
+
+    A_D19_NULL.min()
+
+    <=
+
+    SEM_REF[
+        "A"
+    ][
+        "D19"
+    ]
+
+    <=
+
+    A_D19_NULL.max()
+)
+
+
+B_INSIDE = bool(
+
+    B_D19_NULL.min()
+
+    <=
+
+    SEM_REF[
+        "B"
+    ][
+        "D19"
+    ]
+
+    <=
+
+    B_D19_NULL.max()
+)
+
+
+if not GLOBAL_STRUCTURAL_INTEGRITY:
+
+    FINAL_DECISION = (
+        "STRUCTURAL_MATCH_INVALID"
+    )
+
+
+elif (
+    A_INSIDE
+    and
+    B_INSIDE
+):
+
+    FINAL_DECISION = (
+        "JOINT_STRUCTURAL_SUFFICIENCY_CANDIDATE"
+    )
+
+
+elif (
+    A_INSIDE
+    or
+    B_INSIDE
+):
+
+    FINAL_DECISION = (
+        "ASYMMETRIC_PARTIAL"
+    )
+
+
+else:
+
+    FINAL_DECISION = (
+        "JOINT_STRUCTURE_INSUFFICIENT"
+    )
+
+
+if (
+    FINAL_DECISION
+    ==
+    "JOINT_STRUCTURAL_SUFFICIENCY_CANDIDATE"
+):
+
+    NEXT_ROUTE = (
+        "TEST115 closes with a joint structural sufficiency candidate. "
+        "PCA alignment plus cross-layer continuity, under exact online "
+        "cosine matching, is sufficient to reproduce the locked semantic "
+        "D19 range for both directions. This does not establish uniqueness "
+        "or semantic non-causality."
+    )
+
+
+elif (
+    FINAL_DECISION
+    ==
+    "JOINT_STRUCTURE_INSUFFICIENT"
+):
+
+    NEXT_ROUTE = (
+        "TEST115 closes. Scalar local cosine, generic hidden-state PCA "
+        "alignment, cross-layer continuity, and their tested joint "
+        "combination are insufficient to reproduce the locked semantic "
+        "directional transport. No fifth descriptive feature will be "
+        "searched in this test family. Next mechanistic target: local "
+        "transport-operator / Jacobian geometry."
+    )
+
+
+elif (
+    FINAL_DECISION
+    ==
+    "ASYMMETRIC_PARTIAL"
+):
+
+    NEXT_ROUTE = (
+        "TEST115 closes in an asymmetric partial regime. The joint "
+        "structural construction reproduces one semantic direction but "
+        "not the other. Preserve directional asymmetry; do not reduce the "
+        "controller state to one universal scalar structural rule."
+    )
+
+
+else:
+
+    NEXT_ROUTE = (
+        "The final transport result is not interpretable as a structural "
+        "sufficiency test because the joint PCA/continuity fingerprint was "
+        "not preserved after online cosine matching. Do not classify the "
+        "hypothesis from D19."
+    )
+
+
+print(
+    "\n[14/17] TEST115 FINAL DECISION"
+)
+
+
+print(
+    "\n"
+    +
+    "=" * 140
+)
+
+print(
+    "A semantic D19 inside joint range:",
+    A_INSIDE
+)
+
+print(
+    "B semantic D19 inside joint range:",
+    B_INSIDE
+)
+
+print(
+    "Structural integrity:",
+    GLOBAL_STRUCTURAL_INTEGRITY
+)
+
+print()
+
+print(
+    "FINAL DECISION:",
+    FINAL_DECISION
+)
+
+print()
+
+print(
+    NEXT_ROUTE
+)
+
+print(
+    "=" * 140
+)
+
+
+# =============================================================================
+# 29. REPLICATE TABLE
+# =============================================================================
+
+print(
+    "\n[15/17] Joint replicate table..."
+)
+
+
+print(
+    f"{'R':<5}"
+    f"{'A P19':>12}"
+    f"{'A D19':>12}"
+    f"{'A D27':>12}"
+    f"{'B P19':>12}"
+    f"{'B D19':>12}"
+    f"{'B D27':>12}"
+)
+
+
+print(
+    "-" * 77
+)
+
+
+for r in range(
+    N_MATCHED
+):
+
+    a = (
+        JOINT_RESULTS[
+            "A"
+        ][r]
+    )
+
+
+    b = (
+        JOINT_RESULTS[
+            "B"
+        ][r]
+    )
+
+
+    print(
+        f"{r:<5d}"
+        f"{a['P19']:>12.6f}"
+        f"{a['D19']:>12.6f}"
+        f"{a['D27']:>12.6f}"
+        f"{b['P19']:>12.6f}"
+        f"{b['D19']:>12.6f}"
+        f"{b['D27']:>12.6f}"
+    )
+
+
+# =============================================================================
+# 30. JSON
+# =============================================================================
+
+print(
+    "\n[16/17] JSON hazırlanıyor..."
+)
+
+
+OUTPUT = {
+
+    "test":
+        "TEST 115 — FAZ 4 FINAL",
+
+    "title":
+        (
+            "Joint PCA + Cross-Layer Continuity "
+            "Structural Sufficiency Test"
+        ),
+
+    "model":
+        MODEL_NAME,
+
+    "config": {
+
+        "active_layers":
+            ACTIVE_LAYERS,
+
+        "ivme":
+            IVME,
+
+        "sqrt_k":
+            SQRT_K,
+
+        "n_prompts":
+            len(PROMPTS),
+
+        "n_replicates_per_arm":
+            N_MATCHED,
+
+        "top_k_pca":
+            TOP_K_PCA,
+
+        "target_pca_ratio":
+            TARGET_PCA_RATIO,
+
+        "target_pca_energy":
+            TARGET_PCA_ENERGY,
+
+        "target_continuity":
+            TARGET_CONTINUITY,
+    },
+
+    "fingerprint": {
+
+        "cos_A_B_L10":
+            COS10,
+
+        "cos_A_B_L11":
+            COS11,
+
+        "DDS_AB_expected":
+            EXPECTED_AB,
+
+        "DDS_AB_observed":
+            obs_ab,
+
+        "DDS_OU_expected":
+            EXPECTED_OU,
+
+        "DDS_OU_observed":
+            obs_ou,
+
+        "integrity":
+            "PASS",
+    },
+
+    "semantic_reference":
+        SEM_REF,
+
+    "prematch_structural_preflight":
+        PRE_VALID,
+
+    "runtime_integrity":
+        INTEGRITY,
+
+    "global_structural_integrity":
+        GLOBAL_STRUCTURAL_INTEGRITY,
+
+    "joint_results":
+        JOINT_RESULTS,
+
+    "statistics":
+        STATS,
+
+    "decision": {
+
+        "A_semantic_D19_inside_joint_range":
+            A_INSIDE,
+
+        "B_semantic_D19_inside_joint_range":
+            B_INSIDE,
+
+        "classification":
+            FINAL_DECISION,
+
+        "next_route":
+            NEXT_ROUTE,
+    },
+
+    "interpretation_lock":
+        (
+            "TEST115 Phase 4 jointly constrains synthetic directions by "
+            "the Phase-1 hidden-state PCA alignment and cross-layer "
+            "continuity targets, then matches the semantic DRA cosine "
+            "online at L10 and L11. The primary endpoint is L11-to-L19 "
+            "raw perturbation direction retention. A successful joint arm "
+            "is only a sufficiency candidate under this intervention "
+            "protocol. Failure with preserved runtime structure rejects "
+            "this tested joint structural explanation as sufficient, but "
+            "does not prove semantic content itself is causal. Finite-null "
+            "+1 quantities are not classical p-values."
+        ),
+}
+
+
+OUTPUT_FILE = (
+    "TEST_115_PHASE_4_FINAL_JOINT_STRUCTURE.json"
+)
+
+
+with open(
+    OUTPUT_FILE,
+    "w",
+    encoding="utf-8"
+) as f:
+
+    json.dump(
+        OUTPUT,
+        f,
+        indent=2,
+        ensure_ascii=False
+    )
+
+
+print(
+    "Kaydedildi:",
+    OUTPUT_FILE
+)
+
+
+# =============================================================================
+# 31. FINAL SUMMARY
+# =============================================================================
+
+print(
+    "\n[17/17] FINAL SUMMARY"
+)
+
+
+print(
+    "\n"
+    +
+    "=" * 140
+)
+
+print(
+    "TEST 115 — CLOSED"
+)
+
+print(
+    "=" * 140
+)
+
+
+print(
+    "\nTEST114 FINGERPRINT"
+)
+
+print(
+    f"L10 cos(A,B) = "
+    f"{COS10:+.6f}"
+)
+
+print(
+    f"L11 cos(A,B) = "
+    f"{COS11:+.6f}"
+)
+
+print(
+    f"DDS_AB       = "
+    f"{obs_ab:+.9f}"
+)
+
+print(
+    f"DDS_OU       = "
+    f"{obs_ou:+.9f}"
+)
+
+
+print(
+    "\nSEMANTIC REFERENCE"
+)
+
+print(
+    f"A P19={SEM_REF['A']['P19']:.6f} "
+    f"D19={SEM_REF['A']['D19']:+.6f} "
+    f"D27={SEM_REF['A']['D27']:+.6f}"
+)
+
+print(
+    f"B P19={SEM_REF['B']['P19']:.6f} "
+    f"D19={SEM_REF['B']['D19']:+.6f} "
+    f"D27={SEM_REF['B']['D27']:+.6f}"
+)
+
+
+print(
+    "\nJOINT SYNTHETIC"
+)
+
+print(
+    f"A P19={STATS['A']['P19']['null_mean']:.6f} "
+    f"D19={STATS['A']['D19']['null_mean']:+.6f} "
+    f"± {STATS['A']['D19']['null_sd']:.6f}"
+)
+
+print(
+    f"B P19={STATS['B']['P19']['null_mean']:.6f} "
+    f"D19={STATS['B']['D19']['null_mean']:+.6f} "
+    f"± {STATS['B']['D19']['null_sd']:.6f}"
+)
+
+
+print(
+    "\nRUNTIME STRUCTURE"
+)
+
+print(
+    f"A PCA="
+    f"{INTEGRITY['A']['runtime_pca_mean']:.9f} "
+    f"| continuity="
+    f"{INTEGRITY['A']['runtime_continuity_mean']:+.9f}"
+)
+
+print(
+    f"B PCA="
+    f"{INTEGRITY['B']['runtime_pca_mean']:.9f} "
+    f"| continuity="
+    f"{INTEGRITY['B']['runtime_continuity_mean']:+.9f}"
+)
+
+
+print(
+    "\nGLOBAL STRUCTURAL INTEGRITY =",
+    (
+        "PASS"
+        if GLOBAL_STRUCTURAL_INTEGRITY
+        else "FAIL"
+    )
+)
+
+
+print(
+    "\nFINAL DECISION =",
+    FINAL_DECISION
+)
+
+print()
+
+print(
+    NEXT_ROUTE
+)
+
+
+print(
+r"""
+
+INTERPRETATION LOCK
+-------------------
+
+TEST115 is now closed.
+
+The experiment family tested:
+
+    1. scalar local hidden-state cosine
+       -> TEST114
+
+    2. hidden-state PCA alignment alone
+       -> TEST115 Phase 3
+
+    3. cross-layer continuity alone
+       -> TEST115 Phase 3
+
+    4. PCA alignment + cross-layer continuity jointly
+       -> TEST115 Phase 4
+
+All structural conclusions require the corresponding runtime
+fingerprint to remain valid after online cosine matching.
+
+If JOINT_STRUCTURE_INSUFFICIENT:
+
+    Do NOT add another descriptive feature to TEST115.
+
+    The next mechanistic question becomes:
+
+        What local transformation property makes the
+        contrast-derived direction propagate differently?
+
+    Natural next object:
+
+        delta h_(l+1) ≈ J_l(h_l) delta h_l
+
+    Candidate quantities for the NEXT experiment family include
+    directional gain, local singular-vector alignment, and transport
+    operator geometry.
+
+This is a new mechanistic stage, not another TEST115 feature hunt.
+
+IMPORTANT:
+
+    "Joint structure insufficient" does NOT mean
+    "semantics itself is proven causal."
+
+    It means the tested low-dimensional structural explanation
+    is insufficient under this locked intervention protocol.
+
+"""
+)
+
+
+gc.collect()
+
+if torch.cuda.is_available():
+    torch.cuda.empty_cache()
+
+
+
