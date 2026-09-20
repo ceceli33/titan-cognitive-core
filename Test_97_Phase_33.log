@@ -1,0 +1,2712 @@
+# =============================================================================
+# TEST 113 — SEMANTIC vs RANDOM PERTURBATION TRANSPORT CONTROL
+# =============================================================================
+#
+# Qwen/Qwen2.5-7B-Instruct · AkbasCore DRA
+#
+# PURPOSE
+# -------
+# TEST112:
+#
+#   physical perturbation retention L11->L19:
+#       ABOVE ≈ 0.9247
+#       BELOW ≈ 0.9110
+#
+#   raw direction retention cos(delta_h11, delta_h19):
+#       ABOVE ≈ +0.2241
+#       BELOW ≈ +0.2303
+#
+#   A/B semantic-plane energy retention:
+#       ABOVE ≈ 0.0316
+#       BELOW ≈ 0.0303
+#
+# TEST113 asks:
+#
+#   Is this downstream transport/rotation profile specific to semantic
+#   directions, or is it a generic response to equal-scale perturbations?
+#
+# LOCKED:
+#   model      = Qwen/Qwen2.5-7B-Instruct
+#   prompts    = exact TEST110/111/112 validation 40
+#   A/B vectors= exact locked extraction
+#   active     = L10, L11
+#   IVME       = 0.10
+#   sqrt(K)    = sqrt(20)
+#   DRA        = unchanged
+#
+# RANDOM NULL:
+#   N_RANDOM = 32 independent layerwise Gaussian directions
+#   fixed deterministic seeds
+#   each vector independently normalized at every layer
+#
+# IMPORTANT:
+#   Random transport is NOT evaluated against the A/B semantic plane.
+#
+#   For each random direction R:
+#
+#       direction retention:
+#           cos(delta_h_11, delta_h_l)
+#
+#       physical retention:
+#           u_l / u_11
+#
+#       source-direction alignment:
+#           cos(delta_h_l, R_l)
+#
+#       source-direction energy:
+#           cos(delta_h_l, R_l)^2
+#
+#       source-energy retention:
+#           E_R(l) / E_R(11)
+#
+#   Semantic A/B receive the same source-direction measurements using
+#   A_l and B_l respectively.
+#
+# Thus semantic and random perturbations are compared on a common metric.
+#
+# NO CONTROLLER.
+# NO PARAMETER SEARCH.
+# NO FEATURE SELECTION.
+# =============================================================================
+
+
+# =============================================================================
+# 0. IMPORTS
+# =============================================================================
+
+import json
+import math
+import random
+import gc
+
+import numpy as np
+import torch
+
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+
+# =============================================================================
+# 1. LOCKED CONFIG
+# =============================================================================
+
+MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 42
+
+MODEL_LAYERS = 28
+VECTOR_LAYERS = 20
+HIDDEN = 3584
+
+ACTIVE_LAYERS = [10, 11]
+
+IVME = 0.10
+SQRT_K = math.sqrt(VECTOR_LAYERS)
+
+EPS = 1e-12
+
+N_RANDOM = 32
+RANDOM_SEED_BASE = 2026113000
+
+
+# DRA constants — locked
+
+SONUM = 0.30
+ZIRVE = 0.70
+TABAN = 0.20
+
+COS_BRAKE_HIGH = 0.75
+COS_BRAKE_LOW = -0.40
+
+BRAKE_HIGH_DENOM = 0.25
+BRAKE_LOW_GAIN = 1.60
+
+
+# Exact TEST110/111/112 behavioral integrity targets
+
+EXPECTED_AB = 0.007351959
+EXPECTED_OU = 0.002256775
+
+
+# TEST112 mechanistic references
+# Descriptive integrity only; small BF16 variation tolerated.
+
+EXPECTED_A_PHYS19 = 0.924691
+EXPECTED_B_PHYS19 = 0.911033
+
+EXPECTED_A_DIR19 = 0.224073
+EXPECTED_B_DIR19 = 0.230319
+
+
+# =============================================================================
+# 2. DETERMINISM
+# =============================================================================
+
+def set_seed(seed):
+
+    random.seed(seed)
+    np.random.seed(seed)
+
+    torch.manual_seed(seed)
+
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+set_seed(SEED)
+
+
+# =============================================================================
+# 3. LOCKED TRAINING DATA
+# =============================================================================
+
+ABOVE_TRAIN = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+
+BELOW_TRAIN = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+
+NEUTRAL_TRAIN = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 4. EXACT LOCKED 40 PROMPTS
+# =============================================================================
+
+PROMPTS = [
+
+    # MAP_REPORT
+    "The site map marks Clara at one elevation and the pedestrian deck at another. In relation to the deck, Clara is",
+    "According to the survey map, a weather balloon and the observatory roof occupy separate vertical levels. The balloon is",
+    "The diagram places a rescue drone at one height and the canyon rim at another. Relative to the rim, the drone is",
+    "On the engineering map, Marcus and the service platform are shown at distinct vertical positions. Marcus is",
+    "The location chart records a beacon at one elevation and the lighthouse balcony at another. Relative to the balcony, the beacon is",
+    "A terrain diagram shows a helicopter at a different height from the ridge line. The helicopter is",
+    "The architectural plan indicates Nina at one vertical level and the terrace edge at another. Nina is",
+    "The field map places a bird at a different elevation from the tower ledge. Relative to the ledge, the bird is",
+
+    # WITNESS_STATEMENT
+    "A witness describes Leo and the footbridge as occupying different vertical positions. Relative to the footbridge, Leo is",
+    "The observer reports that a drone and the warehouse roof were at different heights. The drone was",
+    "A witness saw a lantern at a different elevation from the balcony rail. Relative to the rail, the lantern was",
+    "The observer describes Emma's vertical position with respect to the railway deck. Emma was",
+    "A witness reports a kite and the cliff rim at distinct elevations. Relative to the rim, the kite was",
+    "The observer noted that a camera and the stage floor occupied different vertical levels. The camera was",
+    "A witness describes a small aircraft at a different height from the mountain crest. The aircraft was",
+    "The observer reports that Daniel and the raised walkway occupied distinct elevations. Daniel was",
+
+    # TECHNICAL_LOG
+    "Inspection log: sensor altitude differs from the platform elevation. Relative to the platform, the sensor is",
+    "Flight log: drone altitude differs from the roof reference level. The drone is",
+    "Survey record: the marker and the retaining wall top are registered at different elevations. Relative to the wall top, the marker is",
+    "Maintenance log: the technician's vertical position differs from the catwalk level. The technician is",
+    "Navigation record: the balloon and the tower crown occupy separate elevation readings. Relative to the tower crown, the balloon is",
+    "Site log: the camera height differs from the monument base reference. The camera is",
+    "Aviation record: the helicopter and the ridge have different altitude readings. Relative to the ridge, the helicopter is",
+    "Inspection record: the worker's elevation differs from the bridge deck reference. The worker is",
+
+    # COMPARATIVE_FRAGMENT
+    "Relative elevation: Olivia versus the stone bridge. Olivia is",
+    "Vertical comparison: drone versus stadium roof. The drone is",
+    "Height relation: beacon versus tower balcony. The beacon is",
+    "Elevation comparison: Samuel versus observation deck. Samuel is",
+    "Vertical relation: balloon versus building roofline. The balloon is",
+    "Height comparison: bird versus cliff edge. The bird is",
+    "Elevation relation: camera versus platform surface. The camera is",
+    "Vertical comparison: helicopter versus mountain ridge. The helicopter is",
+
+    # INDIRECT_DESCRIPTION
+    "To describe Rosa's vertical placement, the old viaduct is used as the reference structure. Rosa is",
+    "The stadium roof serves only as a reference for describing the drone's elevation. The drone is",
+    "For the lantern's vertical placement, the balcony edge provides the comparison level. The lantern is",
+    "The mountain crest is the reference used to state the aircraft's elevation. The aircraft is",
+    "A scaffold deck provides the comparison height for Isaac's vertical position. Isaac is",
+    "The monument pedestal is used as the reference for the camera's vertical placement. The camera is",
+    "The canyon rim provides the comparison level for the rescue balloon's elevation. The balloon is",
+    "The elevated walkway serves as the reference structure for Maya's vertical placement. Maya is",
+]
+
+
+FAMILIES = [
+    "MAP_REPORT",
+    "WITNESS_STATEMENT",
+    "TECHNICAL_LOG",
+    "COMPARATIVE_FRAGMENT",
+    "INDIRECT_DESCRIPTION",
+]
+
+
+assert len(PROMPTS) == 40
+
+
+# =============================================================================
+# 5. HELPERS
+# =============================================================================
+
+def normalize_np(v, eps=1e-12):
+
+    v = np.asarray(v, dtype=np.float64)
+
+    n = np.linalg.norm(v)
+
+    if n < eps:
+        return np.zeros_like(v, dtype=np.float32)
+
+    return (v / n).astype(np.float32)
+
+
+def cosine_np(a, b, eps=1e-12):
+
+    a = np.asarray(a, dtype=np.float64)
+    b = np.asarray(b, dtype=np.float64)
+
+    na = np.linalg.norm(a)
+    nb = np.linalg.norm(b)
+
+    if na < eps or nb < eps:
+        return 0.0
+
+    return float(
+        np.dot(a, b)
+        /
+        (na * nb)
+    )
+
+
+def empirical_upper_tail(obs, null):
+
+    null = np.asarray(
+        null,
+        dtype=np.float64
+    )
+
+    count = int(
+        np.sum(null >= obs)
+    )
+
+    return (
+        count,
+        float(
+            (count + 1)
+            /
+            (len(null) + 1)
+        )
+    )
+
+
+def empirical_lower_tail(obs, null):
+
+    null = np.asarray(
+        null,
+        dtype=np.float64
+    )
+
+    count = int(
+        np.sum(null <= obs)
+    )
+
+    return (
+        count,
+        float(
+            (count + 1)
+            /
+            (len(null) + 1)
+        )
+    )
+
+
+def percentile_position(obs, null):
+
+    null = np.asarray(
+        null,
+        dtype=np.float64
+    )
+
+    return float(
+        100.0
+        *
+        np.mean(
+            null < obs
+        )
+    )
+
+
+# =============================================================================
+# 6. MODEL
+# =============================================================================
+
+print("\n" + "=" * 170)
+
+print(
+    "TEST 113 — SEMANTIC vs RANDOM PERTURBATION TRANSPORT CONTROL"
+)
+
+print("=" * 170)
+
+print("\n[1/15] Model yükleniyor...")
+
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_NAME,
+    trust_remote_code=True,
+)
+
+
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_NAME,
+    dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True,
+)
+
+
+model.eval()
+
+
+print("Model             :", MODEL_NAME)
+print("Device            :", model.device)
+print("dtype             :", next(model.parameters()).dtype)
+print("Layers            :", len(model.model.layers))
+print("Vector layers     :", VECTOR_LAYERS)
+print("Steering layers   :", ACTIVE_LAYERS)
+print("IVME              :", IVME)
+print("SQRT_K            :", SQRT_K)
+print("Prompts           :", len(PROMPTS))
+print("Random directions :", N_RANDOM)
+print(
+    "Min +1 tail       :",
+    1.0 / (N_RANDOM + 1)
+)
+
+
+# =============================================================================
+# 7. TARGET TOKENS
+# =============================================================================
+
+print("\n[2/15] Target tokenlar doğrulanıyor...")
+
+
+TARGET_STRINGS = {
+    "above": " above",
+    "below": " below",
+    "over": " over",
+    "under": " under",
+}
+
+
+TARGET_IDS = {}
+
+
+for name, text in TARGET_STRINGS.items():
+
+    ids = tokenizer.encode(
+        text,
+        add_special_tokens=False
+    )
+
+    print(
+        f"{name:<8} | "
+        f"{repr(text):<12} | "
+        f"{ids}"
+    )
+
+    if len(ids) != 1:
+        raise RuntimeError(
+            f"{name} tek token değil."
+        )
+
+    TARGET_IDS[name] = ids[0]
+
+
+TARGET_ID_LIST = [
+    TARGET_IDS["above"],
+    TARGET_IDS["below"],
+    TARGET_IDS["over"],
+    TARGET_IDS["under"],
+]
+
+
+# =============================================================================
+# 8. LOCKED A/B EXTRACTION
+# =============================================================================
+
+@torch.no_grad()
+def extract_layerwise(texts):
+
+    enc = tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=128,
+    )
+
+    input_ids = enc[
+        "input_ids"
+    ].to(model.device)
+
+    attention_mask = enc[
+        "attention_mask"
+    ].to(model.device)
+
+
+    captured = [
+        None
+        for _ in range(VECTOR_LAYERS)
+    ]
+
+
+    handles = []
+
+
+    def make_hook(layer_idx):
+
+        def hook(module, inputs, output):
+
+            h = (
+                output[0]
+                if isinstance(output, tuple)
+                else output
+            )
+
+            captured[
+                layer_idx
+            ] = h.detach()
+
+        return hook
+
+
+    for l in range(VECTOR_LAYERS):
+
+        handles.append(
+            model.model.layers[
+                l
+            ].register_forward_hook(
+                make_hook(l)
+            )
+        )
+
+
+    _ = model(
+        input_ids=input_ids,
+        attention_mask=attention_mask,
+        use_cache=False,
+    )
+
+
+    for h in handles:
+        h.remove()
+
+
+    lengths = (
+        attention_mask
+        .sum(dim=1)
+        .cpu()
+        .numpy()
+    )
+
+
+    result = np.zeros(
+        (
+            len(texts),
+            VECTOR_LAYERS,
+            HIDDEN
+        ),
+        dtype=np.float32
+    )
+
+
+    for l in range(VECTOR_LAYERS):
+
+        x = (
+            captured[l]
+            .float()
+            .cpu()
+            .numpy()
+        )
+
+        for i in range(len(texts)):
+
+            result[
+                i,
+                l
+            ] = x[
+                i,
+                int(lengths[i]) - 1
+            ]
+
+
+    return result
+
+
+print(
+    "\n[3/15] Locked A/B vectors çıkarılıyor..."
+)
+
+
+ACT_A = extract_layerwise(
+    ABOVE_TRAIN
+)
+
+ACT_B = extract_layerwise(
+    BELOW_TRAIN
+)
+
+ACT_N = extract_layerwise(
+    NEUTRAL_TRAIN
+)
+
+
+A_VEC = (
+    ACT_A.mean(axis=0)
+    -
+    ACT_N.mean(axis=0)
+).astype(np.float32)
+
+
+B_VEC = (
+    ACT_B.mean(axis=0)
+    -
+    ACT_N.mean(axis=0)
+).astype(np.float32)
+
+
+for l in range(VECTOR_LAYERS):
+
+    A_VEC[l] = normalize_np(
+        A_VEC[l]
+    )
+
+    B_VEC[l] = normalize_np(
+        B_VEC[l]
+    )
+
+
+COS10 = cosine_np(
+    A_VEC[10],
+    B_VEC[10]
+)
+
+COS11 = cosine_np(
+    A_VEC[11],
+    B_VEC[11]
+)
+
+
+print(
+    f"L10 cos(A,B) = {COS10:+.6f}"
+)
+
+print(
+    f"L11 cos(A,B) = {COS11:+.6f}"
+)
+
+
+if abs(
+    COS10 - 0.656545
+) > 5e-6:
+    raise RuntimeError(
+        "L10 geometry drift."
+    )
+
+
+if abs(
+    COS11 - 0.658274
+) > 5e-6:
+    raise RuntimeError(
+        "L11 geometry drift."
+    )
+
+
+# =============================================================================
+# 9. RANDOM DIRECTIONS
+# =============================================================================
+
+print(
+    "\n[4/15] Independent random layerwise directions hazırlanıyor..."
+)
+
+
+RANDOM_VECTORS = []
+
+
+for random_idx in range(N_RANDOM):
+
+    rng = np.random.default_rng(
+        RANDOM_SEED_BASE
+        +
+        random_idx
+    )
+
+
+    rv = rng.standard_normal(
+        (
+            VECTOR_LAYERS,
+            HIDDEN
+        ),
+        dtype=np.float32
+    )
+
+
+    for l in range(VECTOR_LAYERS):
+
+        rv[l] = normalize_np(
+            rv[l]
+        )
+
+
+    RANDOM_VECTORS.append(
+        rv
+    )
+
+
+# Geometry diagnostic
+
+random_cos_A = []
+
+random_cos_B = []
+
+
+for rv in RANDOM_VECTORS:
+
+    for l in ACTIVE_LAYERS:
+
+        random_cos_A.append(
+            cosine_np(
+                A_VEC[l],
+                rv[l]
+            )
+        )
+
+        random_cos_B.append(
+            cosine_np(
+                B_VEC[l],
+                rv[l]
+            )
+        )
+
+
+print(
+    "mean cos(A,R) = "
+    f"{np.mean(random_cos_A):+.6f} "
+    f"SD={np.std(random_cos_A):.6f}"
+)
+
+print(
+    "mean cos(B,R) = "
+    f"{np.mean(random_cos_B):+.6f} "
+    f"SD={np.std(random_cos_B):.6f}"
+)
+
+
+# =============================================================================
+# 10. DRA
+# =============================================================================
+
+def dra_parameters(
+    cosine_value,
+    layer_idx
+):
+
+    unc = (
+        1.0
+        -
+        abs(cosine_value)
+    )
+
+
+    dw = (
+        SONUM
+        +
+        unc * 0.20
+    )
+
+
+    t = float(layer_idx)
+
+
+    kb = (
+        ZIRVE
+        *
+        math.exp(
+            -dw * t
+        )
+        *
+        (
+            1.0
+            +
+            dw * t
+        )
+        +
+        TABAN
+    )
+
+
+    env = (
+        kb
+        /
+        (
+            ZIRVE
+            +
+            TABAN
+        )
+    )
+
+
+    if cosine_value > COS_BRAKE_HIGH:
+
+        brake = (
+            1.0
+            -
+            cosine_value
+        ) / BRAKE_HIGH_DENOM
+
+    elif cosine_value < COS_BRAKE_LOW:
+
+        brake = BRAKE_LOW_GAIN
+
+    else:
+
+        brake = 1.0
+
+
+    return env, brake
+
+
+# =============================================================================
+# 11. FP32 FINAL READOUT
+# =============================================================================
+
+def qwen_rmsnorm_fp32(h):
+
+    norm = model.model.norm
+
+    weight = (
+        norm.weight
+        .detach()
+        .float()
+    )
+
+    eps = float(
+        norm.variance_epsilon
+    )
+
+
+    var = (
+        h.float()
+        .pow(2)
+        .mean(
+            dim=-1,
+            keepdim=True
+        )
+    )
+
+
+    return (
+        h.float()
+        *
+        torch.rsqrt(
+            var + eps
+        )
+        *
+        weight
+    )
+
+
+@torch.no_grad()
+def target_readout(
+    final_hidden
+):
+
+    h = qwen_rmsnorm_fp32(
+        final_hidden
+    )
+
+
+    weights = (
+        model.lm_head.weight[
+            TARGET_ID_LIST
+        ]
+        .detach()
+        .float()
+    )
+
+
+    logits = torch.matmul(
+        weights,
+        h
+    )
+
+
+    vals = (
+        logits
+        .detach()
+        .cpu()
+        .numpy()
+    )
+
+
+    return {
+
+        "AB":
+            float(
+                vals[0]
+                -
+                vals[1]
+            ),
+
+        "OU":
+            float(
+                vals[2]
+                -
+                vals[3]
+            ),
+    }
+
+
+# =============================================================================
+# 12. FORWARD — ONLY L11-L27 STATES STORED
+# =============================================================================
+
+@torch.no_grad()
+def run_forward(
+    prompt,
+    vectors=None,
+    arm_name="BASE"
+):
+
+    # Memory-efficient:
+    # only store L11-L27 output residuals.
+
+    states = {
+        l: None
+        for l in range(
+            11,
+            MODEL_LAYERS
+        )
+    }
+
+
+    telemetry = []
+
+    final_capture = {
+        "hidden": None
+    }
+
+
+    handles = []
+
+
+    def make_hook(l):
+
+        def hook(
+            module,
+            inputs,
+            output
+        ):
+
+            hidden = (
+                output[0]
+                if isinstance(output, tuple)
+                else output
+            )
+
+
+            new_hidden = hidden
+
+
+            if (
+                vectors is not None
+                and
+                l in ACTIVE_LAYERS
+            ):
+
+                v = (
+                    torch.as_tensor(
+                        vectors[l],
+                        device=hidden.device,
+                        dtype=hidden.dtype
+                    )
+                    .unsqueeze(0)
+                )
+
+
+                hlast = hidden[
+                    :,
+                    -1,
+                    :
+                ]
+
+
+                hn = torch.linalg.norm(
+                    hlast,
+                    dim=-1,
+                    keepdim=True
+                )
+
+
+                vn = torch.linalg.norm(
+                    v,
+                    dim=-1,
+                    keepdim=True
+                )
+
+
+                cos = (
+                    torch.sum(
+                        hlast * v,
+                        dim=-1,
+                        keepdim=True
+                    )
+                    /
+                    (
+                        hn * vn
+                        +
+                        1e-12
+                    )
+                )
+
+
+                cos_value = float(
+                    cos
+                    .mean()
+                    .detach()
+                    .cpu()
+                )
+
+
+                env, brake = dra_parameters(
+                    cos_value,
+                    l
+                )
+
+
+                contribution = (
+                    IVME
+                    *
+                    hn
+                    /
+                    SQRT_K
+                    *
+                    env
+                    *
+                    brake
+                )
+
+
+                delta = (
+                    contribution
+                    *
+                    v
+                )
+
+
+                new_hidden = hidden.clone()
+
+
+                new_hidden[
+                    :,
+                    -1,
+                    :
+                ] += delta
+
+
+                telemetry.append({
+
+                    "layer":
+                        int(l),
+
+                    "cos":
+                        cos_value,
+
+                    "env":
+                        float(env),
+
+                    "brake":
+                        float(brake),
+
+                    "contribution":
+                        float(
+                            contribution
+                            .mean()
+                            .detach()
+                            .cpu()
+                        ),
+                })
+
+
+            if l >= 11:
+
+                states[l] = (
+                    new_hidden[
+                        0,
+                        -1,
+                        :
+                    ]
+                    .detach()
+                    .float()
+                    .cpu()
+                    .numpy()
+                    .astype(np.float32)
+                )
+
+
+            if isinstance(output, tuple):
+
+                return (
+                    new_hidden,
+                    *output[1:]
+                )
+
+
+            return new_hidden
+
+
+        return hook
+
+
+    for l in range(MODEL_LAYERS):
+
+        handles.append(
+            model.model.layers[
+                l
+            ].register_forward_hook(
+                make_hook(l)
+            )
+        )
+
+
+    def final_pre_hook(
+        module,
+        inputs
+    ):
+
+        final_capture[
+            "hidden"
+        ] = (
+            inputs[0]
+            .detach()
+        )
+
+
+    final_handle = (
+        model.model.norm
+        .register_forward_pre_hook(
+            final_pre_hook
+        )
+    )
+
+
+    enc = tokenizer(
+        prompt,
+        return_tensors="pt"
+    ).to(
+        model.device
+    )
+
+
+    try:
+
+        _ = model(
+            **enc,
+            use_cache=False
+        )
+
+
+        readout = target_readout(
+            final_capture[
+                "hidden"
+            ][
+                0,
+                -1,
+                :
+            ]
+        )
+
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+        final_handle.remove()
+
+
+    return {
+        "states":
+            states,
+
+        "telemetry":
+            telemetry,
+
+        "readout":
+            readout,
+    }
+
+
+# =============================================================================
+# 13. TRANSPORT METRICS
+# =============================================================================
+
+def transport_metrics(
+    baseline_states,
+    steered_states,
+    source_vectors
+):
+
+    # delta_h at each downstream layer
+
+    delta = {}
+
+
+    relative = {}
+
+
+    for l in range(
+        11,
+        MODEL_LAYERS
+    ):
+
+        h0 = (
+            baseline_states[l]
+            .astype(np.float64)
+        )
+
+        hs = (
+            steered_states[l]
+            .astype(np.float64)
+        )
+
+
+        d = (
+            hs - h0
+        )
+
+
+        delta[l] = d
+
+
+        relative[l] = float(
+            np.linalg.norm(d)
+            /
+            (
+                np.linalg.norm(h0)
+                +
+                EPS
+            )
+        )
+
+
+    # Reference at final active layer
+
+    d11 = delta[11]
+
+    u11 = relative[11]
+
+
+    metrics = {}
+
+
+    for l in range(
+        11,
+        MODEL_LAYERS
+    ):
+
+        direction_retention = cosine_np(
+            d11,
+            delta[l]
+        )
+
+
+        physical_retention = float(
+            relative[l]
+            /
+            (
+                u11
+                +
+                EPS
+            )
+        )
+
+
+        # Source alignment only where a layerwise source vector exists.
+        #
+        # A/B/R vectors are defined L0-L19.
+        # No fake L20-L27 source vector.
+
+        if l < VECTOR_LAYERS:
+
+            source_alignment = cosine_np(
+                delta[l],
+                source_vectors[l]
+            )
+
+
+            source_energy = float(
+                source_alignment ** 2
+            )
+
+        else:
+
+            source_alignment = None
+            source_energy = None
+
+
+        metrics[l] = {
+
+            "relative_delta":
+                float(relative[l]),
+
+            "physical_retention_vs_L11":
+                physical_retention,
+
+            "direction_retention_vs_L11":
+                float(direction_retention),
+
+            "source_alignment":
+                source_alignment,
+
+            "source_energy":
+                source_energy,
+        }
+
+
+    # Normalize source energy to L11
+
+    source_E11 = metrics[
+        11
+    ][
+        "source_energy"
+    ]
+
+
+    for l in range(
+        11,
+        VECTOR_LAYERS
+    ):
+
+        metrics[l][
+            "source_energy_retention_vs_L11"
+        ] = float(
+            metrics[l][
+                "source_energy"
+            ]
+            /
+            (
+                source_E11
+                +
+                EPS
+            )
+        )
+
+
+    # Adjacent continuity
+
+    for l in range(
+        11,
+        MODEL_LAYERS
+    ):
+
+        if l < MODEL_LAYERS - 1:
+
+            metrics[l][
+                "adjacent_direction_cos"
+            ] = cosine_np(
+                delta[l],
+                delta[l + 1]
+            )
+
+        else:
+
+            metrics[l][
+                "adjacent_direction_cos"
+            ] = None
+
+
+    return metrics
+
+
+# =============================================================================
+# 14. BASELINE + SEMANTIC A/B
+# =============================================================================
+
+print(
+    "\n[5/15] Baseline trajectories hesaplanıyor..."
+)
+
+
+BASELINES = []
+
+
+for i, prompt in enumerate(PROMPTS):
+
+    BASELINES.append(
+        run_forward(
+            prompt,
+            None,
+            "BASE"
+        )
+    )
+
+    print(
+        f"BASE {i+1:02d}/40",
+        end="\r"
+    )
+
+
+print(" " * 60, end="\r")
+
+
+print(
+    "\n[6/15] Semantic ABOVE / BELOW transport çalıştırılıyor..."
+)
+
+
+SEMANTIC_RESULTS = []
+
+
+for i, prompt in enumerate(PROMPTS):
+
+    base = BASELINES[i]
+
+
+    a = run_forward(
+        prompt,
+        A_VEC,
+        "ABOVE"
+    )
+
+
+    b = run_forward(
+        prompt,
+        B_VEC,
+        "BELOW"
+    )
+
+
+    A_transport = transport_metrics(
+        base["states"],
+        a["states"],
+        A_VEC
+    )
+
+
+    B_transport = transport_metrics(
+        base["states"],
+        b["states"],
+        B_VEC
+    )
+
+
+    dds_ab = float(
+        a["readout"]["AB"]
+        -
+        b["readout"]["AB"]
+    )
+
+
+    dds_ou = float(
+        a["readout"]["OU"]
+        -
+        b["readout"]["OU"]
+    )
+
+
+    SEMANTIC_RESULTS.append({
+
+        "prompt_index":
+            i + 1,
+
+        "family":
+            FAMILIES[i // 8],
+
+        "DDS_AB":
+            dds_ab,
+
+        "DDS_OU":
+            dds_ou,
+
+        "A_transport":
+            A_transport,
+
+        "B_transport":
+            B_transport,
+
+        "A_telemetry":
+            a["telemetry"],
+
+        "B_telemetry":
+            b["telemetry"],
+    })
+
+
+    print(
+        f"SEMANTIC {i+1:02d}/40",
+        end="\r"
+    )
+
+
+print(" " * 60, end="\r")
+
+
+# Behavioral integrity
+
+obs_ab = float(
+    np.mean(
+        [
+            x["DDS_AB"]
+            for x in SEMANTIC_RESULTS
+        ]
+    )
+)
+
+
+obs_ou = float(
+    np.mean(
+        [
+            x["DDS_OU"]
+            for x in SEMANTIC_RESULTS
+        ]
+    )
+)
+
+
+print(
+    "\n[7/15] Locked reproduction check..."
+)
+
+
+print(
+    f"DDS_AB observed = {obs_ab:+.9f}"
+)
+
+print(
+    f"DDS_AB expected = {EXPECTED_AB:+.9f}"
+)
+
+print(
+    f"Difference       = {obs_ab-EXPECTED_AB:+.9e}"
+)
+
+
+print(
+    f"\nDDS_OU observed = {obs_ou:+.9f}"
+)
+
+print(
+    f"DDS_OU expected = {EXPECTED_OU:+.9f}"
+)
+
+print(
+    f"Difference       = {obs_ou-EXPECTED_OU:+.9e}"
+)
+
+
+if abs(
+    obs_ab - EXPECTED_AB
+) > 1e-6:
+
+    raise RuntimeError(
+        "AB reproduction FAILED."
+    )
+
+
+if abs(
+    obs_ou - EXPECTED_OU
+) > 1e-6:
+
+    raise RuntimeError(
+        "OU reproduction FAILED."
+    )
+
+
+print("\nReproduction integrity: PASS")
+
+
+# =============================================================================
+# 15. SEMANTIC AGGREGATES
+# =============================================================================
+
+def semantic_mean(
+    arm_key,
+    layer,
+    metric
+):
+
+    return float(
+        np.mean(
+            [
+                x[
+                    arm_key
+                ][
+                    layer
+                ][
+                    metric
+                ]
+                for x in SEMANTIC_RESULTS
+            ]
+        )
+    )
+
+
+A_PHYS19 = semantic_mean(
+    "A_transport",
+    19,
+    "physical_retention_vs_L11"
+)
+
+
+B_PHYS19 = semantic_mean(
+    "B_transport",
+    19,
+    "physical_retention_vs_L11"
+)
+
+
+A_DIR19 = semantic_mean(
+    "A_transport",
+    19,
+    "direction_retention_vs_L11"
+)
+
+
+B_DIR19 = semantic_mean(
+    "B_transport",
+    19,
+    "direction_retention_vs_L11"
+)
+
+
+A_SRC19 = semantic_mean(
+    "A_transport",
+    19,
+    "source_energy_retention_vs_L11"
+)
+
+
+B_SRC19 = semantic_mean(
+    "B_transport",
+    19,
+    "source_energy_retention_vs_L11"
+)
+
+
+print(
+    "\nTEST112-compatible semantic transport:"
+)
+
+
+print(
+    f"ABOVE physical L19 = {A_PHYS19:.6f}"
+)
+
+print(
+    f"BELOW physical L19 = {B_PHYS19:.6f}"
+)
+
+print(
+    f"ABOVE direction L19 = {A_DIR19:+.6f}"
+)
+
+print(
+    f"BELOW direction L19 = {B_DIR19:+.6f}"
+)
+
+
+# =============================================================================
+# 16. RANDOM NULL
+# =============================================================================
+
+print(
+    "\n[8/15] 32 random perturbation transport null çalıştırılıyor..."
+)
+
+print(
+    "Bu bölüm 32 × 40 = 1280 steered forward pass içerir."
+)
+
+
+RANDOM_SUMMARY = []
+
+
+for r_idx, rvec in enumerate(
+    RANDOM_VECTORS
+):
+
+    per_prompt = []
+
+
+    for p_idx, prompt in enumerate(
+        PROMPTS
+    ):
+
+        rr = run_forward(
+            prompt,
+            rvec,
+            f"RANDOM_{r_idx:02d}"
+        )
+
+
+        transport = transport_metrics(
+            BASELINES[p_idx][
+                "states"
+            ],
+            rr["states"],
+            rvec
+        )
+
+
+        per_prompt.append({
+
+            "physical_L19":
+                transport[
+                    19
+                ][
+                    "physical_retention_vs_L11"
+                ],
+
+            "direction_L19":
+                transport[
+                    19
+                ][
+                    "direction_retention_vs_L11"
+                ],
+
+            "direction_L27":
+                transport[
+                    27
+                ][
+                    "direction_retention_vs_L11"
+                ],
+
+            "source_energy_retention_L19":
+                transport[
+                    19
+                ][
+                    "source_energy_retention_vs_L11"
+                ],
+
+            "source_alignment_L11":
+                transport[
+                    11
+                ][
+                    "source_alignment"
+                ],
+
+            "source_alignment_L19":
+                transport[
+                    19
+                ][
+                    "source_alignment"
+                ],
+
+            "adjacent_L11_12":
+                transport[
+                    11
+                ][
+                    "adjacent_direction_cos"
+                ],
+
+            "adjacent_L15_16":
+                transport[
+                    15
+                ][
+                    "adjacent_direction_cos"
+                ],
+
+            "adjacent_L18_19":
+                transport[
+                    18
+                ][
+                    "adjacent_direction_cos"
+                ],
+        })
+
+
+        print(
+            f"RANDOM {r_idx+1:02d}/{N_RANDOM} "
+            f"| prompt {p_idx+1:02d}/40",
+            end="\r"
+        )
+
+
+    def m(key):
+
+        return float(
+            np.mean(
+                [
+                    x[key]
+                    for x in per_prompt
+                ]
+            )
+        )
+
+
+    RANDOM_SUMMARY.append({
+
+        "random_index":
+            r_idx,
+
+        "seed":
+            RANDOM_SEED_BASE
+            +
+            r_idx,
+
+        "physical_L19":
+            m("physical_L19"),
+
+        "direction_L19":
+            m("direction_L19"),
+
+        "direction_L27":
+            m("direction_L27"),
+
+        "source_energy_retention_L19":
+            m(
+                "source_energy_retention_L19"
+            ),
+
+        "source_alignment_L11":
+            m(
+                "source_alignment_L11"
+            ),
+
+        "source_alignment_L19":
+            m(
+                "source_alignment_L19"
+            ),
+
+        "adjacent_L11_12":
+            m("adjacent_L11_12"),
+
+        "adjacent_L15_16":
+            m("adjacent_L15_16"),
+
+        "adjacent_L18_19":
+            m("adjacent_L18_19"),
+    })
+
+
+print(" " * 100, end="\r")
+
+
+# =============================================================================
+# 17. NULL ARRAYS
+# =============================================================================
+
+NULL_PHYS19 = np.asarray(
+    [
+        x["physical_L19"]
+        for x in RANDOM_SUMMARY
+    ],
+    dtype=np.float64
+)
+
+
+NULL_DIR19 = np.asarray(
+    [
+        x["direction_L19"]
+        for x in RANDOM_SUMMARY
+    ],
+    dtype=np.float64
+)
+
+
+NULL_DIR27 = np.asarray(
+    [
+        x["direction_L27"]
+        for x in RANDOM_SUMMARY
+    ],
+    dtype=np.float64
+)
+
+
+NULL_SRC19 = np.asarray(
+    [
+        x[
+            "source_energy_retention_L19"
+        ]
+        for x in RANDOM_SUMMARY
+    ],
+    dtype=np.float64
+)
+
+
+# =============================================================================
+# 18. PRIMARY COMPARISON
+# =============================================================================
+
+print(
+    "\n[9/15] Semantic vs random transport karşılaştırılıyor..."
+)
+
+
+print(
+    "\n"
+    + "=" * 170
+)
+
+print(
+    "PRIMARY TRANSPORT CONTROL — L11 → L19"
+)
+
+print(
+    "=" * 170
+)
+
+
+print(
+    f"{'METRIC':<36}"
+    f"{'ABOVE':>14}"
+    f"{'BELOW':>14}"
+    f"{'RANDOM MEAN':>16}"
+    f"{'RANDOM SD':>14}"
+    f"{'RANDOM MIN':>14}"
+    f"{'RANDOM MAX':>14}"
+)
+
+
+print("-" * 126)
+
+
+rows = [
+
+    (
+        "physical retention",
+        A_PHYS19,
+        B_PHYS19,
+        NULL_PHYS19
+    ),
+
+    (
+        "direction retention",
+        A_DIR19,
+        B_DIR19,
+        NULL_DIR19
+    ),
+
+    (
+        "source-energy retention",
+        A_SRC19,
+        B_SRC19,
+        NULL_SRC19
+    ),
+]
+
+
+for name, aobs, bobs, null in rows:
+
+    print(
+        f"{name:<36}"
+        f"{aobs:>14.6f}"
+        f"{bobs:>14.6f}"
+        f"{null.mean():>16.6f}"
+        f"{null.std():>14.6f}"
+        f"{null.min():>14.6f}"
+        f"{null.max():>14.6f}"
+    )
+
+
+# =============================================================================
+# 19. EMPIRICAL POSITIONS
+# =============================================================================
+
+print(
+    "\n[10/15] Empirical null positions..."
+)
+
+
+EMPIRICAL = {}
+
+
+for metric_name, aobs, bobs, null in rows:
+
+    EMPIRICAL[
+        metric_name
+    ] = {}
+
+
+    for label, obs in [
+        ("ABOVE", aobs),
+        ("BELOW", bobs)
+    ]:
+
+        upper_count, upper_tail = (
+            empirical_upper_tail(
+                obs,
+                null
+            )
+        )
+
+
+        lower_count, lower_tail = (
+            empirical_lower_tail(
+                obs,
+                null
+            )
+        )
+
+
+        percentile = percentile_position(
+            obs,
+            null
+        )
+
+
+        EMPIRICAL[
+            metric_name
+        ][label] = {
+
+            "observed":
+                float(obs),
+
+            "percentile":
+                percentile,
+
+            "upper_count":
+                upper_count,
+
+            "upper_tail_plus1":
+                upper_tail,
+
+            "lower_count":
+                lower_count,
+
+            "lower_tail_plus1":
+                lower_tail,
+        }
+
+
+print(
+    "\n"
+    + "=" * 170
+)
+
+print(
+    "SEMANTIC POSITION INSIDE 32-DIRECTION RANDOM NULL"
+)
+
+print(
+    "=" * 170
+)
+
+
+print(
+    f"{'METRIC':<34}"
+    f"{'ARM':<10}"
+    f"{'OBS':>12}"
+    f"{'PCTL':>10}"
+    f"{'>= OBS':>10}"
+    f"{'UPPER +1':>12}"
+    f"{'<= OBS':>10}"
+    f"{'LOWER +1':>12}"
+)
+
+
+print("-" * 112)
+
+
+for metric_name in EMPIRICAL:
+
+    for arm in [
+        "ABOVE",
+        "BELOW"
+    ]:
+
+        x = EMPIRICAL[
+            metric_name
+        ][arm]
+
+
+        print(
+            f"{metric_name:<34}"
+            f"{arm:<10}"
+            f"{x['observed']:>12.6f}"
+            f"{x['percentile']:>9.2f}%"
+            f"{x['upper_count']:>10d}"
+            f"{x['upper_tail_plus1']:>12.6f}"
+            f"{x['lower_count']:>10d}"
+            f"{x['lower_tail_plus1']:>12.6f}"
+        )
+
+
+# =============================================================================
+# 20. FULL RANDOM TRANSPORT PROFILE
+# =============================================================================
+
+print(
+    "\n[11/15] Random transport profile..."
+)
+
+
+# To avoid rerunning 1280 passes, primary run stored only selected metrics.
+# For the central null question these are sufficient.
+
+
+print(
+    "\n"
+    + "=" * 170
+)
+
+print(
+    "RANDOM DIRECTION SUMMARY"
+)
+
+print(
+    "=" * 170
+)
+
+
+print(
+    f"{'R':<5}"
+    f"{'PHYS19':>12}"
+    f"{'DIR19':>12}"
+    f"{'DIR27':>12}"
+    f"{'SRC-E19':>12}"
+    f"{'SRCcos11':>12}"
+    f"{'SRCcos19':>12}"
+    f"{'C11-12':>12}"
+    f"{'C15-16':>12}"
+    f"{'C18-19':>12}"
+)
+
+
+print("-" * 113)
+
+
+for x in RANDOM_SUMMARY:
+
+    print(
+        f"{x['random_index']:<5d}"
+        f"{x['physical_L19']:>12.6f}"
+        f"{x['direction_L19']:>12.6f}"
+        f"{x['direction_L27']:>12.6f}"
+        f"{x['source_energy_retention_L19']:>12.6f}"
+        f"{x['source_alignment_L11']:>12.6f}"
+        f"{x['source_alignment_L19']:>12.6f}"
+        f"{x['adjacent_L11_12']:>12.6f}"
+        f"{x['adjacent_L15_16']:>12.6f}"
+        f"{x['adjacent_L18_19']:>12.6f}"
+    )
+
+
+# =============================================================================
+# 21. L27 DIRECTION RETENTION
+# =============================================================================
+
+print(
+    "\n[12/15] End-of-network direction retention..."
+)
+
+
+A_DIR27 = semantic_mean(
+    "A_transport",
+    27,
+    "direction_retention_vs_L11"
+)
+
+
+B_DIR27 = semantic_mean(
+    "B_transport",
+    27,
+    "direction_retention_vs_L11"
+)
+
+
+print(
+    "\n"
+    + "=" * 170
+)
+
+print(
+    "L11 → L27 RAW DIRECTION RETENTION"
+)
+
+print(
+    "=" * 170
+)
+
+
+print(
+    f"ABOVE       : {A_DIR27:+.6f}"
+)
+
+print(
+    f"BELOW       : {B_DIR27:+.6f}"
+)
+
+print(
+    f"RANDOM mean : {NULL_DIR27.mean():+.6f}"
+)
+
+print(
+    f"RANDOM SD   : {NULL_DIR27.std():.6f}"
+)
+
+print(
+    f"RANDOM range: "
+    f"[{NULL_DIR27.min():+.6f}, "
+    f"{NULL_DIR27.max():+.6f}]"
+)
+
+
+for label, obs in [
+    ("ABOVE", A_DIR27),
+    ("BELOW", B_DIR27)
+]:
+
+    uc, ut = empirical_upper_tail(
+        obs,
+        NULL_DIR27
+    )
+
+    lc, lt = empirical_lower_tail(
+        obs,
+        NULL_DIR27
+    )
+
+    pct = percentile_position(
+        obs,
+        NULL_DIR27
+    )
+
+
+    print(
+        f"{label:<6} percentile={pct:6.2f}% | "
+        f"upper+1={ut:.6f} | "
+        f"lower+1={lt:.6f}"
+    )
+
+
+# =============================================================================
+# 22. TELEMETRY CHECK
+# =============================================================================
+
+print(
+    "\n[13/15] DRA telemetry..."
+)
+
+
+def semantic_telemetry_mean(
+    key,
+    metric
+):
+
+    vals = []
+
+    for x in SEMANTIC_RESULTS:
+
+        for row in x[key]:
+
+            vals.append(
+                row[metric]
+            )
+
+    return float(
+        np.mean(vals)
+    )
+
+
+A_TEL = {
+    key: semantic_telemetry_mean(
+        "A_telemetry",
+        key
+    )
+    for key in [
+        "cos",
+        "env",
+        "brake",
+        "contribution"
+    ]
+}
+
+
+B_TEL = {
+    key: semantic_telemetry_mean(
+        "B_telemetry",
+        key
+    )
+    for key in [
+        "cos",
+        "env",
+        "brake",
+        "contribution"
+    ]
+}
+
+
+print(
+    "\nSemantic telemetry:"
+)
+
+
+print(
+    "ABOVE | "
+    f"cos={A_TEL['cos']:+.6f} | "
+    f"env={A_TEL['env']:.6f} | "
+    f"brake={A_TEL['brake']:.6f} | "
+    f"contrib={A_TEL['contribution']:.6f}"
+)
+
+
+print(
+    "BELOW | "
+    f"cos={B_TEL['cos']:+.6f} | "
+    f"env={B_TEL['env']:.6f} | "
+    f"brake={B_TEL['brake']:.6f} | "
+    f"contrib={B_TEL['contribution']:.6f}"
+)
+
+
+# =============================================================================
+# 23. JSON
+# =============================================================================
+
+print(
+    "\n[14/15] JSON hazırlanıyor..."
+)
+
+
+OUTPUT = {
+
+    "test":
+        "TEST 113",
+
+    "title":
+        "Semantic vs Random Perturbation Transport Control",
+
+    "model":
+        MODEL_NAME,
+
+    "config": {
+
+        "active_layers":
+            ACTIVE_LAYERS,
+
+        "ivme":
+            IVME,
+
+        "sqrt_k":
+            SQRT_K,
+
+        "n_prompts":
+            len(PROMPTS),
+
+        "n_random":
+            N_RANDOM,
+
+        "random_seed_base":
+            RANDOM_SEED_BASE,
+
+        "minimum_empirical_tail_plus1":
+            1.0
+            /
+            (
+                N_RANDOM
+                +
+                1
+            ),
+    },
+
+    "reproduction": {
+
+        "AB_expected":
+            EXPECTED_AB,
+
+        "AB_observed":
+            obs_ab,
+
+        "AB_difference":
+            float(
+                obs_ab
+                -
+                EXPECTED_AB
+            ),
+
+        "OU_expected":
+            EXPECTED_OU,
+
+        "OU_observed":
+            obs_ou,
+
+        "OU_difference":
+            float(
+                obs_ou
+                -
+                EXPECTED_OU
+            ),
+
+        "integrity":
+            "PASS",
+    },
+
+    "semantic": {
+
+        "ABOVE": {
+            "physical_L19":
+                A_PHYS19,
+
+            "direction_L19":
+                A_DIR19,
+
+            "direction_L27":
+                A_DIR27,
+
+            "source_energy_retention_L19":
+                A_SRC19,
+        },
+
+        "BELOW": {
+            "physical_L19":
+                B_PHYS19,
+
+            "direction_L19":
+                B_DIR19,
+
+            "direction_L27":
+                B_DIR27,
+
+            "source_energy_retention_L19":
+                B_SRC19,
+        },
+    },
+
+    "random_summary":
+        RANDOM_SUMMARY,
+
+    "random_distribution": {
+
+        "physical_L19": {
+            "mean":
+                float(NULL_PHYS19.mean()),
+
+            "sd":
+                float(NULL_PHYS19.std()),
+
+            "min":
+                float(NULL_PHYS19.min()),
+
+            "max":
+                float(NULL_PHYS19.max()),
+        },
+
+        "direction_L19": {
+            "mean":
+                float(NULL_DIR19.mean()),
+
+            "sd":
+                float(NULL_DIR19.std()),
+
+            "min":
+                float(NULL_DIR19.min()),
+
+            "max":
+                float(NULL_DIR19.max()),
+        },
+
+        "direction_L27": {
+            "mean":
+                float(NULL_DIR27.mean()),
+
+            "sd":
+                float(NULL_DIR27.std()),
+
+            "min":
+                float(NULL_DIR27.min()),
+
+            "max":
+                float(NULL_DIR27.max()),
+        },
+
+        "source_energy_retention_L19": {
+            "mean":
+                float(NULL_SRC19.mean()),
+
+            "sd":
+                float(NULL_SRC19.std()),
+
+            "min":
+                float(NULL_SRC19.min()),
+
+            "max":
+                float(NULL_SRC19.max()),
+        },
+    },
+
+    "empirical":
+        EMPIRICAL,
+
+    "semantic_telemetry": {
+        "ABOVE":
+            A_TEL,
+
+        "BELOW":
+            B_TEL,
+    },
+
+    "interpretation_lock":
+        (
+            "TEST113 is a random-direction transport control. "
+            "It tests whether the downstream perturbation transport profile "
+            "observed for semantic A/B directions is distinguishable from "
+            "equal-method random layerwise directions. Empirical +1 tails "
+            "are descriptive finite-null quantities, not classical p-values. "
+            "No controller is tested or validated."
+        ),
+}
+
+
+OUTPUT_FILE = (
+    "TEST_113_SEMANTIC_RANDOM_TRANSPORT_CONTROL.json"
+)
+
+
+with open(
+    OUTPUT_FILE,
+    "w",
+    encoding="utf-8"
+) as f:
+
+    json.dump(
+        OUTPUT,
+        f,
+        indent=2,
+        ensure_ascii=False
+    )
+
+
+print(
+    "Kaydedildi:",
+    OUTPUT_FILE
+)
+
+
+# =============================================================================
+# 24. FINAL
+# =============================================================================
+
+print(
+    "\n"
+    + "=" * 170
+)
+
+print(
+    "TEST 113 — FINAL SUMMARY"
+)
+
+print(
+    "=" * 170
+)
+
+
+print(
+    "\nREPRODUCTION"
+)
+
+print(
+    f"AB = {obs_ab:+.9f} "
+    f"(expected {EXPECTED_AB:+.9f})"
+)
+
+print(
+    f"OU = {obs_ou:+.9f} "
+    f"(expected {EXPECTED_OU:+.9f})"
+)
+
+
+print(
+    "\nL11 → L19"
+)
+
+print(
+    f"ABOVE physical retention  = {A_PHYS19:.6f}"
+)
+
+print(
+    f"BELOW physical retention  = {B_PHYS19:.6f}"
+)
+
+print(
+    f"RANDOM physical mean      = {NULL_PHYS19.mean():.6f} "
+    f"± {NULL_PHYS19.std():.6f}"
+)
+
+
+print(
+    f"\nABOVE direction retention = {A_DIR19:+.6f}"
+)
+
+print(
+    f"BELOW direction retention = {B_DIR19:+.6f}"
+)
+
+print(
+    f"RANDOM direction mean     = {NULL_DIR19.mean():+.6f} "
+    f"± {NULL_DIR19.std():.6f}"
+)
+
+
+print(
+    f"\nABOVE source-E retention  = {A_SRC19:.6f}"
+)
+
+print(
+    f"BELOW source-E retention  = {B_SRC19:.6f}"
+)
+
+print(
+    f"RANDOM source-E mean      = {NULL_SRC19.mean():.6f} "
+    f"± {NULL_SRC19.std():.6f}"
+)
+
+
+print(
+    "\nL11 → L27"
+)
+
+print(
+    f"ABOVE direction retention = {A_DIR27:+.6f}"
+)
+
+print(
+    f"BELOW direction retention = {B_DIR27:+.6f}"
+)
+
+print(
+    f"RANDOM direction mean     = {NULL_DIR27.mean():+.6f} "
+    f"± {NULL_DIR27.std():.6f}"
+)
+
+
+print(
+    "\n"
+    + "=" * 170
+)
+
+print(
+    "INTERPRETATION LOCK"
+)
+
+print(
+    "=" * 170
+)
+
+
+print(
+r"""
+PRIMARY QUESTION:
+
+    TEST112'deki downstream redistribution semantik A/B yönlerine özgü mü?
+
+NULL:
+
+    Eşit yöntemle enjekte edilen random layerwise directions da
+    benzer physical-retention ve direction-retention profili gösterir.
+
+
+IF A/B ≈ RANDOM:
+
+    TEST112'nin büyük kısmı genel transformer perturbation transport
+    dinamiği olarak yorumlanmalıdır.
+
+    Bu durumda:
+
+        "semantic vectors özel olarak rotate ediliyor"
+
+    denemez.
+
+
+IF A/B OUTSIDE RANDOM NULL:
+
+    semantic direction'ın downstream transport üzerinde ölçülebilir
+    bir etkisi olduğuna dair mekanistik aday kanıt oluşur.
+
+
+THREE PRIMARY METRICS:
+
+    1) physical retention
+
+        u_19 / u_11
+
+    2) raw direction retention
+
+        cos(delta_h_11, delta_h_19)
+
+    3) source-direction energy retention
+
+        cos(delta_h_19, v_19)^2
+        --------------------------------
+        cos(delta_h_11, v_11)^2
+
+
+L27:
+
+    Only physical/raw perturbation direction is compared.
+
+    No fake semantic/random source vectors beyond L19 are created.
+
+
+STATISTICS:
+
+    N_RANDOM = 32
+
+    minimum +1 empirical tail:
+
+        1 / 33 = 0.030303...
+
+    These finite-null tail quantities are NOT classical p-values.
+
+
+NO CONTROLLER.
+
+NO PARAMETER UPDATE.
+
+NO FEATURE SEARCH.
+
+TEST113 ONLY DETERMINES WHETHER TEST112'S TRANSPORT PHENOMENON
+IS SEMANTIC-SPECIFIC OR GENERIC.
+"""
+)
+
+
+print(
+    "[15/15] TEST 113 tamamlandı."
+)
+
+
+# Optional cleanup
+
+gc.collect()
+
+if torch.cuda.is_available():
+    torch.cuda.empty_cache()
