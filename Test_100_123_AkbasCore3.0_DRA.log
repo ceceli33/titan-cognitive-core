@@ -1,0 +1,3112 @@
+# =============================================================================
+# TEST 123 — AKBASCORE DRA 3.0
+#
+# LOCAL TRANSPORT CARTOGRAPHY
+# SEED-CENTERED FINITE-PROBE ROUTE SELECTION
+#
+# Qwen2.5-7B-Instruct · BF16 · A100
+#
+# -----------------------------------------------------------------------------
+# CENTRAL QUESTION
+# -----------------------------------------------------------------------------
+#
+# Does a tiny finite perturbation measured ONLY across L11 -> L12 contain
+# useful information about which nearby semantic direction will transport
+# better to deeper layers, especially L19?
+#
+#
+# IMPORTANT CAUSAL SEPARATION
+# -----------------------------------------------------------------------------
+#
+# ROUTE SELECTION may see:
+#
+#       baseline L11
+#       baseline L12
+#       tiny-probe L12 response
+#       locked semantic v12
+#
+# ROUTE SELECTION may NOT see:
+#
+#       L13
+#       L15
+#       L19
+#       L27
+#
+# L19 therefore remains an unseen terminal evaluation endpoint during
+# route selection.
+#
+#
+# SEARCH SPACE
+# -----------------------------------------------------------------------------
+#
+# Main candidate cloud:
+#
+#       q_i = normalize(cos(theta_i) * seed
+#                       + sin(theta_i) * u_i)
+#
+# where:
+#
+#       u_i ⟂ seed
+#
+# and theta is frozen to:
+#
+#       5°, 10°, 15°, 20°, 30°, 45°
+#
+# 4 orthogonal random deviations per angle:
+#
+#       6 * 4 = 24 candidates
+#
+# FIXED seed is evaluated separately.
+#
+#
+# WHY SEED-CENTERED?
+# -----------------------------------------------------------------------------
+#
+# TEST122 showed that throwing away most of the semantic seed through
+# token-cloud PCA projection destroyed transport.
+#
+# TEST123 therefore preserves semantic identity while asking whether
+# small context-specific directional changes around the seed can improve
+# transport.
+#
+#
+# PROBE
+# -----------------------------------------------------------------------------
+#
+# Tiny relative injection:
+#
+#       ||probe|| = PROBE_REL * ||h11||
+#
+# frozen:
+#
+#       PROBE_REL = 0.0025
+#
+# This is 0.25% of hidden-state norm.
+#
+#
+# LOCAL RESPONSE METRICS
+# -----------------------------------------------------------------------------
+#
+# For candidate q:
+#
+#       delta12(q) =
+#           F11(h11 + eps*q) - F11(h11)
+#
+# Gain:
+#
+#       G(q) = ||delta12|| / ||probe11||
+#
+# Alignment:
+#
+#       A(q) = cos(delta12, v12)
+#
+# Signed transport score:
+#
+#       T(q) = G(q) * A(q)
+#
+#
+# SELECTION
+# -----------------------------------------------------------------------------
+#
+# TRANSPORT_SELECTED:
+#
+#       argmax_q T(q)
+#
+# No coefficient fitting.
+# No angle tuning.
+# No L19 leakage.
+#
+#
+# FINAL FULL-STRENGTH ARMS
+# -----------------------------------------------------------------------------
+#
+# 1. FIXED
+#       original v11
+#
+# 2. TRANSPORT_SELECTED
+#       candidate with maximum tiny-probe T
+#
+# 3. CLOUD_RANDOM
+#       randomly chosen candidate from the SAME seed-centered cloud
+#
+# 4. GLOBAL_RANDOM
+#       completely random unit direction
+#
+#
+# All four final arms use EXACTLY THE SAME frozen DRA magnitude.
+#
+#
+# PRIMARY ENDPOINT
+# -----------------------------------------------------------------------------
+#
+#       D19 = cos(delta19, v19)
+#
+#
+# SECONDARY
+# -----------------------------------------------------------------------------
+#
+#       D12, D13, D15
+#       P12, P13, P15, P19, P27
+#
+# L27 directional metric is raw retention against the injected source
+# direction because locked semantic vectors only exist L0-L19.
+#
+#
+# MOST IMPORTANT DIAGNOSTIC
+# -----------------------------------------------------------------------------
+#
+# Across all 24 candidates x 40 prompts:
+#
+#       correlation(probe T, actual full-strength D19)
+#
+# BUT:
+#
+# To avoid using terminal D19 during candidate selection, D19 is measured
+# only AFTER the candidate choice is frozen.
+#
+# For computational cost, full-strength D19 is measured for:
+#
+#       FIXED
+#       SELECTED
+#       CLOUD_RANDOM
+#       GLOBAL_RANDOM
+#
+# not all 24 candidates.
+#
+#
+# INTERPRETATION
+# -----------------------------------------------------------------------------
+#
+# Positive result:
+#
+#   local finite-response measurement contains actionable information
+#   for context-conditioned route selection.
+#
+# Negative result:
+#
+#   L11->L12 tiny response is insufficient to predict terminal transport.
+#
+# Neither result proves:
+#
+#   true Jacobian recovery
+#   manifold recovery
+#   semantic causality
+#   physical momentum / energy transfer
+#
+# =============================================================================
+
+
+import gc
+import json
+import math
+import random
+import numpy as np
+
+import torch
+import torch.nn.functional as F
+
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+
+# =============================================================================
+# 0. CONFIG
+# =============================================================================
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 12301
+
+MODEL_LAYERS = 28
+VECTOR_LAYERS = 20
+HIDDEN = 3584
+
+SOURCE_LAYER = 11
+
+TARGET_LAYERS = [
+    12,
+    13,
+    15,
+    19,
+    27,
+]
+
+PROBE_TARGET = 12
+
+# Tiny probe = 0.25% of L11 baseline hidden norm.
+PROBE_REL = 0.0025
+
+# Frozen seed-centered angular cloud.
+ANGLES_DEG = [
+    5,
+    10,
+    15,
+    20,
+    30,
+    45,
+]
+
+DEVIATIONS_PER_ANGLE = 4
+
+N_CANDIDATES = (
+    len(ANGLES_DEG)
+    *
+    DEVIATIONS_PER_ANGLE
+)
+
+# Historical actuator.
+IVME = 0.10
+
+SONUM = 0.30
+ZIRVE = 0.70
+TABAN = 0.20
+
+EXPECTED_COS10 = 0.656545
+EXPECTED_COS11 = 0.658274
+
+FINGERPRINT_TOL = 5e-6
+
+EPS = 1e-12
+
+OUT_JSON = (
+    "/content/"
+    "TEST_123_LOCAL_TRANSPORT_CARTOGRAPHY.json"
+)
+
+
+# =============================================================================
+# 1. EXACT LOCKED CONTRAST EXTRACTION STRINGS
+# =============================================================================
+
+ABOVE = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+BELOW = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+# IMPORTANT:
+# The exact historical BELOW strings must be used.
+# Correct the two lines above immediately by defining the exact locked list.
+BELOW = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+NEUTRAL = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 2. NEW TEST123 BLIND PROMPTS
+#
+# These are new and must not be reused as blind prompts after this run.
+# =============================================================================
+
+PROMPTS = [
+
+    "The harbor elevation chart places Nora and the ferry boarding deck at distinct heights. Relative to the deck, Nora is",
+
+    "A forestry survey records a monitoring drone and the ranger station roof at unequal elevations. The drone is",
+
+    "The volcanic field map marks a sampling balloon and the caldera edge at separate heights. Relative to the edge, the balloon is",
+
+    "A construction diagram places Ibrahim and the concrete work deck at different vertical coordinates. Ibrahim is",
+
+    "The marina plan records a signal beacon and the terminal canopy at distinct elevations. Relative to the canopy, the beacon is",
+
+    "An emergency flight chart places a rescue helicopter and the ravine rim at unequal altitudes. The helicopter is",
+
+    "The observatory plan marks Clara and the instrument platform at separate vertical levels. Relative to the platform, Clara is",
+
+    "A wildlife chart records a falcon and the watchtower ledge at different elevations. The falcon is",
+
+    "The railway drawing places Ethan and the station footbridge at unequal heights. Ethan is",
+
+    "An atmospheric survey records a weather aerostat and the laboratory roof at separate elevations. The aerostat is",
+
+    "The refinery diagram marks an indicator lamp and the tank platform at different heights. Relative to the platform, the lamp is",
+
+    "A rural survey places Salma and the timber crossing at distinct vertical coordinates. Salma is",
+
+    "The flight map records a sailplane and the canyon crest at unequal elevations. Relative to the crest, the sailplane is",
+
+    "A concert-hall plan marks a suspended speaker and the stage floor at separate vertical levels. The speaker is",
+
+    "The alpine survey places a mapping aircraft and the summit ridge at different altitudes. The aircraft is",
+
+    "A service diagram records Murat and the maintenance gantry at unequal heights. Murat is",
+
+    "The research facility plan places a detector and the calibration table at distinct vertical coordinates. The detector is",
+
+    "An aviation maintenance record marks an inspection drone and the hangar roof at different elevations. Relative to the roof, the drone is",
+
+    "The shoreline survey places a reflector and the sea barrier crest at unequal heights. The reflector is",
+
+    "A manufacturing plan records a worker and the elevated service walkway at separate vertical levels. The worker is",
+
+    "The communications chart marks a meteorological balloon and the radio mast crown at different altitudes. The balloon is",
+
+    "A municipal survey places an imaging device and the sculpture pedestal at unequal elevations. The device is",
+
+    "The mountain rescue chart records a helicopter and the high pass ridge at separate altitude readings. Relative to the ridge, the helicopter is",
+
+    "A roadway inspection drawing marks a surveyor and the flyover deck at different vertical coordinates. The surveyor is",
+
+    "Elevation comparison: Yasmin and the brick arch bridge occupy separate height levels. Yasmin is",
+
+    "Height comparison: a courier drone and the exhibition center roof occupy unequal levels. The drone is",
+
+    "Survey comparison: a warning marker and the bell tower balcony are registered at different elevations. The marker is",
+
+    "Vertical comparison: Diego and the scenic observation deck occupy separate heights. Diego is",
+
+    "Altitude comparison: a research balloon and the depot roofline occupy unequal levels. The balloon is",
+
+    "Elevation comparison: a condor and the plateau boundary occupy different heights. The condor is",
+
+    "Height comparison: a measuring probe and the laboratory platform occupy separate levels. The probe is",
+
+    "Altitude comparison: an evacuation helicopter and the rocky ridge occupy unequal elevations. The helicopter is",
+
+    "The historic canal bridge provides the reference elevation for describing Mia's vertical position. Mia is",
+
+    "The terminal building roof provides the reference height for a hovering survey drone. The drone is",
+
+    "A terrace railing provides the comparison elevation for a hanging signal lamp. The lamp is",
+
+    "The mountain snowline ridge provides the reference altitude for an observation aircraft. The aircraft is",
+
+    "A warehouse loading platform provides the comparison height for Jacob's vertical position. Jacob is",
+
+    "The memorial plinth provides the reference elevation for an optical instrument. The instrument is",
+
+    "The gorge boundary provides the comparison altitude for an emergency aerostat. The aerostat is",
+
+    "A raised station walkway provides the reference height for Lina's vertical placement. Lina is",
+]
+
+assert len(PROMPTS) == 40
+
+
+# =============================================================================
+# 3. REPRODUCIBILITY
+# =============================================================================
+
+random.seed(SEED)
+np.random.seed(SEED)
+
+torch.manual_seed(SEED)
+
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
+
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+
+# =============================================================================
+# 4. HELPERS
+# =============================================================================
+
+def normalize(v):
+
+    v = v.float()
+
+    n = torch.linalg.vector_norm(v)
+
+    if float(n.item()) < EPS:
+        return None
+
+    return v / n
+
+
+def cos_tensor(a, b):
+
+    a = a.float()
+    b = b.float()
+
+    na = torch.linalg.vector_norm(a)
+    nb = torch.linalg.vector_norm(b)
+
+    if (
+        float(na.item()) < EPS
+        or
+        float(nb.item()) < EPS
+    ):
+        return 0.0
+
+    return float(
+        torch.dot(a, b)
+        /
+        (na * nb)
+    )
+
+
+def descriptive_stats(x):
+
+    x = np.asarray(
+        x,
+        dtype=np.float64,
+    )
+
+    n = len(x)
+
+    mean = float(
+        np.mean(x)
+    )
+
+    sd = (
+        float(
+            np.std(
+                x,
+                ddof=1,
+            )
+        )
+        if n > 1
+        else 0.0
+    )
+
+    se = (
+        sd / math.sqrt(n)
+        if n > 1
+        else 0.0
+    )
+
+    return {
+        "mean": mean,
+        "sd": sd,
+        "ci95_descriptive": [
+            float(mean - 1.96 * se),
+            float(mean + 1.96 * se),
+        ],
+        "positive_fraction": float(
+            np.mean(x > 0)
+        ),
+        "negative_fraction": float(
+            np.mean(x < 0)
+        ),
+        "min": float(np.min(x)),
+        "max": float(np.max(x)),
+    }
+
+
+def pearson(x, y):
+
+    x = np.asarray(
+        x,
+        dtype=np.float64,
+    )
+
+    y = np.asarray(
+        y,
+        dtype=np.float64,
+    )
+
+    if (
+        len(x) < 2
+        or
+        np.std(x) < 1e-15
+        or
+        np.std(y) < 1e-15
+    ):
+        return float("nan")
+
+    return float(
+        np.corrcoef(
+            x,
+            y,
+        )[0, 1]
+    )
+
+
+# =============================================================================
+# 5. LOAD MODEL
+# =============================================================================
+
+print("=" * 160)
+print("TEST 123 — AKBASCORE DRA 3.0")
+print("LOCAL TRANSPORT CARTOGRAPHY")
+print("SEED-CENTERED FINITE-PROBE ROUTE SELECTION")
+print("=" * 160)
+
+print("\n[1/17] Model yükleniyor...")
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_ID,
+    trust_remote_code=True,
+)
+
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+tokenizer.padding_side = "right"
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True,
+    low_cpu_mem_usage=True,
+    attn_implementation="sdpa",
+)
+
+model.eval()
+
+for p in model.parameters():
+    p.requires_grad_(False)
+
+device = next(
+    model.parameters()
+).device
+
+assert (
+    len(model.model.layers)
+    ==
+    MODEL_LAYERS
+)
+
+assert (
+    model.config.hidden_size
+    ==
+    HIDDEN
+)
+
+print("Model             :", MODEL_ID)
+print("Device            :", device)
+print("dtype             :", next(model.parameters()).dtype)
+print("Layers            :", MODEL_LAYERS)
+print("Source            :", SOURCE_LAYER)
+print("Probe target      :", PROBE_TARGET)
+print("Evaluation targets:", TARGET_LAYERS)
+print("Probe relative    :", PROBE_REL)
+print("Angles            :", ANGLES_DEG)
+print("Candidates        :", N_CANDIDATES)
+print("IVME              :", IVME)
+print("Prompts           :", len(PROMPTS))
+print("Controller        : OFF")
+print("zeta              : OFF")
+print("old brake         : OFF")
+
+
+# =============================================================================
+# 6. LOCKED VECTOR EXTRACTION
+# =============================================================================
+
+@torch.no_grad()
+def extract_vectors(texts):
+
+    enc = tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=128,
+    )
+
+    ids = enc["input_ids"].to(device)
+    mask = enc["attention_mask"].to(device)
+
+    captures = [
+        None
+        for _ in range(VECTOR_LAYERS)
+    ]
+
+    handles = []
+
+    def make_hook(li):
+
+        def hook(module, inp, out):
+
+            h = (
+                out[0]
+                if isinstance(out, tuple)
+                else out
+            )
+
+            captures[li] = (
+                h.detach()
+            )
+
+        return hook
+
+    try:
+
+        for li in range(VECTOR_LAYERS):
+
+            handles.append(
+                model.model.layers[
+                    li
+                ].register_forward_hook(
+                    make_hook(li)
+                )
+            )
+
+        model(
+            input_ids=ids,
+            attention_mask=mask,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    lengths = (
+        mask.sum(1)
+        .cpu()
+        .numpy()
+    )
+
+    result = torch.zeros(
+        len(texts),
+        VECTOR_LAYERS,
+        HIDDEN,
+        dtype=torch.float32,
+    )
+
+    for li in range(VECTOR_LAYERS):
+
+        x = (
+            captures[li]
+            .float()
+            .cpu()
+        )
+
+        for i in range(len(texts)):
+
+            result[
+                i,
+                li
+            ] = x[
+                i,
+                int(lengths[i]) - 1,
+            ]
+
+    return result
+
+
+print(
+    "\n[2/17] Locked semantic vectors çıkarılıyor..."
+)
+
+XA = extract_vectors(ABOVE)
+XB = extract_vectors(BELOW)
+XN = extract_vectors(NEUTRAL)
+
+A_VEC = {}
+B_VEC = {}
+
+for li in range(VECTOR_LAYERS):
+
+    av = (
+        XA[:, li].mean(0)
+        -
+        XN[:, li].mean(0)
+    )
+
+    bv = (
+        XB[:, li].mean(0)
+        -
+        XN[:, li].mean(0)
+    )
+
+    A_VEC[li] = F.normalize(
+        av,
+        dim=0,
+    )
+
+    B_VEC[li] = F.normalize(
+        bv,
+        dim=0,
+    )
+
+
+cos10 = cos_tensor(
+    A_VEC[10],
+    B_VEC[10],
+)
+
+cos11 = cos_tensor(
+    A_VEC[11],
+    B_VEC[11],
+)
+
+drift10 = abs(
+    cos10
+    -
+    EXPECTED_COS10
+)
+
+drift11 = abs(
+    cos11
+    -
+    EXPECTED_COS11
+)
+
+print(
+    f"L10 cos(A,B) = {cos10:+.6f}"
+)
+
+print(
+    f"L11 cos(A,B) = {cos11:+.6f}"
+)
+
+print(
+    f"L10 drift = {drift10:.9e}"
+)
+
+print(
+    f"L11 drift = {drift11:.9e}"
+)
+
+if (
+    drift10 > FINGERPRINT_TOL
+    or
+    drift11 > FINGERPRINT_TOL
+):
+    raise RuntimeError(
+        "LOCKED VECTOR FINGERPRINT FAILED"
+    )
+
+print("Fingerprint: PASS")
+
+del XA
+del XB
+del XN
+
+gc.collect()
+torch.cuda.empty_cache()
+
+
+# =============================================================================
+# 7. BASELINE
+# =============================================================================
+
+@torch.no_grad()
+def baseline_pass(prompt):
+
+    captures = {}
+
+    handles = []
+
+    wanted = set(
+        TARGET_LAYERS
+        +
+        [SOURCE_LAYER]
+    )
+
+    def make_hook(li):
+
+        def hook(module, inp, out):
+
+            h = (
+                out[0]
+                if isinstance(out, tuple)
+                else out
+            )
+
+            captures[li] = (
+                h[
+                    0,
+                    -1
+                ]
+                .detach()
+                .float()
+                .cpu()
+                .clone()
+            )
+
+        return hook
+
+    try:
+
+        for li in range(MODEL_LAYERS):
+
+            if li in wanted:
+
+                handles.append(
+                    model.model.layers[
+                        li
+                    ].register_forward_hook(
+                        make_hook(li)
+                    )
+                )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt",
+        ).to(device)
+
+        model(
+            **enc,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    return captures
+
+
+# =============================================================================
+# 8. SEED-CENTERED CANDIDATE CLOUD
+# =============================================================================
+
+def make_candidate_cloud(
+    seed,
+    prompt_index,
+):
+
+    seed = normalize(seed)
+
+    generator = torch.Generator(
+        device="cpu"
+    )
+
+    generator.manual_seed(
+        SEED
+        +
+        100000
+        +
+        prompt_index
+    )
+
+    candidates = []
+
+    candidate_id = 0
+
+    for angle_deg in ANGLES_DEG:
+
+        theta = math.radians(
+            angle_deg
+        )
+
+        c = math.cos(theta)
+        s = math.sin(theta)
+
+        for deviation_index in range(
+            DEVIATIONS_PER_ANGLE
+        ):
+
+            r = torch.randn(
+                HIDDEN,
+                generator=generator,
+                dtype=torch.float32,
+            )
+
+            # Remove seed component:
+            #
+            # u ⟂ seed
+            u = (
+                r
+                -
+                torch.dot(
+                    r,
+                    seed
+                )
+                *
+                seed
+            )
+
+            u = normalize(u)
+
+            if u is None:
+                continue
+
+            q = (
+                c * seed
+                +
+                s * u
+            )
+
+            q = normalize(q)
+
+            candidates.append(
+                {
+                    "candidate_id":
+                        candidate_id,
+
+                    "angle_deg":
+                        angle_deg,
+
+                    "deviation_index":
+                        deviation_index,
+
+                    "direction":
+                        q,
+
+                    "cos_seed":
+                        cos_tensor(
+                            q,
+                            seed,
+                        ),
+                }
+            )
+
+            candidate_id += 1
+
+    if len(candidates) != N_CANDIDATES:
+
+        raise RuntimeError(
+            "Candidate cloud size mismatch"
+        )
+
+    return candidates
+
+
+# =============================================================================
+# 9. GLOBAL RANDOM NULL DIRECTION
+# =============================================================================
+
+def make_global_random(
+    prompt_index,
+):
+
+    generator = torch.Generator(
+        device="cpu"
+    )
+
+    generator.manual_seed(
+        SEED
+        +
+        200000
+        +
+        prompt_index
+    )
+
+    r = torch.randn(
+        HIDDEN,
+        generator=generator,
+        dtype=torch.float32,
+    )
+
+    return normalize(r)
+
+
+# =============================================================================
+# 10. TINY PROBE
+#
+# Only L12 is captured.
+#
+# Candidate selection has NO access to L13/L15/L19/L27.
+# =============================================================================
+
+@torch.no_grad()
+def tiny_probe(
+    prompt,
+    baseline,
+    direction,
+):
+
+    h11 = (
+        baseline[
+            SOURCE_LAYER
+        ]
+        .float()
+    )
+
+    probe_norm = (
+        PROBE_REL
+        *
+        float(
+            torch.linalg.vector_norm(
+                h11
+            )
+        )
+    )
+
+    q_dev = (
+        direction
+        .to(
+            device=device,
+            dtype=torch.float32,
+        )
+    )
+
+    capture12 = {}
+
+    handles = []
+
+    def source_hook(
+        module,
+        inp,
+        out,
+    ):
+
+        h = (
+            out[0]
+            if isinstance(out, tuple)
+            else out
+        )
+
+        hnew = h.clone()
+
+        post = (
+            h[
+                0,
+                -1
+            ].float()
+            +
+            probe_norm
+            *
+            q_dev
+        )
+
+        hnew[
+            0,
+            -1
+        ] = post.to(
+            h.dtype
+        )
+
+        if isinstance(out, tuple):
+
+            return (
+                hnew,
+                *out[1:]
+            )
+
+        return hnew
+
+
+    def target_hook(
+        module,
+        inp,
+        out,
+    ):
+
+        h = (
+            out[0]
+            if isinstance(out, tuple)
+            else out
+        )
+
+        capture12[
+            "h"
+        ] = (
+            h[
+                0,
+                -1
+            ]
+            .detach()
+            .float()
+            .cpu()
+            .clone()
+        )
+
+
+    try:
+
+        handles.append(
+            model.model.layers[
+                SOURCE_LAYER
+            ].register_forward_hook(
+                source_hook
+            )
+        )
+
+        handles.append(
+            model.model.layers[
+                PROBE_TARGET
+            ].register_forward_hook(
+                target_hook
+            )
+        )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt",
+        ).to(device)
+
+        model(
+            **enc,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+
+    delta12 = (
+        capture12[
+            "h"
+        ]
+        -
+        baseline[
+            PROBE_TARGET
+        ]
+    )
+
+    delta_norm = float(
+        torch.linalg.vector_norm(
+            delta12
+        )
+    )
+
+    gain = (
+        delta_norm
+        /
+        (
+            probe_norm
+            +
+            EPS
+        )
+    )
+
+    alignment = cos_tensor(
+        delta12,
+        A_VEC[
+            PROBE_TARGET
+        ],
+    )
+
+    transport = (
+        gain
+        *
+        alignment
+    )
+
+    physical12 = float(
+        torch.linalg.vector_norm(
+            delta12
+        )
+        /
+        (
+            torch.linalg.vector_norm(
+                baseline[
+                    PROBE_TARGET
+                ]
+            )
+            +
+            EPS
+        )
+    )
+
+    return {
+        "probe_norm":
+            probe_norm,
+
+        "delta12_norm":
+            delta_norm,
+
+        "gain_G":
+            gain,
+
+        "alignment_A":
+            alignment,
+
+        "transport_T":
+            transport,
+
+        "P12":
+            physical12,
+    }
+
+
+# =============================================================================
+# 11. DRA ACTUATOR MAGNITUDE
+#
+# Frozen from FIXED semantic seed only.
+#
+# All final arms receive the same magnitude.
+# =============================================================================
+
+def dra_envelope(
+    layer_idx,
+    sensor_cos,
+):
+
+    uncertainty = (
+        1.0
+        -
+        abs(
+            float(sensor_cos)
+        )
+    )
+
+    omega = (
+        SONUM
+        +
+        0.20
+        *
+        uncertainty
+    )
+
+    t = float(
+        layer_idx
+    )
+
+    raw = (
+        ZIRVE
+        *
+        math.exp(
+            -omega * t
+        )
+        *
+        (
+            1.0
+            +
+            omega * t
+        )
+        +
+        TABAN
+    )
+
+    return float(
+        raw
+        /
+        (
+            ZIRVE
+            +
+            TABAN
+        )
+    )
+
+
+# =============================================================================
+# 12. FULL-STRENGTH FINAL ARM
+# =============================================================================
+
+@torch.no_grad()
+def run_full_arm(
+    prompt,
+    baseline,
+    direction,
+    frozen_env,
+):
+
+    source_base = (
+        baseline[
+            SOURCE_LAYER
+        ]
+        .float()
+    )
+
+    source_norm = float(
+        torch.linalg.vector_norm(
+            source_base
+        )
+    )
+
+    contribution = (
+        IVME
+        *
+        frozen_env
+        *
+        source_norm
+    )
+
+    q_dev = (
+        direction
+        .to(
+            device=device,
+            dtype=torch.float32,
+        )
+    )
+
+    captures = {}
+
+    handles = []
+
+    def make_hook(li):
+
+        def hook(
+            module,
+            inp,
+            out,
+        ):
+
+            h = (
+                out[0]
+                if isinstance(out, tuple)
+                else out
+            )
+
+            if li == SOURCE_LAYER:
+
+                post = (
+                    h[
+                        0,
+                        -1
+                    ].float()
+                    +
+                    contribution
+                    *
+                    q_dev
+                )
+
+                hnew = h.clone()
+
+                hnew[
+                    0,
+                    -1
+                ] = post.to(
+                    h.dtype
+                )
+
+                captures[
+                    SOURCE_LAYER
+                ] = (
+                    post
+                    .detach()
+                    .float()
+                    .cpu()
+                    .clone()
+                )
+
+                if isinstance(out, tuple):
+
+                    return (
+                        hnew,
+                        *out[1:]
+                    )
+
+                return hnew
+
+            if li in TARGET_LAYERS:
+
+                captures[
+                    li
+                ] = (
+                    h[
+                        0,
+                        -1
+                    ]
+                    .detach()
+                    .float()
+                    .cpu()
+                    .clone()
+                )
+
+            return out
+
+        return hook
+
+
+    try:
+
+        for li in range(
+            SOURCE_LAYER,
+            MODEL_LAYERS
+        ):
+
+            if (
+                li == SOURCE_LAYER
+                or
+                li in TARGET_LAYERS
+            ):
+
+                handles.append(
+                    model.model.layers[
+                        li
+                    ].register_forward_hook(
+                        make_hook(li)
+                    )
+                )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt",
+        ).to(device)
+
+        model(
+            **enc,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+
+    source_delta = (
+        captures[
+            SOURCE_LAYER
+        ]
+        -
+        baseline[
+            SOURCE_LAYER
+        ]
+    )
+
+    result = {
+        "source_injection_norm":
+            float(
+                torch.linalg.vector_norm(
+                    source_delta
+                )
+            ),
+
+        "source_injection_relative":
+            float(
+                torch.linalg.vector_norm(
+                    source_delta
+                )
+                /
+                (
+                    torch.linalg.vector_norm(
+                        baseline[
+                            SOURCE_LAYER
+                        ]
+                    )
+                    +
+                    EPS
+                )
+            ),
+    }
+
+
+    for li in TARGET_LAYERS:
+
+        delta = (
+            captures[
+                li
+            ]
+            -
+            baseline[
+                li
+            ]
+        )
+
+        P = float(
+            torch.linalg.vector_norm(
+                delta
+            )
+            /
+            (
+                torch.linalg.vector_norm(
+                    baseline[
+                        li
+                    ]
+                )
+                +
+                EPS
+            )
+        )
+
+        if li < VECTOR_LAYERS:
+
+            reference = (
+                A_VEC[
+                    li
+                ]
+            )
+
+            reference_type = (
+                "layer_locked_semantic"
+            )
+
+        else:
+
+            reference = direction
+
+            reference_type = (
+                "source_direction_raw_reference"
+            )
+
+        D = cos_tensor(
+            delta,
+            reference,
+        )
+
+        result[
+            li
+        ] = {
+            "D":
+                D,
+
+            "P":
+                P,
+
+            "reference":
+                reference_type,
+        }
+
+    return result
+
+
+# =============================================================================
+# 13. EXPERIMENT
+# =============================================================================
+
+print(
+    "\n[3/17] Baseline + finite-probe cartography başlıyor..."
+)
+
+ARMS = [
+    "FIXED",
+    "TRANSPORT_SELECTED",
+    "CLOUD_RANDOM",
+    "GLOBAL_RANDOM",
+]
+
+RESULTS = []
+
+all_probe_T = []
+all_probe_G = []
+all_probe_A = []
+all_probe_angle = []
+
+selected_angles = []
+selected_T = []
+cloud_random_T = []
+
+selection_advantage_T = []
+
+for pi, prompt in enumerate(PROMPTS):
+
+    # -------------------------------------------------------------------------
+    # BASELINE
+    # -------------------------------------------------------------------------
+
+    baseline = baseline_pass(
+        prompt
+    )
+
+    seed = (
+        A_VEC[
+            SOURCE_LAYER
+        ]
+        .float()
+    )
+
+    # -------------------------------------------------------------------------
+    # CANDIDATE CLOUD
+    # -------------------------------------------------------------------------
+
+    candidates = make_candidate_cloud(
+        seed,
+        pi,
+    )
+
+    probe_records = []
+
+    # -------------------------------------------------------------------------
+    # TINY PROBE EVERY CANDIDATE
+    # -------------------------------------------------------------------------
+
+    for candidate in candidates:
+
+        probe = tiny_probe(
+            prompt,
+            baseline,
+            candidate[
+                "direction"
+            ],
+        )
+
+        record = {
+            "candidate_id":
+                candidate[
+                    "candidate_id"
+                ],
+
+            "angle_deg":
+                candidate[
+                    "angle_deg"
+                ],
+
+            "deviation_index":
+                candidate[
+                    "deviation_index"
+                ],
+
+            "cos_seed":
+                candidate[
+                    "cos_seed"
+                ],
+
+            "probe":
+                probe,
+        }
+
+        probe_records.append(
+            record
+        )
+
+        all_probe_T.append(
+            probe[
+                "transport_T"
+            ]
+        )
+
+        all_probe_G.append(
+            probe[
+                "gain_G"
+            ]
+        )
+
+        all_probe_A.append(
+            probe[
+                "alignment_A"
+            ]
+        )
+
+        all_probe_angle.append(
+            candidate[
+                "angle_deg"
+            ]
+        )
+
+    # -------------------------------------------------------------------------
+    # FREEZE SELECTION USING ONLY L12 PROBE T
+    # -------------------------------------------------------------------------
+
+    best_index = int(
+        np.argmax(
+            [
+                r[
+                    "probe"
+                ][
+                    "transport_T"
+                ]
+                for r in probe_records
+            ]
+        )
+    )
+
+    selected_candidate = (
+        candidates[
+            best_index
+        ]
+    )
+
+    selected_probe = (
+        probe_records[
+            best_index
+        ][
+            "probe"
+        ]
+    )
+
+    # Random candidate from SAME cloud.
+    cloud_rng = random.Random(
+        SEED
+        +
+        300000
+        +
+        pi
+    )
+
+    cloud_random_index = (
+        cloud_rng.randrange(
+            len(candidates)
+        )
+    )
+
+    cloud_random_candidate = (
+        candidates[
+            cloud_random_index
+        ]
+    )
+
+    cloud_random_probe = (
+        probe_records[
+            cloud_random_index
+        ][
+            "probe"
+        ]
+    )
+
+    global_random_direction = (
+        make_global_random(
+            pi
+        )
+    )
+
+    selected_angles.append(
+        selected_candidate[
+            "angle_deg"
+        ]
+    )
+
+    selected_T.append(
+        selected_probe[
+            "transport_T"
+        ]
+    )
+
+    cloud_random_T.append(
+        cloud_random_probe[
+            "transport_T"
+        ]
+    )
+
+    selection_advantage_T.append(
+        selected_probe[
+            "transport_T"
+        ]
+        -
+        cloud_random_probe[
+            "transport_T"
+        ]
+    )
+
+    # -------------------------------------------------------------------------
+    # FROZEN ACTUATOR MAGNITUDE
+    #
+    # Based only on baseline h11 and FIXED semantic seed.
+    # -------------------------------------------------------------------------
+
+    sensor_cos = cos_tensor(
+        baseline[
+            SOURCE_LAYER
+        ],
+        seed,
+    )
+
+    frozen_env = dra_envelope(
+        SOURCE_LAYER,
+        sensor_cos,
+    )
+
+    directions = {
+        "FIXED":
+            seed,
+
+        "TRANSPORT_SELECTED":
+            selected_candidate[
+                "direction"
+            ],
+
+        "CLOUD_RANDOM":
+            cloud_random_candidate[
+                "direction"
+            ],
+
+        "GLOBAL_RANDOM":
+            global_random_direction,
+    }
+
+    prompt_result = {
+        "prompt_index":
+            pi + 1,
+
+        "sensor_cos":
+            sensor_cos,
+
+        "frozen_env":
+            frozen_env,
+
+        "selected_candidate": {
+            "candidate_id":
+                selected_candidate[
+                    "candidate_id"
+                ],
+
+            "angle_deg":
+                selected_candidate[
+                    "angle_deg"
+                ],
+
+            "deviation_index":
+                selected_candidate[
+                    "deviation_index"
+                ],
+
+            "cos_seed":
+                selected_candidate[
+                    "cos_seed"
+                ],
+
+            "probe":
+                selected_probe,
+        },
+
+        "cloud_random_candidate": {
+            "candidate_id":
+                cloud_random_candidate[
+                    "candidate_id"
+                ],
+
+            "angle_deg":
+                cloud_random_candidate[
+                    "angle_deg"
+                ],
+
+            "deviation_index":
+                cloud_random_candidate[
+                    "deviation_index"
+                ],
+
+            "cos_seed":
+                cloud_random_candidate[
+                    "cos_seed"
+                ],
+
+            "probe":
+                cloud_random_probe,
+        },
+
+        "probe_candidates":
+            probe_records,
+
+        "arms": {},
+    }
+
+    # -------------------------------------------------------------------------
+    # FULL-STRENGTH EVALUATION
+    #
+    # L19 is only accessed now, after selection is frozen.
+    # -------------------------------------------------------------------------
+
+    for arm in ARMS:
+
+        metrics = run_full_arm(
+            prompt,
+            baseline,
+            directions[
+                arm
+            ],
+            frozen_env,
+        )
+
+        prompt_result[
+            "arms"
+        ][
+            arm
+        ] = metrics
+
+    RESULTS.append(
+        prompt_result
+    )
+
+    del baseline
+    del candidates
+    del probe_records
+
+    if (
+        (pi + 1)
+        %
+        5
+        ==
+        0
+    ):
+
+        gc.collect()
+        torch.cuda.empty_cache()
+
+    print(
+        f"{pi+1:02d}/"
+        f"{len(PROMPTS)}",
+        end="\r",
+    )
+
+
+print(
+    f"{len(PROMPTS)}/"
+    f"{len(PROMPTS)} complete."
+)
+
+
+# =============================================================================
+# 14. INJECTION EQUALITY
+# =============================================================================
+
+print(
+    "\n[4/17] Final actuator equality kontrolü..."
+)
+
+INJECTION = {}
+
+arm_injection_means = []
+
+for arm in ARMS:
+
+    vals = np.asarray(
+        [
+            r[
+                "arms"
+            ][
+                arm
+            ][
+                "source_injection_relative"
+            ]
+            for r in RESULTS
+        ],
+        dtype=np.float64,
+    )
+
+    INJECTION[
+        arm
+    ] = descriptive_stats(
+        vals
+    )
+
+    arm_injection_means.append(
+        np.mean(vals)
+    )
+
+    print(
+        f"{arm:<22}"
+        f"mean rel injection="
+        f"{np.mean(vals):.9f}"
+        f" | sd="
+        f"{np.std(vals, ddof=1):.9f}"
+    )
+
+
+max_injection_spread = float(
+    np.max(
+        arm_injection_means
+    )
+    -
+    np.min(
+        arm_injection_means
+    )
+)
+
+print(
+    "Max arm mean spread =",
+    f"{max_injection_spread:.9e}",
+)
+
+
+# =============================================================================
+# 15. PROBE CARTOGRAPHY SUMMARY
+# =============================================================================
+
+print(
+    "\n[5/17] Probe cartography summary..."
+)
+
+PROBE_SUMMARY = {
+    "T":
+        descriptive_stats(
+            all_probe_T
+        ),
+
+    "G":
+        descriptive_stats(
+            all_probe_G
+        ),
+
+    "A":
+        descriptive_stats(
+            all_probe_A
+        ),
+
+    "selected_T":
+        descriptive_stats(
+            selected_T
+        ),
+
+    "cloud_random_T":
+        descriptive_stats(
+            cloud_random_T
+        ),
+
+    "selected_minus_cloud_random_T":
+        descriptive_stats(
+            selection_advantage_T
+        ),
+}
+
+print(
+    f"All probe T mean       = "
+    f"{PROBE_SUMMARY['T']['mean']:+.6f}"
+)
+
+print(
+    f"Selected T mean        = "
+    f"{PROBE_SUMMARY['selected_T']['mean']:+.6f}"
+)
+
+print(
+    f"Cloud-random T mean    = "
+    f"{PROBE_SUMMARY['cloud_random_T']['mean']:+.6f}"
+)
+
+print(
+    f"Selection ΔT           = "
+    f"{PROBE_SUMMARY['selected_minus_cloud_random_T']['mean']:+.6f}"
+)
+
+
+# =============================================================================
+# 16. SELECTED ANGLE DISTRIBUTION
+# =============================================================================
+
+print(
+    "\n[6/17] Selected angle distribution..."
+)
+
+ANGLE_COUNTS = {}
+
+for angle in ANGLES_DEG:
+
+    count = int(
+        sum(
+            1
+            for x in selected_angles
+            if x == angle
+        )
+    )
+
+    ANGLE_COUNTS[
+        str(angle)
+    ] = count
+
+    print(
+        f"{angle:>3d} deg : "
+        f"{count:>2d}/"
+        f"{len(PROMPTS)}"
+    )
+
+
+# =============================================================================
+# 17. FULL-STRENGTH ARM SUMMARY
+# =============================================================================
+
+print(
+    "\n[7/17] Full-strength downstream transport..."
+)
+
+SUMMARY = {}
+
+for arm in ARMS:
+
+    SUMMARY[
+        arm
+    ] = {}
+
+    for li in TARGET_LAYERS:
+
+        D = np.asarray(
+            [
+                r[
+                    "arms"
+                ][
+                    arm
+                ][
+                    li
+                ][
+                    "D"
+                ]
+                for r in RESULTS
+            ],
+            dtype=np.float64,
+        )
+
+        P = np.asarray(
+            [
+                r[
+                    "arms"
+                ][
+                    arm
+                ][
+                    li
+                ][
+                    "P"
+                ]
+                for r in RESULTS
+            ],
+            dtype=np.float64,
+        )
+
+        SUMMARY[
+            arm
+        ][
+            li
+        ] = {
+            "D":
+                descriptive_stats(D),
+
+            "P":
+                descriptive_stats(P),
+        }
+
+
+# =============================================================================
+# 18. TABLE
+# =============================================================================
+
+print(
+    "\n[8/17] TRANSPORT TABLE"
+)
+
+print("=" * 160)
+
+print(
+    f"{'ARM':<22}"
+    f"{'LAYER':>8}"
+    f"{'D mean':>14}"
+    f"{'D sd':>14}"
+    f"{'P mean':>14}"
+    f"{'P sd':>14}"
+)
+
+print("-" * 160)
+
+for arm in ARMS:
+
+    for li in TARGET_LAYERS:
+
+        D = SUMMARY[
+            arm
+        ][
+            li
+        ][
+            "D"
+        ]
+
+        P = SUMMARY[
+            arm
+        ][
+            li
+        ][
+            "P"
+        ]
+
+        print(
+            f"{arm:<22}"
+            f"{li:>8d}"
+            f"{D['mean']:>+14.6f}"
+            f"{D['sd']:>14.6f}"
+            f"{P['mean']:>14.6f}"
+            f"{P['sd']:>14.6f}"
+        )
+
+    print("-" * 160)
+
+
+# =============================================================================
+# 19. PAIRED COMPARISONS
+# =============================================================================
+
+print(
+    "\n[9/17] Paired comparisons..."
+)
+
+COMPARISONS = {}
+
+PAIRS = [
+    (
+        "TRANSPORT_SELECTED",
+        "FIXED",
+    ),
+    (
+        "TRANSPORT_SELECTED",
+        "CLOUD_RANDOM",
+    ),
+    (
+        "TRANSPORT_SELECTED",
+        "GLOBAL_RANDOM",
+    ),
+    (
+        "FIXED",
+        "CLOUD_RANDOM",
+    ),
+]
+
+for A, B in PAIRS:
+
+    key = (
+        A
+        +
+        "_MINUS_"
+        +
+        B
+    )
+
+    COMPARISONS[
+        key
+    ] = {}
+
+    for li in TARGET_LAYERS:
+
+        DA = np.asarray(
+            [
+                r[
+                    "arms"
+                ][
+                    A
+                ][
+                    li
+                ][
+                    "D"
+                ]
+                for r in RESULTS
+            ]
+        )
+
+        DB = np.asarray(
+            [
+                r[
+                    "arms"
+                ][
+                    B
+                ][
+                    li
+                ][
+                    "D"
+                ]
+                for r in RESULTS
+            ]
+        )
+
+        PA = np.asarray(
+            [
+                r[
+                    "arms"
+                ][
+                    A
+                ][
+                    li
+                ][
+                    "P"
+                ]
+                for r in RESULTS
+            ]
+        )
+
+        PB = np.asarray(
+            [
+                r[
+                    "arms"
+                ][
+                    B
+                ][
+                    li
+                ][
+                    "P"
+                ]
+                for r in RESULTS
+            ]
+        )
+
+        COMPARISONS[
+            key
+        ][
+            li
+        ] = {
+            "delta_D":
+                descriptive_stats(
+                    DA - DB
+                ),
+
+            "delta_P":
+                descriptive_stats(
+                    PA - PB
+                ),
+        }
+
+
+# =============================================================================
+# 20. PRIMARY L19
+# =============================================================================
+
+print(
+    "\n[10/17] PRIMARY ENDPOINT — L19"
+)
+
+print("=" * 160)
+
+for key in COMPARISONS:
+
+    d = COMPARISONS[
+        key
+    ][
+        19
+    ][
+        "delta_D"
+    ]
+
+    p = COMPARISONS[
+        key
+    ][
+        19
+    ][
+        "delta_P"
+    ]
+
+    print(key)
+
+    print(
+        f"  ΔD19 = "
+        f"{d['mean']:+.6f}"
+        f" | 95% descriptive="
+        f"[{d['ci95_descriptive'][0]:+.6f},"
+        f"{d['ci95_descriptive'][1]:+.6f}]"
+        f" | positive fraction="
+        f"{d['positive_fraction']:.3f}"
+    )
+
+    print(
+        f"  ΔP19 = "
+        f"{p['mean']:+.6f}"
+        f" | positive fraction="
+        f"{p['positive_fraction']:.3f}"
+    )
+
+    print()
+
+
+# =============================================================================
+# 21. MULTI-HORIZON SELECTED − FIXED
+# =============================================================================
+
+print(
+    "\n[11/17] TRANSPORT_SELECTED − FIXED"
+)
+
+print("=" * 120)
+
+SF = COMPARISONS[
+    "TRANSPORT_SELECTED_MINUS_FIXED"
+]
+
+print(
+    f"{'TARGET':>10}"
+    f"{'ΔD':>16}"
+    f"{'positive frac':>18}"
+    f"{'ΔP':>16}"
+)
+
+print("-" * 120)
+
+for li in TARGET_LAYERS:
+
+    d = SF[
+        li
+    ][
+        "delta_D"
+    ]
+
+    p = SF[
+        li
+    ][
+        "delta_P"
+    ]
+
+    print(
+        f"{li:>10d}"
+        f"{d['mean']:>+16.6f}"
+        f"{d['positive_fraction']:>18.3f}"
+        f"{p['mean']:>+16.6f}"
+    )
+
+
+# =============================================================================
+# 22. DOES PROBE SELECTION PRODUCE TERMINAL ADVANTAGE?
+#
+# This is the key test.
+# =============================================================================
+
+print(
+    "\n[12/17] Probe-selection diagnostic..."
+)
+
+selected_full_D19 = np.asarray(
+    [
+        r[
+            "arms"
+        ][
+            "TRANSPORT_SELECTED"
+        ][
+            19
+        ][
+            "D"
+        ]
+        for r in RESULTS
+    ],
+    dtype=np.float64,
+)
+
+cloud_random_full_D19 = np.asarray(
+    [
+        r[
+            "arms"
+        ][
+            "CLOUD_RANDOM"
+        ][
+            19
+        ][
+            "D"
+        ]
+        for r in RESULTS
+    ],
+    dtype=np.float64,
+)
+
+fixed_full_D19 = np.asarray(
+    [
+        r[
+            "arms"
+        ][
+            "FIXED"
+        ][
+            19
+        ][
+            "D"
+        ]
+        for r in RESULTS
+    ],
+    dtype=np.float64,
+)
+
+terminal_advantage_vs_cloud = (
+    selected_full_D19
+    -
+    cloud_random_full_D19
+)
+
+terminal_advantage_vs_fixed = (
+    selected_full_D19
+    -
+    fixed_full_D19
+)
+
+# Prompt-level:
+#
+# Does having a larger selected-vs-random local T advantage
+# associate with a larger selected-vs-random terminal advantage?
+probe_terminal_corr = pearson(
+    selection_advantage_T,
+    terminal_advantage_vs_cloud,
+)
+
+print(
+    f"corr("
+    f"selected−random probe T,"
+    f" selected−random D19"
+    f") = "
+    f"{probe_terminal_corr:+.6f}"
+)
+
+
+# =============================================================================
+# 23. ANGLE ANALYSIS
+# =============================================================================
+
+print(
+    "\n[13/17] Selected-angle terminal analysis..."
+)
+
+ANGLE_TERMINAL = {}
+
+for angle in ANGLES_DEG:
+
+    idx = [
+        i
+        for i, a
+        in enumerate(
+            selected_angles
+        )
+        if a == angle
+    ]
+
+    if len(idx) == 0:
+
+        ANGLE_TERMINAL[
+            str(angle)
+        ] = {
+            "n": 0
+        }
+
+        continue
+
+    vals = (
+        terminal_advantage_vs_fixed[
+            idx
+        ]
+    )
+
+    ANGLE_TERMINAL[
+        str(angle)
+    ] = {
+        "n":
+            len(idx),
+
+        "delta_D19_vs_fixed":
+            descriptive_stats(
+                vals
+            ),
+    }
+
+    print(
+        f"{angle:>3d} deg"
+        f" | n={len(idx):>2d}"
+        f" | mean ΔD19 vs FIXED="
+        f"{np.mean(vals):+.6f}"
+    )
+
+
+# =============================================================================
+# 24. PREDECLARED DECISION
+# =============================================================================
+
+print(
+    "\n[14/17] Architecture decision..."
+)
+
+SELECTED_VS_FIXED = COMPARISONS[
+    "TRANSPORT_SELECTED_MINUS_FIXED"
+][
+    19
+][
+    "delta_D"
+]
+
+SELECTED_VS_CLOUD = COMPARISONS[
+    "TRANSPORT_SELECTED_MINUS_CLOUD_RANDOM"
+][
+    19
+][
+    "delta_D"
+]
+
+SELECTED_VS_GLOBAL = COMPARISONS[
+    "TRANSPORT_SELECTED_MINUS_GLOBAL_RANDOM"
+][
+    19
+][
+    "delta_D"
+]
+
+
+# Strongest result:
+#
+# Probe-selected route must:
+#
+# 1) beat FIXED at L19,
+# 2) lower descriptive bound > 0,
+# 3) improve at least 75% prompts,
+# 4) beat SAME-CLOUD random control.
+#
+if (
+    SELECTED_VS_FIXED[
+        "mean"
+    ] > 0
+    and
+    SELECTED_VS_FIXED[
+        "ci95_descriptive"
+    ][0] > 0
+    and
+    SELECTED_VS_FIXED[
+        "positive_fraction"
+    ] >= 0.75
+    and
+    SELECTED_VS_CLOUD[
+        "mean"
+    ] > 0
+    and
+    SELECTED_VS_CLOUD[
+        "ci95_descriptive"
+    ][0] > 0
+):
+
+    DECISION = (
+        "LOCAL_TRANSPORT_CARTOGRAPHY_SUPPORTED"
+    )
+
+elif (
+    SELECTED_VS_CLOUD[
+        "mean"
+    ] > 0
+    and
+    SELECTED_VS_CLOUD[
+        "ci95_descriptive"
+    ][0] > 0
+    and
+    SELECTED_VS_FIXED[
+        "mean"
+    ] <= 0
+):
+
+    DECISION = (
+        "PROBE_IS_INFORMATIVE_BUT_FIXED_SEED_REMAINS_BETTER"
+    )
+
+elif (
+    SELECTED_VS_CLOUD[
+        "mean"
+    ] <= 0
+):
+
+    DECISION = (
+        "ONE_STEP_PROBE_NOT_TERMINALLY_INFORMATIVE"
+    )
+
+else:
+
+    DECISION = (
+        "TRANSPORT_CARTOGRAPHY_INCONCLUSIVE"
+    )
+
+
+# =============================================================================
+# 25. DECISION OUTPUT
+# =============================================================================
+
+print(
+    "\n" + "=" * 160
+)
+
+print(
+    "TEST123 PRIMARY DECISION"
+)
+
+print("=" * 160)
+
+print(DECISION)
+
+print()
+
+print("PRIMARY NUMBERS")
+
+print(
+    f"SELECTED − FIXED D19 = "
+    f"{SELECTED_VS_FIXED['mean']:+.6f}"
+)
+
+print(
+    f"SELECTED − CLOUD D19 = "
+    f"{SELECTED_VS_CLOUD['mean']:+.6f}"
+)
+
+print(
+    f"SELECTED − GLOBAL D19 = "
+    f"{SELECTED_VS_GLOBAL['mean']:+.6f}"
+)
+
+print(
+    f"Probe/terminal advantage corr = "
+    f"{probe_terminal_corr:+.6f}"
+)
+
+
+# =============================================================================
+# 26. INTERPRETATION LOCK
+# =============================================================================
+
+print(
+    "\n[15/17] Interpretation lock..."
+)
+
+if (
+    DECISION
+    ==
+    "LOCAL_TRANSPORT_CARTOGRAPHY_SUPPORTED"
+):
+
+    INTERPRETATION = [
+
+        (
+            "A tiny L11->L12 finite-response assay contains "
+            "actionable information for selecting a nearby "
+            "semantic route that improves unseen terminal L19 "
+            "directional transport."
+        ),
+
+        (
+            "The route is selected without observing L19."
+        ),
+
+        (
+            "Because final actuator magnitude is frozen across "
+            "arms, the terminal advantage cannot be explained "
+            "simply by greater injection magnitude."
+        ),
+
+        (
+            "Because the selected route also exceeds a random "
+            "candidate from the same angular cloud, the effect "
+            "is not explained solely by remaining close to the "
+            "semantic seed."
+        ),
+
+        (
+            "This supports finite perturbation-response as a "
+            "candidate sensor for context-conditioned latent "
+            "navigation."
+        ),
+    ]
+
+elif (
+    DECISION
+    ==
+    "PROBE_IS_INFORMATIVE_BUT_FIXED_SEED_REMAINS_BETTER"
+):
+
+    INTERPRETATION = [
+
+        (
+            "The tiny local probe distinguishes better and worse "
+            "routes inside the seed-centered cloud."
+        ),
+
+        (
+            "However, the original fixed semantic seed still "
+            "produces better terminal transport."
+        ),
+
+        (
+            "Therefore the sensor may contain transport information, "
+            "but the current route-construction/search space does "
+            "not yet improve on the locked semantic direction."
+        ),
+    ]
+
+elif (
+    DECISION
+    ==
+    "ONE_STEP_PROBE_NOT_TERMINALLY_INFORMATIVE"
+):
+
+    INTERPRETATION = [
+
+        (
+            "Selecting candidates by the L11->L12 finite-response "
+            "score does not outperform random selection from the "
+            "same seed-centered cloud at terminal L19."
+        ),
+
+        (
+            "Therefore a one-layer finite-response sensor is "
+            "insufficient for terminal route selection in this "
+            "realization."
+        ),
+
+        (
+            "A longer-horizon or richer perturbation-response "
+            "state would be required before building a feedback "
+            "controller."
+        ),
+    ]
+
+else:
+
+    INTERPRETATION = [
+
+        (
+            "The current experiment shows an unresolved relationship "
+            "between local finite response and terminal transport."
+        ),
+
+        (
+            "No controller law should be derived from this result."
+        ),
+    ]
+
+
+INTERPRETATION.extend(
+    [
+        (
+            "No exact derivative or Jacobian has been measured; "
+            "the assay uses finite perturbations."
+        ),
+
+        (
+            "No physical momentum, force, or energy-transfer claim "
+            "is made."
+        ),
+
+        (
+            "No manifold-recovery claim is made."
+        ),
+
+        (
+            "No behavioral efficacy claim is made."
+        ),
+
+        (
+            "No semantic-causality claim is made."
+        ),
+
+        (
+            "The TEST123 prompts are exposed after this run and "
+            "must not be reused as future blind validation."
+        ),
+    ]
+)
+
+for i, line in enumerate(
+    INTERPRETATION,
+    1,
+):
+
+    print(
+        f"{i}. {line}"
+    )
+
+
+# =============================================================================
+# 27. JSON
+# =============================================================================
+
+print(
+    "\n[16/17] JSON hazırlanıyor..."
+)
+
+OUTPUT = {
+    "test":
+        "TEST123",
+
+    "title":
+        (
+            "Local Transport Cartography — "
+            "Seed-Centered Finite-Probe Route Selection"
+        ),
+
+    "model":
+        MODEL_ID,
+
+    "source_layer":
+        SOURCE_LAYER,
+
+    "probe_target":
+        PROBE_TARGET,
+
+    "targets":
+        TARGET_LAYERS,
+
+    "probe_relative":
+        PROBE_REL,
+
+    "angles_deg":
+        ANGLES_DEG,
+
+    "deviations_per_angle":
+        DEVIATIONS_PER_ANGLE,
+
+    "candidate_count":
+        N_CANDIDATES,
+
+    "fingerprint": {
+        "L10_cos_AB":
+            cos10,
+
+        "L11_cos_AB":
+            cos11,
+
+        "L10_drift":
+            drift10,
+
+        "L11_drift":
+            drift11,
+
+        "status":
+            "PASS",
+    },
+
+    "injection_equality":
+        INJECTION,
+
+    "max_arm_mean_injection_spread":
+        max_injection_spread,
+
+    "probe_summary":
+        PROBE_SUMMARY,
+
+    "selected_angle_counts":
+        ANGLE_COUNTS,
+
+    "angle_terminal_analysis":
+        ANGLE_TERMINAL,
+
+    "summary":
+        SUMMARY,
+
+    "comparisons":
+        COMPARISONS,
+
+    "probe_terminal_advantage_correlation":
+        probe_terminal_corr,
+
+    "decision":
+        DECISION,
+
+    "interpretation_lock":
+        INTERPRETATION,
+
+    "raw_prompt_results":
+        RESULTS,
+}
+
+
+with open(
+    OUT_JSON,
+    "w",
+    encoding="utf-8",
+) as f:
+
+    json.dump(
+        OUTPUT,
+        f,
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+print(
+    "Saved:",
+    OUT_JSON
+)
+
+
+# =============================================================================
+# 28. FINAL SUMMARY
+# =============================================================================
+
+print(
+    "\n[17/17] FINAL SUMMARY"
+)
+
+print("=" * 160)
+
+print(
+    "TEST 123 — LOCAL TRANSPORT CARTOGRAPHY"
+)
+
+print("=" * 160)
+
+print()
+
+print("INTEGRITY")
+
+print(
+    f"L10 cos(A,B) = {cos10:+.6f}"
+)
+
+print(
+    f"L11 cos(A,B) = {cos11:+.6f}"
+)
+
+print(
+    "Fingerprint = PASS"
+)
+
+print(
+    f"Final injection mean spread = "
+    f"{max_injection_spread:.9e}"
+)
+
+print()
+
+print("PROBE")
+
+print(
+    f"All candidate T mean    = "
+    f"{PROBE_SUMMARY['T']['mean']:+.6f}"
+)
+
+print(
+    f"Selected T mean         = "
+    f"{PROBE_SUMMARY['selected_T']['mean']:+.6f}"
+)
+
+print(
+    f"Cloud random T mean     = "
+    f"{PROBE_SUMMARY['cloud_random_T']['mean']:+.6f}"
+)
+
+print()
+
+print("PRIMARY L19")
+
+for arm in ARMS:
+
+    D = SUMMARY[
+        arm
+    ][
+        19
+    ][
+        "D"
+    ]
+
+    P = SUMMARY[
+        arm
+    ][
+        19
+    ][
+        "P"
+    ]
+
+    print(
+        f"{arm:<22}"
+        f"D19="
+        f"{D['mean']:+.6f}"
+        f" ± "
+        f"{D['sd']:.6f}"
+        f" | P19="
+        f"{P['mean']:.6f}"
+    )
+
+print()
+
+print(
+    f"SELECTED − FIXED  = "
+    f"{SELECTED_VS_FIXED['mean']:+.6f}"
+)
+
+print(
+    f"SELECTED − CLOUD  = "
+    f"{SELECTED_VS_CLOUD['mean']:+.6f}"
+)
+
+print(
+    f"SELECTED − GLOBAL = "
+    f"{SELECTED_VS_GLOBAL['mean']:+.6f}"
+)
+
+print(
+    f"Probe/terminal corr = "
+    f"{probe_terminal_corr:+.6f}"
+)
+
+print()
+
+print("DECISION:")
+
+print(DECISION)
+
+print()
+
+print("JSON:")
+
+print(OUT_JSON)
+
+print()
+
+print("DONE.")
+
+gc.collect()
+
+if torch.cuda.is_available():
+    torch.cuda.empty_cache()
