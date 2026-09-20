@@ -1,129 +1,126 @@
 # =============================================================================
-# TEST 105 — DIRECT DIRECTIONAL LOGIT MARGIN (DLM)
+# TEST 106 — MULTI-RANDOM NULL DISTRIBUTION
 # =============================================================================
 #
 # Qwen/Qwen2.5-7B-Instruct · AkbasCore DRA
 #
 # AMAÇ
 # ----
-# TEST 104 şunu gösterdi:
+# TEST 105-HP:
 #
-#   RAW lexical ayrışma güçlüydü:
-#       ABOVE Δ  = +0.375
-#       BELOW Δ  = -0.375
-#       SEP      = +0.750
+#   HP ABOVE Δ   ≈ -0.000196
+#   HP BELOW Δ   ≈ -0.005890
+#   HP RANDOM Δ  ≈ -0.005169
 #
-#   fakat daha sıkı serbest-metin ilişkisel ölçümlerde ayrışma çöktü.
+#   ABOVE/BELOW DDS:
 #
-# Bunun nedeni:
-#   "sky above him"
-#   "waters below"
-#   "Mustafa beneath the bridge"
+#       DDS = DLM_ABOVE - DLM_BELOW
 #
-# gibi farklı ilişkilerin keyword/parser ölçümünde birbirine karışmasıydı.
+#       mean   ≈ +0.005694
+#       median ≈ +0.005855
+#       signs  = 28+ / 12-
 #
-# TEST 105 serbest metin üretimini ana ölçümden çıkarır.
+#   OVER/UNDER:
 #
-# Model doğrudan şu kontrollü ilişkiyi tamamlar:
-#
-#       "Mustafa is ___ the bridge."
-#
-# ve karar sınırını ölçer:
-#
-#       DLM = log P(ABOVE) - log P(BELOW)
+#       DDS mean ≈ +0.014450
 #
 #
-# ANA KOLLAR
-# ----------
-# BASELINE
-# ABOVE_IND
-# BELOW_IND
-# RANDOM
+# FAKAT:
+# ------
+# Tek RANDOM vektör bir NULL DAĞILIMI değildir.
+#
+# TEST 106'nın amacı:
+#
+#   Aynı fiziksel büyüklükte çok sayıda bağımsız random steering yönünün
+#   oluşturduğu davranışsal değişim dağılımını ölçmek.
 #
 #
-# SABİT TUTULANLAR
-# ----------------
-# Model          : Qwen/Qwen2.5-7B-Instruct
-# Active layers  : L10 + L11
-# IVME           : 0.10
-# SQRT_K         : sqrt(20)
-# Extraction     : last non-padding token
-# DRA            : TEST 104 ile aynı
-# Random seed    : TEST 103/104 ile aynı
+# SABİT:
+# ------
+# Model            : Qwen/Qwen2.5-7B-Instruct
+# Vector extraction: last non-padding token
+# Active layers    : L10 + L11
+# IVME             : 0.10
+# SQRT_K           : sqrt(20)
+# DRA              : TEST 105-HP ile aynı
+# Evaluation       : aynı 40 prompt
+# Measurement      : FP32 final RMSNorm + FP32 target LM-head
 #
 #
-# ANA ÖLÇÜM
-# ---------
-#
-# Her prompt için:
-#
-#   DLM_above_below =
-#
-#       log P(" above" | prompt)
-#       -
-#       log P(" below" | prompt)
+# YENİ:
+# -----
+# N_RANDOM = 32 bağımsız random layerwise direction.
 #
 #
-# Pozitif DLM -> ABOVE tarafına tercih
-# Negatif DLM -> BELOW tarafına tercih
+# NULL TESTLER
+# ------------
+#
+# A) RANDOM SHIFT NULL
+#
+# Her random j için:
+#
+#   ΔR_j(p) = DLM_RANDOM_j(p) - DLM_BASELINE(p)
 #
 #
-# BASELINE'A GÖRE:
+# B) RANDOM–RANDOM DIRECTIONAL SEPARATION NULL
 #
-#   ΔA = DLM_ABOVE_IND - DLM_BASELINE
-#   ΔB = DLM_BELOW_IND - DLM_BASELINE
-#   ΔR = DLM_RANDOM    - DLM_BASELINE
+# Semantic DDS:
 #
+#   DDS_sem(p) = DLM_ABOVE(p) - DLM_BELOW(p)
 #
-# ANA ÇİFT YÖNLÜ AYRIŞMA:
+# Random null için ardışık bağımsız random çiftleri:
 #
-#   DDS = ΔA - ΔB
+#   DDS_null_k(p)
+#       = DLM_RANDOM_2k(p) - DLM_RANDOM_2k+1(p)
 #
-# cebirsel olarak:
+# 32 random -> 16 bağımsız random-random çift.
 #
-#   DDS = DLM_ABOVE_IND - DLM_BELOW_IND
-#
-#
-# DDS > 0 otomatik "başarı" ilanı değildir.
-# Eşik kullanılmaz.
+# Bu, semantic ABOVE-vs-BELOW ayrışmasına en doğrudan null karşılaştırmadır.
 #
 #
-# ÇAPRAZ SÖZLÜK KONTROLÜ
-# ----------------------
-# Aynı hidden-state müdahalesi ayrıca:
+# C) RANDOM PAIRWISE DIAGNOSTIC
 #
-#       " over" vs " under"
+# Ayrıca 32 random'ın tüm:
 #
-# tokenlarına da bakar.
+#   C(32,2) = 496
 #
-# Amaç:
-# Etki yalnızca eğitimde doğrudan kullanılan ABOVE/BELOW kelimelerine mi
-# bağlı, yoksa yakın uzamsal sözcüklere de taşıyor mu?
+# yönlü çift farkları hesaplanır.
 #
-#
-# ÖNEMLİ:
-# --------
-# Bu deney "Mustafa gerçekten fiziksel olarak köprünün üstüne taşındı"
-# iddiasını tek başına kanıtlamaz.
-#
-# Ölçtüğü şey daha temizdir:
-#
-#   DRA müdahalesi kontrollü bağlamda modelin ABOVE-vs-BELOW
-#   token karar sınırını hangi yöne ve ne kadar kaydırıyor?
+# Bunlar bağımsız değildir.
+# Bu nedenle resmi bağımsız null gibi yorumlanmaz;
+# null geometrisini daha yoğun görmek için DIAGNOSTIC olarak raporlanır.
 #
 #
-# OTOMATİK BAŞARI / BAŞARISIZLIK KARARI YOKTUR.
+# D) PAIRED BOOTSTRAP
+#
+# 40 prompttaki semantic DDS değerleri bootstrap edilir.
+#
+# Rapor:
+#
+#   mean DDS
+#   median DDS
+#   95% bootstrap CI
+#   prompt sign counts
+#
+#
+# ÖNEMLİ
+# -------
+# Otomatik başarı eşiği yoktur.
+#
+# Empirical percentile ve empirical tail fraction raporlanır.
+# Bunlar tek başına klasik p-value olarak adlandırılmaz.
+#
 # =============================================================================
 
 
 # =============================================================================
-# 0. IMPORT
+# 0. IMPORTS
 # =============================================================================
 
 import json
 import math
 import random
-import statistics
+import itertools
 
 import numpy as np
 import torch
@@ -138,7 +135,6 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
 
 SEED = 42
-RANDOM_SEED = 20260920
 
 N_LAYERS = 20
 HIDDEN = 3584
@@ -146,12 +142,17 @@ HIDDEN = 3584
 ACTIVE_LAYERS = [10, 11]
 
 IVME = 0.10
-
-# TEST 103/104 scaling aynen korunuyor.
 SQRT_K = math.sqrt(N_LAYERS)
 
+N_RANDOM = 32
 
-# DRA
+RANDOM_BASE_SEED = 20261060
+
+BOOTSTRAP_N = 10000
+BOOTSTRAP_SEED = 20261061
+
+
+# DRA — TEST 105-HP ile aynı
 SONUM = 0.30
 ZIRVE = 0.70
 TABAN = 0.20
@@ -182,7 +183,7 @@ set_seed(SEED)
 
 
 # =============================================================================
-# 3. VECTOR EXTRACTION DATA — TEST 104 İLE AYNI
+# 3. TRAINING DATA — TEST 105 / 105-HP İLE AYNI
 # =============================================================================
 
 ABOVE_TRAIN = [
@@ -222,29 +223,7 @@ NEUTRAL_TRAIN = [
 
 
 # =============================================================================
-# 4. CONTROLLED EVALUATION PROMPTS
-# =============================================================================
-#
-# Kritik tasarım:
-#
-# Promptların sonunda doğrudan bir uzamsal boşluk bırakılıyor.
-#
-# Modelden uzun metin üretmesi istenmiyor.
-# Sadece sıradaki token dağılımı okunuyor.
-#
-# Cümlelerin kendisinde:
-#
-#   above
-#   below
-#   over
-#   under
-#
-# kelimeleri kullanılmıyor.
-#
-# Böylece hedef kelimelerin prompt içinde doğrudan prime edilmesi önleniyor.
-#
-# 40 farklı kontrollü bağlam.
-#
+# 4. EVALUATION PROMPTS — AYNI 40 PROMPT
 # =============================================================================
 
 EVAL_PROMPTS = [
@@ -269,7 +248,6 @@ EVAL_PROMPTS = [
 
     "Mustafa Dibekgoz has a spatial relationship to the suspension bridge in the vertical dimension. He is",
 
-
     "A traveler named Mustafa Dibekgoz is positioned relative to a bridge. In terms of height, he is",
 
     "The suspension bridge serves as a landmark for describing Mustafa Dibekgoz's vertical position. Mustafa is",
@@ -290,7 +268,6 @@ EVAL_PROMPTS = [
 
     "Relative height is being described between Mustafa Dibekgoz and a bridge. Mustafa is",
 
-
     "Mustafa Dibekgoz appears in a scene containing a tall bridge. His vertical position relative to the bridge is",
 
     "A large bridge and Mustafa Dibekgoz are visible in the same scene. In vertical relation to the bridge, he is",
@@ -310,7 +287,6 @@ EVAL_PROMPTS = [
     "The spatial question is about Mustafa Dibekgoz and the bridge in the vertical axis. Mustafa is",
 
     "Describe only the vertical relation of Mustafa Dibekgoz to the bridge. Mustafa is",
-
 
     "Mustafa Dibekgoz and a bridge are arranged at different possible elevations. Relative to the bridge, Mustafa is",
 
@@ -335,15 +311,12 @@ EVAL_PROMPTS = [
 
 
 # =============================================================================
-# 5. BASIC HELPERS
+# 5. HELPERS
 # =============================================================================
 
 def normalize_np(v, eps=1e-12):
 
-    v = np.asarray(
-        v,
-        dtype=np.float32
-    )
+    v = np.asarray(v, dtype=np.float32)
 
     n = np.linalg.norm(v)
 
@@ -355,15 +328,8 @@ def normalize_np(v, eps=1e-12):
 
 def cosine_np(a, b, eps=1e-12):
 
-    a = np.asarray(
-        a,
-        dtype=np.float32
-    )
-
-    b = np.asarray(
-        b,
-        dtype=np.float32
-    )
+    a = np.asarray(a, dtype=np.float32)
+    b = np.asarray(b, dtype=np.float32)
 
     na = np.linalg.norm(a)
     nb = np.linalg.norm(b)
@@ -378,27 +344,21 @@ def cosine_np(a, b, eps=1e-12):
     )
 
 
-def mean_or_zero(values):
-
-    if not values:
-        return 0.0
+def mean_value(values):
 
     return float(
         np.mean(values)
     )
 
 
-def median_or_zero(values):
-
-    if not values:
-        return 0.0
+def median_value(values):
 
     return float(
         np.median(values)
     )
 
 
-def std_or_zero(values):
+def std_value(values):
 
     if len(values) < 2:
         return 0.0
@@ -411,15 +371,40 @@ def std_or_zero(values):
     )
 
 
+def sign_counts(values, eps=0.0):
+
+    pos = sum(
+        x > eps
+        for x in values
+    )
+
+    neg = sum(
+        x < -eps
+        for x in values
+    )
+
+    zero = (
+        len(values)
+        - pos
+        - neg
+    )
+
+    return {
+        "positive": int(pos),
+        "negative": int(neg),
+        "zero": int(zero),
+    }
+
+
 # =============================================================================
 # 6. LOAD MODEL
 # =============================================================================
 
-print("\n" + "=" * 120)
-print("TEST 105 — DIRECT DIRECTIONAL LOGIT MARGIN")
-print("=" * 120)
+print("\n" + "=" * 130)
+print("TEST 106 — MULTI-RANDOM NULL DISTRIBUTION")
+print("=" * 130)
 
-print("\n[1/9] Model yükleniyor...")
+print("\n[1/12] Model yükleniyor...")
 
 
 tokenizer = AutoTokenizer.from_pretrained(
@@ -428,11 +413,15 @@ tokenizer = AutoTokenizer.from_pretrained(
 )
 
 
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+
 model = AutoModelForCausalLM.from_pretrained(
     MODEL_NAME,
     dtype=torch.bfloat16,
     device_map="auto",
-    trust_remote_code=True,
+    trust_remote_code=True
 )
 
 
@@ -442,41 +431,25 @@ model.eval()
 print("Model        :", MODEL_NAME)
 print("Device       :", model.device)
 print("dtype        :", next(model.parameters()).dtype)
-print("Model layers :", len(model.model.layers))
-print("Test layers  :", ACTIVE_LAYERS)
+print("Layers       :", len(model.model.layers))
+print("Active       :", ACTIVE_LAYERS)
 print("Hidden       :", HIDDEN)
 print("IVME         :", IVME)
-print("Eval prompts :", len(EVAL_PROMPTS))
+print("Prompts      :", len(EVAL_PROMPTS))
+print("Random dirs  :", N_RANDOM)
 
 
 # =============================================================================
-# 7. VERIFY TARGET TOKENS
-# =============================================================================
-#
-# Qwen tokenizer'da hedeflerin tek token olup olmadığını açıkça kontrol ediyoruz.
-#
-# Ana adaylar:
-#
-#   " above"
-#   " below"
-#
-# Çapraz kontrol:
-#
-#   " over"
-#   " under"
-#
-# Eğer herhangi biri tek token değilse test DURUR.
-# Çünkü burada doğrudan next-token logit farkı ölçüyoruz.
-#
+# 7. TARGET TOKENS
 # =============================================================================
 
-print("\n[2/9] Hedef tokenlar doğrulanıyor...")
+print("\n[2/12] Tokenlar doğrulanıyor...")
 
 
 TARGET_STRINGS = {
     "above": " above",
     "below": " below",
-    "over":  " over",
+    "over": " over",
     "under": " under",
 }
 
@@ -494,35 +467,28 @@ for name, text in TARGET_STRINGS.items():
     print(
         f"{name:<8} | "
         f"{repr(text):<12} | "
-        f"ids={ids} | "
-        f"decoded={repr(tokenizer.decode(ids))}"
+        f"{ids}"
     )
 
     if len(ids) != 1:
 
         raise RuntimeError(
-            f"\n{name} hedefi tek token değil: {ids}\n"
-            "TEST 105 doğrudan next-token logit ölçümü yaptığı için "
-            "bu tokenizer altında test burada durduruldu."
+            f"{name} tek token değil: {ids}"
         )
 
     TARGET_IDS[name] = ids[0]
 
 
-print("\nToken IDs:")
-print(TARGET_IDS)
+TARGET_ID_LIST = [
+    TARGET_IDS["above"],
+    TARGET_IDS["below"],
+    TARGET_IDS["over"],
+    TARGET_IDS["under"],
+]
 
 
 # =============================================================================
-# 8. ACTIVATION EXTRACTION
-# =============================================================================
-#
-# TEST 104 ile karşılaştırılabilirlik için:
-#
-#   LAST NON-PADDING TOKEN
-#
-# aynen korunuyor.
-#
+# 8. EXTRACT ACTIVATIONS
 # =============================================================================
 
 @torch.no_grad()
@@ -562,11 +528,7 @@ def extract_layerwise_activations(
 
     def make_hook(layer_idx):
 
-        def hook(
-            module,
-            inputs,
-            output
-        ):
+        def hook(module, inputs, output):
 
             hidden = (
                 output[0]
@@ -583,15 +545,13 @@ def extract_layerwise_activations(
 
     for layer_idx in range(N_LAYERS):
 
-        handle = (
+        handles.append(
             model.model.layers[
                 layer_idx
             ].register_forward_hook(
                 make_hook(layer_idx)
             )
         )
-
-        handles.append(handle)
 
 
     _ = model(
@@ -658,12 +618,11 @@ def extract_layerwise_activations(
 
 
 # =============================================================================
-# 9. BUILD ABOVE / BELOW DIRECTIONS
+# 9. BUILD SEMANTIC DIRECTIONS
 # =============================================================================
 
 print(
-    "\n[3/9] ABOVE / BELOW / NEUTRAL "
-    "aktivasyonları çıkarılıyor..."
+    "\n[3/12] Semantik yönler çıkarılıyor..."
 )
 
 
@@ -680,22 +639,9 @@ ACT_NEUTRAL = extract_layerwise_activations(
 )
 
 
-print("ABOVE   :", ACT_ABOVE.shape)
-print("BELOW   :", ACT_BELOW.shape)
-print("NEUTRAL :", ACT_NEUTRAL.shape)
-
-
-MEAN_ABOVE = ACT_ABOVE.mean(
-    axis=0
-)
-
-MEAN_BELOW = ACT_BELOW.mean(
-    axis=0
-)
-
-MEAN_NEUTRAL = ACT_NEUTRAL.mean(
-    axis=0
-)
+MEAN_ABOVE = ACT_ABOVE.mean(axis=0)
+MEAN_BELOW = ACT_BELOW.mean(axis=0)
+MEAN_NEUTRAL = ACT_NEUTRAL.mean(axis=0)
 
 
 IND_ABOVE = (
@@ -721,39 +667,7 @@ for layer_idx in range(N_LAYERS):
     )
 
 
-# =============================================================================
-# 10. RANDOM CONTROL
-# =============================================================================
-
-print(
-    "\n[4/9] RANDOM kontrol yönü oluşturuluyor..."
-)
-
-
-rng = np.random.default_rng(
-    RANDOM_SEED
-)
-
-
-RANDOM_VECTOR = (
-    rng.standard_normal(
-        (
-            N_LAYERS,
-            HIDDEN
-        )
-    )
-    .astype(np.float32)
-)
-
-
-for layer_idx in range(N_LAYERS):
-
-    RANDOM_VECTOR[layer_idx] = normalize_np(
-        RANDOM_VECTOR[layer_idx]
-    )
-
-
-print("\nGeometrik kontrol:")
+print("\nSemantic geometry:")
 
 
 for layer_idx in ACTIVE_LAYERS:
@@ -761,12 +675,78 @@ for layer_idx in ACTIVE_LAYERS:
     print(
         f"L{layer_idx:02d} | "
         f"cos(A,B)="
-        f"{cosine_np(IND_ABOVE[layer_idx], IND_BELOW[layer_idx]):+.6f} | "
-        f"cos(A,R)="
-        f"{cosine_np(IND_ABOVE[layer_idx], RANDOM_VECTOR[layer_idx]):+.6f} | "
-        f"cos(B,R)="
-        f"{cosine_np(IND_BELOW[layer_idx], RANDOM_VECTOR[layer_idx]):+.6f}"
+        f"{cosine_np(IND_ABOVE[layer_idx], IND_BELOW[layer_idx]):+.6f}"
     )
+
+
+# =============================================================================
+# 10. BUILD 32 INDEPENDENT RANDOM DIRECTIONS
+# =============================================================================
+
+print(
+    "\n[4/12] 32 bağımsız RANDOM yön oluşturuluyor..."
+)
+
+
+RANDOM_VECTORS = []
+
+
+for random_idx in range(N_RANDOM):
+
+    rng = np.random.default_rng(
+        RANDOM_BASE_SEED
+        + random_idx
+    )
+
+
+    vectors = (
+        rng.standard_normal(
+            (
+                N_LAYERS,
+                HIDDEN
+            )
+        )
+        .astype(np.float32)
+    )
+
+
+    for layer_idx in range(N_LAYERS):
+
+        vectors[layer_idx] = normalize_np(
+            vectors[layer_idx]
+        )
+
+
+    RANDOM_VECTORS.append(
+        vectors
+    )
+
+
+# Random geometry diagnostic
+random_cosines = []
+
+
+for i in range(N_RANDOM):
+
+    for layer_idx in ACTIVE_LAYERS:
+
+        random_cosines.append(
+            cosine_np(
+                IND_ABOVE[layer_idx],
+                RANDOM_VECTORS[i][layer_idx]
+            )
+        )
+
+
+print(
+    "Mean cos(ABOVE, RANDOM) =",
+    f"{mean_value(random_cosines):+.6f}"
+)
+
+print(
+    "SD   cos(ABOVE, RANDOM) =",
+    f"{std_value(random_cosines):.6f}"
+)
 
 
 # =============================================================================
@@ -790,9 +770,7 @@ def dra_parameters(
     )
 
 
-    t = float(
-        layer_idx
-    )
+    t = float(layer_idx)
 
 
     kb = (
@@ -837,56 +815,170 @@ def dra_parameters(
         brake = 1.0
 
 
+    return envelope, brake
+
+
+# =============================================================================
+# 12. FP32 FINAL RMSNORM
+# =============================================================================
+
+def qwen_rmsnorm_fp32(
+    hidden_fp32
+):
+
+    norm_module = model.model.norm
+
+    weight = (
+        norm_module.weight
+        .detach()
+        .float()
+    )
+
+    eps = float(
+        norm_module.variance_epsilon
+    )
+
+
+    variance = (
+        hidden_fp32
+        .pow(2)
+        .mean(
+            dim=-1,
+            keepdim=True
+        )
+    )
+
+
+    normalized = (
+        hidden_fp32
+        * torch.rsqrt(
+            variance + eps
+        )
+    )
+
+
     return (
-        envelope,
-        brake
+        normalized
+        * weight
     )
 
 
 # =============================================================================
-# 12. GET LAST-TOKEN LOGITS — BASELINE
+# 13. FP32 TARGET LM HEAD
 # =============================================================================
 
 @torch.no_grad()
-def baseline_logits(prompt):
+def hp_target_logits(
+    final_hidden_last
+):
 
-    encoded = tokenizer(
-        prompt,
-        return_tensors="pt"
-    ).to(model.device)
-
-
-    outputs = model(
-        **encoded,
-        use_cache=False,
-    )
-
-
-    logits = (
-        outputs.logits[
-            0,
-            -1,
-            :
-        ]
+    h = (
+        final_hidden_last
         .float()
     )
 
 
-    return logits
+    h_norm = qwen_rmsnorm_fp32(
+        h
+    )
+
+
+    weights = (
+        model.lm_head.weight[
+            TARGET_ID_LIST
+        ]
+        .detach()
+        .float()
+    )
+
+
+    logits = torch.matmul(
+        weights,
+        h_norm
+    )
+
+
+    return {
+        "above":
+            float(
+                logits[0].cpu()
+            ),
+
+        "below":
+            float(
+                logits[1].cpu()
+            ),
+
+        "over":
+            float(
+                logits[2].cpu()
+            ),
+
+        "under":
+            float(
+                logits[3].cpu()
+            ),
+    }
 
 
 # =============================================================================
-# 13. GET LAST-TOKEN LOGITS — STEERED
+# 14. MEASURE TARGET LOGITS
+# =============================================================================
+
+def measure_target_logits(
+    logits
+):
+
+    dlm_ab = (
+        logits["above"]
+        - logits["below"]
+    )
+
+
+    dlm_ou = (
+        logits["over"]
+        - logits["under"]
+    )
+
+
+    return {
+        "dlm_above_below":
+            float(dlm_ab),
+
+        "dlm_over_under":
+            float(dlm_ou),
+
+        "logit_above":
+            float(
+                logits["above"]
+            ),
+
+        "logit_below":
+            float(
+                logits["below"]
+            ),
+
+        "logit_over":
+            float(
+                logits["over"]
+            ),
+
+        "logit_under":
+            float(
+                logits["under"]
+            ),
+    }
+
+
+# =============================================================================
+# 15. SINGLE FORWARD
 # =============================================================================
 
 @torch.no_grad()
-def steered_logits(
+def run_forward(
     prompt,
-    vectors
+    vectors=None
 ):
-
-    handles = []
-
 
     telemetry = {
         "cos": [],
@@ -894,183 +986,231 @@ def steered_logits(
         "contribution": [],
         "envelope": [],
         "brake": [],
-        "hook_steps": 0,
     }
 
 
-    def make_hook(layer_idx):
+    steering_handles = []
 
-        def hook(
-            module,
-            inputs,
-            output
+
+    final_capture = {
+        "hidden": None
+    }
+
+
+    # -------------------------------------------------------------------------
+    # Capture hidden BEFORE final RMSNorm.
+    # -------------------------------------------------------------------------
+
+    def final_norm_pre_hook(
+        module,
+        inputs
+    ):
+
+        final_capture[
+            "hidden"
+        ] = (
+            inputs[0]
+            .detach()
+        )
+
+
+    capture_handle = (
+        model.model.norm
+        .register_forward_pre_hook(
+            final_norm_pre_hook
+        )
+    )
+
+
+    # -------------------------------------------------------------------------
+    # Steering hooks
+    # -------------------------------------------------------------------------
+
+    if vectors is not None:
+
+        def make_hook(
+            layer_idx
         ):
 
-            hidden = (
-                output[0]
-                if isinstance(output, tuple)
-                else output
-            )
+            def hook(
+                module,
+                inputs,
+                output
+            ):
 
-
-            # Vector doğrudan hidden tensor'ın device/dtype'ına taşınır.
-            vector = torch.as_tensor(
-                vectors[layer_idx],
-                device=hidden.device,
-                dtype=hidden.dtype
-            ).unsqueeze(0)
-
-
-            h = hidden[
-                :,
-                -1,
-                :
-            ]
-
-
-            h_norm = torch.linalg.norm(
-                h,
-                dim=-1,
-                keepdim=True
-            )
-
-
-            v_norm = torch.linalg.norm(
-                vector,
-                dim=-1,
-                keepdim=True
-            )
-
-
-            cosine = (
-                torch.sum(
-                    h * vector,
-                    dim=-1,
-                    keepdim=True
+                hidden = (
+                    output[0]
+                    if isinstance(
+                        output,
+                        tuple
+                    )
+                    else output
                 )
-                /
-                (
-                    h_norm
-                    * v_norm
-                    + 1e-12
-                )
-            )
 
 
-            cosine_value = float(
-                cosine.mean()
-                .detach()
-                .cpu()
-            )
+                vector = torch.as_tensor(
+                    vectors[layer_idx],
+                    device=hidden.device,
+                    dtype=hidden.dtype
+                ).unsqueeze(0)
 
 
-            envelope, brake = (
-                dra_parameters(
-                    cosine_value,
-                    layer_idx
-                )
-            )
-
-
-            contribution = (
-                IVME
-                * h_norm
-                / SQRT_K
-                * envelope
-                * brake
-            )
-
-
-            delta = (
-                contribution
-                * vector
-            )
-
-
-            hidden_new = hidden.clone()
-
-
-            hidden_new[
-                :,
-                -1,
-                :
-            ] = (
-                hidden_new[
+                h = hidden[
                     :,
                     -1,
                     :
                 ]
-                + delta
-            )
 
 
-            telemetry[
-                "cos"
-            ].append(
-                cosine_value
-            )
+                h_norm = torch.linalg.norm(
+                    h,
+                    dim=-1,
+                    keepdim=True
+                )
 
 
-            telemetry[
-                "abs_cos"
-            ].append(
-                abs(cosine_value)
-            )
+                v_norm = torch.linalg.norm(
+                    vector,
+                    dim=-1,
+                    keepdim=True
+                )
 
 
-            telemetry[
-                "contribution"
-            ].append(
-                float(
-                    contribution
+                cosine = (
+                    torch.sum(
+                        h * vector,
+                        dim=-1,
+                        keepdim=True
+                    )
+                    /
+                    (
+                        h_norm
+                        * v_norm
+                        + 1e-12
+                    )
+                )
+
+
+                cosine_value = float(
+                    cosine
                     .mean()
                     .detach()
                     .cpu()
                 )
-            )
 
 
-            telemetry[
-                "envelope"
-            ].append(
-                float(envelope)
-            )
-
-
-            telemetry[
-                "brake"
-            ].append(
-                float(brake)
-            )
-
-
-            telemetry[
-                "hook_steps"
-            ] += 1
-
-
-            if isinstance(output, tuple):
-
-                return (
-                    hidden_new,
-                    *output[1:]
+                envelope, brake = (
+                    dra_parameters(
+                        cosine_value,
+                        layer_idx
+                    )
                 )
 
-            return hidden_new
+
+                contribution = (
+                    IVME
+                    * h_norm
+                    / SQRT_K
+                    * envelope
+                    * brake
+                )
 
 
-        return hook
+                delta = (
+                    contribution
+                    * vector
+                )
 
 
-    for layer_idx in ACTIVE_LAYERS:
+                hidden_new = (
+                    hidden.clone()
+                )
 
-        handles.append(
-            model.model.layers[
-                layer_idx
-            ].register_forward_hook(
-                make_hook(layer_idx)
+
+                hidden_new[
+                    :,
+                    -1,
+                    :
+                ] = (
+                    hidden_new[
+                        :,
+                        -1,
+                        :
+                    ]
+                    + delta
+                )
+
+
+                telemetry[
+                    "cos"
+                ].append(
+                    cosine_value
+                )
+
+
+                telemetry[
+                    "abs_cos"
+                ].append(
+                    abs(
+                        cosine_value
+                    )
+                )
+
+
+                telemetry[
+                    "contribution"
+                ].append(
+                    float(
+                        contribution
+                        .mean()
+                        .detach()
+                        .cpu()
+                    )
+                )
+
+
+                telemetry[
+                    "envelope"
+                ].append(
+                    float(envelope)
+                )
+
+
+                telemetry[
+                    "brake"
+                ].append(
+                    float(brake)
+                )
+
+
+                if isinstance(
+                    output,
+                    tuple
+                ):
+
+                    return (
+                        hidden_new,
+                        *output[1:]
+                    )
+
+
+                return hidden_new
+
+
+            return hook
+
+
+        for layer_idx in ACTIVE_LAYERS:
+
+            steering_handles.append(
+                model.model.layers[
+                    layer_idx
+                ].register_forward_hook(
+                    make_hook(
+                        layer_idx
+                    )
+                )
             )
-        )
 
 
     try:
@@ -1081,957 +1221,1194 @@ def steered_logits(
         ).to(model.device)
 
 
-        outputs = model(
+        _ = model(
             **encoded,
             use_cache=False,
         )
 
 
-        logits = (
-            outputs.logits[
+        if final_capture[
+            "hidden"
+        ] is None:
+
+            raise RuntimeError(
+                "Final pre-norm hidden "
+                "yakalanamadı."
+            )
+
+
+        last_hidden = (
+            final_capture[
+                "hidden"
+            ][
                 0,
                 -1,
                 :
             ]
-            .float()
+        )
+
+
+        logits = hp_target_logits(
+            last_hidden
         )
 
 
     finally:
 
-        for handle in handles:
+        for handle in steering_handles:
             handle.remove()
 
+        capture_handle.remove()
 
-    summary = {
+
+    measurement = (
+        measure_target_logits(
+            logits
+        )
+    )
+
+
+    telemetry_summary = {
+
         "mean_cos":
-            mean_or_zero(
+            mean_value(
                 telemetry["cos"]
-            ),
+            )
+            if telemetry["cos"]
+            else 0.0,
 
         "mean_abs_cos":
-            mean_or_zero(
+            mean_value(
                 telemetry["abs_cos"]
-            ),
+            )
+            if telemetry["abs_cos"]
+            else 0.0,
 
         "mean_contribution":
-            mean_or_zero(
-                telemetry["contribution"]
-            ),
+            mean_value(
+                telemetry[
+                    "contribution"
+                ]
+            )
+            if telemetry[
+                "contribution"
+            ]
+            else 0.0,
 
         "mean_envelope":
-            mean_or_zero(
+            mean_value(
                 telemetry["envelope"]
-            ),
+            )
+            if telemetry["envelope"]
+            else 0.0,
 
         "mean_brake":
-            mean_or_zero(
+            mean_value(
                 telemetry["brake"]
-            ),
-
-        "hook_steps":
-            int(
-                telemetry["hook_steps"]
-            ),
+            )
+            if telemetry["brake"]
+            else 0.0,
     }
 
 
     return (
-        logits,
-        summary
+        measurement,
+        telemetry_summary
     )
 
 
 # =============================================================================
-# 14. LOG-PROB / DLM MEASUREMENT
-# =============================================================================
-
-def measure_logits(logits):
-
-    log_probs = torch.log_softmax(
-        logits,
-        dim=-1
-    )
-
-
-    lp_above = float(
-        log_probs[
-            TARGET_IDS["above"]
-        ]
-        .detach()
-        .cpu()
-    )
-
-
-    lp_below = float(
-        log_probs[
-            TARGET_IDS["below"]
-        ]
-        .detach()
-        .cpu()
-    )
-
-
-    lp_over = float(
-        log_probs[
-            TARGET_IDS["over"]
-        ]
-        .detach()
-        .cpu()
-    )
-
-
-    lp_under = float(
-        log_probs[
-            TARGET_IDS["under"]
-        ]
-        .detach()
-        .cpu()
-    )
-
-
-    dlm_above_below = (
-        lp_above
-        - lp_below
-    )
-
-
-    dlm_over_under = (
-        lp_over
-        - lp_under
-    )
-
-
-    # İki aday arasındaki normalize edilmiş conditional probability.
-    #
-    # Bu tüm vocabulary üzerindeki probability değildir.
-    # Sadece ABOVE-vs-BELOW ikili aday uzayındaki normalize edilmiş olasılıktır.
-    #
-    pair_above_prob = float(
-        torch.softmax(
-            torch.tensor(
-                [
-                    lp_above,
-                    lp_below
-                ],
-                dtype=torch.float64
-            ),
-            dim=0
-        )[0]
-    )
-
-
-    pair_over_prob = float(
-        torch.softmax(
-            torch.tensor(
-                [
-                    lp_over,
-                    lp_under
-                ],
-                dtype=torch.float64
-            ),
-            dim=0
-        )[0]
-    )
-
-
-    return {
-        "logp_above":
-            lp_above,
-
-        "logp_below":
-            lp_below,
-
-        "dlm_above_below":
-            float(
-                dlm_above_below
-            ),
-
-        "pair_p_above":
-            pair_above_prob,
-
-        "logp_over":
-            lp_over,
-
-        "logp_under":
-            lp_under,
-
-        "dlm_over_under":
-            float(
-                dlm_over_under
-            ),
-
-        "pair_p_over":
-            pair_over_prob,
-    }
-
-
-# =============================================================================
-# 15. RUN BASELINE
+# 16. RUN BASELINE
 # =============================================================================
 
 print(
-    "\n[5/9] BASELINE logit ölçümleri..."
+    "\n[5/12] BASELINE çalışıyor..."
 )
 
 
-BASELINE_RESULTS = []
+BASELINE = []
 
 
 for i, prompt in enumerate(
     EVAL_PROMPTS
 ):
 
-    logits = baseline_logits(
-        prompt
+    measurement, _ = (
+        run_forward(
+            prompt,
+            vectors=None
+        )
     )
 
 
-    measurement = measure_logits(
-        logits
-    )
-
-
-    measurement[
-        "prompt_index"
-    ] = i + 1
-
-
-    measurement[
-        "prompt"
-    ] = prompt
-
-
-    BASELINE_RESULTS.append(
+    BASELINE.append(
         measurement
     )
 
 
 # =============================================================================
-# 16. RUN STEERED ARM
+# 17. RUN SEMANTIC ARMS
 # =============================================================================
 
-def run_steered_arm(
-    name,
-    vectors
-):
+print(
+    "\n[6/12] ABOVE_IND çalışıyor..."
+)
 
-    print(
-        f"\n{name} çalışıyor..."
+
+ABOVE_RESULTS = []
+ABOVE_TELEMETRY = []
+
+
+for prompt in EVAL_PROMPTS:
+
+    m, t = run_forward(
+        prompt,
+        IND_ABOVE
     )
 
-
-    results = []
-
-
-    for i, prompt in enumerate(
-        EVAL_PROMPTS
-    ):
-
-        logits, telemetry = (
-            steered_logits(
-                prompt,
-                vectors
-            )
-        )
-
-
-        measurement = measure_logits(
-            logits
-        )
-
-
-        measurement[
-            "prompt_index"
-        ] = i + 1
-
-
-        measurement[
-            "prompt"
-        ] = prompt
-
-
-        measurement[
-            "telemetry"
-        ] = telemetry
-
-
-        results.append(
-            measurement
-        )
-
-
-    return results
+    ABOVE_RESULTS.append(m)
+    ABOVE_TELEMETRY.append(t)
 
 
 print(
-    "\n[6/9] Yönlendirilmiş kollar..."
+    "\n[7/12] BELOW_IND çalışıyor..."
 )
 
 
-ABOVE_RESULTS = run_steered_arm(
-    "ABOVE_IND",
-    IND_ABOVE
-)
+BELOW_RESULTS = []
+BELOW_TELEMETRY = []
 
 
-BELOW_RESULTS = run_steered_arm(
-    "BELOW_IND",
-    IND_BELOW
-)
+for prompt in EVAL_PROMPTS:
 
+    m, t = run_forward(
+        prompt,
+        IND_BELOW
+    )
 
-RANDOM_RESULTS = run_steered_arm(
-    "RANDOM",
-    RANDOM_VECTOR
-)
+    BELOW_RESULTS.append(m)
+    BELOW_TELEMETRY.append(t)
 
 
 # =============================================================================
-# 17. AGGREGATION
+# 18. RUN 32 RANDOM DIRECTIONS
 # =============================================================================
 
-ARMS = {
-    "BASELINE":
-        BASELINE_RESULTS,
-
-    "ABOVE_IND":
-        ABOVE_RESULTS,
-
-    "BELOW_IND":
-        BELOW_RESULTS,
-
-    "RANDOM":
-        RANDOM_RESULTS,
-}
+print(
+    "\n[8/12] 32 RANDOM yön çalışıyor..."
+)
 
 
-def aggregate_metric(
-    results,
-    key
+RANDOM_RESULTS = []
+RANDOM_TELEMETRY = []
+
+
+for random_idx in range(
+    N_RANDOM
 ):
 
-    values = [
-        float(x[key])
-        for x in results
-    ]
+    print(
+        f"RANDOM "
+        f"{random_idx + 1:02d}"
+        f"/{N_RANDOM}"
+    )
 
 
-    return {
-        "mean":
-            mean_or_zero(values),
-
-        "median":
-            median_or_zero(values),
-
-        "std":
-            std_or_zero(values),
-
-        "min":
-            float(
-                min(values)
-            ),
-
-        "max":
-            float(
-                max(values)
-            ),
-    }
+    one_random_results = []
+    one_random_telemetry = []
 
 
-def aggregate_arm(
-    results
-):
-
-    output = {
-        "dlm_above_below":
-            aggregate_metric(
-                results,
-                "dlm_above_below"
-            ),
-
-        "dlm_over_under":
-            aggregate_metric(
-                results,
-                "dlm_over_under"
-            ),
-
-        "pair_p_above":
-            aggregate_metric(
-                results,
-                "pair_p_above"
-            ),
-
-        "pair_p_over":
-            aggregate_metric(
-                results,
-                "pair_p_over"
-            ),
-    }
+    vectors = (
+        RANDOM_VECTORS[
+            random_idx
+        ]
+    )
 
 
-    if "telemetry" in results[0]:
+    for prompt in EVAL_PROMPTS:
 
-        for key in [
-            "mean_cos",
-            "mean_abs_cos",
-            "mean_contribution",
-            "mean_envelope",
-            "mean_brake",
-        ]:
+        m, t = run_forward(
+            prompt,
+            vectors
+        )
 
-            values = [
-                x["telemetry"][key]
-                for x in results
-            ]
-
-            output[key] = (
-                mean_or_zero(values)
-            )
+        one_random_results.append(m)
+        one_random_telemetry.append(t)
 
 
-    return output
+    RANDOM_RESULTS.append(
+        one_random_results
+    )
 
-
-SUMMARY = {
-    name:
-        aggregate_arm(results)
-
-    for name, results
-    in ARMS.items()
-}
+    RANDOM_TELEMETRY.append(
+        one_random_telemetry
+    )
 
 
 # =============================================================================
-# 18. PROMPT-LEVEL DELTAS
+# 19. ARRAYS
 # =============================================================================
 
-PROMPT_RESULTS = []
+print(
+    "\n[9/12] Null dağılımları hesaplanıyor..."
+)
+
+
+BASE_AB = np.array(
+    [
+        x["dlm_above_below"]
+        for x in BASELINE
+    ],
+    dtype=np.float64
+)
+
+
+ABOVE_AB = np.array(
+    [
+        x["dlm_above_below"]
+        for x in ABOVE_RESULTS
+    ],
+    dtype=np.float64
+)
+
+
+BELOW_AB = np.array(
+    [
+        x["dlm_above_below"]
+        for x in BELOW_RESULTS
+    ],
+    dtype=np.float64
+)
+
+
+BASE_OU = np.array(
+    [
+        x["dlm_over_under"]
+        for x in BASELINE
+    ],
+    dtype=np.float64
+)
+
+
+ABOVE_OU = np.array(
+    [
+        x["dlm_over_under"]
+        for x in ABOVE_RESULTS
+    ],
+    dtype=np.float64
+)
+
+
+BELOW_OU = np.array(
+    [
+        x["dlm_over_under"]
+        for x in BELOW_RESULTS
+    ],
+    dtype=np.float64
+)
+
+
+RANDOM_AB = np.array(
+    [
+        [
+            x["dlm_above_below"]
+            for x in one_random
+        ]
+        for one_random
+        in RANDOM_RESULTS
+    ],
+    dtype=np.float64
+)
+
+
+RANDOM_OU = np.array(
+    [
+        [
+            x["dlm_over_under"]
+            for x in one_random
+        ]
+        for one_random
+        in RANDOM_RESULTS
+    ],
+    dtype=np.float64
+)
+
+
+# Shape:
+#
+# RANDOM_AB = [32, 40]
+#
+
+print(
+    "RANDOM_AB shape:",
+    RANDOM_AB.shape
+)
+
+
+# =============================================================================
+# 20. SEMANTIC EFFECTS
+# =============================================================================
+
+DELTA_ABOVE_AB = (
+    ABOVE_AB
+    - BASE_AB
+)
+
+
+DELTA_BELOW_AB = (
+    BELOW_AB
+    - BASE_AB
+)
+
+
+SEMANTIC_DDS_AB = (
+    ABOVE_AB
+    - BELOW_AB
+)
+
+
+DELTA_ABOVE_OU = (
+    ABOVE_OU
+    - BASE_OU
+)
+
+
+DELTA_BELOW_OU = (
+    BELOW_OU
+    - BASE_OU
+)
+
+
+SEMANTIC_DDS_OU = (
+    ABOVE_OU
+    - BELOW_OU
+)
+
+
+# =============================================================================
+# 21. RANDOM SHIFT DISTRIBUTION
+# =============================================================================
+
+RANDOM_DELTAS_AB = (
+    RANDOM_AB
+    - BASE_AB[None, :]
+)
+
+
+RANDOM_DELTAS_OU = (
+    RANDOM_OU
+    - BASE_OU[None, :]
+)
+
+
+RANDOM_MEAN_SHIFTS_AB = (
+    RANDOM_DELTAS_AB
+    .mean(axis=1)
+)
+
+
+RANDOM_MEAN_SHIFTS_OU = (
+    RANDOM_DELTAS_OU
+    .mean(axis=1)
+)
+
+
+# =============================================================================
+# 22. INDEPENDENT RANDOM–RANDOM PAIR NULL
+# =============================================================================
+#
+# Fixed pairs:
+#
+#   R00 - R01
+#   R02 - R03
+#   ...
+#   R30 - R31
+#
+# 16 non-overlapping random pairs.
+#
+# =============================================================================
+
+INDEPENDENT_NULL_AB = []
+INDEPENDENT_NULL_OU = []
 
 
 for i in range(
-    len(EVAL_PROMPTS)
+    0,
+    N_RANDOM,
+    2
 ):
 
-    base = BASELINE_RESULTS[i]
-    above = ABOVE_RESULTS[i]
-    below = BELOW_RESULTS[i]
-    rand = RANDOM_RESULTS[i]
-
-
-    # -------------------------------------------------------------------------
-    # ABOVE vs BELOW
-    # -------------------------------------------------------------------------
-
-    base_dlm = (
-        base[
-            "dlm_above_below"
-        ]
-    )
-
-    a_dlm = (
-        above[
-            "dlm_above_below"
-        ]
-    )
-
-    b_dlm = (
-        below[
-            "dlm_above_below"
-        ]
-    )
-
-    r_dlm = (
-        rand[
-            "dlm_above_below"
-        ]
+    pair_ab = (
+        RANDOM_AB[i]
+        - RANDOM_AB[i + 1]
     )
 
 
-    delta_a = (
-        a_dlm - base_dlm
-    )
-
-    delta_b = (
-        b_dlm - base_dlm
-    )
-
-    delta_r = (
-        r_dlm - base_dlm
+    pair_ou = (
+        RANDOM_OU[i]
+        - RANDOM_OU[i + 1]
     )
 
 
-    dds = (
-        delta_a
-        - delta_b
+    INDEPENDENT_NULL_AB.append(
+        pair_ab
+    )
+
+    INDEPENDENT_NULL_OU.append(
+        pair_ou
     )
 
 
-    # -------------------------------------------------------------------------
-    # OVER vs UNDER
-    # -------------------------------------------------------------------------
+INDEPENDENT_NULL_AB = np.array(
+    INDEPENDENT_NULL_AB,
+    dtype=np.float64
+)
 
-    base_cross = (
-        base[
-            "dlm_over_under"
-        ]
+
+INDEPENDENT_NULL_OU = np.array(
+    INDEPENDENT_NULL_OU,
+    dtype=np.float64
+)
+
+
+INDEPENDENT_NULL_MEANS_AB = (
+    INDEPENDENT_NULL_AB
+    .mean(axis=1)
+)
+
+
+INDEPENDENT_NULL_MEANS_OU = (
+    INDEPENDENT_NULL_OU
+    .mean(axis=1)
+)
+
+
+# =============================================================================
+# 23. ALL-PAIR RANDOM DIAGNOSTIC
+# =============================================================================
+#
+# 496 çift.
+#
+# NOT:
+# Bu çiftler birbirinden bağımsız değildir.
+#
+# =============================================================================
+
+ALL_PAIR_NULL_MEANS_AB = []
+ALL_PAIR_NULL_MEANS_OU = []
+
+
+ALL_PAIR_DETAILS = []
+
+
+for i, j in itertools.combinations(
+    range(N_RANDOM),
+    2
+):
+
+    diff_ab = (
+        RANDOM_AB[i]
+        - RANDOM_AB[j]
     )
 
-    a_cross = (
-        above[
-            "dlm_over_under"
-        ]
-    )
 
-    b_cross = (
-        below[
-            "dlm_over_under"
-        ]
-    )
-
-    r_cross = (
-        rand[
-            "dlm_over_under"
-        ]
+    diff_ou = (
+        RANDOM_OU[i]
+        - RANDOM_OU[j]
     )
 
 
-    delta_a_cross = (
-        a_cross
-        - base_cross
-    )
-
-    delta_b_cross = (
-        b_cross
-        - base_cross
-    )
-
-    delta_r_cross = (
-        r_cross
-        - base_cross
+    mean_ab = float(
+        diff_ab.mean()
     )
 
 
-    dds_cross = (
-        delta_a_cross
-        - delta_b_cross
+    mean_ou = float(
+        diff_ou.mean()
     )
 
 
-    PROMPT_RESULTS.append({
+    ALL_PAIR_NULL_MEANS_AB.append(
+        mean_ab
+    )
 
-        "prompt_index":
-            i + 1,
 
-        "prompt":
-            EVAL_PROMPTS[i],
+    ALL_PAIR_NULL_MEANS_OU.append(
+        mean_ou
+    )
 
-        "above_below": {
 
-            "baseline_dlm":
-                float(base_dlm),
+    ALL_PAIR_DETAILS.append({
+        "random_i": int(i),
+        "random_j": int(j),
 
-            "above_dlm":
-                float(a_dlm),
+        "mean_dds_above_below":
+            mean_ab,
 
-            "below_dlm":
-                float(b_dlm),
-
-            "random_dlm":
-                float(r_dlm),
-
-            "delta_above":
-                float(delta_a),
-
-            "delta_below":
-                float(delta_b),
-
-            "delta_random":
-                float(delta_r),
-
-            "dds":
-                float(dds),
-
-            "above_minus_random":
-                float(
-                    delta_a
-                    - delta_r
-                ),
-
-            "below_minus_random":
-                float(
-                    delta_b
-                    - delta_r
-                ),
-        },
-
-        "over_under": {
-
-            "baseline_dlm":
-                float(base_cross),
-
-            "above_dlm":
-                float(a_cross),
-
-            "below_dlm":
-                float(b_cross),
-
-            "random_dlm":
-                float(r_cross),
-
-            "delta_above":
-                float(
-                    delta_a_cross
-                ),
-
-            "delta_below":
-                float(
-                    delta_b_cross
-                ),
-
-            "delta_random":
-                float(
-                    delta_r_cross
-                ),
-
-            "dds":
-                float(
-                    dds_cross
-                ),
-        },
+        "mean_dds_over_under":
+            mean_ou,
     })
 
 
+ALL_PAIR_NULL_MEANS_AB = np.array(
+    ALL_PAIR_NULL_MEANS_AB,
+    dtype=np.float64
+)
+
+
+ALL_PAIR_NULL_MEANS_OU = np.array(
+    ALL_PAIR_NULL_MEANS_OU,
+    dtype=np.float64
+)
+
+
 # =============================================================================
-# 19. GLOBAL DELTA STATISTICS
+# 24. BOOTSTRAP
 # =============================================================================
 
-def summarize_prompt_field(
-    family,
-    field
+def paired_bootstrap_mean_ci(
+    values,
+    n_boot=10000,
+    seed=12345
 ):
 
-    values = [
-        x[family][field]
-        for x in PROMPT_RESULTS
-    ]
+    values = np.asarray(
+        values,
+        dtype=np.float64
+    )
+
+
+    rng = np.random.default_rng(
+        seed
+    )
+
+
+    n = len(values)
+
+
+    boot_means = np.empty(
+        n_boot,
+        dtype=np.float64
+    )
+
+
+    for b in range(
+        n_boot
+    ):
+
+        idx = rng.integers(
+            0,
+            n,
+            size=n
+        )
+
+
+        boot_means[b] = (
+            values[idx]
+            .mean()
+        )
+
+
+    lower = float(
+        np.percentile(
+            boot_means,
+            2.5
+        )
+    )
+
+
+    upper = float(
+        np.percentile(
+            boot_means,
+            97.5
+        )
+    )
 
 
     return {
-        "mean":
-            mean_or_zero(values),
-
-        "median":
-            median_or_zero(values),
-
-        "std":
-            std_or_zero(values),
-
-        "min":
+        "observed_mean":
             float(
-                min(values)
+                values.mean()
             ),
 
-        "max":
+        "bootstrap_mean":
             float(
-                max(values)
+                boot_means.mean()
             ),
 
-        "positive_count":
+        "ci95_lower":
+            lower,
+
+        "ci95_upper":
+            upper,
+
+        "n_bootstrap":
+            int(n_boot),
+    }
+
+
+BOOTSTRAP_AB = (
+    paired_bootstrap_mean_ci(
+        SEMANTIC_DDS_AB,
+        n_boot=BOOTSTRAP_N,
+        seed=BOOTSTRAP_SEED
+    )
+)
+
+
+BOOTSTRAP_OU = (
+    paired_bootstrap_mean_ci(
+        SEMANTIC_DDS_OU,
+        n_boot=BOOTSTRAP_N,
+        seed=BOOTSTRAP_SEED + 1
+    )
+)
+
+
+# =============================================================================
+# 25. EMPIRICAL NULL COMPARISON
+# =============================================================================
+
+SEMANTIC_MEAN_AB = float(
+    SEMANTIC_DDS_AB.mean()
+)
+
+
+SEMANTIC_MEAN_OU = float(
+    SEMANTIC_DDS_OU.mean()
+)
+
+
+def empirical_comparison(
+    observed,
+    null_values
+):
+
+    null_values = np.asarray(
+        null_values,
+        dtype=np.float64
+    )
+
+
+    # One-sided orientation:
+    # fraction of null >= observed.
+    upper_tail = (
+        np.sum(
+            null_values
+            >= observed
+        )
+        + 1
+    ) / (
+        len(null_values)
+        + 1
+    )
+
+
+    # Symmetric magnitude comparison.
+    two_sided_magnitude = (
+        np.sum(
+            np.abs(
+                null_values
+            )
+            >= abs(
+                observed
+            )
+        )
+        + 1
+    ) / (
+        len(null_values)
+        + 1
+    )
+
+
+    percentile = (
+        np.sum(
+            null_values
+            < observed
+        )
+        / len(
+            null_values
+        )
+        * 100.0
+    )
+
+
+    return {
+        "observed":
+            float(observed),
+
+        "null_n":
             int(
-                sum(
-                    x > 0
-                    for x in values
+                len(
+                    null_values
                 )
             ),
 
-        "negative_count":
-            int(
-                sum(
-                    x < 0
-                    for x in values
+        "null_mean":
+            float(
+                null_values.mean()
+            ),
+
+        "null_median":
+            float(
+                np.median(
+                    null_values
                 )
             ),
 
-        "zero_count":
-            int(
-                sum(
-                    x == 0
-                    for x in values
+        "null_std":
+            float(
+                null_values.std(
+                    ddof=1
                 )
+            )
+            if len(
+                null_values
+            ) > 1
+            else 0.0,
+
+        "null_min":
+            float(
+                null_values.min()
+            ),
+
+        "null_max":
+            float(
+                null_values.max()
+            ),
+
+        "observed_percentile":
+            float(
+                percentile
+            ),
+
+        "upper_tail_fraction_plus1":
+            float(
+                upper_tail
+            ),
+
+        "two_sided_magnitude_fraction_plus1":
+            float(
+                two_sided_magnitude
             ),
     }
 
 
-GLOBAL = {
-    "above_below": {
-        "delta_above":
-            summarize_prompt_field(
-                "above_below",
-                "delta_above"
-            ),
+# Primary:
+# 16 non-overlapping random pairs.
+NULL_COMPARE_INDEP_AB = (
+    empirical_comparison(
+        SEMANTIC_MEAN_AB,
+        INDEPENDENT_NULL_MEANS_AB
+    )
+)
 
-        "delta_below":
-            summarize_prompt_field(
-                "above_below",
-                "delta_below"
-            ),
 
-        "delta_random":
-            summarize_prompt_field(
-                "above_below",
-                "delta_random"
-            ),
+NULL_COMPARE_INDEP_OU = (
+    empirical_comparison(
+        SEMANTIC_MEAN_OU,
+        INDEPENDENT_NULL_MEANS_OU
+    )
+)
 
-        "dds":
-            summarize_prompt_field(
-                "above_below",
-                "dds"
-            ),
 
-        "above_minus_random":
-            summarize_prompt_field(
-                "above_below",
-                "above_minus_random"
-            ),
+# Diagnostic:
+# all 496 overlapping pair combinations.
+NULL_COMPARE_ALL_AB = (
+    empirical_comparison(
+        SEMANTIC_MEAN_AB,
+        ALL_PAIR_NULL_MEANS_AB
+    )
+)
 
-        "below_minus_random":
-            summarize_prompt_field(
-                "above_below",
-                "below_minus_random"
-            ),
-    },
 
-    "over_under": {
-        "delta_above":
-            summarize_prompt_field(
-                "over_under",
-                "delta_above"
-            ),
-
-        "delta_below":
-            summarize_prompt_field(
-                "over_under",
-                "delta_below"
-            ),
-
-        "delta_random":
-            summarize_prompt_field(
-                "over_under",
-                "delta_random"
-            ),
-
-        "dds":
-            summarize_prompt_field(
-                "over_under",
-                "dds"
-            ),
-    },
-}
+NULL_COMPARE_ALL_OU = (
+    empirical_comparison(
+        SEMANTIC_MEAN_OU,
+        ALL_PAIR_NULL_MEANS_OU
+    )
+)
 
 
 # =============================================================================
-# 20. MAIN RESULT TABLE
+# 26. RANDOM SHIFT COMPARISONS
+# =============================================================================
+
+ABOVE_MEAN_SHIFT_AB = float(
+    DELTA_ABOVE_AB.mean()
+)
+
+
+BELOW_MEAN_SHIFT_AB = float(
+    DELTA_BELOW_AB.mean()
+)
+
+
+ABOVE_RANDOM_SHIFT_COMPARISON = (
+    empirical_comparison(
+        ABOVE_MEAN_SHIFT_AB,
+        RANDOM_MEAN_SHIFTS_AB
+    )
+)
+
+
+# BELOW için yön aşağı olduğu için işaretleri ters çeviriyoruz.
+BELOW_RANDOM_SHIFT_COMPARISON = (
+    empirical_comparison(
+        -BELOW_MEAN_SHIFT_AB,
+        -RANDOM_MEAN_SHIFTS_AB
+    )
+)
+
+
+# =============================================================================
+# 27. TELEMETRY SUMMARY
+# =============================================================================
+
+def summarize_telemetry(
+    rows
+):
+
+    flat = []
+
+    for group in rows:
+
+        if isinstance(
+            group,
+            list
+        ):
+            flat.extend(group)
+        else:
+            flat.append(group)
+
+
+    result = {}
+
+
+    for key in [
+        "mean_cos",
+        "mean_abs_cos",
+        "mean_contribution",
+        "mean_envelope",
+        "mean_brake",
+    ]:
+
+        vals = [
+            x[key]
+            for x in flat
+        ]
+
+
+        result[key] = {
+            "mean":
+                mean_value(vals),
+
+            "std":
+                std_value(vals),
+
+            "min":
+                float(
+                    min(vals)
+                ),
+
+            "max":
+                float(
+                    max(vals)
+                ),
+        }
+
+
+    return result
+
+
+TEL_ABOVE = (
+    summarize_telemetry(
+        ABOVE_TELEMETRY
+    )
+)
+
+
+TEL_BELOW = (
+    summarize_telemetry(
+        BELOW_TELEMETRY
+    )
+)
+
+
+TEL_RANDOM = (
+    summarize_telemetry(
+        RANDOM_TELEMETRY
+    )
+)
+
+
+# =============================================================================
+# 28. MAIN REPORT
 # =============================================================================
 
 print("\n")
-print("=" * 135)
-print("TEST 105 — ABOVE vs BELOW DIRECT LOGIT MARGIN")
-print("=" * 135)
+print("=" * 140)
+print("TEST 106 — SEMANTIC DDS")
+print("=" * 140)
+
+
+semantic_signs_ab = sign_counts(
+    SEMANTIC_DDS_AB
+)
+
+
+semantic_signs_ou = sign_counts(
+    SEMANTIC_DDS_OU
+)
+
+
+print("\nABOVE vs BELOW token axis")
+
+print(
+    f"ABOVE Δ mean   = "
+    f"{ABOVE_MEAN_SHIFT_AB:+.9f}"
+)
+
+print(
+    f"BELOW Δ mean   = "
+    f"{BELOW_MEAN_SHIFT_AB:+.9f}"
+)
+
+print(
+    f"DDS mean       = "
+    f"{SEMANTIC_MEAN_AB:+.9f}"
+)
+
+print(
+    f"DDS median     = "
+    f"{np.median(SEMANTIC_DDS_AB):+.9f}"
+)
+
+print(
+    "DDS signs      = "
+    f"+{semantic_signs_ab['positive']} / "
+    f"-{semantic_signs_ab['negative']} / "
+    f"0={semantic_signs_ab['zero']}"
+)
+
+
+print("\nPaired bootstrap:")
+
+print(
+    f"95% CI = "
+    f"[{BOOTSTRAP_AB['ci95_lower']:+.9f}, "
+    f"{BOOTSTRAP_AB['ci95_upper']:+.9f}]"
+)
+
+
+# =============================================================================
+# 29. INDEPENDENT RANDOM NULL
+# =============================================================================
+
+print("\n")
+print("=" * 140)
+print("PRIMARY NULL — 16 NON-OVERLAPPING RANDOM-RANDOM PAIRS")
+print("=" * 140)
+
+
+print("\nABOVE/BELOW axis:")
+
+print(
+    f"Semantic DDS        = "
+    f"{SEMANTIC_MEAN_AB:+.9f}"
+)
+
+print(
+    f"Null mean           = "
+    f"{NULL_COMPARE_INDEP_AB['null_mean']:+.9f}"
+)
+
+print(
+    f"Null median         = "
+    f"{NULL_COMPARE_INDEP_AB['null_median']:+.9f}"
+)
+
+print(
+    f"Null SD             = "
+    f"{NULL_COMPARE_INDEP_AB['null_std']:.9f}"
+)
+
+print(
+    f"Null range          = "
+    f"[{NULL_COMPARE_INDEP_AB['null_min']:+.9f}, "
+    f"{NULL_COMPARE_INDEP_AB['null_max']:+.9f}]"
+)
+
+print(
+    f"Observed percentile = "
+    f"{NULL_COMPARE_INDEP_AB['observed_percentile']:.2f}%"
+)
+
+print(
+    "Upper-tail empirical fraction (+1) = "
+    f"{NULL_COMPARE_INDEP_AB['upper_tail_fraction_plus1']:.6f}"
+)
+
+print(
+    "Two-sided magnitude fraction (+1)  = "
+    f"{NULL_COMPARE_INDEP_AB['two_sided_magnitude_fraction_plus1']:.6f}"
+)
+
+
+# =============================================================================
+# 30. ALL-PAIR DIAGNOSTIC
+# =============================================================================
+
+print("\n")
+print("=" * 140)
+print("DIAGNOSTIC NULL — ALL 496 RANDOM-RANDOM PAIRS")
+print("=" * 140)
 
 
 print(
-    f"{'ARM':<14}"
-    f"{'MEAN DLM':>14}"
-    f"{'MEDIAN':>14}"
-    f"{'STD':>14}"
-    f"{'PAIR P(ABOVE)':>18}"
+    "NOT: Bu 496 çift bağımsız değildir."
 )
-
-print("-" * 135)
-
-
-for arm_name in [
-    "BASELINE",
-    "ABOVE_IND",
-    "BELOW_IND",
-    "RANDOM"
-]:
-
-    x = SUMMARY[
-        arm_name
-    ]
-
-
-    print(
-        f"{arm_name:<14}"
-        f"{x['dlm_above_below']['mean']:>+14.6f}"
-        f"{x['dlm_above_below']['median']:>+14.6f}"
-        f"{x['dlm_above_below']['std']:>14.6f}"
-        f"{x['pair_p_above']['mean']:>18.6f}"
-    )
-
-
-# =============================================================================
-# 21. DELTA / DDS TABLE
-# =============================================================================
-
-print("\n")
-print("=" * 135)
-print("BASELINE'A GÖRE DLM DEĞİŞİMİ")
-print("=" * 135)
-
-
-for key in [
-    "delta_above",
-    "delta_below",
-    "delta_random",
-    "dds",
-    "above_minus_random",
-    "below_minus_random",
-]:
-
-    x = GLOBAL[
-        "above_below"
-    ][key]
-
-
-    print(
-        f"{key:<24}"
-        f"mean={x['mean']:+.6f} | "
-        f"median={x['median']:+.6f} | "
-        f"sd={x['std']:.6f} | "
-        f"+={x['positive_count']:02d} "
-        f"-={x['negative_count']:02d} "
-        f"0={x['zero_count']:02d}"
-    )
-
-
-# =============================================================================
-# 22. CROSS-LEXICAL CONTROL
-# =============================================================================
-
-print("\n")
-print("=" * 135)
-print("ÇAPRAZ SÖZLÜK KONTROLÜ — OVER vs UNDER")
-print("=" * 135)
 
 
 print(
-    f"{'ARM':<14}"
-    f"{'MEAN DLM':>14}"
-    f"{'MEDIAN':>14}"
-    f"{'STD':>14}"
-    f"{'PAIR P(OVER)':>18}"
+    f"Semantic DDS        = "
+    f"{SEMANTIC_MEAN_AB:+.9f}"
 )
 
-print("-" * 135)
+print(
+    f"Null mean           = "
+    f"{NULL_COMPARE_ALL_AB['null_mean']:+.9f}"
+)
 
+print(
+    f"Null SD             = "
+    f"{NULL_COMPARE_ALL_AB['null_std']:.9f}"
+)
 
-for arm_name in [
-    "BASELINE",
-    "ABOVE_IND",
-    "BELOW_IND",
-    "RANDOM"
-]:
+print(
+    f"Observed percentile = "
+    f"{NULL_COMPARE_ALL_AB['observed_percentile']:.2f}%"
+)
 
-    x = SUMMARY[
-        arm_name
-    ]
+print(
+    "Upper-tail empirical fraction (+1) = "
+    f"{NULL_COMPARE_ALL_AB['upper_tail_fraction_plus1']:.6f}"
+)
 
-
-    print(
-        f"{arm_name:<14}"
-        f"{x['dlm_over_under']['mean']:>+14.6f}"
-        f"{x['dlm_over_under']['median']:>+14.6f}"
-        f"{x['dlm_over_under']['std']:>14.6f}"
-        f"{x['pair_p_over']['mean']:>18.6f}"
-    )
-
-
-print("\nCross-lexical deltas:")
-
-
-for key in [
-    "delta_above",
-    "delta_below",
-    "delta_random",
-    "dds",
-]:
-
-    x = GLOBAL[
-        "over_under"
-    ][key]
-
-
-    print(
-        f"{key:<24}"
-        f"mean={x['mean']:+.6f} | "
-        f"median={x['median']:+.6f} | "
-        f"sd={x['std']:.6f} | "
-        f"+={x['positive_count']:02d} "
-        f"-={x['negative_count']:02d} "
-        f"0={x['zero_count']:02d}"
-    )
+print(
+    "Two-sided magnitude fraction (+1)  = "
+    f"{NULL_COMPARE_ALL_AB['two_sided_magnitude_fraction_plus1']:.6f}"
+)
 
 
 # =============================================================================
-# 23. PROMPT-LEVEL TABLE
+# 31. RANDOM SHIFT DISTRIBUTION
 # =============================================================================
 
 print("\n")
-print("=" * 155)
-print("PROMPT-BAZLI DLM")
-print("=" * 155)
+print("=" * 140)
+print("32 RANDOM YÖNÜN BASELINE'A GÖRE ORTALAMA KAYMASI")
+print("=" * 140)
 
 
 print(
-    f"{'P':<4}"
-    f"{'BASE':>11}"
-    f"{'ABOVE':>11}"
-    f"{'BELOW':>11}"
-    f"{'RANDOM':>11}"
-    f"{'AΔ':>11}"
-    f"{'BΔ':>11}"
-    f"{'RΔ':>11}"
-    f"{'DDS':>11}"
-    f"{'A-R':>11}"
-    f"{'B-R':>11}"
+    f"Random Δ mean   = "
+    f"{RANDOM_MEAN_SHIFTS_AB.mean():+.9f}"
 )
 
-print("-" * 155)
+print(
+    f"Random Δ median = "
+    f"{np.median(RANDOM_MEAN_SHIFTS_AB):+.9f}"
+)
+
+print(
+    f"Random Δ SD     = "
+    f"{RANDOM_MEAN_SHIFTS_AB.std(ddof=1):.9f}"
+)
+
+print(
+    f"Random Δ range  = "
+    f"[{RANDOM_MEAN_SHIFTS_AB.min():+.9f}, "
+    f"{RANDOM_MEAN_SHIFTS_AB.max():+.9f}]"
+)
 
 
-for row in PROMPT_RESULTS:
+print("\nHer random yön:")
 
-    x = row[
-        "above_below"
-    ]
 
+for i, value in enumerate(
+    RANDOM_MEAN_SHIFTS_AB,
+    start=1
+):
 
     print(
-        f"{row['prompt_index']:<4}"
-        f"{x['baseline_dlm']:>+11.5f}"
-        f"{x['above_dlm']:>+11.5f}"
-        f"{x['below_dlm']:>+11.5f}"
-        f"{x['random_dlm']:>+11.5f}"
-        f"{x['delta_above']:>+11.5f}"
-        f"{x['delta_below']:>+11.5f}"
-        f"{x['delta_random']:>+11.5f}"
-        f"{x['dds']:>+11.5f}"
-        f"{x['above_minus_random']:>+11.5f}"
-        f"{x['below_minus_random']:>+11.5f}"
+        f"R{i:02d} "
+        f"ΔDLM={value:+.9f}"
     )
 
 
 # =============================================================================
-# 24. DRA TELEMETRY
+# 32. CROSS-LEXICAL RESULT
 # =============================================================================
 
 print("\n")
-print("=" * 120)
-print("DRA TELEMETRİSİ")
-print("=" * 120)
+print("=" * 140)
+print("CROSS-LEXICAL CONTROL — OVER vs UNDER")
+print("=" * 140)
+
+
+print(
+    f"ABOVE Δ mean   = "
+    f"{DELTA_ABOVE_OU.mean():+.9f}"
+)
+
+print(
+    f"BELOW Δ mean   = "
+    f"{DELTA_BELOW_OU.mean():+.9f}"
+)
+
+print(
+    f"Semantic DDS   = "
+    f"{SEMANTIC_MEAN_OU:+.9f}"
+)
+
+print(
+    f"DDS median     = "
+    f"{np.median(SEMANTIC_DDS_OU):+.9f}"
+)
+
+print(
+    "DDS signs      = "
+    f"+{semantic_signs_ou['positive']} / "
+    f"-{semantic_signs_ou['negative']} / "
+    f"0={semantic_signs_ou['zero']}"
+)
+
+print(
+    f"Bootstrap 95%  = "
+    f"[{BOOTSTRAP_OU['ci95_lower']:+.9f}, "
+    f"{BOOTSTRAP_OU['ci95_upper']:+.9f}]"
+)
+
+print(
+    f"Independent-null percentile = "
+    f"{NULL_COMPARE_INDEP_OU['observed_percentile']:.2f}%"
+)
+
+print(
+    "Independent-null upper-tail (+1) = "
+    f"{NULL_COMPARE_INDEP_OU['upper_tail_fraction_plus1']:.6f}"
+)
+
+
+# =============================================================================
+# 33. TELEMETRY
+# =============================================================================
+
+print("\n")
+print("=" * 140)
+print("DRA TELEMETRY")
+print("=" * 140)
 
 
 print(
@@ -2043,92 +2420,81 @@ print(
     f"{'BRAKE':>14}"
 )
 
-print("-" * 100)
+print("-" * 95)
 
 
-for arm_name in [
-    "ABOVE_IND",
-    "BELOW_IND",
-    "RANDOM"
+for name, tel in [
+    (
+        "ABOVE_IND",
+        TEL_ABOVE
+    ),
+    (
+        "BELOW_IND",
+        TEL_BELOW
+    ),
+    (
+        "RANDOM x32",
+        TEL_RANDOM
+    ),
 ]:
 
-    x = SUMMARY[
-        arm_name
-    ]
-
-
     print(
-        f"{arm_name:<14}"
-        f"{x['mean_cos']:>+14.6f}"
-        f"{x['mean_abs_cos']:>14.6f}"
-        f"{x['mean_contribution']:>14.6f}"
-        f"{x['mean_envelope']:>14.6f}"
-        f"{x['mean_brake']:>14.6f}"
+        f"{name:<14}"
+        f"{tel['mean_cos']['mean']:>+14.6f}"
+        f"{tel['mean_abs_cos']['mean']:>14.6f}"
+        f"{tel['mean_contribution']['mean']:>14.6f}"
+        f"{tel['mean_envelope']['mean']:>14.6f}"
+        f"{tel['mean_brake']['mean']:>14.6f}"
     )
 
 
 # =============================================================================
-# 25. VECTOR GEOMETRY SUMMARY
+# 34. PROMPT-LEVEL SEMANTIC DDS
 # =============================================================================
 
-GEOMETRY = []
+print("\n")
+print("=" * 120)
+print("PROMPT-LEVEL SEMANTIC DDS")
+print("=" * 120)
 
 
-for layer_idx in ACTIVE_LAYERS:
+for i, value in enumerate(
+    SEMANTIC_DDS_AB,
+    start=1
+):
 
-    GEOMETRY.append({
-
-        "layer":
-            layer_idx,
-
-        "cos_above_below":
-            cosine_np(
-                IND_ABOVE[layer_idx],
-                IND_BELOW[layer_idx]
-            ),
-
-        "cos_above_random":
-            cosine_np(
-                IND_ABOVE[layer_idx],
-                RANDOM_VECTOR[layer_idx]
-            ),
-
-        "cos_below_random":
-            cosine_np(
-                IND_BELOW[layer_idx],
-                RANDOM_VECTOR[layer_idx]
-            ),
-    })
+    print(
+        f"P{i:02d} "
+        f"DDS={value:+.9f}"
+    )
 
 
 # =============================================================================
-# 26. SAVE JSON
+# 35. SAVE JSON
 # =============================================================================
 
 print(
-    "\n[7/9] JSON hazırlanıyor..."
+    "\n[10/12] JSON hazırlanıyor..."
 )
 
 
 FINAL = {
 
     "test":
-        "TEST 105",
+        "TEST 106",
 
     "title":
-        "Direct Directional Logit Margin",
+        "Multi-Random Null Distribution for High-Precision Directional Logit Margin",
 
     "model":
         MODEL_NAME,
 
-    "seed":
-        SEED,
-
-    "random_seed":
-        RANDOM_SEED,
-
-    "n_layers_vector_extraction":
-        N_LAYERS,
+    "model_dtype":
+        str(
+            next(
+                model.parameters()
+            ).dtype
+        ),
 
     "active_layers":
         ACTIVE_LAYERS,
@@ -2139,44 +2505,181 @@ FINAL = {
     "sqrt_k":
         SQRT_K,
 
-    "n_eval_prompts":
+    "n_prompts":
         len(EVAL_PROMPTS),
 
-    "target_strings":
+    "n_random_directions":
+        N_RANDOM,
+
+    "n_independent_random_pairs":
+        int(
+            len(
+                INDEPENDENT_NULL_MEANS_AB
+            )
+        ),
+
+    "n_all_pair_diagnostic":
+        int(
+            len(
+                ALL_PAIR_NULL_MEANS_AB
+            )
+        ),
+
+    "targets":
         TARGET_STRINGS,
 
     "target_ids":
         TARGET_IDS,
 
-    "geometry":
-        GEOMETRY,
+    "semantic": {
 
-    "summary":
-        SUMMARY,
+        "above_below": {
 
-    "global_delta_statistics":
-        GLOBAL,
+            "delta_above":
+                DELTA_ABOVE_AB.tolist(),
 
-    "prompt_results":
-        PROMPT_RESULTS,
+            "delta_below":
+                DELTA_BELOW_AB.tolist(),
 
-    "raw_arm_results":
-        ARMS,
+            "dds":
+                SEMANTIC_DDS_AB.tolist(),
 
-    "method_note":
-        (
-            "DLM = log P(target-positive token) - "
-            "log P(target-negative token) at the next-token position. "
-            "No free-text keyword counting is used for the primary outcome. "
-            "ABOVE/BELOW vectors use the same last-non-padding-token "
-            "extraction method as TEST 104. "
-            "DRA parameters, active layers and IVME are held fixed."
-        ),
+            "mean_dds":
+                SEMANTIC_MEAN_AB,
+
+            "median_dds":
+                float(
+                    np.median(
+                        SEMANTIC_DDS_AB
+                    )
+                ),
+
+            "signs":
+                semantic_signs_ab,
+
+            "bootstrap":
+                BOOTSTRAP_AB,
+        },
+
+        "over_under": {
+
+            "delta_above":
+                DELTA_ABOVE_OU.tolist(),
+
+            "delta_below":
+                DELTA_BELOW_OU.tolist(),
+
+            "dds":
+                SEMANTIC_DDS_OU.tolist(),
+
+            "mean_dds":
+                SEMANTIC_MEAN_OU,
+
+            "median_dds":
+                float(
+                    np.median(
+                        SEMANTIC_DDS_OU
+                    )
+                ),
+
+            "signs":
+                semantic_signs_ou,
+
+            "bootstrap":
+                BOOTSTRAP_OU,
+        },
+    },
+
+    "random_shift_null": {
+
+        "above_below_random_mean_shifts":
+            RANDOM_MEAN_SHIFTS_AB.tolist(),
+
+        "over_under_random_mean_shifts":
+            RANDOM_MEAN_SHIFTS_OU.tolist(),
+
+        "above_semantic_vs_random":
+            ABOVE_RANDOM_SHIFT_COMPARISON,
+
+        "below_semantic_vs_random":
+            BELOW_RANDOM_SHIFT_COMPARISON,
+    },
+
+    "independent_random_pair_null": {
+
+        "above_below_pair_means":
+            INDEPENDENT_NULL_MEANS_AB.tolist(),
+
+        "over_under_pair_means":
+            INDEPENDENT_NULL_MEANS_OU.tolist(),
+
+        "semantic_comparison_above_below":
+            NULL_COMPARE_INDEP_AB,
+
+        "semantic_comparison_over_under":
+            NULL_COMPARE_INDEP_OU,
+    },
+
+    "all_pair_diagnostic": {
+
+        "note":
+            "All random pairs overlap and are not statistically independent.",
+
+        "above_below_pair_means":
+            ALL_PAIR_NULL_MEANS_AB.tolist(),
+
+        "over_under_pair_means":
+            ALL_PAIR_NULL_MEANS_OU.tolist(),
+
+        "semantic_comparison_above_below":
+            NULL_COMPARE_ALL_AB,
+
+        "semantic_comparison_over_under":
+            NULL_COMPARE_ALL_OU,
+
+        "pair_details":
+            ALL_PAIR_DETAILS,
+    },
+
+    "telemetry": {
+        "above":
+            TEL_ABOVE,
+
+        "below":
+            TEL_BELOW,
+
+        "random":
+            TEL_RANDOM,
+    },
+
+    "raw": {
+
+        "baseline":
+            BASELINE,
+
+        "above":
+            ABOVE_RESULTS,
+
+        "below":
+            BELOW_RESULTS,
+
+        "random":
+            RANDOM_RESULTS,
+    },
+
+    "method_note": (
+        "TEST 106 preserves TEST 105-HP steering and FP32 output measurement. "
+        "Thirty-two independently seeded random layerwise directions provide "
+        "a perturbation null. Sixteen non-overlapping random-random pairs are "
+        "used as the primary directional-separation null. All 496 random pairs "
+        "are reported only as a denser dependent diagnostic. Semantic prompt-level "
+        "DDS is also evaluated with a paired bootstrap over the 40 evaluation prompts."
+    ),
 }
 
 
 OUTPUT_FILE = (
-    "TEST_105_DIRECT_DIRECTIONAL_LOGIT_MARGIN.json"
+    "TEST_106_MULTI_RANDOM_NULL.json"
 )
 
 
@@ -2201,156 +2704,145 @@ print(
 
 
 # =============================================================================
-# 27. COMPACT FINAL REPORT
+# 36. FINAL COMPACT REPORT
 # =============================================================================
 
 print("\n")
-print("=" * 120)
-print("TEST 105 — KISA ÖZET")
-print("=" * 120)
+print("=" * 140)
+print("TEST 106 — FINAL SUMMARY")
+print("=" * 140)
 
 
-main = GLOBAL[
-    "above_below"
-]
-
-
-print(
-    "\nANA ÖLÇÜM: ABOVE vs BELOW"
-)
-
-print(
-    f"ABOVE Δ mean   = "
-    f"{main['delta_above']['mean']:+.6f}"
-)
-
-print(
-    f"BELOW Δ mean   = "
-    f"{main['delta_below']['mean']:+.6f}"
-)
-
-print(
-    f"RANDOM Δ mean  = "
-    f"{main['delta_random']['mean']:+.6f}"
-)
+print("\nSEMANTIC ABOVE/BELOW")
 
 print(
     f"DDS mean       = "
-    f"{main['dds']['mean']:+.6f}"
+    f"{SEMANTIC_MEAN_AB:+.9f}"
 )
 
 print(
     f"DDS median     = "
-    f"{main['dds']['median']:+.6f}"
+    f"{np.median(SEMANTIC_DDS_AB):+.9f}"
 )
 
 print(
     "DDS signs      = "
-    f"+{main['dds']['positive_count']} / "
-    f"-{main['dds']['negative_count']} / "
-    f"0={main['dds']['zero_count']}"
-)
-
-
-cross = GLOBAL[
-    "over_under"
-]
-
-
-print(
-    "\nÇAPRAZ KONTROL: OVER vs UNDER"
+    f"+{semantic_signs_ab['positive']} / "
+    f"-{semantic_signs_ab['negative']} / "
+    f"0={semantic_signs_ab['zero']}"
 )
 
 print(
-    f"ABOVE Δ mean   = "
-    f"{cross['delta_above']['mean']:+.6f}"
+    f"Bootstrap 95%  = "
+    f"[{BOOTSTRAP_AB['ci95_lower']:+.9f}, "
+    f"{BOOTSTRAP_AB['ci95_upper']:+.9f}]"
+)
+
+
+print("\nPRIMARY RANDOM-RANDOM NULL")
+
+print(
+    f"Null mean      = "
+    f"{NULL_COMPARE_INDEP_AB['null_mean']:+.9f}"
 )
 
 print(
-    f"BELOW Δ mean   = "
-    f"{cross['delta_below']['mean']:+.6f}"
+    f"Null SD        = "
+    f"{NULL_COMPARE_INDEP_AB['null_std']:.9f}"
 )
 
 print(
-    f"RANDOM Δ mean  = "
-    f"{cross['delta_random']['mean']:+.6f}"
+    f"Null range     = "
+    f"[{NULL_COMPARE_INDEP_AB['null_min']:+.9f}, "
+    f"{NULL_COMPARE_INDEP_AB['null_max']:+.9f}]"
 )
+
+print(
+    f"Percentile     = "
+    f"{NULL_COMPARE_INDEP_AB['observed_percentile']:.2f}%"
+)
+
+print(
+    "Upper tail +1 = "
+    f"{NULL_COMPARE_INDEP_AB['upper_tail_fraction_plus1']:.6f}"
+)
+
+
+print("\nALL-PAIR DIAGNOSTIC")
+
+print(
+    f"N              = "
+    f"{len(ALL_PAIR_NULL_MEANS_AB)}"
+)
+
+print(
+    f"Percentile     = "
+    f"{NULL_COMPARE_ALL_AB['observed_percentile']:.2f}%"
+)
+
+print(
+    "Upper tail +1 = "
+    f"{NULL_COMPARE_ALL_AB['upper_tail_fraction_plus1']:.6f}"
+)
+
+
+print("\nCROSS-LEXICAL OVER/UNDER")
 
 print(
     f"DDS mean       = "
-    f"{cross['dds']['mean']:+.6f}"
+    f"{SEMANTIC_MEAN_OU:+.9f}"
 )
 
 print(
-    "DDS signs      = "
-    f"+{cross['dds']['positive_count']} / "
-    f"-{cross['dds']['negative_count']} / "
-    f"0={cross['dds']['zero_count']}"
+    f"DDS median     = "
+    f"{np.median(SEMANTIC_DDS_OU):+.9f}"
+)
+
+print(
+    f"Bootstrap 95%  = "
+    f"[{BOOTSTRAP_OU['ci95_lower']:+.9f}, "
+    f"{BOOTSTRAP_OU['ci95_upper']:+.9f}]"
 )
 
 
 print("\n")
-print("=" * 120)
-print("TEST 105 TAMAMLANDI")
-print("=" * 120)
+print("=" * 140)
+print("YORUM NOTU")
+print("=" * 140)
 
 print("""
-YORUMLANACAK ANA DEĞİŞKENLER:
+Bu testte otomatik başarı/başarısızlık eşiği yoktur.
 
-1) ABOVE_IND ΔDLM
-2) BELOW_IND ΔDLM
-3) RANDOM ΔDLM
+ANA OKUMA:
 
-4) DDS:
-       ΔDLM_ABOVE - ΔDLM_BELOW
+1. Semantic ABOVE-BELOW DDS'nin ortalama ve medyanı.
 
-5) DDS'nin 40 prompt boyunca işaret dağılımı
+2. 40 prompt üzerindeki paired-bootstrap %95 CI.
 
-6) ABOVE/RANDOM ve BELOW/RANDOM farkları
+3. Semantic DDS'nin 16 non-overlapping RANDOM-RANDOM
+   null çiftinin dağılımındaki konumu.
 
-7) OVER/UNDER çapraz sözlük kontrolü
+4. 496 all-pair sonuç yalnızca yoğun bir DIAGNOSTIC'tir.
+   Çiftler bağımsız olmadığı için 496 bağımsız deney gibi
+   yorumlanmamalıdır.
 
-8) DRA contribution değerlerinin üç kolda benzerliği
+5. 32 random yönün baseline'a göre kaymaları,
+   genel perturbasyon bias'ını gösterir.
 
+6. ABOVE ve BELOW'nun random dağılımından tek tek ayrılması
+   ile ABOVE-vs-BELOW directional separation birbirinden
+   farklı sorulardır.
 
-ÖNEMLİ:
+7. OVER/UNDER sonucu bağımsız bir cross-lexical kontrol
+   olarak ayrıca değerlendirilmelidir.
 
-Bu test için otomatik başarı eşiği tanımlanmamıştır.
-
-Özellikle şu desen bilimsel olarak bilgilendirici olacaktır:
-
-    ABOVE ΔDLM > 0
-    BELOW ΔDLM < 0
-
-ve RANDOM'ın sistematik olarak bu iki yönlü deseni
-taklit etmemesi.
-
-Fakat sonuç ne çıkarsa çıksın sayısal dağılım raporlanacaktır.
+8. Brake yaklaşık 1 kalırsa bu test brake etkinliğinin
+   kanıtı değildir.
 
 Ana çıktı:
-TEST_105_DIRECT_DIRECTIONAL_LOGIT_MARGIN.json
+TEST_106_MULTI_RANDOM_NULL.json
 """)
 
 
-# =============================================================================
-# 28. OPTIONAL SANITY DISPLAY — FIRST 10 PROMPTS
-# =============================================================================
-
-print(
-    "\n[8/9] İlk 10 prompt kontrolü:"
-)
-
-
-for i, prompt in enumerate(
-    EVAL_PROMPTS[:10],
-    start=1
-):
-
-    print(
-        f"\n{i:02d}. {prompt}"
-    )
-
-
-print(
-    "\n[9/9] Bitti."
-)
+print("[11/12] Null analizi tamamlandı.")
+print("[12/12] Bitti.")
