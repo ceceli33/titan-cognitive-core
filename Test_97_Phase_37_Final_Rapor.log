@@ -1,0 +1,1212 @@
+AkbasCore 3.0 DRA
+
+
+Kapalı Döngü Aktivasyon Yönlendirmesinden Pertürbasyon Taşınımına: Bir Motorun Geliştirilmesi Sırasında Ortaya Çıkan Ampirik Bulgular
+
+
+Çalışmanın niteliği
+
+
+Bu çalışma yalnızca yeni bir activation-steering algoritmasının sunumu değildir. AkbasCore'un geliştirilmesi sırasında yürütülen ardışık kontrollü deneyleri kullanarak üç soruyu birlikte ele alır:
+
+
+
+
+Ağırlıkları değiştirmeden transformer residual stream'ine yapılan küçük müdahaleler davranışı güvenilir biçimde yönlendirebilir mi?
+
+
+Böyle bir müdahalenin büyüklüğü, yönü ve katmanlar arasındaki taşınımı nasıl ölçülmelidir?
+
+
+Motor geliştirme sırasında başarısız olan hipotezler activation steering'in genel metodolojisi hakkında ne öğretmektedir?
+
+
+
+
+Bu nedenle çalışma üç eşit bileşenden oluşur:
+
+
+Engineering: AkbasCore 3.0 DRA motorunun tam matematiksel tanımı ve kaynak kodu.
+
+
+Mechanistic research: Müdahalenin residual stream boyunca nasıl taşındığının kontrollü ölçümü.
+
+
+Empirical findings: Motor geliştirme sırasında doğrulanan, reddedilen veya sınırlandırılan hipotezlerin açık kaydı.
+
+
+Çalışmanın temel ilkesi sonuç seçmemektir. Olumlu deneylerin yanında başarısız steering, ölçüm çöküşleri, kör holdout başarısızlıkları, doğrulanamayan sensor hipotezleri ve random kontroller de ana sonuçların parçasıdır.
+
+
+
+1. Problem
+
+
+Klasik activation steering yaklaşımında bir hedef özellik için bir yön v elde edilir ve transformer'ın bir ara aktivasyonu yaklaşık olarak
+
+
+[
+h'_l=h_l+\alpha v_l
+]
+
+
+şeklinde değiştirilir.
+
+
+Bu yaklaşımın önemli pratik soruları vardır.
+
+
+Steering büyüklüğü her prompt için aynı mı olmalıdır?
+
+
+Aynı yön her katmanda aynı anlamı taşır mı?
+
+
+Bir katmana verilen pertürbasyon sonraki katmanlarda aynı doğrultuda mı kalır?
+
+
+Büyük fiziksel pertürbasyon daha güçlü semantic steering anlamına gelir mi?
+
+
+Hidden-state ile steering vector arasındaki cosine similarity etkinin yeterli göstergesi midir?
+
+
+Bir steering yönünün training/evaluation promptlarında etkili olması yeni dilsel bağlamlara genelleneceğini gösterir mi?
+
+
+AkbasCore geliştirme dizisi başlangıçta bunların tümünü aynı anda çözmeye çalışmadı. Her deney bir önceki deneyde ortaya çıkan alternatif açıklamayı izole edecek şekilde tasarlandı.
+
+
+
+2. DRA motoru
+
+
+AkbasCore'un temel aktüatörü Damped Resonance Alignment'dır.
+
+
+Katman l'de mevcut hidden state
+
+
+[
+h_l\in\mathbb{R}^{d}
+]
+
+
+ve steering yönü
+
+
+[
+v_l,\qquad ||v_l||=1
+]
+
+
+olsun.
+
+
+Yerel hizalanma
+
+
+[
+c_l =
+\frac{h_l^\top v_l}
+{||h_l||,||v_l||}
+]
+
+
+ile ölçülür.
+
+
+Belirsizlik terimi
+
+
+[
+u_l=1-|c_l|
+]
+
+
+ve etkin sönüm
+
+
+[
+\omega_l =
+\omega_0+\lambda u_l
+]
+
+
+olarak tanımlanır.
+
+
+Mevcut deneylerde kilitli değerler
+
+
+[
+\omega_0=0.30,\qquad
+\lambda=0.20
+]
+
+
+olmuştur.
+
+
+Kritik sönümlü zarfın değiştirilmiş biçimi:
+
+
+[
+K_l =
+A e^{-\omega_l l}(1+\omega_l l)+P_\infty
+]
+
+
+ve normalize edilmiş zarf
+
+
+[
+E_l=
+\frac{K_l}{A+P_\infty}
+]
+
+
+şeklindedir.
+
+
+Kullanılan sabitler:
+
+
+[
+A=0.70,\qquad
+P_\infty=0.20.
+]
+
+
+P_\infty terimi klasik kritik sönümlü cevaptan bilinçli bir ayrımdır: müdahalenin katman derinliği boyunca tam olarak sıfıra düşmesini önleyen kalıcı tabandır.
+
+
+DRA ayrıca bir brake fonksiyonu kullanır:
+
+
+[
+B(c_l)=
+\begin{cases}
+(1-c_l)/0.25, & c_l>0.75\
+1.6, & c_l<-0.40\
+1, & \text{aksi halde}.
+\end{cases}
+]
+
+
+Phase V deney ailesinde gerçekleşen müdahale büyüklüğü cosine'dan ayrıştırılmıştır:
+
+
+[
+m_l =
+\eta
+\frac{||h_l||}{\sqrt K}
+E_l B(c_l)
+]
+
+
+ve
+
+
+[
+h'_l=h_l+m_l v_l
+]
+
+
+uygulanır.
+
+
+Ana deney dizisinde
+
+
+[
+\eta=0.10,\qquad K=20
+]
+
+
+kullanılmıştır.
+
+
+Bu ayrım önemlidir: cosine artık müdahalenin büyüklüğünü doğrudan sıfıra götüren çarpan değildir. DRA içinde bir state/governor signal olarak kullanılır.
+
+
+
+3. Neden magnitude ve cosine ayrıldı?
+
+
+Erken deneylerde steering büyüklüğünün cosine similarity ile doğrudan çarpılması 3584 boyutlu Qwen2.5-7B residual space'inde fiilen sessiz actuator davranışına yol açtı.
+
+
+Yüksek boyutlu uzayda birbirinden bağımsız normalize yönlerin tipik cosine ölçeği yaklaşık
+
+
+[
+\frac{1}{\sqrt{3584}}
+\approx0.0167
+]
+
+
+düzeyindedir.
+
+
+Bu nedenle küçük cosine değerinin “semantic direction yok” biçiminde yorumlanması ile “actuator'a neredeyse sıfır gain verilmesi” birbirinden ayrılması gereken iki problemdir.
+
+
+DRA'nın sonraki sürümünde magnitude hidden-state normuna bağlandı; cosine ise feedback/governor değişkeni olarak tutuldu.
+
+
+Bu değişiklik motor geliştirme tercihi olmanın yanında metodolojik bir bulgudur:
+
+
+Bir alignment ölçümünün küçük olması, müdahale büyüklüğünün de aynı ölçüde küçültülmesi gerektiğini göstermez.
+
+
+
+4. Layerwise representation doğrulaması
+
+
+TEST97A-B ilk olarak hedef karşıtlığın modelde ölçülebilir bir representation direction oluşturup oluşturmadığını sınadı.
+
+
+Bağımsız probe çiftlerinde Pusula marjini ortalama
+
+
+[
++0.01238877
+]
+
+
+iken random-null ortalaması
+
+
+[
+-0.00066384
+]
+
+
+olarak ölçüldü.
+
+
+En önemlisi bağımsız probe marjini incelenen 20 katmanın tamamında pozitif kaldı.
+
+
+Bu deney davranışsal steering'in başarılı olduğunu göstermiyordu. Yalnızca sonraki intervention deneylerinde kullanılacak yönün bağımsız örneklerde temsil edilebilir olduğunu doğruluyordu.
+
+
+Bu ayrım çalışmanın geri kalanında korunmuştur:
+
+
+[
+\text{representation}
+\neq
+\text{intervention efficacy}.
+]
+
+
+
+5. Bir temsil yönünün varlığı davranışsal kontrol anlamına gelmez
+
+
+TEST97C ve devamındaki deneyler bu ayrımı görünür hale getirdi.
+
+
+Fiziksel olarak eş ölçekli müdahaleler üretilebilmesine rağmen davranışsal lexical ölçümler yönler arasında beklenen temiz ayrımı her zaman göstermedi.
+
+
+Bu durum steering-vector literatüründeki önemli bir metodolojik riski gösterir:
+
+
+Bir vector'ın contrastive probe'larda hedef özelliği ayırması, aynı vector'ın generation sırasında hedef davranışı güvenilir biçimde kontrol edeceğinin kanıtı değildir.
+
+
+Dolayısıyla çalışmada üç ayrı kavram kullanılmalıdır:
+
+
+[
+\text{Representational validity}
+]
+
+
+[
+\text{Physical intervention validity}
+]
+
+
+[
+\text{Functional steering validity}.
+]
+
+
+Bu üçü birbirine eşit kabul edilmemelidir.
+
+
+
+6. Ölçüm aracının kendisi yanlış sonuca götürebilir
+
+
+Erken generation deneylerinde ABOVE/BELOW kelime sayımı yararlı bir diagnostic olsa da TEST104 bu ölçümün sınırını gösterdi.
+
+
+Ham lexical separation korunurken subject-bound, strict ve doğrudan relational ölçümler büyük ölçüde çöktü.
+
+
+Bunun anlamı motorun “çalışmadığı” değildir; daha dar sonuç şudur:
+
+
+Genel hedef kelimelerin çıktıda daha sık görülmesi, hedef özne ile referans nesne arasındaki istenen ilişkinin gerçekten değiştiğini kanıtlamaz.
+
+
+Bu nedenle sonraki deneyler serbest metin keyword count yerine doğrudan logit-space readout'a geçti.
+
+
+Bu negatif sonuç çalışmanın önemli katkılarından biridir: activation-steering çalışmalarında davranışsal endpoint seçiminin actuator kadar kritik olabileceğini göstermektedir.
+
+
+
+7. BF16 measurement floor
+
+
+TEST105 doğrudan directional logit margin kullandı ancak çok sayıda promptta tam sıfır değer gözlendi.
+
+
+TEST105-HP aynı forward pass'teki final hidden state'i FP32 final projection ile yeniden ölçtüğünde BF16'da sıfır görünen birçok fark açıldı.
+
+
+BF16 yolunda 25 promptta DDS sıfırdı. Bunların FP32 ölçümünde 17'si pozitif, 8'i negatif ve hiçbiri gerçek sıfır değildi.
+
+
+Bu sonuç:
+
+
+[
+\text{no measured effect}
+]
+
+
+ile
+
+
+[
+\text{no underlying effect}
+]
+
+
+ifadelerinin düşük hassasiyetli readout altında aynı olmadığını göstermektedir.
+
+
+Dolayısıyla sub-threshold activation intervention çalışmalarında numerical measurement floor açıkça raporlanmalıdır.
+
+
+
+8. Random-null gerekliliği
+
+
+Directional effect yalnız baseline ile karşılaştırılarak değerlendirilmedi.
+
+
+TEST106 ve TEST107 random-direction null dağılımlarını genişletti.
+
+
+TEST107'de 128 random direction'dan 64 bağımsız pair oluşturuldu.
+
+
+ABOVE/BELOW readout için semantic DDS:
+
+
+[
+0.005693977
+]
+
+
+ve random-pair dağılımındaki konumu %96.88 idi.
+
+
+OVER/UNDER çapraz readout için:
+
+
+[
+DDS=0.014450392
+]
+
+
+ve 64 random pair'in hiçbiri bu değere ulaşmadı.
+
+
+Bunlar klasik p-değerleri değildir. +1 corrected finite-null quantities olarak raporlanmalıdır.
+
+
+Bu deney yalnız “steering çıktı değiştirdi mi?” sorusunun yeterli olmadığını gösterir.
+
+
+Daha doğru soru:
+
+
+[
+\text{hedef yönün etkisi aynı yöntemle uygulanan kontrol yönlerinden ayrılıyor mu?}
+]
+
+
+olmalıdır.
+
+
+
+9. Kör holdout sonucu: en önemli negatif bulgulardan biri
+
+
+TEST108 daha önce kullanılmamış 40 prompt üzerinde aynı motoru, aynı layerları, aynı dozu ve aynı readout'u kilitleyerek test etti.
+
+
+AB readout:
+
+
+[
+DDS=0.001314950
+]
+
+
+[
+95%,CI=[-0.006152272,;0.008824969]
+]
+
+
+ve random-null percentile yalnızca %54.69 idi.
+
+
+OU readout:
+
+
+[
+DDS=0.002066803
+]
+
+
+[
+95%,CI=[-0.008710729,;0.012822017]
+]
+
+
+ve percentile %57.81 idi.
+
+
+Dolayısıyla önceki semantic steering etkisi yeni prompt dağılımında güçlü biçimde genellenmedi.
+
+
+Bu sonuç gizlenmemeli veya appendix'e itilmemelidir.
+
+
+Tam tersine AkbasCore geliştirme zincirinin temel keşiflerinden biridir:
+
+
+[
+\boxed{\text{steering efficacy is strongly context dependent}}
+]
+
+
+en azından incelenen intervention regime için.
+
+
+
+10. Context sensor arayışı ve başarısız doğrulama
+
+
+TEST109 bu context dependence'in müdahale öncesi hidden-state geometrisinden tahmin edilip edilemeyeceğini araştırdı.
+
+
+En güçlü exploratory sensorlardan biri L10'daki
+
+
+[
+\cos(h,A)
+]
+
+
+oldu ve yaklaşık
+
+
+[
+r=0.419
+]
+
+
+ilişki gösterdi.
+
+
+Ancak TEST110 tamamen yeni validation contextlerinde aynı sensorları dondurarak test etti.
+
+
+Korelasyonların işareti genel olarak korunsa da büyüklükleri belirgin biçimde düştü ve frozen calibration modellerinin out-of-sample R^2 değerleri negatif kaldı.
+
+
+Örneğin:
+
+
+[
+r_{109}=0.4191
+\rightarrow
+r_{110}=0.1058
+]
+
+
+ve
+
+
+[
+R^2_{\mathrm{OOS}}=-0.6699.
+]
+
+
+Bu nedenle exploratory correlation controller sensor olarak kabul edilmedi.
+
+
+Bu negatif sonuç da önemlidir:
+
+
+Bir hidden-state geometry variable'ın steering efficacy ile aynı dataset üzerinde korelasyon göstermesi, closed-loop controller state olarak kullanılabileceğini göstermez.
+
+
+
+11. Sistem tanımlamaya geçiş
+
+
+Sensor aramasının başarısız olmasından sonra soru değiştirildi.
+
+
+Artık:
+
+
+
+
+“Prompt gelmeden önce hangi scalar özellik sonucu tahmin ediyor?”
+
+
+
+
+yerine:
+
+
+
+
+“Gerçek bir perturbation uygulandığında transformer bu perturbationı katmanlar boyunca nasıl dönüştürüyor?”
+
+
+
+
+sorusu soruldu.
+
+
+Bu değişiklik AkbasCore 3.0'ın kavramsal kırılma noktasıdır.
+
+
+Perturbasyon:
+
+
+[
+\delta h_l=
+h_l^{(\mathrm{steered})}
+
+
+h_l^{(\mathrm{baseline})}
+]
+
+
+olarak tanımlandı.
+
+
+Bundan fiziksel displacement, semantic projection ve layer-to-layer transmission ayrı ayrı ölçüldü.
+
+
+
+12. Physical survival semantic survival değildir
+
+
+TEST111–112 zincirinin merkezi sonucu budur.
+
+
+L11→L19 arasında physical perturbation retention:
+
+
+ABOVE:
+
+
+[
+P_{19}\approx0.9247
+]
+
+
+BELOW:
+
+
+[
+P_{19}\approx0.9110.
+]
+
+
+Yani müdahalenin fiziksel normunun yaklaşık %91–92'si normalize ölçümde yaşamaktadır.
+
+
+Buna karşılık A/B semantic-plane energy retention:
+
+
+ABOVE:
+
+
+[
+0.031571
+]
+
+
+BELOW:
+
+
+[
+0.030313.
+]
+
+
+Raw direction retention ise:
+
+
+[
+D_{19}^{A}=0.224073
+]
+
+
+[
+D_{19}^{B}=0.230319.
+]
+
+
+Dolayısıyla perturbasyon basitçe “yok olmamaktadır”.
+
+
+A/B tarafından tanımlanan ölçülen semantic plane dışına büyük ölçüde yeniden dağıtılmaktadır.
+
+
+Bu nedenle:
+
+
+[
+\boxed{
+\text{physical perturbation survival}
+\neq
+\text{semantic-direction survival}
+}
+]
+
+
+ayrımı yapılmalıdır.
+
+
+
+13. Semantic plane dışına transport
+
+
+A/B'den separator ve common eksenleri oluşturulduğunda L11'de perturbasyon enerjisinin önemli bölümü bu düzlemdeyken L19'da semantic-plane energy yaklaşık %2–3 düzeyine düşmektedir.
+
+
+Buna rağmen toplam fiziksel perturbasyon yüksek oranda yaşamaktadır.
+
+
+Bu gözlem yalnız separator→common rotation ile açıklanamaz.
+
+
+Daha uygun betimleme:
+
+
+Transformer, enjekte edilen perturbasyonu ilerleyen katmanlarda ölçülen başlangıç semantic subspace'inden başka yönlere yeniden dağıtmaktadır.
+
+
+Burada “semantic information destroyed” veya “energy conserved” gibi daha güçlü ifadeler kullanılmamalıdır. Ölçülen şey residual-space perturbation geometry'dir.
+
+
+
+14. Random perturbation transport control
+
+
+TEST113 semantic A/B perturbasyonlarının bu transport profilinin sıradan random perturbasyonlarda da oluşup oluşmadığını test etti.
+
+
+L11→L19:
+
+
+Semantic physical retention:
+
+
+[
+A=0.924354,\qquad B=0.912314
+]
+
+
+Random:
+
+
+[
+1.030326\pm0.014127.
+]
+
+
+Semantic direction retention:
+
+
+[
+A=0.224073,\qquad B=0.230319
+]
+
+
+Random:
+
+
+[
+0.121865\pm0.007714.
+]
+
+
+İlginç biçimde random perturbasyon fiziksel büyüklüğünü semantic perturbasyondan daha fazla korurken başlangıç yönünü daha az korudu.
+
+
+Dolayısıyla:
+
+
+[
+\text{larger physical survival}
+\not\Rightarrow
+\text{larger directional survival}.
+]
+
+
+Ancak TEST113 tek başına semantic specificity kanıtlamıyordu; semantic A/B yönleri hidden state ile random yönlerden farklı başlangıç cosine'larına sahipti.
+
+
+Bu confound TEST114'ü gerekli kıldı.
+
+
+
+15. TEST114: scalar cosine yeterli değildir
+
+
+TEST114 random kontrol yönlerini müdahale anında ONLINE olarak oluşturdu.
+
+
+Her prompt ve aktif katmanda random direction r_l:
+
+
+[
+\cos(h_l,r_l)
+
+
+\cos(h_l,v_l)
+]
+
+
+olacak biçimde üretildi.
+
+
+Özellikle L11 yönü baseline state kullanılarak önceden oluşturulmadı. L10 müdahalesinden sonra oluşan gerçek L11 hidden state üzerinde yeniden üretildi.
+
+
+Böylece DRA'nın gördüğü local cosine, envelope ve brake semantic intervention ile random control arasında yaklaşık olarak eşitlendi.
+
+
+Matching error yaklaşık 10^{-3} veya daha küçüktü ve contribution farkları yaklaşık 10^{-4} relatif ölçeğindeydi.
+
+
+Buna rağmen:
+
+
+[
+D^{A,\mathrm{semantic}}_{19}
+=0.224073
+]
+
+
+iken
+
+
+[
+D^{A,\mathrm{matched}}_{19}
+=0.126473\pm0.005903
+]
+
+
+ve
+
+
+[
+D^{B,\mathrm{semantic}}_{19}
+=0.230319
+]
+
+
+iken
+
+
+[
+D^{B,\mathrm{matched}}_{19}
+=0.120930\pm0.006419.
+]
+
+
+32 A-matched ve 32 B-matched kontrolün hiçbiri semantic D19'a ulaşmadı.
+
+
+Aynı zamanda physical retention matched-random kollarda daha yüksekti.
+
+
+Bu nedenle incelenen sistemde aşağıdaki model yeterli değildir:
+
+
+[
+\boxed{
+T_l=f(\cos(h_l,v_l))
+}
+]
+
+
+Daha kesin ifade:
+
+
+Actual intervention point'teki scalar hidden-state/steering-vector cosine similarity, downstream directional transport profilini açıklamak için yeterli bir state variable değildir.
+
+
+Bu sonuç semantic causality kanıtı değildir.
+
+
+Random ve semantic yönler aynı scalar cosine'a sahip olsalar bile transformer'ın yerel yüksek boyutlu dönüşüm geometrisi içindeki konumları farklı olabilir.
+
+
+
+16. AkbasCore 3.0 için ortaya çıkan kontrol problemi
+
+
+TEST114'ten sonra DRA actuator korunabilir ancak controller state yalnız
+
+
+[
+c_l=\cos(h_l,v_l)
+]
+
+
+olamaz.
+
+
+Daha genel sistem:
+
+
+[
+h_{l+1}
+
+
+F_l(h_l+\delta_l)
+]
+
+
+olarak düşünülmelidir.
+
+
+Küçük perturbasyon rejiminde:
+
+
+[
+\delta h_{l+1}
+\approx
+J_l(h_l)\delta h_l
+]
+
+
+ve çok katmanlı transport:
+
+
+[
+\delta h_j
+\approx
+J_{j-1}\cdots J_{l+1}J_l
+\delta h_l
+]
+
+
+şeklinde yerel olarak yaklaşık modellenebilir.
+
+
+Bu durumda önemli nicelik yalnızca
+
+
+[
+h_l^\top v_l
+]
+
+
+değildir.
+
+
+Yönün transformer'ın local transport operator'ü içindeki davranışı da önemlidir.
+
+
+AkbasCore 3.0'ın araştırma hipotezi bu nedenle:
+
+
+[
+G_l
+
+
+F(
+\text{local directional transport state}
+)
+]
+
+
+biçimine yükseltilmelidir.
+
+
+Bu henüz doğrulanmış controller değildir. TEST114 yalnız scalar-cosine controller hipotezinin yetersiz olduğunu göstermiştir.
+
+
+
+17. Literatür açısından konum
+
+
+AkbasCore activation engineering / representation engineering ailesindedir.
+
+
+Activation Addition ve Contrastive Activation Addition gibi önceki yöntemler contrastive hidden-state directions'ın inference sırasında davranış değiştirebildiğini göstermiştir.
+
+
+Sonraki çalışmalar adaptive strength, context dependence, nonlinear activation geometry, manifold steering ve control-theoretic feedback yönlerine ilerlemiştir.
+
+
+AkbasCore'un katkısı “activation steering'i ilk kez yapmak” değildir.
+
+
+Daha dar ve savunulabilir katkılar şunlardır:
+
+
+
+
+
+
+Critically damped, non-zero-floor layerwise intervention envelope.
+
+
+
+
+
+
+Magnitude ile alignment signal'ının ayrılması.
+
+
+
+
+
+
+Layerwise contrastive actuator directions.
+
+
+
+
+
+
+Motor geliştirme boyunca representation validity, physical intervention ve functional efficacy'nin sistematik olarak ayrılması.
+
+
+
+
+
+
+BF16 measurement floor'un deneysel olarak gösterilmesi.
+
+
+
+
+
+
+Lexical steering endpoint'in relational endpoint ile aynı olmadığının gösterilmesi.
+
+
+
+
+
+
+Kör holdout ile context dependence'in açık biçimde belgelenmesi.
+
+
+
+
+
+
+Exploratory geometry sensorlarının independent validation'da controller düzeyinde başarısız olduğunun gösterilmesi.
+
+
+
+
+
+
+Physical perturbation retention ile semantic-plane/directional retention'ın ayrılması.
+
+
+
+
+
+
+Isotropic random transport null.
+
+
+
+
+
+
+Online geometry-matched random control.
+
+
+
+
+
+
+Local scalar cosine'ın downstream transport için yeterli state variable olmadığının kontrollü olarak gösterilmesi.
+
+
+
+
+
+
+Son dört madde AkbasCore 3.0'ın doğrudan araştırma temelidir.
+
+
+
+18. Reproducibility
+
+
+Çalışmanın tüm deney zinciri kamuya açık kaynak kodu ve ham execution loglarıyla birlikte yayımlanır.
+
+
+Her phase:
+
+
+
+
+kullanılan Python/Colab kodunu,
+
+
+model ve precision ayarlarını,
+
+
+random seed'leri,
+
+
+intervention parametrelerini,
+
+
+promptları,
+
+
+generated outputları,
+
+
+telemetry'yi,
+
+
+summary metrics'i
+
+
+
+
+korur.
+
+
+Bu nedenle okuyucu yalnız makaledeki tabloları görmek zorunda değildir; deney zincirinin hangi başarısız hipotezlerden geçerek son mimariye ulaştığını inceleyebilir.
+
+
+Bu özellikle önemlidir çünkü çalışma yalnız nihai motoru değil, motorun neden bu biçime dönüştüğünü de reproducible hale getirmeyi amaçlar.
+
+
+
+19. Sınırlar
+
+
+Mevcut sonuçlar Qwen2.5-7B-Instruct ağırlıklı tek-model mekanistik deney dizisinden gelmektedir.
+
+
+Bu nedenle bulgular bütün transformer modellerine evrensel yasa olarak genellenemez.
+
+
+ABOVE/BELOW karşıtlığı kontrollü sentetik mekanistik probe olarak kullanılmıştır; gerçek dünya alignment davranışlarının tamamını temsil etmez.
+
+
+Finite random null dağılımları klasik parametrik significance testleri değildir.
+
+
+Semantic vectors ile geometry-matched random vectors arasındaki fark semantic causality kanıtlamaz.
+
+
+TEST114 yalnız scalar local cosine açıklamasını reddeder; daha yüksek boyutlu geometric/manifold explanation'ları açık bırakır.
+
+
+Motor henüz safety guarantee sağlamaz.
+
+
+DRA'nın davranış değiştirebilmesi onun güvenli davranış değiştireceği anlamına gelmez.
+
+
+
+20. Sonuç
+
+
+AkbasCore geliştirme dizisi başlangıçta basit bir soruyla başladı:
+
+
+
+
+Bir transformer'ın hidden state'i küçük ve kontrollü biçimde yönlendirilebilir mi?
+
+
+
+
+Deney zinciri daha zor bir soruya ulaştı:
+
+
+
+
+Bir perturbasyon transformer'ın residual dynamics'i içinde hangi yönde yaşayacak, dönecek veya yeniden dağıtılacaktır?
+
+
+
+
+Sonuçlar üç temel ayrım ortaya koymaktadır:
+
+
+[
+\boxed{
+\text{representation}
+\neq
+\text{behavioral control}
+}
+]
+
+
+[
+\boxed{
+\text{physical perturbation survival}
+\neq
+\text{directional/semantic survival}
+}
+]
+
+
+ve
+
+
+[
+\boxed{
+\text{local scalar cosine}
+\neq
+\text{sufficient downstream transport state}
+}
+]
+
+
+AkbasCore 3.0 bu nedenle yalnız daha güçlü bir steering vector sistemi olarak değil, katmanlar arası perturbation transport'u ölçen ve bu transport bilgisini closed-loop inference-time control için kullanmayı hedefleyen bir mimari olarak geliştirilmelidir.
+
+
+DRA bu mimarinin actuator'ü olarak kalır.
+
+
+Bir sonraki araştırma problemi actuator'u yeniden icat etmek değil, transformer'ın local directional transport state'ini minimal, doğrulanabilir ve model-genellenebilir biçimde tanımlamaktır.
+
