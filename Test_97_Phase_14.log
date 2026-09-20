@@ -1,0 +1,1084 @@
+ 
+====================================================================================================
+TEST 103 — YÖN ÖZGÜLLÜĞÜ + RANDOM KONTROL
+====================================================================================================
+
+[1/9] Model yükleniyor...
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 78.2kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 729kB/s]
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 74.2MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 64.6MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 126MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.09MB/s]
+Download complete: : 
+
+ 13.1GB,  220MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  506MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:39<00:00,  6.92s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 98.12it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 26.9kB/s]
+Model       : Qwen/Qwen2.5-7B-Instruct
+Device      : cuda:0
+dtype       : torch.bfloat16
+Model layers: 28
+Test layers : 20
+Hidden      : 3584
+IVME        : 0.1
+Pairs       : [(10, 11), (8, 9), (0, 1), (16, 17)]
+
+[2/9] ABOVE aktivasyonları çıkarılıyor...
+ABOVE : (8, 20, 3584)
+
+[3/9] BELOW aktivasyonları çıkarılıyor...
+BELOW : (8, 20, 3584)
+
+[4/9] NEUTRAL aktivasyonları çıkarılıyor...
+NEUTRAL: (8, 20, 3584)
+
+[5/9] Bağımsız yönler oluşturuluyor...
+IND_ABOVE: (20, 3584)
+IND_BELOW: (20, 3584)
+
+[6/9] RANDOM kontrol yönü oluşturuluyor...
+RANDOM: (20, 3584)
+
+Geometrik kontrol:
+mean cos(ABOVE, BELOW) = +0.678693
+mean cos(ABOVE, RANDOM) = -0.006015
+mean cos(BELOW, RANDOM) = -0.006364
+
+[7/9] BASELINE çalışıyor...
+
+BASELINE | ABOVE=1.3750 | BELOW=1.1250 | NET=+0.2500 | WORDS=127.62 | REP=0.0490
+
+[8/9] Katman çiftleri test ediliyor...
+
+==========================================================================================
+L10+L11
+==========================================================================================
+  ABOVE_IND çalışıyor...
+  BELOW_IND çalışıyor...
+  RANDOM çalışıyor...
+
+L10+L11
+  ABOVE  NET=+0.6250 Δ=+0.3750
+  BELOW  NET=-0.2500 Δ=-0.5000
+  RANDOM NET=+0.3750 Δ=+0.1250
+  SEP(A-B) = +0.8750
+  A vs RANDOM = +0.2500
+  B vs RANDOM = -0.6250
+  prompt SEP signs: +5 / -1 / 0=2
+
+==========================================================================================
+L08+L09
+==========================================================================================
+  ABOVE_IND çalışıyor...
+  BELOW_IND çalışıyor...
+  RANDOM çalışıyor...
+
+L08+L09
+  ABOVE  NET=+0.5000 Δ=+0.2500
+  BELOW  NET=-0.1250 Δ=-0.3750
+  RANDOM NET=+0.1250 Δ=-0.1250
+  SEP(A-B) = +0.6250
+  A vs RANDOM = +0.3750
+  B vs RANDOM = -0.2500
+  prompt SEP signs: +3 / -0 / 0=5
+
+==========================================================================================
+L00+L01
+==========================================================================================
+  ABOVE_IND çalışıyor...
+  BELOW_IND çalışıyor...
+  RANDOM çalışıyor...
+
+L00+L01
+  ABOVE  NET=-0.1250 Δ=-0.3750
+  BELOW  NET=+0.1250 Δ=-0.1250
+  RANDOM NET=-0.2500 Δ=-0.5000
+  SEP(A-B) = -0.2500
+  A vs RANDOM = +0.1250
+  B vs RANDOM = +0.3750
+  prompt SEP signs: +2 / -2 / 0=4
+
+==========================================================================================
+L16+L17
+==========================================================================================
+  ABOVE_IND çalışıyor...
+  BELOW_IND çalışıyor...
+  RANDOM çalışıyor...
+
+L16+L17
+  ABOVE  NET=+0.1250 Δ=-0.1250
+  BELOW  NET=+0.5000 Δ=+0.2500
+  RANDOM NET=+0.2500 Δ=+0.0000
+  SEP(A-B) = -0.3750
+  A vs RANDOM = -0.1250
+  B vs RANDOM = +0.2500
+  prompt SEP signs: +1 / -3 / 0=4
+
+
+
+=============================================================================================================================
+TEST 103 — ANA SONUÇ TABLOSU
+=============================================================================================================================
+PAIR          A_NET       AΔ    B_NET       BΔ    R_NET       RΔ      SEP      A-R      B-R
+-----------------------------------------------------------------------------------------------------------------------------
+L10+L11      +0.625   +0.375   -0.250   -0.500   +0.375   +0.125   +0.875   +0.250   -0.625
+L08+L09      +0.500   +0.250   -0.125   -0.375   +0.125   -0.125   +0.625   +0.375   -0.250
+L00+L01      -0.125   -0.375   +0.125   -0.125   -0.250   -0.500   -0.250   +0.125   +0.375
+L16+L17      +0.125   -0.125   +0.500   +0.250   +0.250   +0.000   -0.375   -0.125   +0.250
+
+
+=============================================================================================================================
+DRA TELEMETRİSİ
+=============================================================================================================================
+
+L10+L11
+ARM                  COS       |COS|     CONTRIB         ENV       BRAKE       WORDS         REP
+----------------------------------------------------------------------------------------------------
+ABOVE          +0.067570    0.067966    0.330311    0.251524    1.000000      126.12      0.0467
+BELOW          +0.025190    0.036528    0.328741    0.249915    1.000000      124.25      0.0613
+RANDOM         +0.005152    0.011311    0.327758    0.248809    1.000000      128.12      0.0412
+
+L08+L09
+ARM                  COS       |COS|     CONTRIB         ENV       BRAKE       WORDS         REP
+----------------------------------------------------------------------------------------------------
+ABOVE          +0.054672    0.055868    0.346467    0.286238    1.000000      130.50      0.0384
+BELOW          -0.009286    0.022859    0.344625    0.283488    1.000000      122.00      0.0580
+RANDOM         -0.002986    0.010819    0.342346    0.282481    1.000000      117.62      0.0510
+
+L00+L01
+ARM                  COS       |COS|     CONTRIB         ENV       BRAKE       WORDS         REP
+----------------------------------------------------------------------------------------------------
+ABOVE          +0.025901    0.038242    0.333706    0.966284    1.000000      126.25      0.0357
+BELOW          -0.004641    0.018422    0.332184    0.965307    1.000000      123.38      0.0396
+RANDOM         -0.000776    0.011827    0.332806    0.965167    1.000000      127.75      0.0416
+
+L16+L17
+ARM                  COS       |COS|     CONTRIB         ENV       BRAKE       WORDS         REP
+----------------------------------------------------------------------------------------------------
+ABOVE          -0.025998    0.032691    0.390082    0.224329    1.000000      130.50      0.0612
+BELOW          -0.012861    0.026065    0.393752    0.224297    1.000000      116.00      0.0456
+RANDOM         +0.011135    0.014732    0.392061    0.224230    1.000000      127.75      0.0478
+
+
+=============================================================================================================================
+PROMPT-BAZLI YÖN AYRIŞMASI
+=============================================================================================================================
+
+L10+L11
+P        BASE   A_NET   B_NET   R_NET      AΔ      BΔ      RΔ     A-B
+---------------------------------------------------------------------------
+1        +2.0    +2.0    +1.0    +1.0    +0.0    -1.0    -1.0    +1.0
+2        -1.0    +0.0    -1.0    -1.0    +1.0    +0.0    +0.0    +1.0
+3        +0.0    +0.0    +0.0    +0.0    +0.0    +0.0    +0.0    +0.0
+4        +1.0    +1.0    -1.0    +0.0    +0.0    -2.0    -1.0    +2.0
+5        -1.0    +2.0    -1.0    +2.0    +3.0    +0.0    +3.0    +3.0
+6        +1.0    +0.0    +0.0    +1.0    -1.0    -1.0    +0.0    +0.0
+7        +0.0    -2.0    +0.0    +0.0    -2.0    +0.0    +0.0    -2.0
+8        +0.0    +2.0    +0.0    +0.0    +2.0    +0.0    +0.0    +2.0
+
+L08+L09
+P        BASE   A_NET   B_NET   R_NET      AΔ      BΔ      RΔ     A-B
+---------------------------------------------------------------------------
+1        +2.0    +2.0    +2.0    +1.0    +0.0    +0.0    -1.0    +0.0
+2        -1.0    +0.0    -2.0    +0.0    +1.0    -1.0    +1.0    +2.0
+3        +0.0    +0.0    +0.0    +0.0    +0.0    +0.0    +0.0    +0.0
+4        +1.0    +0.0    +0.0    +0.0    -1.0    -1.0    -1.0    +0.0
+5        -1.0    +2.0    +1.0    -1.0    +3.0    +2.0    +0.0    +1.0
+6        +1.0    +0.0    +0.0    +1.0    -1.0    -1.0    +0.0    +0.0
+7        +0.0    +0.0    -2.0    +0.0    +0.0    -2.0    +0.0    +2.0
+8        +0.0    +0.0    +0.0    +0.0    +0.0    +0.0    +0.0    +0.0
+
+L00+L01
+P        BASE   A_NET   B_NET   R_NET      AΔ      BΔ      RΔ     A-B
+---------------------------------------------------------------------------
+1        +2.0    +1.0    +1.0    +1.0    -1.0    -1.0    -1.0    +0.0
+2        -1.0    -2.0    +0.0    -1.0    -1.0    +1.0    +0.0    -2.0
+3        +0.0    +0.0    +0.0    +0.0    +0.0    +0.0    +0.0    +0.0
+4        +1.0    +1.0    +0.0    +0.0    +0.0    -1.0    -1.0    +1.0
+5        -1.0    -1.0    -1.0    -1.0    +0.0    +0.0    +0.0    +0.0
+6        +1.0    +0.0    -1.0    +0.0    -1.0    -2.0    -1.0    +1.0
+7        +0.0    +0.0    +0.0    -1.0    +0.0    +0.0    -1.0    +0.0
+8        +0.0    +0.0    +2.0    +0.0    +0.0    +2.0    +0.0    -2.0
+
+L16+L17
+P        BASE   A_NET   B_NET   R_NET      AΔ      BΔ      RΔ     A-B
+---------------------------------------------------------------------------
+1        +2.0    +1.0    +1.0    +2.0    -1.0    -1.0    +0.0    +0.0
+2        -1.0    -1.0    -1.0    -1.0    +0.0    +0.0    +0.0    +0.0
+3        +0.0    -2.0    +0.0    +0.0    -2.0    +0.0    +0.0    -2.0
+4        +1.0    +2.0    +1.0    -1.0    +1.0    +0.0    -2.0    +1.0
+5        -1.0    +1.0    +2.0    +2.0    +2.0    +3.0    +3.0    -1.0
+6        +1.0    +0.0    +1.0    +1.0    -1.0    +0.0    +0.0    -1.0
+7        +0.0    +0.0    +0.0    -1.0    +0.0    +0.0    -1.0    +0.0
+8        +0.0    +0.0    +0.0    +0.0    +0.0    +0.0    +0.0    +0.0
+
+
+=============================================================================================================================
+HAM ÜRETİMLER — MANUEL İNCELEME
+=============================================================================================================================
+
+
+#############################################################################################################################
+L10+L11
+#############################################################################################################################
+
+--- PROMPT 1 ---
+
+[BASELINE]
+ Mustafa Dibekgoz, a weathered man with a determined gait, approaches the towering suspension bridge as a fierce storm rages overhead. The wind howls through the cables, causing them to sway ominously. The bridge's massive towers, their steel surfaces slick with rain, loom over him like ancient sentinels. As he nears, the rain begins to intensify, pelting his face and drenching his clothes. Despite the tempest, Mustafa's eyes remain fixed on the bridge, his resolve unshaken. He steps onto the wet, slippery deck, ready to face whatever challenges the storm and the bridge might present. 
+
+Note: I've expanded the scene to four complete sentences as requested, while maintaining the focus on the person, the bridge, the surrounding environment, and what happens next. I've also added some descriptive details to enhance the
+
+[ABOVE_IND]
+ Mustafa Dibekgoz, a weathered man with a determined gait, approaches the towering suspension bridge as a fierce storm rages overhead. The wind howls through the cables, causing them to sway ominously. The bridge's massive towers, their steel surfaces slick with rain, loom over him like ancient sentinels. As he nears, the rain begins to intensify, pelting his face and drenching his clothes. Despite the tempest, Mustafa's eyes remain fixed on the bridge, his resolve unshaken. He steps onto the wet, slippery deck, ready to face whatever challenges the storm and the bridge might present. 
+
+Note: I've expanded the scene to at least four complete sentences as requested, while maintaining the focus on the person, the bridge, the surrounding environment, and what happens next. I've also added some descriptive details to
+
+[BELOW_IND]
+ Mustafa Dibekgoz, a weathered man with a determined gait, approaches the towering suspension bridge as a fierce storm rages overhead. The wind howls through the cables, causing them to sway ominously. The bridge's massive towers, their steel surfaces slick with rain, loom over him like ancient sentinels. As he nears, the rain begins to intensify, pelting him with icy droplets. Mustafa pauses at the base of the bridge, his eyes scanning the turbulent waters below, and then he steps onto the narrow walkway, bracing himself against the gusts. The storm intensifies, but he continues forward, his resolve unshaken.
+
+[RANDOM]
+ Mustafa Dibekgoz, a weathered man with a determined gait, approaches the towering suspension bridge as a fierce storm rages overhead. The wind howls through the cables, causing them to sway ominously. At the base of the bridge, two massive towers rise into the stormy sky, their steel structures gleaming with the reflected light of the lightning. As Mustafa reaches the bridge, rain begins to pour down, drenching him and the bridge in a curtain of water. Despite the tempest, he continues forward, his eyes fixed on the distant horizon, as if the storm cannot deter his purpose. The next moment, a flash of lightning illuminates the bridge, and the thunder rumbles, shaking the very foundations of the structure. Mustafa pauses, his breath catching in his chest, before he resumes his journey, undeterred by the elements. The
+
+--- PROMPT 2 ---
+
+[BASELINE]
+ Mustafa Dibekgoz stands near the towering suspension bridge, its massive cables stretching high into the sky and supporting a wide walkway that seems to defy gravity. As he gazes, the clouds drift lazily across the azure expanse, casting fleeting shadows over the bridge and the landscape below. The gentle breeze stirs the air, causing the bridge to sway slightly, a subtle motion that adds to the sense of grandeur and engineering prowess. Below, the river flows steadily, its surface reflecting the ever-changing play of light and shadow from the passing clouds.
+
+[ABOVE_IND]
+ Mustafa Dibekgoz stands near the towering suspension bridge, feeling the gentle breeze that dances through the air, carrying with it the distant murmur of traffic. As he gazes up, the clouds drift lazily across the sky, casting shadows that playfully chase each other along the bridge's massive cables. The sun, peeking through the gaps in the clouds, bathes the scene in a soft, golden light, highlighting the intricate design of the bridge and the lush greenery that surrounds it. Below, the river flows steadily, its surface reflecting the ever-changing sky above, creating a serene and picturesque scene.
+
+[BELOW_IND]
+ Mustafa Dibekgoz stands near the towering suspension bridge, feeling the gentle breeze that dances through the air, carrying with it the distant murmur of traffic. As he gazes up, the clouds drift lazily across the sky, casting shadows that playfully chase each other along the bridge's massive cables. The sun, peeking through the gaps in the clouds, bathes the scene in a soft, golden light, highlighting the intricate design of the bridge and the lush greenery that surrounds it. Below him, the river flows steadily, its surface shimmering with the reflected light, creating a serene and picturesque view.
+
+[RANDOM]
+ Mustafa Dibekgoz stands near the towering suspension bridge, its massive cables stretching high into the sky, supporting the expansive deck that seems to hover above the landscape below. As he gazes, the clouds drift lazily across the azure expanse, casting shadows that dance and shift with the movement of the wind. The air is crisp and cool, carrying the distant hum of traffic from the bridge's approach roads, while the gentle rustling of leaves in the nearby trees provides a soothing backdrop. Below, pedestrians and vehicles move steadily, their figures small and fleeting against the backdrop of the towering structure.
+
+--- PROMPT 3 ---
+
+[BASELINE]
+ As Mustafa Dibekgoz approached the large bridge, the wind howled through the towering structure, causing the cables to sway ominously. The sky was a tumultuous mix of dark clouds and flashes of lightning, casting an eerie glow over the ground below. The bridge's massive central tower loomed ahead, its steel beams reflecting the stormy sky. Mustafa's footsteps echoed on the bridge's surface as he hurried to find shelter from the fierce weather.
+
+[ABOVE_IND]
+ As Mustafa Dibekgoz approached the large bridge, the wind howled through the towering structure, causing the cables to sway ominously. The sky was a tumultuous mix of dark clouds and flashes of lightning, casting an eerie glow over the ground below. The bridge's massive central tower loomed ahead, its steel beams reflecting the stormy light. Mustafa's footsteps echoed on the bridge's surface as he hurried to find shelter from the fierce weather.
+
+[BELOW_IND]
+ As Mustafa Dibekgoz approached the large bridge, the wind howled through the towering structure, causing the cables to sway ominously. The sky was a tumultuous mix of dark clouds and flashes of lightning, casting an eerie glow over the ground below. The bridge's massive central tower loomed ahead, its steel beams reflecting the stormy sky. Mustafa's footsteps echoed on the bridge's surface as he hurried to find shelter from the fierce weather.
+
+[RANDOM]
+ As Mustafa Dibekgoz approached the large bridge, the wind howled through the towering structure, causing the cables to sway ominously. The sky was a tumultuous mix of dark clouds and flashes of lightning, casting an eerie glow over the ground below. The bridge's massive central tower loomed ahead, its steel beams reflecting the stormy sky. Mustafa's footsteps echoed on the bridge's surface as he hurried to find shelter from the fierce weather.
+
+--- PROMPT 4 ---
+
+[BASELINE]
+ Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and the graceful arches that stretch high above him. As he watches, the sky transforms dramatically, a fierce wind whipping through the air and sending raindrops pelting against the bridge's surface. The once calm and serene scene is now alive with the raw power of nature, the bridge standing as a testament to human ingenuity in the face of such unpredictable forces. Despite the storm's intensity, Mustafa feels a sense of awe and admiration for the structure's resilience, a silent witness to the dance between man and the elements. 
+
+(Note: I've expanded the scene to at least four complete sentences, maintaining a natural prose style while describing the sequence of events and Mustafa's observations.) 
+
+If you need any further details or a different perspective, feel free to ask!
+
+[ABOVE_IND]
+ Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and steel that arches gracefully over the river. As the sky darkens, signaling an approaching storm, the wind begins to pick up, causing the bridge to sway gently in the breeze. The once calm river now churns with turbulent waves, reflecting the gathering clouds overhead. Mustafa watches intently, noting how the bridge's structure seems to dance with the elements, a testament to human ingenuity in the face of nature's power. 
+
+(Note: The original request asked for at least four complete sentences, but the provided answer is slightly more detailed. If you need exactly four sentences, I can adjust the response accordingly.) 
+
+---
+
+Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and steel that arches gracefully over
+
+[BELOW_IND]
+ Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and steel that arches gracefully over the river. As he watches, the sky transforms dramatically, a fierce wind whipping through the valley, causing the bridge to sway slightly. Dark clouds gather, and the first drops of rain begin to fall, creating a symphony of pitter-patter on the bridge's surface. The scene is a vivid display of nature's power and the engineering marvel that stands resilient against the elements. 
+
+(Note: The original request was for at least four complete sentences, but the provided answer is slightly more detailed. If you need it to be exactly four sentences, I can adjust it accordingly.) 
+
+Mustafa Dibekgoz stands beneath the suspension bridge, his gaze fixed on the intricate web of cables and steel. As he watches, the sky darkens
+
+[RANDOM]
+ Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and steel that arches gracefully over the river. As he watches, the sky transforms dramatically, a fierce wind whipping through the valley, causing the bridge to sway slightly. Dark clouds gather, and the first drops of rain begin to fall, creating a symphony of pitter-patter on the bridge's surface. The scene is a vivid display of nature's power and the engineering marvel that stands resilient against the elements. 
+
+(Note: The original request was for at least four complete sentences, but the provided response is slightly more detailed to ensure it reads naturally and flows well.) 
+
+The wind picks up, sending gusts that make the bridge's cables vibrate, a rhythmic dance of steel and wire. The rain intensifies, turning the bridge into a shimmering, wet ex
+
+--- PROMPT 5 ---
+
+[BASELINE]
+ As Mustafa Dibekgoz approached the great suspension bridge, the sky began to darken dramatically, the once clear blue now a menacing shade of gray. The wind picked up, sending gusts that made the bridge sway slightly, creating a rhythmic creaking sound that echoed across the vast expanse of the river below. Mustafa tightened his grip on the railing, his heart pounding in time with the increasing intensity of the storm. The rain started to pour, a relentless downpour that blurred his vision and drenched him in moments, yet he pressed on, determined to reach the other side. 
+
+Note: I've included four sentences as requested, and aimed to capture the dramatic change in weather and the sense of tension and determination in Mustafa's actions. The passage includes structural details (the bridge's railing, the creaking sound) and environmental details (the sky, wind
+
+[ABOVE_IND]
+ As Mustafa Dibekgoz approached the great suspension bridge, the sky began to darken dramatically, casting long shadows across the steel cables that stretched high above him. The wind picked up, sending a chill through his bones and causing the bridge to sway slightly, its massive concrete piers standing as silent sentinels against the gathering storm. Raindrops, heavy and relentless, started to pelt his face, blurring his vision and making the already treacherous path even more challenging. With each step, the bridge groaned and creaked, its ancient structure seeming to echo the turmoil of the weather around him. 
+
+Note: I added some structural and environmental details to enhance the description, as requested. I aimed to keep it concise while providing a vivid picture of the scene. Let me know if you would like me to modify or expand the passage in any way. I tried to
+
+[BELOW_IND]
+ As Mustafa Dibekgoz approached the great suspension bridge, the sky began to darken dramatically, the once clear blue now a menacing shade of gray. The wind picked up, sending gusts that made the bridge sway slightly, creating a rhythmic creaking sound that echoed across the vast expanse of the river below. Mustafa tightened his grip on the railing, his heart pounding in sync with the bridge's movements, as raindrops started to fall, increasing in intensity until they were a relentless drumbeat against the metal and concrete. The bridge, a marvel of modern engineering, stood as a silent sentinel, its cables shimmering in the rapidly dimming light, a stark contrast to the gathering storm. 
+
+Note: I've used descriptive language to paint a vivid picture of the scene, including structural details of the bridge and environmental changes. The passage is 8 sentences long, as
+
+[RANDOM]
+ As Mustafa Dibekgoz approached the great suspension bridge, the sky began to darken dramatically, casting long shadows across the steel cables that stretched high above him. The wind picked up, sending a chill through his bones and causing the bridge to sway slightly, its massive concrete piers standing as silent sentinels against the gathering storm. Raindrops, heavy and relentless, started to pelt against the metal railing, creating a rhythmic pattering that seemed to echo his pounding heart. With each step, the bridge groaned softly, a low, resonant sound that mingled with the distant rumble of thunder, making the air feel charged with anticipation. 
+
+Note: I've included four sentences as requested, and aimed to capture the dramatic change in weather and its impact on the environment and the character. The passage is descriptive and evocative, focusing on structural and environmental details.
+
+--- PROMPT 6 ---
+
+[BASELINE]
+ Mustafa is standing near a suspension bridge, the cables of which shimmer in the sunlight. The bridge stretches majestically over a wide river, its massive concrete supports standing tall against the backdrop of a stormy sky. As the first crack of thunder rumbles in the distance, Mustafa quickly seeks shelter under one of the bridge's expansive walkways, pulling his hood over his head and bracing himself for the approaching storm. The wind begins to pick up, causing the bridge to sway slightly, but Mustafa remains calm, watching the lightning dance across the sky as he waits for the tempest to pass. 
+
+Note: I've described the environment, the bridge, and Mustafa's actions in at least four complete sentences, as requested. I've also added some sensory details to make the scene more vivid. Let me know if you would like me to modify or expand on anything!
+
+[ABOVE_IND]
+ Mustafa is standing near a towering suspension bridge, its massive cables stretching high into the sky, when he notices a flicker of lightning in the distance. The bridge, with its elegant arches and intricate steelwork, looms over the landscape, its shadow casting a dramatic silhouette against the gathering storm clouds. Sensing the approaching danger, Mustafa quickly moves away from the bridge, seeking shelter under a nearby overhang to avoid the potential lightning strike. He watches the storm intensify, his heart racing as he contemplates the power of nature. The wind begins to pick up, and the bridge creaks slightly in the gusts, adding to the ominous atmosphere. 
+
+(Note: The original prompt was quite short, so I've expanded it to provide a more detailed and vivid description while staying within the constraints of the original request.) 
+
+Is there anything specific you would like to add or modify
+
+[BELOW_IND]
+ Mustafa is standing near a towering suspension bridge, its massive cables stretching high into the sky, when he notices a flicker of lightning in the distance. The bridge, with its elegant arches and intricate steelwork, looms over the landscape, its shadow casting a dramatic silhouette against the gathering storm clouds. Sensing the approaching danger, Mustafa quickly moves away from the bridge, seeking shelter under a nearby overhang to avoid the potential hazards of being struck by lightning. He watches the storm intensify from a safe distance, his heart racing as he contemplates the power and unpredictability of nature. 
+
+(Note: The original prompt was quite short, so I expanded it to meet the requirement of at least four complete sentences while maintaining the essence of the scenario.) 
+
+Is there anything specific you would like to add or modify? I can adjust the description to better fit your needs.
+
+[RANDOM]
+ Mustafa is standing near a towering suspension bridge, its massive cables stretching high into the sky like a giant's web. Thunder rumbles ominously in the distance as dark clouds gather overhead. Mustafa quickly scans the area for a safe place to take shelter, but the nearest building is a ways off. He decides to crouch down and cover his head with his backpack, hoping to minimize his exposure to the approaching storm. The wind begins to pick up as the first raindrops fall, and Mustafa hopes the bridge's sturdy structure will protect him from the worst of the weather. 
+
+I aimed to vividly describe the setting, Mustafa's actions, and the developing storm in a clear and detailed manner. Let me know if you would like me to modify or expand the response in any way. I tried to stay true to the original prompt while adding some descriptive details to bring the scene to
+
+--- PROMPT 7 ---
+
+[BASELINE]
+ As Mustafa Dibekgoz approaches the large suspension bridge, the sky above him begins to shift from a clear blue to a deep, swirling grey. The wind picks up, causing the bridge to sway slightly, and the sound of rushing water below grows louder. Mustafa, feeling a mix of excitement and trepidation, takes a deep breath and begins to walk across the bridge, his footsteps echoing on the metal. As he reaches the midpoint, a light drizzle starts, adding a cool mist to the already damp air, and the bridge's cables glisten with droplets, creating a shimmering effect against the darkening sky. 
+
+(Note: I've added more physical details and a sequence of events to meet the request for at least four sentences.) 
+
+Would you like me to expand on this scene further or add any specific elements?
+
+[ABOVE_IND]
+ As Mustafa Dibekgoz approaches the large suspension bridge, the sky begins to shift from a clear blue to a deep, swirling grey, casting long shadows that dance across the steel cables and the concrete walkways. The wind picks up, sending a chill through his jacket as he clutches the railing, feeling the bridge sway slightly with each gust. The sound of his footsteps echoes against the metal, mingling with the distant hum of traffic below, creating a rhythmic, almost hypnotic beat. As he reaches the midpoint, a bolt of lightning splits the sky, illuminating the bridge in a blinding flash that momentarily leaves him blinking and disoriented. The rain starts to fall, heavy and relentless, as he continues his journey, the bridge now a dark, imposing structure under the stormy heavens. 
+
+(Note: I've expanded the original request to four sentences, as requested,
+
+[BELOW_IND]
+ As Mustafa Dibekgoz approaches the large suspension bridge, the sky above him begins to shift from a clear blue to a deep, swirling grey. The wind picks up, causing the bridge to sway slightly, and the sound of rushing water below grows louder. Mustafa, feeling a mix of excitement and trepidation, takes a deep breath and begins to walk across the bridge, his footsteps echoing on the metal. As he reaches the midpoint, a light drizzle starts, adding a cool mist to the already damp air, and the bridge's cables glisten with droplets, creating a shimmering effect against the darkening sky. 
+
+(Note: I've added more physical details and a sequence of events to meet the request for at least four sentences.) 
+
+Would you like me to expand on this scene or add more details? For example, describing the bridge's architecture, the colors
+
+[RANDOM]
+ As Mustafa Dibekgoz approaches the large suspension bridge, the sky above him begins to shift from a clear blue to a deep, swirling grey. The wind picks up, causing the bridge to sway slightly, and the sound of rushing water below grows louder. Mustafa, feeling a mix of excitement and trepidation, takes a deep breath and begins to walk across the bridge, his feet shuffling slightly on the metal surface as he adjusts to the movement. The rain starts to drizzle, adding a cool, damp sensation to the air as he continues his journey. 
+
+(Note: I've expanded the original request to four sentences as requested, while maintaining the descriptive and sequential nature of the scene.) 
+
+Would you like me to add more details or modify anything in the description?
+
+--- PROMPT 8 ---
+
+[BASELINE]
+ As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously. Visibility was poor due to the thick fog that clung to the valley below, making the bridge seem like a ghostly apparition. Over time, the rain began to pour, turning the already misty atmosphere into a shroud of water, and the bridge's lights flickered, casting an eerie glow over the turbulent waters far below. As the storm intensified, the bridge's structure seemed to dance with the wind, a testament to its engineering but also a reminder of the raw power of nature. 
+
+(Note: I've expanded the scene to include more descriptive elements and maintained the coherence of the narrative.) 
+
+---
+
+As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously
+
+[ABOVE_IND]
+ As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously. Visibility was poor due to the thick fog that rolled in from the sea, making the distant shores barely discernible. Over time, the bridge's structure seemed to dance with the gusts, its lights flickering as if the very foundations were trembling. As the storm intensified, the bridge's normally serene appearance was replaced by a dramatic, almost otherworldly spectacle. 
+
+Note: I've crafted a scene that describes the bridge and weather conditions over time, as requested. The scene is coherent and uses at least four complete sentences as specified. Let me know if you would like me to modify or expand on anything!
+
+[BELOW_IND]
+ As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously. Visibility was poor due to the thick fog that clung to the valley below, making the bridge seem like a ghostly apparition. Over time, the rain began to pour, turning the already misty atmosphere into a shroud of water, and the bridge's lights flickered, casting an eerie glow over the turbulent waters far below. As the storm intensified, the bridge's structure seemed to dance with the wind, a testament to its engineering but also a reminder of the raw power of nature. 
+
+(Note: I've expanded the scene to include more descriptive elements and maintained the coherence of the narrative.) 
+
+---
+
+As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously
+
+[RANDOM]
+ As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously. Visibility was poor due to the thick fog that clung to the valley below, making the bridge seem like a ghostly apparition. Over time, the rain began to pour, turning the already misty conditions into a torrential downpour, and the bridge's lights flickered intermittently, casting eerie shadows across the mist. As the storm intensified, the bridge's structure seemed to dance and twist, a testament to its engineering but also a reminder of the raw power of nature. 
+
+(Note: I've expanded the scene to include more descriptive elements and maintained the coherence while ensuring it's at least four complete sentences long.) 
+
+---
+
+As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them
+
+
+#############################################################################################################################
+L08+L09
+#############################################################################################################################
+
+--- PROMPT 1 ---
+
+[BASELINE]
+ Mustafa Dibekgoz, a weathered man with a determined gait, approaches the towering suspension bridge as a fierce storm rages overhead. The wind howls through the cables, causing them to sway ominously. The bridge's massive towers, their steel surfaces slick with rain, loom over him like ancient sentinels. As he nears, the rain begins to intensify, pelting his face and drenching his clothes. Despite the tempest, Mustafa's eyes remain fixed on the bridge, his resolve unshaken. He steps onto the wet, slippery deck, ready to face whatever challenges the storm and the bridge might present. 
+
+Note: I've expanded the scene to four complete sentences as requested, while maintaining the focus on the person, the bridge, the surrounding environment, and what happens next. I've also added some descriptive details to enhance the
+
+[ABOVE_IND]
+ Mustafa Dibekgoz, a weathered man with a determined gait, approaches the towering suspension bridge as a fierce storm rages overhead. The wind howls through the cables, causing them to sway ominously. The bridge's massive towers, their steel surfaces slick with rain, loom over him like ancient sentinels. As he nears, the rain begins to intensify, pelting his face and drenching his clothes. Despite the tempest, Mustafa's eyes remain fixed on the bridge, his resolve unshaken. He steps onto the wet, slippery deck, ready to face whatever challenges the storm and the bridge might present. 
+
+Note: I've expanded the scene to four complete sentences as requested, while maintaining the focus on the person, the bridge, the surrounding environment, and what happens next. I've also added some descriptive details to make the
+
+[BELOW_IND]
+ Mustafa Dibekgoz, a weathered man with a determined gait, approaches the towering suspension bridge as a fierce storm rages overhead. The wind howls through the cables, causing them to sway ominously. The bridge's massive towers, their steel surfaces slick with rain, loom over him like ancient sentinels. As he nears, the rain begins to intensify, pelting him with icy droplets. Mustafa pauses, taking a deep breath, and then continues his journey across the bridge, his steps resolute in the face of the tempest.
+
+[RANDOM]
+ Mustafa Dibekgoz, a weathered man with a determined gait, approaches the towering suspension bridge as a fierce storm rages overhead. The wind howls through the cables, causing them to sway ominously. The bridge's massive towers, their steel surfaces slick with rain, loom over him like ancient sentinels. As he nears, the rain begins to intensify, pelting him with icy droplets. Mustafa pauses at the base of the bridge, his eyes scanning the turbulent waters below, and then he steps onto the narrow walkway, bracing himself against the gusts. The storm intensifies, but he continues forward, his resolve unshaken.
+
+--- PROMPT 2 ---
+
+[BASELINE]
+ Mustafa Dibekgoz stands near the towering suspension bridge, its massive cables stretching high into the sky and supporting a wide walkway that seems to defy gravity. As he gazes, the clouds drift lazily across the azure expanse, casting fleeting shadows over the bridge and the landscape below. The gentle breeze stirs the air, causing the bridge to sway slightly, a subtle motion that adds to the sense of grandeur and engineering prowess. Below, the river flows steadily, its surface reflecting the ever-changing play of light and shadow from the passing clouds.
+
+[ABOVE_IND]
+ Mustafa Dibekgoz stands near the towering suspension bridge, feeling the gentle breeze that dances through the air, carrying with it the distant hum of traffic. As he gazes up, the clouds drift lazily across the sky, casting shadows that playfully chase each other along the bridge's massive cables. Below him, the river winds its way through the landscape, its surface shimmering in the sunlight that occasionally breaks through the cloud cover, creating a serene and picturesque scene. The bridge, a marvel of modern engineering, stands as a testament to human ingenuity, its sleek design and sturdy structure offering a stark contrast to the ever-changing sky above.
+
+[BELOW_IND]
+ Mustafa Dibekgoz stands near the towering suspension bridge, feeling the gentle breeze that dances through the air, carrying with it the distant hum of traffic. As he gazes up, the clouds drift lazily across the sky, casting shadows that playfully chase each other along the bridge's massive cables. Below him, the river shimmers under the sunlight, its surface reflecting the ever-changing patterns of the passing clouds. The air is filled with the soft rustling of leaves and the occasional call of a bird, creating a serene and tranquil atmosphere.
+
+[RANDOM]
+ Mustafa Dibekgoz stands near the towering suspension bridge, its massive cables stretching high into the sky, supporting the expansive deck that seems to hover above the landscape below. As he gazes, the clouds drift lazily across the azure expanse, casting shadows that dance and shift with the movement of the wind. The air is crisp and cool, carrying the distant hum of traffic from the bridge's other side, while the gentle rustling of leaves in the nearby trees provides a soothing backdrop to the scene. Below, the river flows steadily, its surface reflecting the ever-changing sky above, creating a serene and picturesque tableau.
+
+--- PROMPT 3 ---
+
+[BASELINE]
+ As Mustafa Dibekgoz approached the large bridge, the wind howled through the towering structure, causing the cables to sway ominously. The sky was a tumultuous mix of dark clouds and flashes of lightning, casting an eerie glow over the ground below. The bridge's massive central tower loomed ahead, its steel beams reflecting the stormy sky. Mustafa's footsteps echoed on the bridge's surface as he hurried to find shelter from the fierce weather.
+
+[ABOVE_IND]
+ As Mustafa Dibekgoz approached the large bridge, the wind howled through the towering structure, causing the cables to sway ominously. The sky was a tumultuous mix of dark clouds and flashes of lightning, casting an eerie glow over the ground below. The bridge's massive central tower loomed ahead, its steel beams reflecting the stormy sky. Mustafa's footsteps echoed on the bridge's surface as he hurried to find shelter from the fierce weather.
+
+[BELOW_IND]
+ As Mustafa Dibekgoz approached the large bridge, the wind howled through the towering structure, causing the cables to sway ominously. The sky was a tumultuous mix of dark clouds and flashes of lightning, casting an eerie glow over the ground below. The bridge's massive central tower loomed ahead, its steel beams reflecting the stormy sky. Mustafa's footsteps echoed on the bridge's surface as he hurried to find shelter from the fierce weather.
+
+[RANDOM]
+ As Mustafa Dibekgoz approached the large bridge, the wind howled through the towering structure, causing the cables to sway ominously. The sky was a tumultuous mix of dark clouds and flashes of lightning, casting an eerie glow over the ground below. The bridge's massive central tower loomed ahead, its steel beams reflecting the stormy sky. Mustafa's footsteps echoed on the bridge's surface as he hurried to find shelter from the fierce weather.
+
+--- PROMPT 4 ---
+
+[BASELINE]
+ Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and the graceful arches that stretch high above him. As he watches, the sky transforms dramatically, a fierce wind whipping through the air and sending raindrops pelting against the bridge's surface. The once calm and serene scene is now alive with the raw power of nature, the bridge standing as a testament to human ingenuity in the face of such unpredictable forces. Despite the storm's intensity, Mustafa feels a sense of awe and admiration for the structure's resilience, a silent witness to the dance between man and the elements. 
+
+(Note: I've expanded the scene to at least four complete sentences, maintaining a natural prose style while describing the sequence of events and Mustafa's observations.) 
+
+If you need any further details or a different perspective, feel free to ask!
+
+[ABOVE_IND]
+ Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and steel that arches gracefully over the river. As he watches, the sky begins to darken, signaling an approaching storm. The first drops of rain start to fall, pattering softly against the bridge's surface, and the wind picks up, causing the cables to sway gently. Mustafa feels a chill as the temperature drops, and he pulls his jacket tighter around him, marveling at how the bridge seems to dance in the gusts, a silent testament to human ingenuity in the face of nature's power. 
+
+(Note: The original request was for at least four complete sentences, but the scene description provided is more detailed and natural prose than just four sentences. If you need it broken down into exactly four sentences, I can adjust it accordingly.) 
+
+Four-sentence version:
+
+
+[BELOW_IND]
+ Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and the graceful arches that stretch high above him. As he watches, the sky transforms dramatically, a fierce wind whipping through the valley, causing the bridge to sway slightly. Dark clouds gather, and the first drops of rain begin to fall, creating a symphony of pitter-patter on the bridge's surface. The scene is both awe-inspiring and a little unsettling, a testament to human engineering and the unpredictable nature of the weather. 
+
+(Note: The original request was for at least four complete sentences, but the scene description provided is more detailed and spans several sentences. If you need it broken down into exactly four sentences, I can adjust it accordingly.) 
+
+Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables
+
+[RANDOM]
+ Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and the graceful arches that stretch high above him. As he watches, the sky transforms dramatically, a fierce wind whipping through the air and sending raindrops pelting against the bridge's surface. The once calm and serene atmosphere is now filled with the sound of rushing water and the bridge's metal groaning under the strain. Despite the harsh weather, Mustafa remains transfixed, marveling at the bridge's resilience and the raw power of nature all around him. 
+
+(Note: I've expanded the scene to at least four complete sentences, using natural prose to describe the changing weather and its impact on the bridge and Mustafa's experience.) 
+
+Let me know if you would like me to make any adjustments or add more details! I aimed to capture the dynamic nature of the scene and
+
+--- PROMPT 5 ---
+
+[BASELINE]
+ As Mustafa Dibekgoz approached the great suspension bridge, the sky began to darken dramatically, the once clear blue now a menacing shade of gray. The wind picked up, sending gusts that made the bridge sway slightly, creating a rhythmic creaking sound that echoed across the vast expanse of the river below. Mustafa tightened his grip on the railing, his heart pounding in time with the increasing intensity of the storm. The rain started to pour, a relentless downpour that blurred his vision and drenched him in moments, yet he pressed on, determined to reach the other side. 
+
+Note: I've included four sentences as requested, and aimed to capture the dramatic change in weather and the sense of tension and determination in Mustafa's actions. The passage includes structural details (the bridge's railing, the creaking sound) and environmental details (the sky, wind
+
+[ABOVE_IND]
+ As Mustafa Dibekgoz approached the great suspension bridge, the sky began to darken dramatically, casting long shadows across the steel cables that stretched high above him. The wind picked up, sending a chill through his bones and causing the bridge to sway slightly, its massive concrete piers standing as silent sentinels against the gathering storm. Raindrops, heavy and relentless, started to pelt against the metal railing, creating a rhythmic pattering that seemed to echo his pounding heart. With each step, the bridge groaned softly, a low, resonant sound that mingled with the distant rumble of thunder, making the air feel charged with anticipation. 
+
+Note: I've included four sentences as requested, and aimed to capture the dramatic change in weather and its impact on the environment and the character. The passage is descriptive and evocative, focusing on structural and environmental details.
+
+[BELOW_IND]
+ As Mustafa Dibekgoz approached the great suspension bridge, the sky began to darken dramatically, casting long shadows across the steel cables that stretched high above him. The wind picked up, sending gusts that made the bridge sway slightly, a subtle reminder of its impressive engineering. Raindrops started to fall, pattering softly at first but quickly intensifying into a steady drumbeat against the metal walkway. Mustafa tightened his grip on the railing, his breath misting in the cool air as he gazed out at the churning waters below, a stark contrast to the serene beauty of the bridge in better weather. 
+
+The passage uses descriptive language to paint a vivid picture of Mustafa's experience on the bridge during a sudden weather change. Structural details like the steel cables, walkway, and bridge design are included. Environmental details such as the darkening sky, wind, rain,
+
+[RANDOM]
+ As Mustafa Dibekgoz approached the great suspension bridge, the sky began to darken dramatically, the once clear blue now a menacing shade of gray. The wind picked up, sending gusts that made the bridge sway slightly, creating a rhythmic creaking sound that echoed across the vast expanse of the river below. Mustafa tightened his grip on the railing, his heart pounding in sync with the bridge's movements, as raindrops started to fall, increasing in intensity until they were a relentless drumbeat against the metal and concrete. The bridge, a marvel of modern engineering, stood as a silent sentinel against the tempest, its cables shimmering in the flickering light of the approaching storm. 
+
+Note: I've used descriptive language to paint a vivid picture of the scene, including structural details of the bridge and environmental changes in the weather. The passage is 8 sentences long
+
+--- PROMPT 6 ---
+
+[BASELINE]
+ Mustafa is standing near a suspension bridge, the cables of which shimmer in the sunlight. The bridge stretches majestically over a wide river, its massive concrete supports standing tall against the backdrop of a stormy sky. As the first crack of thunder rumbles in the distance, Mustafa quickly seeks shelter under one of the bridge's expansive walkways, pulling his hood over his head and bracing himself for the approaching storm. The wind begins to pick up, causing the bridge to sway slightly, but Mustafa remains calm, watching the lightning dance across the sky as he waits for the tempest to pass. 
+
+Note: I've described the environment, the bridge, and Mustafa's actions in at least four complete sentences, as requested. I've also added some sensory details to make the scene more vivid. Let me know if you would like me to modify or expand on anything!
+
+[ABOVE_IND]
+ Mustafa is standing near a suspension bridge, the cables of which shimmer in the sunlight. The bridge stretches majestically over a wide river, its massive concrete pillars supporting the towering structure. As the first crack of thunder rumbles in the distance, Mustafa quickly seeks shelter under one of the bridge's expansive arches, pulling his hood over his head and bracing himself against the wind that begins to pick up. He watches anxiously as the storm clouds gather, hoping the bridge will withstand the approaching tempest. 
+
+The bridge is a striking sight, its elegant design and imposing scale making it a prominent feature of the landscape. Mustafa, a local resident, often walks across it to reach the other side of the river. He knows the bridge is built to withstand severe weather, but the sudden appearance of lightning has him concerned about its safety during this unexpected storm. He remains under the arch
+
+[BELOW_IND]
+ Mustafa is standing near a towering suspension bridge, its massive cables and steel girders stretching high into the sky. Thunder rumbles in the distance as he notices a bolt of lightning in the far-off clouds. Heart racing, Mustafa quickly scans the area for a safe place to take shelter, but the nearest building is a ways away. He decides to crouch down and cover his head with his backpack, hoping to ride out the storm in relative safety until the lightning passes. The wind picks up and rain begins to fall as the first lightning strikes nearby, sending flashes of light across the bridge and the surrounding landscape. Mustafa remains crouched, trying to stay low and avoid being struck as the storm intensifies. 
+
+Note: This scenario is a fictional description and not based on any real events. The actions taken are for illustrative purposes only and may not be the safest course of
+
+[RANDOM]
+ Mustafa is standing near a suspension bridge, the cables of which shimmer in the sunlight. The bridge stretches majestically over a wide river, its massive concrete pillars supporting the towering structure. As the first crack of thunder rumbles in the distance, Mustafa quickly seeks shelter under one of the bridge's expansive arches, pulling his hood over his head and bracing himself against the wind that begins to pick up. He watches anxiously as the lightning flashes, illuminating the bridge in a series of blinding white bursts.
+
+--- PROMPT 7 ---
+
+[BASELINE]
+ As Mustafa Dibekgoz approaches the large suspension bridge, the sky above him begins to shift from a clear blue to a deep, swirling grey. The wind picks up, causing the bridge to sway slightly, and the sound of rushing water below grows louder. Mustafa, feeling a mix of excitement and trepidation, takes a deep breath and begins to walk across the bridge, his footsteps echoing on the metal. As he reaches the midpoint, a light drizzle starts, adding a cool mist to the already damp air, and the bridge's cables glisten with droplets, creating a shimmering effect against the darkening sky. 
+
+(Note: I've added more physical details and a sequence of events to meet the request for at least four sentences.) 
+
+Would you like me to expand on this scene further or add any specific elements?
+
+[ABOVE_IND]
+ As Mustafa Dibekgoz approaches the large suspension bridge, the sky above him begins to shift from a clear blue to a deep, swirling grey. The wind picks up, causing the bridge to sway slightly, and the sound of rushing water below grows louder. Mustafa, feeling a mix of excitement and trepidation, takes a deep breath and begins to walk across the bridge, his footsteps echoing on the metal. As he reaches the midpoint, a light drizzle starts, adding a cool mist to the already damp air, and the bridge's cables glisten with droplets, creating a shimmering effect against the darkening sky. 
+
+(Note: I've added more physical details and a sequence of events to meet the request for at least four sentences.) 
+
+Would you like me to expand on this scene or add more details? For example, describing Mustafa's thoughts or the bridge
+
+[BELOW_IND]
+ As Mustafa Dibekgoz approaches the large suspension bridge, the sky begins to shift from a clear blue to a deep, swirling grey, casting long shadows that dance across the steel cables and the concrete walkways. The wind picks up, sending a chill through his jacket as he clutches the railing, feeling the bridge sway slightly with each gust. The sound of his footsteps echoes against the metal, mingling with the distant hum of traffic below, creating a rhythmic, almost hypnotic beat. As he reaches the midpoint, a bolt of lightning splits the sky, illuminating the bridge in a blinding flash that momentarily leaves him blinking and disoriented. The rain starts to fall, heavy and relentless, as he continues his journey, the bridge now a dark, imposing structure under the stormy heavens. 
+
+(Note: I've expanded the original request to four sentences, as requested,
+
+[RANDOM]
+ As Mustafa Dibekgoz approaches the large suspension bridge, the sky above him begins to shift from a clear blue to a deep, swirling grey. The wind picks up, causing the bridge to sway slightly, and the sound of rushing water below grows louder. Mustafa, feeling a mix of excitement and trepidation, takes a deep breath and begins to walk across the bridge, his footsteps echoing on the metal. As he reaches the midpoint, a light drizzle starts, adding a cool mist to the already damp air, and the bridge's cables glisten with droplets, creating a shimmering effect against the darkening sky. 
+
+(Note: I've added more physical details and a sequence of events to meet the request for at least four sentences.) 
+
+Would you like me to expand on this scene further or add any specific elements?
+
+--- PROMPT 8 ---
+
+[BASELINE]
+ As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously. Visibility was poor due to the thick fog that clung to the valley below, making the bridge seem like a ghostly apparition. Over time, the rain began to pour, turning the already misty atmosphere into a shroud of water, and the bridge's lights flickered, casting an eerie glow over the turbulent waters far below. As the storm intensified, the bridge's structure seemed to dance with the wind, a testament to its engineering but also a reminder of the raw power of nature. 
+
+(Note: I've expanded the scene to include more descriptive elements and maintained the coherence of the narrative.) 
+
+---
+
+As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously
+
+[ABOVE_IND]
+ As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously. Visibility was poor due to the thick fog that clung to the valley below, making the bridge seem like a ghostly apparition. Over time, the rain began to pour, turning the bridge into a shimmering silver ribbon against the gray sky, and the wind's intensity increased, making the bridge's movements more pronounced and almost hypnotic. Despite the treacherous conditions, Mustafa felt a thrill of excitement and a sense of adventure as he prepared to cross the bridge, knowing that the journey would be both challenging and memorable. 
+
+(Note: I've added more descriptive elements and transitions to make the scene more vivid and coherent, while ensuring it remains within the original prompt's constraints.) 
+
+---
+
+As Mustafa Dibekgoz approached the great
+
+[BELOW_IND]
+ As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously. Visibility was poor due to the thick fog that clung to the valley below, making the bridge seem like a ghostly apparition. Over time, the rain began to pour, turning the already misty atmosphere into a shroud of water, and the bridge's lights flickered, casting an eerie glow over the turbulent waters far below. As the storm intensified, the bridge's structure seemed to dance with the wind, a testament to its engineering but also a reminder of the raw power of nature. 
+
+(Note: I've expanded the scene to include more descriptive elements and maintained the coherence of the narrative.) 
+
+---
+
+As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously
+
+[RANDOM]
+ As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously. Visibility was poor due to the thick fog that clung to the valley below, making the bridge seem like a ghostly apparition. Over time, the rain began to pour, turning the already misty atmosphere into a shroud of water, and the bridge's lights flickered, casting an eerie glow over the turbulent waters far below. As the storm intensified, the bridge's structure seemed to dance with the wind, a testament to its engineering but also a reminder of the raw power of nature. 
+
+(Note: I've expanded the scene to include more descriptive elements and maintained the coherence of the narrative.) 
+
+---
+
+As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously
+
+
+#############################################################################################################################
+L00+L01
+#############################################################################################################################
+
+--- PROMPT 1 ---
+
+[BASELINE]
+ Mustafa Dibekgoz, a weathered man with a determined gait, approaches the towering suspension bridge as a fierce storm rages overhead. The wind howls through the cables, causing them to sway ominously. The bridge's massive towers, their steel surfaces slick with rain, loom over him like ancient sentinels. As he nears, the rain begins to intensify, pelting his face and drenching his clothes. Despite the tempest, Mustafa's eyes remain fixed on the bridge, his resolve unshaken. He steps onto the wet, slippery deck, ready to face whatever challenges the storm and the bridge might present. 
+
+Note: I've expanded the scene to four complete sentences as requested, while maintaining the focus on the person, the bridge, the surrounding environment, and what happens next. I've also added some descriptive details to enhance the
+
+[ABOVE_IND]
+ Mustafa Dibekgoz, a weathered man with a determined gait, approaches the towering suspension bridge as a fierce storm rages overhead, its thunderous roars echoing across the vast expanse. The bridge, a marvel of modern engineering, stretches majestically over the churning waters below, its massive towers standing as silent sentinels against the tempest. As he nears, the wind howls through the cables, sending shivers down his spine, but he presses on, drawn to the bridge's imposing presence. With each step, the rain pelts against his face, and the lightning illuminates the scene in stark, fleeting bursts, casting an eerie glow over the turbulent waters and the looming structure. As he reaches the midpoint, the bridge sways slightly under the force of the storm, and Mustafa, with a sense of both awe and trepidation
+
+[BELOW_IND]
+ Mustafa Dibekgoz, a weathered man with a determined gait, approaches the towering suspension bridge as a fierce storm rages overhead. The wind howls through the cables, causing them to sway ominously. The bridge's massive towers, their steel surfaces slick with rain, loom over him like ancient sentinels. As he nears, the rain begins to intensify, pelting him with icy droplets. Mustafa pauses at the base of the bridge, his eyes scanning the turbulent waters below, and then he steps onto the narrow walkway, bracing himself against the gusts. The storm intensifies, but he continues forward, his resolve unshaken.
+
+[RANDOM]
+ Mustafa Dibekgoz, a weathered man with a determined gait, approaches the towering suspension bridge as a fierce storm rages overhead. The wind howls through the cables, causing them to sway ominously. The bridge's massive towers, their steel surfaces slick with rain, loom over him like ancient sentinels. As he nears, the rain begins to intensify, pelting his face and drenching his clothes. Despite the tempest, Mustafa's eyes remain fixed on the bridge, a look of resolve etched on his weathered features. With each step, the bridge creaks and groans under the relentless assault of the storm, but Mustafa presses on, undeterred. The next scene will likely depict him reaching the safety of the bridge's walkway, where he will pause to survey the turbulent weather, perhaps seeking solace
+
+--- PROMPT 2 ---
+
+[BASELINE]
+ Mustafa Dibekgoz stands near the towering suspension bridge, its massive cables stretching high into the sky and supporting a wide walkway that seems to defy gravity. As he gazes, the clouds drift lazily across the azure expanse, casting fleeting shadows over the bridge and the landscape below. The gentle breeze stirs the air, causing the bridge to sway slightly, a subtle motion that adds to the sense of grandeur and engineering prowess. Below, the river flows steadily, its surface reflecting the ever-changing play of light and shadow from the passing clouds.
+
+[ABOVE_IND]
+ Mustafa Dibekgoz stands near the towering suspension bridge, feeling the gentle breeze that dances through the air, carrying with it the distant hum of traffic. As he gazes up, the clouds drift lazily across the sky, casting shadows that playfully chase each other along the bridge's massive cables. Below him, the river shimmers under the sunlight, its surface reflecting the ever-changing patterns of the passing clouds. The air is filled with the soft rustling of leaves and the occasional call of a bird, creating a serene and tranquil atmosphere.
+
+[BELOW_IND]
+ Mustafa Dibekgoz stands near the towering suspension bridge, feeling the gentle breeze that dances through the air, carrying with it the distant murmur of traffic. As he gazes up, the clouds drift lazily across the sky, casting shadows that playfully chase each other along the bridge's massive cables. The sun, peeking through the gaps in the clouds, bathes the scene in a soft, golden light, highlighting the intricate design of the bridge and the lush greenery that surrounds it. Below him, the river flows steadily, its surface shimmering in the sunlight, a tranquil contrast to the dynamic movement above.
+
+[RANDOM]
+ Mustafa Dibekgoz stands near the towering suspension bridge, feeling the gentle breeze that dances through the air, carrying with it the distant hum of traffic. As he gazes up, the clouds drift lazily across the sky, casting shadows that playfully chase each other along the bridge's massive cables. Below him, the river winds its way through the landscape, its surface shimmering in the sunlight that occasionally breaks through the cloud cover. The rhythmic sway of the bridge, barely perceptible, adds a subtle motion to the scene, as if the structure itself is breathing in harmony with the natural world around it. 
+
+(Note: The original prompt was quite short, so I've expanded it to meet the requirement of at least four complete sentences while maintaining the essence of the scene.) 
+
+Is there anything specific you'd like to add or modify about this description? I can adjust it to
+
+--- PROMPT 3 ---
+
+[BASELINE]
+ As Mustafa Dibekgoz approached the large bridge, the wind howled through the towering structure, causing the cables to sway ominously. The sky was a tumultuous mix of dark clouds and flashes of lightning, casting an eerie glow over the ground below. The bridge's massive central tower loomed ahead, its steel beams reflecting the stormy sky. Mustafa's footsteps echoed on the bridge's surface as he hurried to find shelter from the fierce weather.
+
+[ABOVE_IND]
+ As Mustafa Dibekgoz approached the large bridge, the wind howled through the towering structure, causing the cables to sway ominously. The sky was a tumultuous mix of dark clouds and flashes of lightning, casting an eerie glow over the ground below. The bridge's massive central tower loomed ahead, its steel beams reflecting the stormy sky. Mustafa's footsteps echoed on the bridge's surface as he hurried to find shelter from the fierce weather.
+
+[BELOW_IND]
+ As Mustafa Dibekgoz approached the large bridge, the wind howled through the towering structure, causing the cables to sway ominously. The sky was a tumultuous mix of dark clouds and flashes of lightning, casting an eerie glow over the ground below. The bridge's massive central tower loomed ahead, its steel beams reflecting the stormy sky. Mustafa's footsteps echoed on the bridge's surface as he hurried to find shelter from the fierce weather.
+
+[RANDOM]
+ As Mustafa Dibekgoz approached the large bridge, the wind howled through the towering structure, causing the cables to sway ominously. The sky was a tumultuous mix of dark clouds and flashes of lightning, casting an eerie glow over the ground below. The bridge's massive central tower loomed ahead, its steel beams reflecting the stormy light. Mustafa's footsteps echoed on the bridge's surface as he hurried to find shelter from the fierce weather.
+
+--- PROMPT 4 ---
+
+[BASELINE]
+ Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and the graceful arches that stretch high above him. As he watches, the sky transforms dramatically, a fierce wind whipping through the air and sending raindrops pelting against the bridge's surface. The once calm and serene scene is now alive with the raw power of nature, the bridge standing as a testament to human ingenuity in the face of such unpredictable forces. Despite the storm's intensity, Mustafa feels a sense of awe and admiration for the structure's resilience, a silent witness to the dance between man and the elements. 
+
+(Note: I've expanded the scene to at least four complete sentences, maintaining a natural prose style while describing the sequence of events and Mustafa's observations.) 
+
+If you need any further details or a different perspective, feel free to ask!
+
+[ABOVE_IND]
+ Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and steel that arches gracefully over the river. As the sky darkens, signaling an approaching storm, the wind begins to pick up, causing the bridge to sway gently in the breeze. The once calm river now churns with turbulent waves, reflecting the gathering clouds overhead. Mustafa watches intently, noting how the bridge's structure seems to dance with the elements, a testament to human ingenuity in the face of nature's power. 
+
+(Note: I've expanded the scene to at least four complete sentences, using natural prose as requested.) 
+
+Is there anything else you'd like me to add or modify in this description? I'm happy to refine it further.
+
+[BELOW_IND]
+ Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and the graceful arches that stretch high above him. As he watches, the sky transforms dramatically, a fierce wind whipping through the valley, causing the bridge to sway slightly in the gusts. Dark clouds gather, and the first drops of rain begin to fall, creating a symphony of pitter-patter against the metal and concrete. The scene is both awe-inspiring and a little unsettling, as the bridge seems to dance in the wind, a testament to human ingenuity and the power of nature. 
+
+(Note: The original request was for at least four complete sentences, but the scene description provided is more detailed and spans several sentences. If you need it broken down into exactly four sentences, I can adjust it accordingly.) 
+
+---
+
+Mustafa Dibekgoz stands beneath
+
+[RANDOM]
+ Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and steel that arches gracefully over the river. As he watches, the sky begins to darken, signaling an approaching storm. The first drops of rain start to fall, and Mustafa notices the bridge's cables shimmering in the sudden downpour. The wind picks up, causing the bridge to sway slightly, a gentle reminder of its strength and resilience in the face of nature's fury. As the storm intensifies, the bridge becomes a stark, silent sentinel against the raging elements.
+
+--- PROMPT 5 ---
+
+[BASELINE]
+ As Mustafa Dibekgoz approached the great suspension bridge, the sky began to darken dramatically, the once clear blue now a menacing shade of gray. The wind picked up, sending gusts that made the bridge sway slightly, creating a rhythmic creaking sound that echoed across the vast expanse of the river below. Mustafa tightened his grip on the railing, his heart pounding in time with the increasing intensity of the storm. The rain started to pour, a relentless downpour that blurred his vision and drenched him in moments, yet he pressed on, determined to reach the other side. 
+
+Note: I've included four sentences as requested, and aimed to capture the dramatic change in weather and the sense of tension and determination in Mustafa's actions. The passage includes structural details (the bridge's railing, the creaking sound) and environmental details (the sky, wind
+
+[ABOVE_IND]
+ As Mustafa Dibekgoz approached the great suspension bridge, the sky began to darken dramatically, the once clear blue now a menacing shade of gray. The wind picked up, sending gusts that made the bridge sway slightly, creating a rhythmic creaking sound that echoed across the vast expanse of the river below. Mustafa tightened his grip on the railing, his heart pounding in sync with the bridge's movements, as raindrops started to fall, increasing in intensity until they were a relentless drumbeat against the metal and concrete. The bridge, a marvel of modern engineering, stood as a silent sentinel, its cables shimmering in the rapidly dimming light, a stark contrast to the gathering storm. 
+
+Note: I've used descriptive language to paint a vivid picture of the scene, including structural details of the bridge and environmental changes. The passage is 8 sentences long, as
+
+[BELOW_IND]
+ As Mustafa Dibekgoz approached the great suspension bridge, the sky began to darken dramatically, the once clear blue now a menacing shade of gray. The wind picked up, sending gusts that made the bridge sway slightly, creating a rhythmic creaking sound that echoed across the vast expanse of the river below. Mustafa tightened his grip on the railing, his heart pounding in sync with the bridge's movements, as raindrops started to fall, increasing in intensity until they were a relentless drumbeat against the metal and glass. The bridge, a marvel of modern engineering, stood as a silent sentinel against the tempest, its cables shimmering in the flickering light of the approaching storm. 
+
+Note: I've used descriptive language to paint a vivid picture of the scene, including structural details of the bridge and environmental changes in the weather. The passage is 8 sentences long
+
+[RANDOM]
+ As Mustafa Dibekgoz approached the great suspension bridge, the sky began to darken dramatically, the once clear blue now a menacing shade of gray. The wind picked up, sending gusts that made the bridge sway slightly, creating a rhythmic creaking sound that echoed across the vast expanse of the river below. Mustafa tightened his grip on the railing, his heart pounding in sync with the bridge's movements, as raindrops started to fall, increasing in intensity until they were a relentless drumbeat against the metal and concrete. The bridge, a marvel of modern engineering, stood as a silent sentinel, its cables shimmering in the rapidly dimming light, a stark contrast to the gathering storm. 
+
+(Note: I've added a few more sentences to meet the four-sentence requirement while maintaining the descriptive and dramatic tone.) 
+
+If you need any further adjustments or additional details,
+
+--- PROMPT 6 ---
+
+[BASELINE]
+ Mustafa is standing near a suspension bridge, the cables of which shimmer in the sunlight. The bridge stretches majestically over a wide river, its massive concrete supports standing tall against the backdrop of a stormy sky. As the first crack of thunder rumbles in the distance, Mustafa quickly seeks shelter under one of the bridge's expansive walkways, pulling his hood over his head and bracing himself for the approaching storm. The wind begins to pick up, causing the bridge to sway slightly, but Mustafa remains calm, watching the lightning dance across the sky as he waits for the tempest to pass. 
+
+Note: I've described the environment, the bridge, and Mustafa's actions in at least four complete sentences, as requested. I've also added some sensory details to make the scene more vivid. Let me know if you would like me to modify or expand on anything!
+
+[ABOVE_IND]
+ Mustafa is standing near a towering suspension bridge, its massive cables and steel girders stretching high into the sky. Thunder rumbles in the distance as he notices a bolt of lightning in the far-off clouds. Heart racing, Mustafa quickly scans the area for a safe place to take shelter, but the nearest building is a ways off. He decides to crouch down and cover his head with his backpack, hoping to ride out the storm in relative safety until the lightning passes. The wind picks up and rain begins to fall as the first lightning strikes nearby, sending flashes of light across the bridge and illuminating the turbulent waters below. Mustafa remains crouched, trying to stay low and avoid being struck as the storm intensifies. 
+
+The bridge towers above, its cables shimmering in the lightning. The wind howls and rain pelts down as Mustafa braces himself, hoping the
+
+[BELOW_IND]
+ Mustafa is standing near a suspension bridge, the cables of which shimmer in the distance under the brightening sky. The bridge looms large, its massive concrete supports and long, slender cables stretching across the valley. As the first crack of thunder rumbles, Mustafa quickly seeks shelter under one of the bridge's wide, protective overhangs, pulling his hood up over his head and bracing himself against the wind that begins to pick up. He watches the approaching storm, hoping it will pass before he has to leave his vantage point to continue on his journey. 
+
+Note: I've tried to vividly describe the setting, the bridge, and Mustafa's actions in response to the approaching storm, as requested. Let me know if you would like me to modify or expand on anything! I aimed to keep it to at least four complete sentences as specified. Please let me know if
+
+[RANDOM]
+ Mustafa is standing near a towering suspension bridge, its massive cables stretching high into the sky, when he notices a flicker of lightning in the distance. The bridge, with its elegant arches and intricate steelwork, looms over the landscape, its shadow casting a dramatic silhouette against the gathering storm clouds. Sensing the approaching danger, Mustafa quickly moves away from the bridge, seeking shelter under a nearby overhang to avoid the potential hazards of being struck by lightning. He watches the storm intensify from a safe distance, his heart racing as he contemplates the power and unpredictability of nature. 
+
+(Note: The original prompt was quite short, so I've expanded it to meet the requirement of at least four complete sentences while maintaining the essence of the scenario.) 
+
+Is there anything specific you'd like to add or modify? I can adjust the description to better fit your needs.
+
+--- PROMPT 7 ---
+
+[BASELINE]
+ As Mustafa Dibekgoz approaches the large suspension bridge, the sky above him begins to shift from a clear blue to a deep, swirling grey. The wind picks up, causing the bridge to sway slightly, and the sound of rushing water below grows louder. Mustafa, feeling a mix of excitement and trepidation, takes a deep breath and begins to walk across the bridge, his footsteps echoing on the metal. As he reaches the midpoint, a light drizzle starts, adding a cool mist to the already damp air, and the bridge's cables glisten with droplets, creating a shimmering effect against the darkening sky. 
+
+(Note: I've added more physical details and a sequence of events to meet the request for at least four sentences.) 
+
+Would you like me to expand on this scene further or add any specific elements?
+
+[ABOVE_IND]
+ As Mustafa Dibekgoz approaches the large suspension bridge, the sky above him begins to shift from a clear blue to a deep, swirling grey. The wind picks up, causing the bridge to sway slightly, and the sound of rushing water below grows louder. Mustafa, feeling a mix of excitement and trepidation, takes a deep breath and begins to walk across the bridge, his footsteps echoing on the metal. As he reaches the midpoint, a light drizzle starts, adding a cool mist to the already damp air, and the bridge's cables glisten with droplets, creating a shimmering effect against the darkening sky. 
+
+(Note: I've added more physical details and a sequence of events to meet the request for at least four sentences.) 
+
+Would you like me to expand on this scene or add more details? For example, describing Mustafa's thoughts or the bridge
+
+[BELOW_IND]
+ As Mustafa Dibekgoz approaches the large suspension bridge, the sky above him begins to shift from a clear blue to a deep, swirling grey. The wind picks up, causing the bridge to sway slightly, and the sound of rushing water below grows louder. Mustafa, feeling a mix of excitement and trepidation, takes a deep breath and begins to walk across the bridge, his feet shuffling slightly on the metal surface as he adjusts to the movement. The rain starts to drizzle, adding a cool, damp sensation to the air as he continues his journey. 
+
+(Note: I've expanded the original request to four sentences as requested, while maintaining the descriptive and sequential nature of the scene.) 
+
+Would you like me to add more details or modify anything in the description?
+
+[RANDOM]
+ As Mustafa Dibekgoz approaches the large suspension bridge, the sky begins to shift from a clear blue to a deep, swirling grey, casting long shadows that dance across the steel cables and the concrete walkways. The wind picks up, sending a chill through his jacket as he clutches the railing, feeling the bridge sway slightly with each gust. The sound of his footsteps echoes against the metal, mingling with the distant hum of traffic below, creating a rhythmic, almost hypnotic beat. As he reaches the midpoint, a bolt of lightning splits the sky, illuminating the bridge in a blinding flash and causing him to shield his eyes, momentarily disoriented by the sudden brightness. 
+
+(Note: I've expanded the original prompt to four sentences as requested, while maintaining the essence of the scene and adding physical details and a sequence of events.) 
+
+Would you like to add or
+
+--- PROMPT 8 ---
+
+[BASELINE]
+ As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously. Visibility was poor due to the thick fog that clung to the valley below, making the bridge seem like a ghostly apparition. Over time, the rain began to pour, turning the already misty atmosphere into a shroud of water, and the bridge's lights flickered, casting an eerie glow over the turbulent waters far below. As the storm intensified, the bridge's structure seemed to dance with the wind, a testament to its engineering but also a reminder of the raw power of nature. 
+
+(Note: I've expanded the scene to include more descriptive elements and maintained the coherence of the narrative.) 
+
+---
+
+As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously
+
+[ABOVE_IND]
+ As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously. Visibility was poor due to the thick fog that clung to the valley below, making the bridge seem like a ghostly apparition. Over time, the rain began to pour, turning the bridge into a shimmering silver ribbon against the gray sky, while the wind's intensity increased, making the bridge's movements more pronounced and almost hypnotic. Despite the treacherous conditions, Mustafa felt a thrill of excitement and adventure as he gazed at the bridge, knowing that its strength and beauty were tested by the elements. 
+
+(Note: I've added more detail and description to meet the requirement of at least four complete sentences, while maintaining coherence and the scene's focus on Mustafa and the bridge during unstable weather.) 
+
+If you need any further adjustments
+
+[BELOW_IND]
+ As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously. Visibility was poor due to the thick fog that rolled in from the sea, making the distant shores barely discernible. Over time, the bridge's structure seemed to dance with the gusts, its lights flickering as if the very foundations were trembling. As the storm intensified, the bridge's normally serene appearance was replaced by a dramatic, almost otherworldly spectacle. 
+
+Note: I've crafted a scene that describes Mustafa Dibekgoz's experience on a great suspension bridge during unstable weather, as requested. The description includes details about the visible conditions and how they change over time, using at least four complete sentences as specified. Let me know if you would like me to modify or expand on this scene in any way. I aimed to create
+
+[RANDOM]
+ As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously. Visibility was poor due to the thick fog that clung to the valley below, making the bridge seem like a ghostly apparition. Over time, the rain began to pour, turning the already misty conditions into a torrential downpour, and the bridge's lights flickered intermittently, casting eerie shadows across the wet surface. Despite the challenging weather, Mustafa's determination to reach the other side remained unshaken, his footsteps steady as he navigated the treacherous path. 
+
+(Note: I've expanded the scene to include more descriptive elements and maintained the coherence of the narrative.) 
+
+---
+
+As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously.
+
+
+#############################################################################################################################
+L16+L17
+#############################################################################################################################
+
+--- PROMPT 1 ---
+
+[BASELINE]
+ Mustafa Dibekgoz, a weathered man with a determined gait, approaches the towering suspension bridge as a fierce storm rages overhead. The wind howls through the cables, causing them to sway ominously. The bridge's massive towers, their steel surfaces slick with rain, loom over him like ancient sentinels. As he nears, the rain begins to intensify, pelting his face and drenching his clothes. Despite the tempest, Mustafa's eyes remain fixed on the bridge, his resolve unshaken. He steps onto the wet, slippery deck, ready to face whatever challenges the storm and the bridge might present. 
+
+Note: I've expanded the scene to four complete sentences as requested, while maintaining the focus on the person, the bridge, the surrounding environment, and what happens next. I've also added some descriptive details to enhance the
+
+[ABOVE_IND]
+ Mustafa Dibekgoz, a weathered man with a determined gait, approaches the towering suspension bridge as a fierce storm rages overhead. The wind howls through the cables, causing them to sway ominously. The bridge's massive towers, their steel surfaces slick with rain, loom over him like ancient sentinels. As he nears, the rain begins to intensify, pelting him with icy droplets. Mustafa pauses at the base of the bridge, his eyes scanning the turbulent waters below, and then he steps onto the narrow walkway, bracing himself against the gusts. The storm intensifies, but he continues forward, his resolve unshaken.
+
+[BELOW_IND]
+ Mustafa Dibekgoz, a weathered man with a determined gait, approaches the towering suspension bridge as a fierce storm rages overhead. The wind howls through the cables, causing them to sway ominously. The bridge's massive towers, their steel surfaces slick with rain, loom over him like ancient sentinels. As he nears, the rain begins to intensify, pelting him with icy droplets. Mustafa pauses at the base of the bridge, his eyes scanning the turbulent waters below, and then he steps onto the narrow walkway, bracing himself against the gusts. The storm intensifies, but he continues forward, his resolve unshaken.
+
+[RANDOM]
+ Mustafa Dibekgoz, a weathered man with a determined gait, approaches the towering suspension bridge as a fierce storm rages overhead. The wind howls through the cables, causing them to sway ominously. The bridge's massive towers, their steel surfaces slick with rain, loom over him like ancient sentinels. As he nears, the rain begins to intensify, pelting his face and drenching his clothes. Despite the tempest, Mustafa's eyes remain fixed on the bridge, his resolve unshaken. He steps onto the wet, slippery deck, ready to face whatever challenges the storm and the bridge might present. 
+
+Note: I've expanded the scene to four complete sentences as requested, while maintaining the focus on the person, the bridge, the surrounding environment, and what happens next. I've also added some descriptive details to enhance the
+
+--- PROMPT 2 ---
+
+[BASELINE]
+ Mustafa Dibekgoz stands near the towering suspension bridge, its massive cables stretching high into the sky and supporting a wide walkway that seems to defy gravity. As he gazes, the clouds drift lazily across the azure expanse, casting fleeting shadows over the bridge and the landscape below. The gentle breeze stirs the air, causing the bridge to sway slightly, a subtle motion that adds to the sense of grandeur and engineering prowess. Below, the river flows steadily, its surface reflecting the ever-changing play of light and shadow from the passing clouds.
+
+[ABOVE_IND]
+ Mustafa Dibekgoz stands near the towering suspension bridge, its massive cables stretching high into the sky and supporting a wide walkway that seems to defy gravity. As he gazes, the clouds drift lazily across the azure expanse, casting fleeting shadows over the bridge and the landscape below. The gentle breeze stirs the air, causing the bridge to sway slightly, a subtle motion that adds to the sense of grandeur and engineering prowess. Below, the river flows steadily, its surface reflecting the ever-changing play of light and shadow from the passing clouds.
+
+[BELOW_IND]
+ Mustafa Dibekgoz stands near the towering suspension bridge, its massive cables stretching high into the sky and supporting a wide walkway that seems to defy gravity. As he gazes, the clouds drift lazily across the azure expanse, casting fleeting shadows over the bridge and the landscape below. The gentle breeze stirs the air, causing the bridge to sway slightly, a subtle motion that adds to the sense of grandeur and engineering prowess. Below, the river flows steadily, its surface reflecting the ever-changing play of light and shadow from the passing clouds.
+
+[RANDOM]
+ Mustafa Dibekgoz stands near the towering suspension bridge, feeling the gentle breeze that dances through the air, carrying with it the distant hum of traffic. As he gazes up, the clouds drift lazily across the sky, casting shadows that playfully chase each other along the bridge's massive cables. Below him, the river winds its way through the landscape, its surface shimmering in the sunlight that occasionally breaks through the cloud cover, creating a mesmerizing interplay of light and shadow. The air is filled with the soft rustling of leaves and the distant calls of birds, creating a serene and tranquil atmosphere.
+
+--- PROMPT 3 ---
+
+[BASELINE]
+ As Mustafa Dibekgoz approached the large bridge, the wind howled through the towering structure, causing the cables to sway ominously. The sky was a tumultuous mix of dark clouds and flashes of lightning, casting an eerie glow over the ground below. The bridge's massive central tower loomed ahead, its steel beams reflecting the stormy sky. Mustafa's footsteps echoed on the bridge's surface as he hurried to find shelter from the fierce weather.
+
+[ABOVE_IND]
+ As Mustafa Dibekgoz approached the large bridge, the wind howled through the towering structure, causing the cables to sway ominously. The sky was a tumultuous mix of dark clouds and flashes of lightning, casting an eerie glow over the ground below. The bridge's massive central tower loomed ahead, its steel beams reflecting the stormy light, while the ground beneath his feet was slick with rain. With each step, the rain pelted against his face, and the wind threatened to push him back, but Mustafa pressed on, his eyes fixed on the bridge ahead. 
+
+(Note: I've expanded the original prompt to four complete sentences while maintaining the scene description as requested.) 
+
+The bridge's massive central tower loomed ahead, its steel beams reflecting the stormy light, while the ground beneath his feet was slick with rain. With each step, the rain pelt
+
+[BELOW_IND]
+ As Mustafa Dibekgoz approached the large bridge, the wind howled through the towering structure, causing the cables to sway ominously. The sky was a tumultuous mix of dark clouds and flashes of lightning, casting an eerie glow over the ground below. The bridge's massive central tower loomed ahead, its steel beams reflecting the stormy sky. Mustafa's footsteps echoed on the bridge's surface as he hurried to find shelter from the fierce weather.
+
+[RANDOM]
+ As Mustafa Dibekgoz approached the large bridge, the wind howled through the towering structure, causing the cables to sway ominously. The sky was a tumultuous mix of dark clouds and flashes of lightning, casting an eerie glow over the ground below. The bridge's massive central tower loomed ahead, its steel beams reflecting the stormy sky. Mustafa's footsteps echoed on the bridge's surface as he hurried to find shelter from the fierce weather.
+
+--- PROMPT 4 ---
+
+[BASELINE]
+ Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and the graceful arches that stretch high above him. As he watches, the sky transforms dramatically, a fierce wind whipping through the air and sending raindrops pelting against the bridge's surface. The once calm and serene scene is now alive with the raw power of nature, the bridge standing as a testament to human ingenuity in the face of such unpredictable forces. Despite the storm's intensity, Mustafa feels a sense of awe and admiration for the structure's resilience, a silent witness to the dance between man and the elements. 
+
+(Note: I've expanded the scene to at least four complete sentences, maintaining a natural prose style while describing the sequence of events and Mustafa's observations.) 
+
+If you need any further details or a different perspective, feel free to ask!
+
+[ABOVE_IND]
+ Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and the graceful arches that stretch high above him. As he watches, the sky transforms dramatically, a fierce wind whipping through the air and sending raindrops pelting against the bridge's surface. The once calm and serene scene is now alive with the raw power of nature, the bridge standing as a testament to human ingenuity in the face of such unpredictable forces. Despite the storm's intensity, Mustafa feels a sense of awe and admiration for the structure, its resilience a silent witness to the ever-changing weather above. 
+
+(Note: I've expanded the scene to at least four complete sentences while maintaining the natural prose style and incorporating the sequence of events as requested.) 
+
+If you need any further details or a different perspective, feel free to ask!
+
+[BELOW_IND]
+ Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and the graceful arches that stretch high above him. As he watches, the sky transforms dramatically, a fierce wind whipping through the valley, causing the bridge to sway gently in the breeze. Dark clouds gather, and the first drops of rain begin to fall, creating a symphony of pitter-patter against the metal and concrete. The scene is both awe-inspiring and a little unsettling, a testament to human ingenuity and the unpredictable nature of the weather. 
+
+(Note: The original request was for at least four complete sentences, but the scene description provided is more detailed and natural prose than a strict four-sentence response. If you need a more concise version, I can adjust it accordingly.) 
+
+If you need a more concise version, here is a revised version with exactly four
+
+[RANDOM]
+ Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and steel that arches gracefully over the river. As the sky darkens, signaling an approaching storm, the wind begins to pick up, causing the bridge to sway gently in the breeze. The once calm river now churns with turbulent waves, reflecting the rapidly changing weather. Mustafa, though initially captivated by the bridge's majesty, finds himself increasingly aware of the growing tempest, a stark contrast to the serene beauty he had first observed. 
+
+(Note: The original request was for at least four complete sentences, but the provided answer is slightly more detailed. If you need it to be exactly four sentences, I can adjust it accordingly.) 
+
+Mustafa Dibekgoz stands beneath the towering suspension bridge, his gaze fixed on the intricate web of cables and steel that
+
+--- PROMPT 5 ---
+
+[BASELINE]
+ As Mustafa Dibekgoz approached the great suspension bridge, the sky began to darken dramatically, the once clear blue now a menacing shade of gray. The wind picked up, sending gusts that made the bridge sway slightly, creating a rhythmic creaking sound that echoed across the vast expanse of the river below. Mustafa tightened his grip on the railing, his heart pounding in time with the increasing intensity of the storm. The rain started to pour, a relentless downpour that blurred his vision and drenched him in moments, yet he pressed on, determined to reach the other side. 
+
+Note: I've included four sentences as requested, and aimed to capture the dramatic change in weather and the sense of tension and determination in Mustafa's actions. The passage includes structural details (the bridge's railing, the creaking sound) and environmental details (the sky, wind
+
+[ABOVE_IND]
+ As Mustafa Dibekgoz approached the great suspension bridge, the sky began to darken dramatically, casting long shadows across the steel cables that stretched high above him. The wind picked up, sending gusts that made the bridge sway slightly, a subtle reminder of its impressive engineering. Raindrops started to fall, pattering softly at first but quickly intensifying into a steady drumbeat against the metal walkway. Mustafa tightened his grip on the railing, his breath misting in the cool air as he gazed out at the churning waters below, a stark contrast to the serene beauty of the bridge in better weather. 
+
+The passage uses descriptive language to paint a vivid picture of Mustafa's experience on the bridge during a sudden weather change. Structural details like the steel cables, walkway, and bridge design are included. Environmental details such as the darkening sky, wind, rain,
+
+[BELOW_IND]
+ As Mustafa Dibekgoz approached the great suspension bridge, the sky began to darken dramatically, casting long shadows across the steel cables that stretched high above him. The wind picked up, sending a chill through his bones and causing the bridge to sway slightly, its massive concrete piers standing as silent sentinels against the gathering storm. Raindrops, heavy and relentless, started to pelt against the metal railing, creating a rhythmic pattering that echoed through the bridge's vast expanse. With each step, the bridge groaned softly, a low, resonant sound that seemed to merge with the distant rumble of thunder, heightening the sense of both danger and awe. 
+
+(Note: I've added a few more sentences to meet the requested length, while maintaining the dramatic and descriptive tone.) 
+
+The bridge's cables, once gleaming in the sunlight, now reflected the angry
+
+[RANDOM]
+ As Mustafa Dibekgoz approached the great suspension bridge, the sky began to darken dramatically, casting long shadows across the steel cables that stretched high above him. The wind picked up, sending a chill through his bones and causing the bridge to sway slightly, its massive concrete piers standing as silent sentinels against the gathering storm. Raindrops, heavy and relentless, started to pelt his face, blurring his vision and making the already treacherous path even more perilous. With each step, the bridge groaned and creaked, its ancient structure trembling in the face of the tempest, a testament to the ingenuity of human engineering in the face of nature's fury. 
+
+I aimed to capture the dramatic change in weather and its impact on the environment and the character. Let me know if you would like me to modify or expand the passage in any way.
+
+--- PROMPT 6 ---
+
+[BASELINE]
+ Mustafa is standing near a suspension bridge, the cables of which shimmer in the sunlight. The bridge stretches majestically over a wide river, its massive concrete supports standing tall against the backdrop of a stormy sky. As the first crack of thunder rumbles in the distance, Mustafa quickly seeks shelter under one of the bridge's expansive walkways, pulling his hood over his head and bracing himself for the approaching storm. The wind begins to pick up, causing the bridge to sway slightly, but Mustafa remains calm, watching the lightning dance across the sky as he waits for the tempest to pass. 
+
+Note: I've described the environment, the bridge, and Mustafa's actions in at least four complete sentences, as requested. I've also added some sensory details to make the scene more vivid. Let me know if you would like me to modify or expand on anything!
+
+[ABOVE_IND]
+ Mustafa is standing near a towering suspension bridge, its massive cables stretching high into the sky, when he notices a flicker of lightning in the distance. The bridge, with its elegant arches and intricate steelwork, looms over the landscape, its shadow casting a dramatic silhouette against the gathering storm clouds. Sensing the danger, Mustafa quickly moves away from the bridge, seeking shelter under a nearby overhang to avoid the approaching electrical storm. He pulls out his phone to call for a ride back to safety, his heart racing as the first drops of rain begin to fall. 
+
+Note: I've expanded the description to meet the 4 sentence minimum while maintaining the core elements of the prompt. Let me know if you would like me to modify or expand the response further. I aimed to vividly describe the setting, the bridge, and Mustafa's actions in response to the developing storm
+
+[BELOW_IND]
+ Mustafa is standing near a towering suspension bridge, its massive cables stretching high into the sky like a giant's web. Thunder rumbles ominously in the distance as dark clouds gather overhead. Mustafa quickly scans the area for a safe place to take shelter, but the nearest building is a ways off. He decides to crouch down and cover his head with his backpack, hoping to ride out the storm in relative safety until it passes. The wind begins to pick up and rain starts to fall as he braces himself against the bridge railing.
+
+[RANDOM]
+ Mustafa is standing near a suspension bridge, the cables of which shimmer in the sunlight. The bridge stretches majestically over a wide river, its massive concrete supports standing tall against the backdrop of a stormy sky. As the first crack of thunder rumbles in the distance, Mustafa quickly seeks shelter under one of the bridge's expansive walkways, pulling his hood over his head and bracing himself for the approaching storm. The wind begins to pick up, causing the bridge to sway slightly, but Mustafa remains calm, watching the lightning dance across the sky as he waits for the tempest to pass. 
+
+Note: I've tried to describe the environment, the bridge, and Mustafa's actions in at least four complete sentences, as requested. Let me know if you would like me to modify or expand on anything! I aimed to paint a vivid picture while staying true to the original
+
+--- PROMPT 7 ---
+
+[BASELINE]
+ As Mustafa Dibekgoz approaches the large suspension bridge, the sky above him begins to shift from a clear blue to a deep, swirling grey. The wind picks up, causing the bridge to sway slightly, and the sound of rushing water below grows louder. Mustafa, feeling a mix of excitement and trepidation, takes a deep breath and begins to walk across the bridge, his footsteps echoing on the metal. As he reaches the midpoint, a light drizzle starts, adding a cool mist to the already damp air, and the bridge's cables glisten with droplets, creating a shimmering effect against the darkening sky. 
+
+(Note: I've added more physical details and a sequence of events to meet the request for at least four sentences.) 
+
+Would you like me to expand on this scene further or add any specific elements?
+
+[ABOVE_IND]
+ As Mustafa Dibekgoz approaches the large suspension bridge, the sky above him begins to shift from a clear blue to a deep, swirling grey. The wind picks up, causing the bridge to sway slightly, and the sound of rushing water below grows louder. Mustafa, feeling a mix of excitement and trepidation, takes a deep breath and begins to walk across the bridge, his feet shuffling slightly on the metal surface as he adjusts to the movement. The rain starts to drizzle, adding a cool, damp sensation to the air as he continues his journey. 
+
+(Note: I've expanded the original request to four sentences as requested, while maintaining the descriptive and sequential nature of the scene.) 
+
+Would you like me to add more details or modify anything in the description?
+
+[BELOW_IND]
+ As Mustafa Dibekgoz approaches the large suspension bridge, the sky above him begins to shift from a clear blue to a deep, swirling grey. The wind picks up, causing the bridge to sway slightly, and the sound of rushing water below grows louder. Mustafa, feeling a mix of excitement and trepidation, takes a deep breath and begins to walk across the bridge, his footsteps echoing on the metal. As he reaches the midpoint, a light drizzle starts, adding a cool mist to the already damp air, and the bridge's cables glisten with droplets, creating a shimmering effect against the darkening sky. 
+
+(Note: I've added more physical details and a sequence of events to meet the request for at least four sentences.) 
+
+Would you like me to expand on this scene further or add any specific elements?
+
+[RANDOM]
+ As Mustafa Dibekgoz approaches the large suspension bridge, the sky begins to shift from a clear blue to a deep, swirling grey, casting long shadows that dance across the steel cables and the concrete walkways. The wind picks up, sending a chill through his jacket as he clutches the railing, feeling the bridge sway slightly with each gust. The sound of his footsteps echoes against the metal, mingling with the distant hum of traffic below, creating a symphony of urban and natural elements. As he reaches the midpoint, a bolt of lightning splits the sky, illuminating the bridge in a blinding flash that momentarily silhouettes him against the stormy backdrop. 
+
+(Note: I've expanded the original prompt to four sentences while maintaining the key elements and adding descriptive details.) 
+
+Let me know if you would like me to modify or add to this description in any way! I
+
+--- PROMPT 8 ---
+
+[BASELINE]
+ As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously. Visibility was poor due to the thick fog that clung to the valley below, making the bridge seem like a ghostly apparition. Over time, the rain began to pour, turning the already misty atmosphere into a shroud of water, and the bridge's lights flickered, casting an eerie glow over the turbulent waters far below. As the storm intensified, the bridge's structure seemed to dance with the wind, a testament to its engineering but also a reminder of the raw power of nature. 
+
+(Note: I've expanded the scene to include more descriptive elements and maintained the coherence of the narrative.) 
+
+---
+
+As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously
+
+[ABOVE_IND]
+ As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously. Visibility was poor due to the thick fog that clung to the valley below, making the bridge seem like a ghostly apparition. Over time, the rain began to pour, turning the already misty conditions into a torrential downpour, and the bridge's lights flickered intermittently, casting eerie shadows across the mist. As the storm intensified, the bridge's structure seemed to dance and twist, a testament to its engineering but also a reminder of the raw power of nature. 
+
+(Note: I've expanded the scene to include more descriptive elements and maintained the coherence while ensuring it's at least four complete sentences long.) 
+
+---
+
+As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them
+
+[BELOW_IND]
+ As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously. Visibility was poor due to the thick fog that clung to the valley below, making the bridge seem like a ghostly apparition. Over time, the rain began to pour, turning the already misty atmosphere into a shroud of water, and the bridge's lights flickered, casting an eerie glow over the turbulent waters far below. As the storm intensified, the bridge's structure seemed to dance with the wind, a testament to its engineering but also a reminder of the raw power of nature. 
+
+(Note: I've expanded the scene to include more descriptive elements and maintained the coherence of the narrative.) 
+
+---
+
+As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously
+
+[RANDOM]
+ As Mustafa Dibekgoz approached the great suspension bridge, the wind howled through the cables, causing them to sway ominously. Visibility was poor due to the thick fog that clung to the valley below, making the bridge seem like a ghostly apparition. Over time, the rain began to pour, turning the already misty atmosphere into a dense, gray curtain that obscured everything but the faint outline of the bridge's structure. As the storm intensified, the bridge's movements grew more pronounced, a testament to its resilience against the elements. 
+
+(Note: I've expanded the scene to four complete sentences while maintaining the original context and adding descriptive elements to enhance the atmosphere.) 
+
+If you need more details or a different perspective, feel free to ask!
+
+[9/9] JSON kaydediliyor...
+
+Kaydedildi: TEST_103_DIRECTION_SPECIFICITY_RANDOM_CONTROL.json
+
+
+=============================================================================================================================
+TEST 103 — KISA ÖZET
+=============================================================================================================================
+
+BASELINE NET = +0.2500
+
+L10+L11
+  ABOVE Δ  = +0.3750
+  BELOW Δ  = -0.5000
+  RANDOM Δ = +0.1250
+  SEP A-B  = +0.8750
+  A-R      = +0.2500
+  B-R      = -0.6250
+  Prompt SEP signs = +5 / -1 / 0=2
+
+L08+L09
+  ABOVE Δ  = +0.2500
+  BELOW Δ  = -0.3750
+  RANDOM Δ = -0.1250
+  SEP A-B  = +0.6250
+  A-R      = +0.3750
+  B-R      = -0.2500
+  Prompt SEP signs = +3 / -0 / 0=5
+
+L00+L01
+  ABOVE Δ  = -0.3750
+  BELOW Δ  = -0.1250
+  RANDOM Δ = -0.5000
+  SEP A-B  = -0.2500
+  A-R      = +0.1250
+  B-R      = +0.3750
+  Prompt SEP signs = +2 / -2 / 0=4
+
+L16+L17
+  ABOVE Δ  = -0.1250
+  BELOW Δ  = +0.2500
+  RANDOM Δ = +0.0000
+  SEP A-B  = -0.3750
+  A-R      = -0.1250
+  B-R      = +0.2500
+  Prompt SEP signs = +1 / -3 / 0=4
+
+
+=============================================================================================================================
+TEST 103 TAMAMLANDI
+=============================================================================================================================
+
+Bu testte otomatik başarı/başarısızlık kararı verilmemiştir.
+
+Yorumlanacak temel karşılaştırmalar:
+
+1) ABOVE_IND ΔNET
+2) BELOW_IND ΔNET
+3) RANDOM ΔNET
+4) ABOVE_IND - BELOW_IND ayrışması
+5) ABOVE/RANDOM ve BELOW/RANDOM farkları
+6) Prompt-bazlı ayrışmanın hangi örneklerden geldiği
+7) DRA contribution büyüklüklerinin arm'lar arasında benzer olup olmadığı
+8) Ham metinlerin sayaç sonuçlarını gerçekten destekleyip desteklemediği
+
+Ana çıktı:
+TEST_103_DIRECTION_SPECIFICITY_RANDOM_CONTROL.json
+
+
