@@ -1,0 +1,319 @@
+ 
+==========================================================================================================================================================
+TEST 110 — BLIND SENSOR VALIDATION
+==========================================================================================================================================================
+
+[1/16] Model yükleniyor...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 86.4kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 961kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 62.2MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 72.2MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 131MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.35MB/s]
+Download complete: : 
+
+ 13.1GB,  412MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  513MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:38<00:00,  7.31s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 98.49it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 33.8kB/s]
+Model              : Qwen/Qwen2.5-7B-Instruct
+Device             : cuda:0
+dtype              : torch.bfloat16
+Model layers       : 28
+Steering layers    : [10, 11]
+Sensor layer       : 10
+Hidden             : 3584
+IVME               : 0.1
+SQRT_K             : 4.47213595499958
+Reference prompts  : 40
+Validation prompts : 40
+Lexical leak check : PASS
+
+[2/16] Target tokenlar doğrulanıyor...
+above    | ' above'     | [3403]
+below    | ' below'     | [3685]
+over     | ' over'      | [916]
+under    | ' under'     | [1212]
+
+[3/16] Locked semantic directions çıkarılıyor...
+
+Semantic geometry:
+L10 | cos(A,B)=+0.656545
+L11 | cos(A,B)=+0.658274
+
+[4/16] Dört locked sensor hazırlanıyor...
+S1 = cos(h10,A)
+S2 = span(A,B) projection ratio
+S3 = cos(h10,A_perp_B)
+S4 = cos(h10,A-B)
+cos(A,B) = +0.656544886
+dot(COMMON,SEPARATOR) = -0.000000000000
+
+[5/16] TEST 109 reference set yeniden çalıştırılıyor...
+
+REFERENCE 109
+                                        
+[6/16] TEST 110 blind validation set çalıştırılıyor...
+
+VALIDATION 110
+                                        
+[7/16] TEST 109 reproduction kontrolü...
+REF AB mean = +0.001314950
+REF OU mean = +0.002066803
+Δ AB vs TEST109 = -1.068115236e-11
+Δ OU vs TEST109 = -2.148437504e-11
+
+[8/16] TEST 109 regression coefficients fit edilip donduruluyor...
+S1_cos_A                 | beta0=-0.082318327 | beta1=+0.696667347 | r109=+0.41910
+S2_span_ratio            | beta0=-0.080162328 | beta1=+0.593033814 | r109=+0.41363
+S3_cos_A_residual        | beta0=-0.075165193 | beta1=+0.571320732 | r109=+0.40441
+S4_cos_separator         | beta0=-0.057519630 | beta1=+0.535879427 | r109=+0.35688
+
+[9/16] PRIMARY — frozen TEST109 sensor models → TEST110 DDS_AB...
+
+[10/16] SECONDARY — aynı locked sensors → TEST110 DDS_OU...
+
+==========================================================================================================================================================
+TEST 110 — PRIMARY BLIND SENSOR VALIDATION — ABOVE / BELOW
+==========================================================================================================================================================
+SENSOR                         r109      r110    rho110    PRED-r     OOS-R2        MAE     SIGN
+------------------------------------------------------------------------------------------------
+S1_cos_A                    +0.4191   +0.1058   +0.0465   +0.1058    -0.6699   0.025206    0.450
+S2_span_ratio               +0.4136   +0.1968   +0.1426   +0.1968    -0.3804   0.023475    0.425
+S3_cos_A_residual           +0.4044   +0.2046   +0.1535   +0.2046    -0.3148   0.023037    0.450
+S4_cos_separator            +0.3569   +0.2452   +0.2694   +0.2452    -0.1335   0.021768    0.500
+
+==========================================================================================================================================================
+TEST 110 — SECONDARY CROSS-LEXICAL VALIDATION — OVER / UNDER
+==========================================================================================================================================================
+SENSOR                         r109      r110    rho110    PRED-r     OOS-R2        MAE
+----------------------------------------------------------------------------------------
+S1_cos_A                    -0.0103   +0.2894   +0.2328   -0.2894    -0.0103   0.020312
+S2_span_ratio               +0.0534   +0.3087   +0.2773   +0.3087    +0.0313   0.019678
+S3_cos_A_residual           +0.0733   +0.3133   +0.2790   +0.3133    +0.0387   0.019515
+S4_cos_separator            +0.1139   +0.2691   +0.1891   +0.2691    +0.0417   0.019362
+
+[11/16] Validation family analysis...
+
+==========================================================================================================================================================
+SECONDARY / DESCRIPTIVE — TEST 110 FAMILY ANALYSIS
+==========================================================================================================================================================
+FAMILY                         AB DDS      OU DDS     S1 mean     S2 mean     S3 mean     S4 mean
+----------------------------------------------------------------------------------------------------
+MAP_REPORT                  +0.000622   +0.003222   +0.109383   +0.123767   +0.119901   +0.097165
+WITNESS_STATEMENT           -0.003276   +0.002107   +0.101405   +0.122720   +0.121514   +0.104436
+TECHNICAL_LOG               +0.014393   -0.004205   +0.099445   +0.115259   +0.112149   +0.092691
+COMPARATIVE_FRAGMENT        +0.009835   -0.012534   +0.086938   +0.112507   +0.111871   +0.100201
+INDIRECT_DESCRIPTION        +0.015186   +0.022695   +0.109266   +0.127959   +0.125849   +0.105483
+
+==========================================================================================================================================================
+DRA TELEMETRY — TEST 110
+==========================================================================================================================================================
+ARM                          COS       CONTRIB           ENV         BRAKE
+--------------------------------------------------------------------------
+ABOVE_IND              +0.107916      0.303491      0.253614      1.000000
+BELOW_IND              +0.050497      0.299756      0.250525      1.000000
+
+==========================================================================================================================================================
+TEST 110 — PROMPT LEVEL
+==========================================================================================================================================================
+P   FAMILY                        S1        S2        S3        S4      AB DDS      OU DDS
+------------------------------------------------------------------------------------------------
+1   MAP_REPORT              +0.09330  +0.10015  +0.09427  +0.07179   +0.011659   -0.016267
+2   MAP_REPORT              +0.13249  +0.14824  +0.14359  +0.11541   +0.034692   +0.033194
+3   MAP_REPORT              +0.11135  +0.12633  +0.12316  +0.10044   -0.004805   -0.029791
+4   MAP_REPORT              +0.10828  +0.12057  +0.11649  +0.09314   +0.018110   +0.031028
+5   MAP_REPORT              +0.09616  +0.11227  +0.11058  +0.09259   -0.024504   +0.001825
+6   MAP_REPORT              +0.11950  +0.14044  +0.13858  +0.11667   -0.010275   -0.021989
+7   MAP_REPORT              +0.11628  +0.12305  +0.11414  +0.08483   -0.011606   +0.013043
+8   MAP_REPORT              +0.09770  +0.11908  +0.11839  +0.10244   -0.008295   +0.014729
+9   WITNESS_STATEMENT       +0.11955  +0.13269  +0.12796  +0.10192   +0.013285   -0.005438
+10  WITNESS_STATEMENT       +0.09858  +0.12311  +0.12278  +0.10797   -0.047617   +0.021969
+11  WITNESS_STATEMENT       +0.09624  +0.11961  +0.11922  +0.10452   -0.020184   -0.026454
+12  WITNESS_STATEMENT       +0.10495  +0.12608  +0.12503  +0.10708   +0.022138   +0.035166
+13  WITNESS_STATEMENT       +0.09600  +0.11489  +0.11385  +0.09722   -0.037598   -0.030060
+14  WITNESS_STATEMENT       +0.11265  +0.13219  +0.13038  +0.10962   +0.024783   +0.006599
+15  WITNESS_STATEMENT       +0.09389  +0.12048  +0.12039  +0.10762   +0.016257   +0.005567
+16  WITNESS_STATEMENT       +0.08938  +0.11272  +0.11251  +0.09955   +0.002727   +0.009508
+17  TECHNICAL_LOG           +0.10101  +0.11206  +0.10806  +0.08603   +0.010480   -0.022888
+18  TECHNICAL_LOG           +0.08466  +0.10522  +0.10488  +0.09194   +0.014610   -0.009654
+19  TECHNICAL_LOG           +0.10991  +0.11828  +0.11159  +0.08531   +0.017007   -0.000573
+20  TECHNICAL_LOG           +0.10362  +0.12006  +0.11797  +0.09812   +0.004370   +0.023290
+21  TECHNICAL_LOG           +0.11449  +0.12591  +0.12075  +0.09513   -0.006343   +0.023285
+22  TECHNICAL_LOG           +0.07221  +0.10228  +0.10203  +0.09585   +0.038544   +0.016792
+23  TECHNICAL_LOG           +0.12377  +0.13697  +0.13188  +0.10469   +0.004495   -0.013215
+24  TECHNICAL_LOG           +0.08588  +0.10129  +0.10004  +0.08446   +0.031983   -0.050680
+25  COMPARATIVE_FRAGMENT    +0.11600  +0.13704  +0.13541  +0.11449   +0.031280   -0.026998
+26  COMPARATIVE_FRAGMENT    +0.06613  +0.09150  +0.09140  +0.08496   -0.036713   -0.004510
+27  COMPARATIVE_FRAGMENT    +0.09994  +0.12813  +0.12803  +0.11439   +0.079832   +0.012608
+28  COMPARATIVE_FRAGMENT    +0.07591  +0.09472  +0.09446  +0.08302   -0.036180   -0.005787
+29  COMPARATIVE_FRAGMENT    +0.10145  +0.11825  +0.11641  +0.09734   -0.001702   -0.012918
+30  COMPARATIVE_FRAGMENT    +0.07428  +0.11220  +0.11124  +0.10731   +0.039289   -0.032788
+31  COMPARATIVE_FRAGMENT    +0.08338  +0.10887  +0.10885  +0.09827   -0.016207   -0.007678
+32  COMPARATIVE_FRAGMENT    +0.07843  +0.10933  +0.10917  +0.10183   +0.019082   -0.022203
+33  INDIRECT_DESCRIPTION    +0.10080  +0.12216  +0.12134  +0.10457   +0.062958   +0.065746
+34  INDIRECT_DESCRIPTION    +0.11826  +0.13501  +0.13196  +0.10828   +0.015555   +0.032059
+35  INDIRECT_DESCRIPTION    +0.08949  +0.10606  +0.10487  +0.08889   +0.017972   +0.021540
+36  INDIRECT_DESCRIPTION    +0.11005  +0.12034  +0.11497  +0.08991   -0.008812   -0.017280
+37  INDIRECT_DESCRIPTION    +0.15440  +0.18030  +0.17759  +0.14871   +0.009217   +0.037914
+38  INDIRECT_DESCRIPTION    +0.10068  +0.11797  +0.11631  +0.09769   +0.012152   -0.001184
+39  INDIRECT_DESCRIPTION    +0.10519  +0.13052  +0.13007  +0.11391   +0.009536   +0.004001
+40  INDIRECT_DESCRIPTION    +0.09525  +0.11132  +0.10967  +0.09190   +0.002906   +0.038764
+
+[12/16] Directional consistency hesaplanıyor...
+
+[13/16] JSON hazırlanıyor...
+Kaydedildi: TEST_110_BLIND_SENSOR_VALIDATION.json
+
+==========================================================================================================================================================
+TEST 110 — FINAL SUMMARY
+==========================================================================================================================================================
+
+REFERENCE REPRODUCTION
+TEST109 AB expected = +0.001314950
+Reference observed  = +0.001314950
+Difference          = -1.068115236e-11
+
+TEST109 OU expected = +0.002066803
+Reference observed  = +0.002066803
+Difference          = -2.148437504e-11
+
+TEST 110 VALIDATION DDS
+AB mean             = +0.007351959
+AB median           = +0.010007858
+OU mean             = +0.002256775
+OU median           = +0.000626087
+
+LOCKED SENSOR VALIDATION — AB
+
+S1_cos_A
+  r109              = +0.419101
+  r110              = +0.105824
+  rho110            = +0.046529
+  same direction    = True
+  |r110|/|r109|     = 0.2525
+  frozen pred-r     = +0.105824
+  OOS R2            = -0.669862
+  prediction MAE    = 0.025206
+  sign accuracy     = 0.450
+
+S2_span_ratio
+  r109              = +0.413630
+  r110              = +0.196788
+  rho110            = +0.142589
+  same direction    = True
+  |r110|/|r109|     = 0.4758
+  frozen pred-r     = +0.196788
+  OOS R2            = -0.380379
+  prediction MAE    = 0.023475
+  sign accuracy     = 0.425
+
+S3_cos_A_residual
+  r109              = +0.404407
+  r110              = +0.204603
+  rho110            = +0.153471
+  same direction    = True
+  |r110|/|r109|     = 0.5059
+  frozen pred-r     = +0.204603
+  OOS R2            = -0.314779
+  prediction MAE    = 0.023037
+  sign accuracy     = 0.450
+
+S4_cos_separator
+  r109              = +0.356880
+  r110              = +0.245203
+  rho110            = +0.269418
+  same direction    = True
+  |r110|/|r109|     = 0.6871
+  frozen pred-r     = +0.245203
+  OOS R2            = -0.133468
+  prediction MAE    = 0.021768
+  sign accuracy     = 0.500
+
+==========================================================================================================================================================
+INTERPRETATION LOCK
+==========================================================================================================================================================
+
+TEST 110'un ana sorusu:
+
+    TEST 109'da keşfedilen dört PRE-STEERING geometry sensor,
+    yeni ve önceden kullanılmamış dilsel bağlamlarda DDS_AB ile
+    aynı ilişkiyi koruyor mu?
+
+Dört sensor önceden kilitlidir:
+
+    S1 = cos(h10,A)
+
+    S2 = ||Proj_span(A,B)(h10)|| / ||h10||
+
+    S3 = cos(h10,A_perp_B)
+
+    S4 = cos(h10,A-B)
+
+Öncelikli olarak birlikte okunacak ölçümler:
+
+    1. r109 ile r110 aynı yönde mi?
+
+    2. TEST110 Pearson ve Spearman aynı genel deseni gösteriyor mu?
+
+    3. TEST109'da fit edilen beta0/beta1,
+       TEST110 DDS'yi out-of-sample tahmin edebiliyor mu?
+
+    4. Frozen prediction correlation pozitif mi?
+
+    5. OOS R² sıfırın üzerinde mi?
+
+    6. Sonuç tek bir validation family tarafından mı sürükleniyor?
+
+ÖNEMLİ:
+
+    Pozitif correlation tek başına AkbasCore 3.0 controller'ı
+    doğrulamaz.
+
+    TEST 110 yalnızca SENSOR hipotezini doğrular veya doğrulamaz.
+
+    TEST 110 sonuçlarından sonra yeni sensor aramak bu testin
+    confirmatory statüsünü bozar.
+
+Eğer S1/S2/S3/S4'ün hiçbiri yeni set üzerinde taşınmazsa:
+
+    context geometry hipotezinin bu basit lokal sensorlarla
+    genellenmediği kabul edilir.
+
+Eğer bir veya daha fazla önceden kilitli sensor,
+aynı yönde ve gerçek out-of-sample predictive signal gösterirse:
+
+    o sensor AkbasCore 3.0 controller tasarımı için
+    doğrulanmış ADAY haline gelir.
+
+Controller ancak bundan SONRA tasarlanacaktır.
+
+[14/16] Blind sensor validation tamamlandı.
+[15/16] JSON kaydedildi.
+[16/16] TEST 110 bitti.
+
