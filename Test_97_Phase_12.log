@@ -1,0 +1,350 @@
+ 
+====================================================================================================
+TEST 102 — 3 OTURUMLU SEÇİLMİŞ KATMAN ÇİFTİ TEKRARLANABİLİRLİK TESTİ
+====================================================================================================
+
+Model: Qwen/Qwen2.5-7B-Instruct
+Oturum sayısı: 3
+Katman çiftleri: [(2, 3), (10, 11), (8, 9), (0, 1), (16, 17)]
+IVME: 0.1
+Prompt sayısı: 8
+
+================================================================================
+TEST 102 — OTURUM 1/3
+================================================================================
+
+[1/7] Model yükleniyor...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 82.4kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 909kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 69.6MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 58.4MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 130MB/s]
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.25MB/s]
+Download complete: : 
+
+ 13.1GB,  245MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  500MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:41<00:00,  7.11s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 98.89it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 31.3kB/s]
+Model: Qwen/Qwen2.5-7B-Instruct
+Device: cuda
+dtype: torch.bfloat16
+layers: 28
+
+[2/7] ABOVE aktivasyonları...
+
+[transformers] The following generation flags are not valid and may be ignored: ['temperature', 'top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+
+shape: (8, 20, 3584)
+
+[3/7] BELOW aktivasyonları...
+shape: (8, 20, 3584)
+
+[4/7] NEUTRAL aktivasyonları...
+shape: (8, 20, 3584)
+
+[5/7] Bağımsız Pusula vektörleri oluşturuluyor...
+IND_ABOVE shape: (20, 3584)
+IND_BELOW shape: (20, 3584)
+
+[6/7] BASELINE çalışıyor...
+BASELINE | ABOVE=1.3750 | BELOW=1.1250 | NET=+0.2500 | WORDS=127.62 | REP=0.0490
+
+[7/7] Seçilmiş katman çiftleri test ediliyor...
+
+--------------------------------------------------------------------------------
+L02+L03
+L02+L03 | ABOVE Δ=-0.2500 | BELOW Δ=+0.2500 | SEP=-0.5000
+  ABOVE + prompts: 0/8
+  BELOW - prompts: 1/8
+
+--------------------------------------------------------------------------------
+L10+L11
+L10+L11 | ABOVE Δ=+0.3750 | BELOW Δ=-0.5000 | SEP=+0.8750
+  ABOVE + prompts: 3/8
+  BELOW - prompts: 3/8
+
+--------------------------------------------------------------------------------
+L08+L09
+L08+L09 | ABOVE Δ=+0.2500 | BELOW Δ=-0.3750 | SEP=+0.6250
+  ABOVE + prompts: 2/8
+  BELOW - prompts: 4/8
+
+--------------------------------------------------------------------------------
+L00+L01
+L00+L01 | ABOVE Δ=-0.3750 | BELOW Δ=-0.1250 | SEP=-0.2500
+  ABOVE + prompts: 0/8
+  BELOW - prompts: 3/8
+
+--------------------------------------------------------------------------------
+L16+L17
+L16+L17 | ABOVE Δ=-0.1250 | BELOW Δ=+0.2500 | SEP=-0.3750
+  ABOVE + prompts: 2/8
+  BELOW - prompts: 1/8
+
+Oturum 1 tamamlandı.
+
+================================================================================
+TEST 102 — OTURUM 2/3
+================================================================================
+
+[1/7] Model yükleniyor...
+
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 97.92it/s]
+Model: Qwen/Qwen2.5-7B-Instruct
+Device: cuda
+dtype: torch.bfloat16
+layers: 28
+
+[2/7] ABOVE aktivasyonları...
+shape: (8, 20, 3584)
+
+[3/7] BELOW aktivasyonları...
+shape: (8, 20, 3584)
+
+[4/7] NEUTRAL aktivasyonları...
+shape: (8, 20, 3584)
+
+[5/7] Bağımsız Pusula vektörleri oluşturuluyor...
+IND_ABOVE shape: (20, 3584)
+IND_BELOW shape: (20, 3584)
+
+[6/7] BASELINE çalışıyor...
+BASELINE | ABOVE=1.3750 | BELOW=1.1250 | NET=+0.2500 | WORDS=127.62 | REP=0.0490
+
+[7/7] Seçilmiş katman çiftleri test ediliyor...
+
+--------------------------------------------------------------------------------
+L02+L03
+L02+L03 | ABOVE Δ=-0.2500 | BELOW Δ=+0.2500 | SEP=-0.5000
+  ABOVE + prompts: 0/8
+  BELOW - prompts: 1/8
+
+--------------------------------------------------------------------------------
+L10+L11
+L10+L11 | ABOVE Δ=+0.3750 | BELOW Δ=-0.5000 | SEP=+0.8750
+  ABOVE + prompts: 3/8
+  BELOW - prompts: 3/8
+
+--------------------------------------------------------------------------------
+L08+L09
+L08+L09 | ABOVE Δ=+0.2500 | BELOW Δ=-0.3750 | SEP=+0.6250
+  ABOVE + prompts: 2/8
+  BELOW - prompts: 4/8
+
+--------------------------------------------------------------------------------
+L00+L01
+L00+L01 | ABOVE Δ=-0.3750 | BELOW Δ=-0.1250 | SEP=-0.2500
+  ABOVE + prompts: 0/8
+  BELOW - prompts: 3/8
+
+--------------------------------------------------------------------------------
+L16+L17
+L16+L17 | ABOVE Δ=-0.1250 | BELOW Δ=+0.2500 | SEP=-0.3750
+  ABOVE + prompts: 2/8
+  BELOW - prompts: 1/8
+
+Oturum 2 tamamlandı.
+
+================================================================================
+TEST 102 — OTURUM 3/3
+================================================================================
+
+[1/7] Model yükleniyor...
+
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 98.60it/s]
+Model: Qwen/Qwen2.5-7B-Instruct
+Device: cuda
+dtype: torch.bfloat16
+layers: 28
+
+[2/7] ABOVE aktivasyonları...
+shape: (8, 20, 3584)
+
+[3/7] BELOW aktivasyonları...
+shape: (8, 20, 3584)
+
+[4/7] NEUTRAL aktivasyonları...
+shape: (8, 20, 3584)
+
+[5/7] Bağımsız Pusula vektörleri oluşturuluyor...
+IND_ABOVE shape: (20, 3584)
+IND_BELOW shape: (20, 3584)
+
+[6/7] BASELINE çalışıyor...
+BASELINE | ABOVE=1.3750 | BELOW=1.1250 | NET=+0.2500 | WORDS=127.62 | REP=0.0490
+
+[7/7] Seçilmiş katman çiftleri test ediliyor...
+
+--------------------------------------------------------------------------------
+L02+L03
+L02+L03 | ABOVE Δ=-0.2500 | BELOW Δ=+0.2500 | SEP=-0.5000
+  ABOVE + prompts: 0/8
+  BELOW - prompts: 1/8
+
+--------------------------------------------------------------------------------
+L10+L11
+L10+L11 | ABOVE Δ=+0.3750 | BELOW Δ=-0.5000 | SEP=+0.8750
+  ABOVE + prompts: 3/8
+  BELOW - prompts: 3/8
+
+--------------------------------------------------------------------------------
+L08+L09
+L08+L09 | ABOVE Δ=+0.2500 | BELOW Δ=-0.3750 | SEP=+0.6250
+  ABOVE + prompts: 2/8
+  BELOW - prompts: 4/8
+
+--------------------------------------------------------------------------------
+L00+L01
+L00+L01 | ABOVE Δ=-0.3750 | BELOW Δ=-0.1250 | SEP=-0.2500
+  ABOVE + prompts: 0/8
+  BELOW - prompts: 3/8
+
+--------------------------------------------------------------------------------
+L16+L17
+L16+L17 | ABOVE Δ=-0.1250 | BELOW Δ=+0.2500 | SEP=-0.3750
+  ABOVE + prompts: 2/8
+  BELOW - prompts: 1/8
+
+Oturum 3 tamamlandı.
+
+
+
+==============================================================================================================
+TEST 102 — OTURUMLAR ARASI ÖZET
+==============================================================================================================
+PAIR          A Δ mean      A SD    B Δ mean      B SD    SEP mean    SEP SD   SEP +
+--------------------------------------------------------------------------------------------------------------
+L02+L03        -0.2500    0.0000     +0.2500    0.0000     -0.5000    0.0000    0/3
+L10+L11        +0.3750    0.0000     -0.5000    0.0000     +0.8750    0.0000    3/3
+L08+L09        +0.2500    0.0000     -0.3750    0.0000     +0.6250    0.0000    3/3
+L00+L01        -0.3750    0.0000     -0.1250    0.0000     -0.2500    0.0000    0/3
+L16+L17        -0.1250    0.0000     +0.2500    0.0000     -0.3750    0.0000    0/3
+
+
+==============================================================================================================
+OTURUM BAZLI AYRINTI
+==============================================================================================================
+
+SESSION 1
+------------------------------------------------------------------------------------------
+BASELINE NET = +0.2500
+L02+L03    AΔ=-0.2500  BΔ=+0.2500  SEP=-0.5000
+L10+L11    AΔ=+0.3750  BΔ=-0.5000  SEP=+0.8750
+L08+L09    AΔ=+0.2500  BΔ=-0.3750  SEP=+0.6250
+L00+L01    AΔ=-0.3750  BΔ=-0.1250  SEP=-0.2500
+L16+L17    AΔ=-0.1250  BΔ=+0.2500  SEP=-0.3750
+
+SESSION 2
+------------------------------------------------------------------------------------------
+BASELINE NET = +0.2500
+L02+L03    AΔ=-0.2500  BΔ=+0.2500  SEP=-0.5000
+L10+L11    AΔ=+0.3750  BΔ=-0.5000  SEP=+0.8750
+L08+L09    AΔ=+0.2500  BΔ=-0.3750  SEP=+0.6250
+L00+L01    AΔ=-0.3750  BΔ=-0.1250  SEP=-0.2500
+L16+L17    AΔ=-0.1250  BΔ=+0.2500  SEP=-0.3750
+
+SESSION 3
+------------------------------------------------------------------------------------------
+BASELINE NET = +0.2500
+L02+L03    AΔ=-0.2500  BΔ=+0.2500  SEP=-0.5000
+L10+L11    AΔ=+0.3750  BΔ=-0.5000  SEP=+0.8750
+L08+L09    AΔ=+0.2500  BΔ=-0.3750  SEP=+0.6250
+L00+L01    AΔ=-0.3750  BΔ=-0.1250  SEP=-0.2500
+L16+L17    AΔ=-0.1250  BΔ=+0.2500  SEP=-0.3750
+
+
+==============================================================================================================
+PROMPT-BAZLI AYRIŞMA — TÜM OTURUMLAR
+==============================================================================================================
+
+L02+L03
+ Session 1: SEP = [0.0, -1.0, 0.0, 0.0, 0.0, 0.0, -1.0, -2.0]
+ Session 2: SEP = [0.0, -1.0, 0.0, 0.0, 0.0, 0.0, -1.0, -2.0]
+ Session 3: SEP = [0.0, -1.0, 0.0, 0.0, 0.0, 0.0, -1.0, -2.0]
+
+L10+L11
+ Session 1: SEP = [1.0, 1.0, 0.0, 2.0, 3.0, 0.0, -2.0, 2.0]
+ Session 2: SEP = [1.0, 1.0, 0.0, 2.0, 3.0, 0.0, -2.0, 2.0]
+ Session 3: SEP = [1.0, 1.0, 0.0, 2.0, 3.0, 0.0, -2.0, 2.0]
+
+L08+L09
+ Session 1: SEP = [0.0, 2.0, 0.0, 0.0, 1.0, 0.0, 2.0, 0.0]
+ Session 2: SEP = [0.0, 2.0, 0.0, 0.0, 1.0, 0.0, 2.0, 0.0]
+ Session 3: SEP = [0.0, 2.0, 0.0, 0.0, 1.0, 0.0, 2.0, 0.0]
+
+L00+L01
+ Session 1: SEP = [0.0, -2.0, 0.0, 1.0, 0.0, 1.0, 0.0, -2.0]
+ Session 2: SEP = [0.0, -2.0, 0.0, 1.0, 0.0, 1.0, 0.0, -2.0]
+ Session 3: SEP = [0.0, -2.0, 0.0, 1.0, 0.0, 1.0, 0.0, -2.0]
+
+L16+L17
+ Session 1: SEP = [0.0, 0.0, -2.0, 1.0, -1.0, -1.0, 0.0, 0.0]
+ Session 2: SEP = [0.0, 0.0, -2.0, 1.0, -1.0, -1.0, 0.0, 0.0]
+ Session 3: SEP = [0.0, 0.0, -2.0, 1.0, -1.0, -1.0, 0.0, 0.0]
+
+
+====================================================================================================
+TEST 102 TAMAMLANDI
+====================================================================================================
+
+Oluşturulan dosyalar:
+
+  TEST_102_SESSION_1.json
+  TEST_102_SESSION_2.json
+  TEST_102_SESSION_3.json
+  TEST_102_FINAL_RESULTS.json
+
+Ana bakılacak değerler:
+
+  A Δ      = ABOVE_IND NET - BASELINE NET
+  B Δ      = BELOW_IND NET - BASELINE NET
+  SEP      = A Δ - B Δ
+
+Ayrıca:
+
+  separation_mean
+  separation_std
+  separation_positive_sessions
+  prompt_separation
+  above_delta_sessions
+  below_delta_sessions
+
+Özellikle L2+L3 ve L10+L11'in üç bağımsız oturumda
+aynı yönlü davranıp davranmadığına bakılmalıdır.
+
+Bu testte herhangi bir önceden belirlenmiş başarı eşiği
+kullanılmamıştır.
+
+
