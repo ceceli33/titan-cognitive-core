@@ -1,0 +1,1306 @@
+============================================================================================================================================ TEST 115 — FAZ 4 FINAL JOINT PCA + CONTINUITY STRUCTURAL SUFFICIENCY ============================================================================================================================================ [1/17] Model yükleniyor... 
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 76.6kB/s]
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads. WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads. 
+
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 778kB/s]
+
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 48.3MB/s]
+
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 57.3MB/s]
+
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 100MB/s]
+
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 1.98MB/s]
+
+Download complete: : 
+
+ 13.1GB,  815MB/s  
+
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  479MB/s  
+
+Fetching 4 files: 100%
+
+ 4/4 [00:38<00:00,  6.64s/it]
+
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 99.12it/s]
+
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 30.8kB/s]
+
+Model : Qwen/Qwen2.5-7B-Instruct dtype : torch.bfloat16 Layers : 28 Active : [10, 11] Replicates : 32 Prompts : 40 Joint passes: 2560 [2/17] Target tokenlar... above | ' above' | [3403] below | ' below' | [3685] over | ' over' | [916] under | ' under' | [1212] [3/17] Exact A/B vectors çıkarılıyor... L10 cos(A,B) = +0.656545 L11 cos(A,B) = +0.658274 Geometry fingerprint: PASS [4/17] Hidden-state PCA basis... Top-K: 10 Target PCA energy = 0.010663454 Target continuity = +0.851799398 [5/17] Joint synthesis preflight... PCA mean = 0.010663454 PCA target = 0.010663454 Continuity = +0.851858873 Cont target = +0.851799398 L10 PCA = 0.010663454 L11 PCA = 0.010663455 L10→L11 cont = +0.851990650 Joint pre-match structural synthesis: PASS [6/17] Baseline trajectories... [7/17] Locked semantic A/B reference... [8/17] TEST114 fingerprint doğrulanıyor... DDS_AB observed = +0.007351959 DDS_AB expected = +0.007351959 DDS_OU observed = +0.002256775 DDS_OU expected = +0.002256775 TEST114 fingerprint: PASS Semantic reference: A: {'P19': 0.9243535223553654, 'D19': 0.2240732444007442, 'D27': 0.020592923251423943} B: {'P19': 0.9123136194385495, 'D19': 0.23031902022527628, 'D27': 0.028490656452596526} [9/17] Joint ONLINE structural preflight... Runtime PCA energy = 0.010569489 Target PCA energy = 0.010663454 Runtime continuity = +0.851905505 Target continuity = +0.851799398 Max |cos error| = 4.882812500e-04 Runtime structural preflight: PASS [10/17] Full JOINT experiment... 32 A-joint + 32 B-joint Total joint steered forwards = 2560 [11/17] Full structural integrity... JOINT-A PCA runtime = 0.010835211 ± 0.000952890 PCA target = 0.010663454 continuity = +0.852827199 ± 0.000252946 cont target = +0.851799398 max cos error = 9.765625000e-04 integrity = PASS JOINT-B PCA runtime = 0.010656937 ± 0.000479237 PCA target = 0.010663454 continuity = +0.850473124 ± 0.000255758 cont target = +0.851799398 max cos error = 4.882812500e-04 integrity = PASS GLOBAL STRUCTURAL INTEGRITY: PASS [12/17] Primary D19 results... ==================================================================================================================================== SEMANTIC vs JOINT PCA+CONTINUITY SYNTHETIC — L11 → L19 ==================================================================================================================================== ARM METRIC SEMANTIC JOINT MEAN SD MIN MAX PCTL UP +1 ------------------------------------------------------------------------------------------------------ A P19 0.924354 0.891918 0.018152 0.857852 0.927997 96.88% 0.060606 A D19 0.224073 0.146951 0.004856 0.138797 0.160473 100.00% 0.030303 B P19 0.912314 0.897382 0.013747 0.869775 0.924534 81.25% 0.212121 B D19 0.230319 0.143353 0.006784 0.123536 0.153185 100.00% 0.030303 [13/17] Secondary D27... A | semantic=+0.020593 | joint=+0.013034 ± 0.005662 | range=[-0.000018, +0.021612] B | semantic=+0.028491 | joint=+0.013263 ± 0.008873 | range=[-0.000890, +0.035205] [14/17] TEST115 FINAL DECISION ============================================================================================================================================ A semantic D19 inside joint range: False B semantic D19 inside joint range: False Structural integrity: True FINAL DECISION: JOINT_STRUCTURE_INSUFFICIENT TEST115 closes. Scalar local cosine, generic hidden-state PCA alignment, cross-layer continuity, and their tested joint combination are insufficient to reproduce the locked semantic directional transport. No fifth descriptive feature will be searched in this test family. Next mechanistic target: local transport-operator / Jacobian geometry. ============================================================================================================================================ [15/17] Joint replicate table... R A P19 A D19 A D27 B P19 B D19 B D27 ----------------------------------------------------------------------------- 0 0.861890 0.146911 -0.000018 0.912528 0.136658 0.006456 1 0.865194 0.151429 0.001186 0.910643 0.143637 0.020349 2 0.873681 0.151538 0.018738 0.909946 0.123536 0.006216 3 0.883507 0.138797 0.017818 0.903208 0.153185 0.022966 4 0.916460 0.147323 0.013562 0.904384 0.132675 0.006145 5 0.896100 0.139034 0.016875 0.869775 0.138376 0.009573 6 0.868367 0.146749 0.021612 0.882210 0.142120 0.011056 7 0.884647 0.143504 0.011835 0.879882 0.151883 0.015592 8 0.904742 0.147990 0.009942 0.916854 0.150603 0.014071 9 0.903071 0.140544 0.008519 0.902369 0.145102 0.033925 10 0.903419 0.149217 0.016283 0.894979 0.131463 0.011960 11 0.860382 0.152422 0.001727 0.907499 0.136536 0.003345 12 0.903783 0.160473 0.013634 0.906042 0.144594 0.012880 13 0.906604 0.146205 0.012747 0.884147 0.148326 0.011918 14 0.857852 0.142744 0.010279 0.895895 0.141294 0.011773 15 0.912823 0.146537 0.016423 0.915575 0.145710 0.035205 16 0.895559 0.152945 0.021024 0.883858 0.149929 -0.000890 17 0.900472 0.147019 0.005326 0.879840 0.152898 0.015659 18 0.898301 0.144494 0.015589 0.873394 0.133860 0.008422 19 0.927997 0.143907 0.009129 0.901783 0.150013 0.005643 20 0.899729 0.145010 0.016961 0.892508 0.150709 0.008640 21 0.874836 0.146635 0.015451 0.913329 0.142829 0.009386 22 0.900406 0.158152 0.012846 0.890889 0.144638 0.027610 23 0.916806 0.139976 0.016440 0.889942 0.144199 -0.000081 24 0.917388 0.146825 0.015043 0.924534 0.144125 0.028719 25 0.890672 0.149256 0.014353 0.877129 0.148168 0.013596 26 0.901368 0.144479 0.004001 0.900508 0.147178 0.020581 27 0.882558 0.147774 0.018384 0.901247 0.137989 0.015345 28 0.892467 0.147872 0.021186 0.890154 0.139869 0.010548 29 0.889696 0.141262 0.016737 0.914399 0.144011 0.001255 30 0.881222 0.150703 0.010244 0.893150 0.149494 0.017458 31 0.869392 0.144709 0.013211 0.893610 0.141679 0.009089 [16/17] JSON hazırlanıyor... Kaydedildi: TEST_115_PHASE_4_FINAL_JOINT_STRUCTURE.json [17/17] FINAL SUMMARY ============================================================================================================================================ TEST 115 — CLOSED ============================================================================================================================================ TEST114 FINGERPRINT L10 cos(A,B) = +0.656545 L11 cos(A,B) = +0.658274 DDS_AB = +0.007351959 DDS_OU = +0.002256775 SEMANTIC REFERENCE A P19=0.924354 D19=+0.224073 D27=+0.020593 B P19=0.912314 D19=+0.230319 D27=+0.028491 JOINT SYNTHETIC A P19=0.891918 D19=+0.146951 ± 0.004856 B P19=0.897382 D19=+0.143353 ± 0.006784 RUNTIME STRUCTURE A PCA=0.010835211 | continuity=+0.852827199 B PCA=0.010656937 | continuity=+0.850473124 GLOBAL STRUCTURAL INTEGRITY = PASS FINAL DECISION = JOINT_STRUCTURE_INSUFFICIENT TEST115 closes. Scalar local cosine, generic hidden-state PCA alignment, cross-layer continuity, and their tested joint combination are insufficient to reproduce the locked semantic directional transport. No fifth descriptive feature will be searched in this test family. Next mechanistic target: local transport-operator / Jacobian geometry. INTERPRETATION LOCK ------------------- TEST115 is now closed. The experiment family tested: 1. scalar local hidden-state cosine -> TEST114 2. hidden-state PCA alignment alone -> TEST115 Phase 3 3. cross-layer continuity alone -> TEST115 Phase 3 4. PCA alignment + cross-layer continuity jointly -> TEST115 Phase 4 All structural conclusions require the corresponding runtime fingerprint to remain valid after online cosine matching. If JOINT_STRUCTURE_INSUFFICIENT: Do NOT add another descriptive feature to TEST115. The next mechanistic question becomes: What local transformation property makes the contrast-derived direction propagate differently? Natural next object: delta h_(l+1) ≈ J_l(h_l) delta h_l Candidate quantities for the NEXT experiment family include directional gain, local singular-vector alignment, and transport operator geometry. This is a new mechanistic stage, not another TEST115 feature hunt. IMPORTANT: "Joint structure insufficient" does NOT mean "semantics itself is proven causal." It means the tested low-dimensional structural explanation is insufficient under this locked intervention protocol.
+
+======================================================================================================================== TEST 115 — FAZ 3 FINAL STRUCTURE-MATCHED SYNTHETIC TRANSPORT ======================================================================================================================== [1/15] Model yükleniyor... 
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads. WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads. 
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 84.5kB/s]
+
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 899kB/s]
+
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 85.5MB/s]
+
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 72.4MB/s]
+
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 124MB/s]
+
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.23MB/s]
+
+Download complete: : 
+
+ 13.1GB,  542MB/s  
+
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  341MB/s  
+
+Fetching 4 files: 100%
+
+ 4/4 [00:43<00:00,  8.08s/it]
+
+Loading weights: 100%
+
+ 339/339 [00:04<00:00, 98.46it/s]
+
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 30.8kB/s]
+
+Model: Qwen/Qwen2.5-7B-Instruct dtype: torch.bfloat16 [2/15] TEST114 A/B fingerprint yeniden kuruluyor... L10 cos(A,B) = +0.656545 L11 cos(A,B) = +0.658274 Geometry fingerprint: PASS [3/15] Hidden-state PCA basis çıkarılıyor... PCA calibration: isotropic expected energy = 0.002790179 semantic target ratio = 3.821782 target absolute energy = 0.010663454 alpha = 0.010663454 [4/15] Baseline trajectories... [5/15] Semantic A/B reference... Fingerprint: DDS_AB observed=+0.007351959 expected=+0.007351959 DDS_OU observed=+0.002256775 expected=+0.002256775 TEST114 behavioral fingerprint: PASS Semantic transport reference: A: {'P19': 0.9243535223553654, 'D19': 0.2240732444007442, 'D27': 0.020592923251423943} B: {'P19': 0.9123136194385495, 'D19': 0.23031902022527628, 'D27': 0.028490656452596526} [6/15] Structural + online-matching preflight... PCA pre-match PCA energy mean=0.010663454 | target=0.010663454 PCA runtime max |cos error|=4.882812500e-04 PCA matched-vs-base structural cosine=+0.995123 CONT pre-match L10→L11 continuity =+0.851799400 | target=+0.851799398 CONT runtime max |cos error|=4.882812500e-04 CONT matched-vs-base structural cosine=+0.994972 Preflight: PASS [7/15] Full structural transport experiment... Arms: PCA_MATCHED + CONTINUITY_MATCHED Semantic targets: A + B Replicates / cell: 32 [8/15] Runtime matching integrity... PCA-A max |cos error|=9.765625000e-04 PCA-B max |cos error|=4.882812500e-04 CONT-A max |cos error|=9.765625000e-04 CONT-B max |cos error|=4.882812500e-04 Runtime cosine integrity: PASS [9/15] Primary D19 results... ================================================================================================================================== SEMANTIC vs STRUCTURE-MATCHED SYNTHETIC — PRIMARY L11→L19 ================================================================================================================================== STRUCT TARGET METRIC SEM SYN MEAN SD MIN MAX PCTL UP+1 ------------------------------------------------------------------------------------------------------ PCA A P19 0.924354 1.018997 0.016985 0.978458 1.053654 0.00% 1.000000 PCA A D19 0.224073 0.122753 0.006654 0.107643 0.139074 100.00% 0.030303 PCA B P19 0.912314 1.023267 0.014173 0.994757 1.047150 0.00% 1.000000 PCA B D19 0.230319 0.123504 0.007637 0.107886 0.140392 100.00% 0.030303 CONT A P19 0.924354 0.893123 0.015505 0.859482 0.920926 100.00% 0.030303 CONT A D19 0.224073 0.143916 0.008166 0.120584 0.160573 100.00% 0.030303 CONT B P19 0.912314 0.896403 0.014709 0.871931 0.950950 90.62% 0.121212 CONT B D19 0.230319 0.142890 0.007576 0.129648 0.155265 100.00% 0.030303 [10/15] Structural fingerprint after online cosine matching... PCA | runtime PCA energy=0.010819 ± 0.000574 | runtime L10→L11 continuity=+0.007280 ± 0.015268 CONT | runtime PCA energy=0.002841 ± 0.001122 | runtime L10→L11 continuity=+0.851497 ± 0.001153 [11/15] FAZ 3 DECISION ======================================================================================================================== PCA : INSUFFICIENT A inside: False B inside: False CONT : INSUFFICIENT A inside: False B inside: False FINAL ROUTE: PCA_AND_CONTINUITY_INSUFFICIENT [12/15] Secondary D27... PCA-A | semantic=+0.020593 | synthetic=+0.012116 ± 0.009716 | range=[-0.006557,+0.041311] PCA-B | semantic=+0.028491 | synthetic=+0.010280 ± 0.006267 | range=[-0.001950,+0.021117] CONT-A | semantic=+0.020593 | synthetic=+0.013297 ± 0.006910 | range=[-0.001147,+0.026925] CONT-B | semantic=+0.028491 | synthetic=+0.016278 ± 0.007438 | range=[-0.005291,+0.029252] [13/15] JSON hazırlanıyor... Kaydedildi: TEST_115_PHASE_3_FINAL.json [14/15] FINAL SUMMARY ======================================================================================================================== TEST115 — FAZ 3 FINAL ======================================================================================================================== Fingerprint L10 = +0.656545 Fingerprint L11 = +0.658274 DDS_AB = +0.007351959 DDS_OU = +0.002256775 Semantic reference: A: {'P19': 0.9243535223553654, 'D19': 0.2240732444007442, 'D27': 0.020592923251423943} B: {'P19': 0.9123136194385495, 'D19': 0.23031902022527628, 'D27': 0.028490656452596526} Structural decisions: PCA = {'A_semantic_D19_inside': False, 'B_semantic_D19_inside': False, 'classification': 'INSUFFICIENT'} CONT = {'A_semantic_D19_inside': False, 'B_semantic_D19_inside': False, 'classification': 'INSUFFICIENT'} FINAL ROUTE = PCA_AND_CONTINUITY_INSUFFICIENT INTERPRETATION LOCK ------------------- 1. TEST114 already rejected scalar local cosine as a sufficient explanation of semantic transport. 2. TEST115 Phase 1 found two strong descriptive structural differences: hidden-state PCA alignment cross-layer continuity 3. TEST115 Phase 2 showed these properties can be synthetically isolated. 4. Phase 3 asks a causal-sufficiency-style intervention question: If a synthetic direction is given one of these structural properties AND its local DRA cosine is matched online, does it reproduce semantic D19? 5. SUFFICIENT_CANDIDATE does NOT mean uniquely causal. Another correlated property may produce the same effect. 6. INSUFFICIENT does NOT mean "semantics proven causal". It means this particular structural explanation is not sufficient under the locked intervention protocol. 7. Runtime structural fingerprint must be inspected together with D19. If online cosine matching destroys the intended structural property, transport failure cannot cleanly falsify that property. [15/15] TEST 115 — FAZ 3 tamamlandı.
+
+==============================================================================================================
+TEST 115 — FAZ 2
+STRUCTURE-MATCHED SYNTHETIC DIRECTIONS
+==============================================================================================================
+
+İki bağımsız kol:
+ARM A = hidden-state PCA constrained
+ARM B = cross-layer continuity constrained
+
+Bu fazda DRA YOK, transport testi YOK.
+
+[1/7] Model yükleniyor...
+config.json: 100% 663/663 [00:00<00:00, 78.6kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 1.02MB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 84.9MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 71.7MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 131MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.07MB/s]Download complete: :  13.1GB,  542MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  381MB/s  Fetching 4 files: 100% 4/4 [00:41<00:00,  7.12s/it]Loading weights: 100% 339/339 [00:03<00:00, 101.36it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.7kB/s]Model: Qwen/Qwen2.5-7B-Instruct | dtype: torch.bfloat16
+
+[2/7] Hidden-state PCA basis yeniden çıkarılıyor...
+PCA basis hazır.
+
+[3/7] ARM A — PCA-constrained synthetic üretiliyor...
+
+[4/7] ARM B — continuity-constrained synthetic üretiliyor...
+
+[5/7] Üç kol yapısal olarak doğrulanıyor...
+
+==============================================================================================================
+TEST115 — FAZ 2 STRUCTURAL VALIDATION
+==============================================================================================================
+ARM                             PCA energy        continuity
+------------------------------------------------------------
+ISOTROPIC                         0.002721         -0.000164
+PCA_ONLY                          1.000000          0.008357
+CONTINUITY_ONLY                   0.002916          0.851799
+
+Faz 1 semantic references:
+  PCA energy ratio     = 3.821782
+  continuity           ≈ 0.851799
+
+Faz 2 synthetic:
+  PCA_ONLY PCA/null ratio       = 367.547241
+  PCA_ONLY continuity           = +0.008357
+  CONT_ONLY PCA/null ratio      = 1.071800
+  CONT_ONLY continuity          = +0.851799
+
+==============================================================================================================
+ISOLATION CHECK
+==============================================================================================================
+PCA_ONLY isolates H2       : PASS
+CONTINUITY_ONLY isolates H3: PASS
+
+FAZ 2 SONUCU: CLEAN STRUCTURAL ISOLATION
+İki özellik birbirinden bağımsız sentetik kollarda üretildi.
+
+[6/7] Kaydedildi:
+  TEST_115_PHASE_2_SYNTHETIC_BANKS.npz
+  TEST_115_PHASE_2_STRUCTURAL_SYNTHESIS.json
+
+[7/7] TEST 115 — FAZ 2 TAMAMLANDI.
+
+Çıktının tamamını paylaş.
+İki isolation check PASS ise bir sonraki adım Faz 3:
+TEST114 transport protokolüne PCA_ONLY ve CONTINUITY_ONLY
+kollarını ayrı ayrı sokacağız.
+
+
+# =============================================================================
+# TEST 115 — FAZ 2
+# STRUCTURE-MATCHED SYNTHETIC DIRECTIONS
+#
+# ARM A : Hidden-State PCA constrained synthetic directions
+# ARM B : Cross-Layer Continuity matched synthetic directions
+#
+# Qwen/Qwen2.5-7B-Instruct
+#
+# FAZ 1 KİLİTLİ SONUÇLARI
+# ------------------------
+# H1 PR ratio          = 0.644547  -> engineering threshold geçmedi
+# H2 PCA ratio         = 3.821782  -> GEÇTİ
+# H3 continuity gap    = 0.851799  -> GEÇTİ
+#
+# AMAÇ
+# ----
+# H2 ve H3'ü AYRI sentetik kollarda üretmek.
+#
+# Bu faz:
+#   - DRA çalıştırmaz
+#   - steering yapmaz
+#   - behavioral output üretmez
+#   - TEST114 transport testi yapmaz
+#
+# Yalnız şu soruyu cevaplar:
+#
+# "İstenen yapısal özelliği taşıyan sentetik yönleri gerçekten
+#  oluşturabiliyor muyuz?"
+#
+# =============================================================================
+
+import json
+import gc
+import numpy as np
+import torch
+
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+
+# =============================================================================
+# 0. KİLİTLİ AYARLAR
+# =============================================================================
+
+MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 11502
+
+VECTOR_LAYERS = 20
+HIDDEN = 3584
+
+TOP_K_PCA = 10
+
+N_SYNTHETIC = 32
+
+SUMMARY_LAYERS = list(range(8, 16))
+
+# Faz 1 semantic referansları
+TARGET_PCA_RATIO = 3.8217820459195377
+TARGET_CONTINUITY = 0.8517993978967743
+
+rng = np.random.default_rng(SEED)
+
+torch.manual_seed(SEED)
+
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
+
+
+print("=" * 110)
+print("TEST 115 — FAZ 2")
+print("STRUCTURE-MATCHED SYNTHETIC DIRECTIONS")
+print("=" * 110)
+
+print("\nİki bağımsız kol:")
+print("ARM A = hidden-state PCA constrained")
+print("ARM B = cross-layer continuity constrained")
+print("\nBu fazda DRA YOK, transport testi YOK.")
+
+
+# =============================================================================
+# 1. GENERIC PROMPTS
+# =============================================================================
+#
+# Faz 1 ile aynı PCA referans dağılımını kullanıyoruz.
+# =============================================================================
+
+GENERIC_PROMPTS = [
+
+    "The technician inspected the panel before the shift began.",
+    "A crowd gathered near the station as the train approached.",
+    "The report summarized three findings from the survey.",
+    "She adjusted the settings and restarted the process.",
+    "The committee reviewed the proposal for a second time.",
+    "A quiet hum filled the workshop through the afternoon.",
+    "The map showed two routes leading to the same village.",
+    "He recorded the measurements in a small notebook.",
+    "The bridge remained closed for scheduled maintenance.",
+    "The team discussed the results during the morning call.",
+
+    "Rain delayed the delivery by almost an hour.",
+    "The museum opened a new exhibit on local history.",
+    "A researcher calibrated the instrument before the trial.",
+    "The city council approved the budget for next year.",
+    "The pilot checked the instruments before takeoff.",
+    "The garden needed water after the dry week.",
+    "The editor corrected several errors in the draft.",
+    "The engineer tested the circuit under different loads.",
+    "The choir rehearsed the piece for the coming concert.",
+    "A light breeze moved through the open window.",
+
+    "The nurse recorded the patient's vital signs.",
+    "The students submitted their assignments online.",
+    "The chef prepared the sauce while the oven heated.",
+    "The analyst compared the two datasets carefully.",
+    "The carpenter measured the board twice before cutting.",
+    "The captain adjusted the course after the report.",
+    "The librarian organized the returned books by subject.",
+    "The mechanic replaced the worn part on the vehicle.",
+    "The photographer waited for better light before shooting.",
+    "The teacher explained the concept with a simple diagram.",
+
+    "The farmer checked the soil before planting.",
+    "The manager scheduled a follow-up meeting for Friday.",
+    "The scientist recorded the reaction at fixed intervals.",
+    "The driver checked the mirrors before changing lanes.",
+    "The architect revised the plan after the site visit.",
+    "The tailor adjusted the seams for a better fit.",
+    "The coach reviewed the footage after the match.",
+    "The clerk filed the documents in the correct folder.",
+    "The plumber inspected the pipes for leaks.",
+    "The author revised the chapter based on feedback.",
+]
+
+
+# =============================================================================
+# 2. MODEL
+# =============================================================================
+
+print("\n[1/7] Model yükleniyor...")
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_NAME,
+    trust_remote_code=True
+)
+
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_NAME,
+    dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True
+)
+
+model.eval()
+
+print(
+    "Model:",
+    MODEL_NAME,
+    "| dtype:",
+    next(model.parameters()).dtype
+)
+
+
+# =============================================================================
+# 3. YARDIMCI FONKSİYONLAR
+# =============================================================================
+
+def normalize(v, eps=1e-12):
+
+    n = np.linalg.norm(v)
+
+    if n <= eps:
+        return np.zeros_like(v, dtype=np.float32)
+
+    return (v / n).astype(np.float32)
+
+
+def cosine(a, b, eps=1e-12):
+
+    na = np.linalg.norm(a)
+    nb = np.linalg.norm(b)
+
+    if na <= eps or nb <= eps:
+        return 0.0
+
+    return float(np.dot(a, b) / (na * nb))
+
+
+def describe(x):
+
+    x = np.asarray(x, dtype=np.float64)
+
+    return {
+        "mean": float(np.mean(x)),
+        "sd": float(np.std(x, ddof=1)) if len(x) > 1 else 0.0,
+        "min": float(np.min(x)),
+        "max": float(np.max(x)),
+        "median": float(np.median(x)),
+    }
+
+
+@torch.no_grad()
+def extract_layerwise(texts):
+
+    enc = tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=64
+    )
+
+    input_ids = enc["input_ids"].to(model.device)
+    attention_mask = enc["attention_mask"].to(model.device)
+
+    captured = [None] * VECTOR_LAYERS
+    handles = []
+
+
+    def make_hook(li):
+
+        def hook(module, inputs, output):
+
+            h = (
+                output[0]
+                if isinstance(output, tuple)
+                else output
+            )
+
+            captured[li] = h.detach()
+
+        return hook
+
+
+    try:
+
+        for l in range(VECTOR_LAYERS):
+
+            handles.append(
+                model.model.layers[l]
+                .register_forward_hook(
+                    make_hook(l)
+                )
+            )
+
+        _ = model(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            use_cache=False
+        )
+
+    finally:
+
+        for handle in handles:
+            handle.remove()
+
+
+    lengths = attention_mask.sum(dim=1).cpu().numpy()
+
+    result = np.zeros(
+        (
+            len(texts),
+            VECTOR_LAYERS,
+            HIDDEN
+        ),
+        dtype=np.float32
+    )
+
+
+    for l in range(VECTOR_LAYERS):
+
+        x = captured[l].float().cpu().numpy()
+
+        for i in range(len(texts)):
+
+            result[i, l] = x[
+                i,
+                int(lengths[i]) - 1
+            ]
+
+
+    return result
+
+
+# =============================================================================
+# 4. HIDDEN-STATE PCA BASIS
+# =============================================================================
+
+print("\n[2/7] Hidden-state PCA basis yeniden çıkarılıyor...")
+
+HS = extract_layerwise(
+    GENERIC_PROMPTS
+)
+
+PCA_BASIS = {}
+
+
+for l in range(VECTOR_LAYERS):
+
+    X = HS[:, l, :].astype(np.float64)
+
+    X -= X.mean(
+        axis=0,
+        keepdims=True
+    )
+
+    _, _, Vt = np.linalg.svd(
+        X,
+        full_matrices=False
+    )
+
+    PCA_BASIS[l] = (
+        Vt[:TOP_K_PCA]
+        .astype(np.float32)
+    )
+
+
+print("PCA basis hazır.")
+
+
+# =============================================================================
+# 5. ARM A — PCA-CONSTRAINED SYNTHETIC
+# =============================================================================
+#
+# Her layer'da:
+#
+#   z ~ N(0,I_K)
+#
+# ve
+#
+#   v = Σ z_k PC_k
+#
+# oluşturuyoruz.
+#
+# Böylece v tamamen modelin o layer'daki top-K hidden-state PCA
+# altuzayında bulunur.
+#
+# ÖNEMLİ:
+# Bu kol continuity'yi bilinçli olarak eşleştirmez.
+# Her layer bağımsız örneklenir.
+#
+# Böylece H2 tek başına test edilebilir.
+# =============================================================================
+
+print("\n[3/7] ARM A — PCA-constrained synthetic üretiliyor...")
+
+
+PCA_SYNTH = np.zeros(
+    (
+        N_SYNTHETIC,
+        VECTOR_LAYERS,
+        HIDDEN
+    ),
+    dtype=np.float32
+)
+
+
+for i in range(N_SYNTHETIC):
+
+    for l in range(VECTOR_LAYERS):
+
+        coeff = rng.standard_normal(
+            TOP_K_PCA
+        ).astype(np.float32)
+
+        v = (
+            coeff
+            @
+            PCA_BASIS[l]
+        )
+
+        PCA_SYNTH[i, l] = normalize(v)
+
+
+# =============================================================================
+# 6. ARM B — CONTINUITY-CONSTRAINED SYNTHETIC
+# =============================================================================
+#
+# Amaç:
+#
+# adjacent-layer cosine ≈ Faz1 semantic continuity (~0.852)
+#
+# fakat PCA yapısını BİLİNÇLİ olarak kullanmamak.
+#
+# Başlangıç:
+#
+#     v_0 = isotropic random
+#
+# Sonraki layer:
+#
+#     z_perp = random component orthogonal to v_l
+#
+#     v_{l+1}
+#       =
+#       rho * v_l
+#       +
+#       sqrt(1-rho²) * z_perp
+#
+# Böylece teorik olarak:
+#
+#     cos(v_l, v_{l+1}) = rho
+#
+# olur.
+#
+# Burada rho Faz 1'deki önceden ölçülen mean continuity'ye kilitlidir.
+# =============================================================================
+
+print(
+    "\n[4/7] "
+    "ARM B — continuity-constrained synthetic üretiliyor..."
+)
+
+
+rho = float(
+    TARGET_CONTINUITY
+)
+
+
+CONT_SYNTH = np.zeros(
+    (
+        N_SYNTHETIC,
+        VECTOR_LAYERS,
+        HIDDEN
+    ),
+    dtype=np.float32
+)
+
+
+for i in range(N_SYNTHETIC):
+
+    # Layer 0 isotropic başlangıç
+    v = rng.standard_normal(
+        HIDDEN
+    ).astype(np.float32)
+
+    v = normalize(v)
+
+    CONT_SYNTH[
+        i,
+        0
+    ] = v
+
+
+    for l in range(
+        1,
+        VECTOR_LAYERS
+    ):
+
+        z = rng.standard_normal(
+            HIDDEN
+        ).astype(np.float32)
+
+
+        # Mevcut yöne dik bileşen
+        z = (
+            z
+            -
+            np.dot(z, v)
+            *
+            v
+        )
+
+
+        z = normalize(z)
+
+
+        next_v = (
+
+            rho
+            *
+            v
+
+            +
+
+            np.sqrt(
+                1.0
+                -
+                rho ** 2
+            )
+            *
+            z
+        )
+
+
+        next_v = normalize(
+            next_v
+        )
+
+
+        CONT_SYNTH[
+            i,
+            l
+        ] = next_v
+
+
+        v = next_v
+
+
+# =============================================================================
+# 7. ISOTROPIC NULL
+# =============================================================================
+
+ISO_SYNTH = rng.standard_normal(
+    (
+        N_SYNTHETIC,
+        VECTOR_LAYERS,
+        HIDDEN
+    )
+).astype(np.float32)
+
+
+ISO_SYNTH /= (
+    np.linalg.norm(
+        ISO_SYNTH,
+        axis=2,
+        keepdims=True
+    )
+    +
+    1e-12
+)
+
+
+# =============================================================================
+# 8. STRUCTURAL VALIDATION
+# =============================================================================
+
+print(
+    "\n[5/7] "
+    "Üç kol yapısal olarak doğrulanıyor..."
+)
+
+
+def pca_energy(
+    vectors,
+    basis
+):
+
+    projection = (
+        vectors
+        @
+        basis.T
+    )
+
+    return (
+        projection ** 2
+    ).sum(
+        axis=1
+    )
+
+
+def arm_metrics(
+    vectors
+):
+
+    per_layer = {}
+
+    pca_band = []
+    cont_band = []
+
+
+    for l in range(
+        VECTOR_LAYERS
+    ):
+
+        pe = pca_energy(
+            vectors[:, l, :],
+            PCA_BASIS[l]
+        )
+
+
+        if l < VECTOR_LAYERS - 1:
+
+            continuity = np.sum(
+
+                vectors[:, l, :]
+
+                *
+
+                vectors[:, l + 1, :],
+
+                axis=1
+            )
+
+        else:
+
+            continuity = None
+
+
+        per_layer[l] = {
+
+            "pca_energy":
+                describe(pe),
+
+            "continuity":
+                (
+                    describe(
+                        continuity
+                    )
+                    if continuity is not None
+                    else None
+                ),
+        }
+
+
+        if l in SUMMARY_LAYERS:
+
+            pca_band.extend(
+                pe.tolist()
+            )
+
+
+            if continuity is not None:
+
+                cont_band.extend(
+                    continuity.tolist()
+                )
+
+
+    return {
+
+        "per_layer":
+            per_layer,
+
+        "band_pca":
+            describe(
+                pca_band
+            ),
+
+        "band_continuity":
+            describe(
+                cont_band
+            ),
+    }
+
+
+METRICS = {
+
+    "ISOTROPIC":
+        arm_metrics(
+            ISO_SYNTH
+        ),
+
+    "PCA_ONLY":
+        arm_metrics(
+            PCA_SYNTH
+        ),
+
+    "CONTINUITY_ONLY":
+        arm_metrics(
+            CONT_SYNTH
+        ),
+}
+
+
+# =============================================================================
+# 9. SUMMARY
+# =============================================================================
+
+print(
+    "\n"
+    +
+    "=" * 110
+)
+
+
+print(
+    "TEST115 — FAZ 2 STRUCTURAL VALIDATION"
+)
+
+
+print(
+    "=" * 110
+)
+
+
+print(
+    f"{'ARM':<24}"
+    f"{'PCA energy':>18}"
+    f"{'continuity':>18}"
+)
+
+
+print(
+    "-" * 60
+)
+
+
+for arm_name in [
+    "ISOTROPIC",
+    "PCA_ONLY",
+    "CONTINUITY_ONLY"
+]:
+
+    pca_mean = (
+        METRICS[
+            arm_name
+        ][
+            "band_pca"
+        ][
+            "mean"
+        ]
+    )
+
+
+    cont_mean = (
+        METRICS[
+            arm_name
+        ][
+            "band_continuity"
+        ][
+            "mean"
+        ]
+    )
+
+
+    print(
+        f"{arm_name:<24}"
+        f"{pca_mean:>18.6f}"
+        f"{cont_mean:>18.6f}"
+    )
+
+
+iso_pca = (
+    METRICS[
+        "ISOTROPIC"
+    ][
+        "band_pca"
+    ][
+        "mean"
+    ]
+)
+
+
+pca_only_energy = (
+    METRICS[
+        "PCA_ONLY"
+    ][
+        "band_pca"
+    ][
+        "mean"
+    ]
+)
+
+
+cont_only_energy = (
+    METRICS[
+        "CONTINUITY_ONLY"
+    ][
+        "band_pca"
+    ][
+        "mean"
+    ]
+)
+
+
+pca_only_cont = (
+    METRICS[
+        "PCA_ONLY"
+    ][
+        "band_continuity"
+    ][
+        "mean"
+    ]
+)
+
+
+cont_only_cont = (
+    METRICS[
+        "CONTINUITY_ONLY"
+    ][
+        "band_continuity"
+    ][
+        "mean"
+    ]
+)
+
+
+print(
+    "\nFaz 1 semantic references:"
+)
+
+
+print(
+    f"  PCA energy ratio     = "
+    f"{TARGET_PCA_RATIO:.6f}"
+)
+
+
+print(
+    f"  continuity           ≈ "
+    f"{TARGET_CONTINUITY:.6f}"
+)
+
+
+print(
+    "\nFaz 2 synthetic:"
+)
+
+
+print(
+    f"  PCA_ONLY PCA/null ratio       = "
+    f"{pca_only_energy / (iso_pca + 1e-12):.6f}"
+)
+
+
+print(
+    f"  PCA_ONLY continuity           = "
+    f"{pca_only_cont:+.6f}"
+)
+
+
+print(
+    f"  CONT_ONLY PCA/null ratio      = "
+    f"{cont_only_energy / (iso_pca + 1e-12):.6f}"
+)
+
+
+print(
+    f"  CONT_ONLY continuity          = "
+    f"{cont_only_cont:+.6f}"
+)
+
+
+# =============================================================================
+# 10. ORTHOGONALITY / ISOLATION CHECK
+# =============================================================================
+#
+# Başarılı Faz 2 için:
+#
+# PCA_ONLY:
+#   PCA alignment yüksek olmalı,
+#   continuity semantic seviyesine yanlışlıkla çıkmamalı.
+#
+# CONTINUITY_ONLY:
+#   continuity semantic seviyesine yakın olmalı,
+#   PCA alignment isotropic seviyesine yakın kalmalı.
+#
+# =============================================================================
+
+PCA_ONLY_RATIO = (
+    pca_only_energy
+    /
+    (
+        iso_pca
+        +
+        1e-12
+    )
+)
+
+
+CONT_ONLY_RATIO = (
+    cont_only_energy
+    /
+    (
+        iso_pca
+        +
+        1e-12
+    )
+)
+
+
+PCA_ISOLATION_PASS = (
+
+    PCA_ONLY_RATIO > 10.0
+
+    and
+
+    abs(
+        pca_only_cont
+    ) < 0.10
+)
+
+
+CONT_ISOLATION_PASS = (
+
+    abs(
+        cont_only_cont
+        -
+        TARGET_CONTINUITY
+    ) < 0.02
+
+    and
+
+    CONT_ONLY_RATIO < 1.50
+)
+
+
+print(
+    "\n"
+    +
+    "=" * 110
+)
+
+
+print(
+    "ISOLATION CHECK"
+)
+
+
+print(
+    "=" * 110
+)
+
+
+print(
+    "PCA_ONLY isolates H2       :",
+    "PASS"
+    if PCA_ISOLATION_PASS
+    else "FAIL"
+)
+
+
+print(
+    "CONTINUITY_ONLY isolates H3:",
+    "PASS"
+    if CONT_ISOLATION_PASS
+    else "FAIL"
+)
+
+
+if (
+    PCA_ISOLATION_PASS
+    and
+    CONT_ISOLATION_PASS
+):
+
+    print(
+        "\nFAZ 2 SONUCU: CLEAN STRUCTURAL ISOLATION"
+    )
+
+    print(
+        "İki özellik birbirinden bağımsız sentetik kollarda üretildi."
+    )
+
+else:
+
+    print(
+        "\nFAZ 2 SONUCU: ISOLATION FAILURE"
+    )
+
+    print(
+        "Faz 3'e geçmeden önce sentetik üretici düzeltilmeli."
+    )
+
+
+# =============================================================================
+# 11. SAVE SYNTHETIC DIRECTIONS
+# =============================================================================
+#
+# Faz 3'te TAM OLARAK aynı sentetik direction bank kullanılabilsin diye
+# .npz olarak kaydediyoruz.
+# =============================================================================
+
+NPZ_FILE = (
+    "TEST_115_PHASE_2_SYNTHETIC_BANKS.npz"
+)
+
+
+np.savez_compressed(
+
+    NPZ_FILE,
+
+    pca_only=PCA_SYNTH,
+
+    continuity_only=CONT_SYNTH,
+
+    isotropic=ISO_SYNTH,
+
+    seed=np.array(
+        [SEED],
+        dtype=np.int64
+    ),
+
+    target_continuity=np.array(
+        [TARGET_CONTINUITY],
+        dtype=np.float64
+    )
+)
+
+
+# =============================================================================
+# 12. JSON REPORT
+# =============================================================================
+
+OUTPUT = {
+
+    "test":
+        "TEST 115 — FAZ 2",
+
+    "model":
+        MODEL_NAME,
+
+    "seed":
+        SEED,
+
+    "n_synthetic":
+        N_SYNTHETIC,
+
+    "phase1_locked_results": {
+
+        "pr_ratio":
+            0.6445467813640284,
+
+        "pca_energy_ratio":
+            TARGET_PCA_RATIO,
+
+        "continuity_gap":
+            0.8517993978967743,
+    },
+
+    "arms": {
+
+        "PCA_ONLY": {
+
+            "construction":
+                "Random combination of layer-local top-10 hidden-state PCA directions",
+
+            "pca_to_isotropic_ratio":
+                float(
+                    PCA_ONLY_RATIO
+                ),
+
+            "continuity":
+                float(
+                    pca_only_cont
+                ),
+
+            "isolation_pass":
+                bool(
+                    PCA_ISOLATION_PASS
+                ),
+        },
+
+        "CONTINUITY_ONLY": {
+
+            "construction":
+                "Spherical correlated random walk with locked adjacent-layer cosine",
+
+            "pca_to_isotropic_ratio":
+                float(
+                    CONT_ONLY_RATIO
+                ),
+
+            "continuity":
+                float(
+                    cont_only_cont
+                ),
+
+            "isolation_pass":
+                bool(
+                    CONT_ISOLATION_PASS
+                ),
+        },
+    },
+
+    "full_metrics":
+        METRICS,
+
+    "phase2_pass":
+        bool(
+            PCA_ISOLATION_PASS
+            and
+            CONT_ISOLATION_PASS
+        ),
+}
+
+
+JSON_FILE = (
+    "TEST_115_PHASE_2_STRUCTURAL_SYNTHESIS.json"
+)
+
+
+with open(
+    JSON_FILE,
+    "w",
+    encoding="utf-8"
+) as f:
+
+    json.dump(
+        OUTPUT,
+        f,
+        indent=2,
+        ensure_ascii=False
+    )
+
+
+print(
+    "\n[6/7] Kaydedildi:"
+)
+
+
+print(
+    " ",
+    NPZ_FILE
+)
+
+
+print(
+    " ",
+    JSON_FILE
+)
+
+
+# =============================================================================
+# 13. CLEANUP
+# =============================================================================
+
+gc.collect()
+
+if torch.cuda.is_available():
+    torch.cuda.empty_cache()
+
+
+print(
+    "\n[7/7] TEST 115 — FAZ 2 TAMAMLANDI."
+)
+
+
+print(
+    "\nÇıktının tamamını paylaş."
+)
+
+
+print(
+    "İki isolation check PASS ise bir sonraki adım Faz 3:"
+)
+
+
+print(
+    "TEST114 transport protokolüne PCA_ONLY ve CONTINUITY_ONLY"
+)
+
+
+print(
+    "kollarını ayrı ayrı sokacağız."
+)
+
