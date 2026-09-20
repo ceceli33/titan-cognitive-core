@@ -1,0 +1,225 @@
+ 
+================================================================================================================================================================
+TEST 123 — AKBASCORE DRA 3.0
+LOCAL TRANSPORT CARTOGRAPHY
+SEED-CENTERED FINITE-PROBE ROUTE SELECTION
+================================================================================================================================================================
+
+[1/17] Model yükleniyor...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 82.7kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 797kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 34.9MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 55.9MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 102MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.20MB/s]
+Download complete: : 
+
+ 13.1GB,  406MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  521MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:50<00:00, 12.65s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 100.62it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 35.3kB/s]
+Model             : Qwen/Qwen2.5-7B-Instruct
+Device            : cuda:0
+dtype             : torch.bfloat16
+Layers            : 28
+Source            : 11
+Probe target      : 12
+Evaluation targets: [12, 13, 15, 19, 27]
+Probe relative    : 0.0025
+Angles            : [5, 10, 15, 20, 30, 45]
+Candidates        : 24
+IVME              : 0.1
+Prompts           : 40
+Controller        : OFF
+zeta              : OFF
+old brake         : OFF
+
+[2/17] Locked semantic vectors çıkarılıyor...
+L10 cos(A,B) = +0.656545
+L11 cos(A,B) = +0.658274
+L10 drift = 1.358222962e-07
+L11 drift = 3.525505066e-07
+Fingerprint: PASS
+
+[3/17] Baseline + finite-probe cartography başlıyor...
+40/40 complete.
+
+[4/17] Final actuator equality kontrolü...
+FIXED                 mean rel injection=0.024797388 | sd=0.000060860
+TRANSPORT_SELECTED    mean rel injection=0.024797392 | sd=0.000060860
+CLOUD_RANDOM          mean rel injection=0.024797393 | sd=0.000060859
+GLOBAL_RANDOM         mean rel injection=0.024797393 | sd=0.000060860
+Max arm mean spread = 4.982575772e-09
+
+[5/17] Probe cartography summary...
+All probe T mean       = +0.638679
+Selected T mean        = +0.733710
+Cloud-random T mean    = +0.653857
+Selection ΔT           = +0.079853
+
+[6/17] Selected angle distribution...
+  5 deg : 26/40
+ 10 deg : 11/40
+ 15 deg :  2/40
+ 20 deg :  1/40
+ 30 deg :  0/40
+ 45 deg :  0/40
+
+[7/17] Full-strength downstream transport...
+
+[8/17] TRANSPORT TABLE
+================================================================================================================================================================
+ARM                      LAYER        D mean          D sd        P mean          P sd
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+FIXED                       12     +0.784651      0.017593      0.023345      0.000851
+FIXED                       13     +0.652456      0.023712      0.021355      0.001105
+FIXED                       15     +0.455719      0.042368      0.018898      0.001855
+FIXED                       19     +0.228361      0.042052      0.014283      0.002848
+FIXED                       27     +0.026750      0.059747      0.013680      0.003855
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+TRANSPORT_SELECTED          12     +0.778894      0.018669      0.023277      0.000808
+TRANSPORT_SELECTED          13     +0.648916      0.023975      0.021313      0.001076
+TRANSPORT_SELECTED          15     +0.452193      0.041470      0.018864      0.001752
+TRANSPORT_SELECTED          19     +0.227133      0.045595      0.014208      0.002803
+TRANSPORT_SELECTED          27     +0.021643      0.058146      0.013444      0.003716
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+CLOUD_RANDOM                12     +0.735104      0.053491      0.023168      0.000820
+CLOUD_RANDOM                13     +0.612726      0.050910      0.021212      0.001067
+CLOUD_RANDOM                15     +0.427686      0.050728      0.018819      0.001837
+CLOUD_RANDOM                19     +0.215459      0.050647      0.014244      0.002905
+CLOUD_RANDOM                27     +0.026794      0.052677      0.013063      0.003701
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+GLOBAL_RANDOM               12     -0.008942      0.021436      0.022345      0.000839
+GLOBAL_RANDOM               13     -0.006420      0.022766      0.020111      0.000909
+GLOBAL_RANDOM               15     -0.002238      0.024367      0.017663      0.001687
+GLOBAL_RANDOM               19     +0.001963      0.029831      0.013259      0.002585
+GLOBAL_RANDOM               27     +0.028173      0.016491      0.012144      0.003496
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+[9/17] Paired comparisons...
+
+[10/17] PRIMARY ENDPOINT — L19
+================================================================================================================================================================
+TRANSPORT_SELECTED_MINUS_FIXED
+  ΔD19 = -0.001228 | 95% descriptive=[-0.009819,+0.007362] | positive fraction=0.400
+  ΔP19 = -0.000075 | positive fraction=0.450
+
+TRANSPORT_SELECTED_MINUS_CLOUD_RANDOM
+  ΔD19 = +0.011674 | 95% descriptive=[+0.001509,+0.021840] | positive fraction=0.600
+  ΔP19 = -0.000036 | positive fraction=0.525
+
+TRANSPORT_SELECTED_MINUS_GLOBAL_RANDOM
+  ΔD19 = +0.225170 | 95% descriptive=[+0.212185,+0.238154] | positive fraction=1.000
+  ΔP19 = +0.000950 | positive fraction=0.800
+
+FIXED_MINUS_CLOUD_RANDOM
+  ΔD19 = +0.012903 | 95% descriptive=[+0.002413,+0.023392] | positive fraction=0.575
+  ΔP19 = +0.000039 | positive fraction=0.525
+
+
+[11/17] TRANSPORT_SELECTED − FIXED
+========================================================================================================================
+    TARGET              ΔD     positive frac              ΔP
+------------------------------------------------------------------------------------------------------------------------
+        12       -0.005757             0.275       -0.000068
+        13       -0.003540             0.425       -0.000042
+        15       -0.003526             0.325       -0.000034
+        19       -0.001228             0.400       -0.000075
+        27       -0.005108             0.525       -0.000237
+
+[12/17] Probe-selection diagnostic...
+corr(selected−random probe T, selected−random D19) = +0.531768
+
+[13/17] Selected-angle terminal analysis...
+  5 deg | n=26 | mean ΔD19 vs FIXED=-0.006471
+ 10 deg | n=11 | mean ΔD19 vs FIXED=+0.003925
+ 15 deg | n= 2 | mean ΔD19 vs FIXED=+0.022505
+ 20 deg | n= 1 | mean ΔD19 vs FIXED=+0.030923
+
+[14/17] Architecture decision...
+
+================================================================================================================================================================
+TEST123 PRIMARY DECISION
+================================================================================================================================================================
+PROBE_IS_INFORMATIVE_BUT_FIXED_SEED_REMAINS_BETTER
+
+PRIMARY NUMBERS
+SELECTED − FIXED D19 = -0.001228
+SELECTED − CLOUD D19 = +0.011674
+SELECTED − GLOBAL D19 = +0.225170
+Probe/terminal advantage corr = +0.531768
+
+[15/17] Interpretation lock...
+1. The tiny local probe distinguishes better and worse routes inside the seed-centered cloud.
+2. However, the original fixed semantic seed still produces better terminal transport.
+3. Therefore the sensor may contain transport information, but the current route-construction/search space does not yet improve on the locked semantic direction.
+4. No exact derivative or Jacobian has been measured; the assay uses finite perturbations.
+5. No physical momentum, force, or energy-transfer claim is made.
+6. No manifold-recovery claim is made.
+7. No behavioral efficacy claim is made.
+8. No semantic-causality claim is made.
+9. The TEST123 prompts are exposed after this run and must not be reused as future blind validation.
+
+[16/17] JSON hazırlanıyor...
+Saved: /content/TEST_123_LOCAL_TRANSPORT_CARTOGRAPHY.json
+
+[17/17] FINAL SUMMARY
+================================================================================================================================================================
+TEST 123 — LOCAL TRANSPORT CARTOGRAPHY
+================================================================================================================================================================
+
+INTEGRITY
+L10 cos(A,B) = +0.656545
+L11 cos(A,B) = +0.658274
+Fingerprint = PASS
+Final injection mean spread = 4.982575772e-09
+
+PROBE
+All candidate T mean    = +0.638679
+Selected T mean         = +0.733710
+Cloud random T mean     = +0.653857
+
+PRIMARY L19
+FIXED                 D19=+0.228361 ± 0.042052 | P19=0.014283
+TRANSPORT_SELECTED    D19=+0.227133 ± 0.045595 | P19=0.014208
+CLOUD_RANDOM          D19=+0.215459 ± 0.050647 | P19=0.014244
+GLOBAL_RANDOM         D19=+0.001963 ± 0.029831 | P19=0.013259
+
+SELECTED − FIXED  = -0.001228
+SELECTED − CLOUD  = +0.011674
+SELECTED − GLOBAL = +0.225170
+Probe/terminal corr = +0.531768
+
+DECISION:
+PROBE_IS_INFORMATIVE_BUT_FIXED_SEED_REMAINS_BETTER
+
+JSON:
+/content/TEST_123_LOCAL_TRANSPORT_CARTOGRAPHY.json
+
+DONE.
+
