@@ -1,0 +1,409 @@
+ 
+=================================================================================================================================================
+TEST 108 — BLIND HOLDOUT CONTEXT GENERALIZATION
+=================================================================================================================================================
+
+[1/14] Model yükleniyor...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 79.8kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 917kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 64.3MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 71.6MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 119MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.20MB/s]
+Download complete: : 
+
+ 13.1GB,  345MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  476MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:40<00:00,  6.89s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 89.22it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 24.1kB/s]
+Model              : Qwen/Qwen2.5-7B-Instruct
+Device             : cuda:0
+dtype              : torch.bfloat16
+Model layers       : 28
+Steering layers    : [10, 11]
+Hidden             : 3584
+IVME               : 0.1
+SQRT_K             : 4.47213595499958
+Holdout prompts    : 40
+Random directions  : 128
+Independent pairs  : 64
+Lexical leak check : PASS
+Min +1 null tail   : 0.015384615
+
+[2/14] Target tokenlar doğrulanıyor...
+above    | ' above'     | [3403]
+below    | ' below'     | [3685]
+over     | ' over'      | [916]
+under    | ' under'     | [1212]
+
+[3/14] Locked semantic yönler yeniden çıkarılıyor...
+
+Semantic geometry:
+L10 | cos(A,B)=+0.656545
+L11 | cos(A,B)=+0.658274
+
+[4/14] 128 yeni RANDOM yön oluşturuluyor...
+Mean cos(A,R) = -0.000635
+SD   cos(A,R) = 0.016478
+Mean cos(B,R) = -0.001478
+SD   cos(B,R) = 0.016166
+
+[5/14] HOLDOUT BASELINE çalışıyor...
+
+[6/14] HOLDOUT ABOVE_IND çalışıyor...
+
+[7/14] HOLDOUT BELOW_IND çalışıyor...
+
+[8/14] HOLDOUT üzerinde 128 RANDOM yön çalışıyor...
+RANDOM 001/128 | elapsed=0.0 min | ETA≈3.0 min
+RANDOM 002/128 | elapsed=0.0 min | ETA≈2.9 min
+RANDOM 003/128 | elapsed=0.1 min | ETA≈2.9 min
+RANDOM 004/128 | elapsed=0.1 min | ETA≈2.8 min
+RANDOM 005/128 | elapsed=0.1 min | ETA≈2.8 min
+RANDOM 006/128 | elapsed=0.1 min | ETA≈2.8 min
+RANDOM 007/128 | elapsed=0.2 min | ETA≈2.8 min
+RANDOM 008/128 | elapsed=0.2 min | ETA≈2.7 min
+RANDOM 009/128 | elapsed=0.2 min | ETA≈2.7 min
+RANDOM 010/128 | elapsed=0.2 min | ETA≈2.7 min
+RANDOM 011/128 | elapsed=0.3 min | ETA≈2.7 min
+RANDOM 012/128 | elapsed=0.3 min | ETA≈2.7 min
+RANDOM 013/128 | elapsed=0.3 min | ETA≈2.6 min
+RANDOM 014/128 | elapsed=0.3 min | ETA≈2.6 min
+RANDOM 015/128 | elapsed=0.3 min | ETA≈2.6 min
+RANDOM 016/128 | elapsed=0.4 min | ETA≈2.6 min
+RANDOM 017/128 | elapsed=0.4 min | ETA≈2.5 min
+RANDOM 018/128 | elapsed=0.4 min | ETA≈2.5 min
+RANDOM 019/128 | elapsed=0.4 min | ETA≈2.5 min
+RANDOM 020/128 | elapsed=0.5 min | ETA≈2.5 min
+RANDOM 021/128 | elapsed=0.5 min | ETA≈2.4 min
+RANDOM 022/128 | elapsed=0.5 min | ETA≈2.4 min
+RANDOM 023/128 | elapsed=0.5 min | ETA≈2.4 min
+RANDOM 024/128 | elapsed=0.5 min | ETA≈2.4 min
+RANDOM 025/128 | elapsed=0.6 min | ETA≈2.4 min
+RANDOM 026/128 | elapsed=0.6 min | ETA≈2.3 min
+RANDOM 027/128 | elapsed=0.6 min | ETA≈2.3 min
+RANDOM 028/128 | elapsed=0.6 min | ETA≈2.3 min
+RANDOM 029/128 | elapsed=0.7 min | ETA≈2.3 min
+RANDOM 030/128 | elapsed=0.7 min | ETA≈2.2 min
+RANDOM 031/128 | elapsed=0.7 min | ETA≈2.2 min
+RANDOM 032/128 | elapsed=0.7 min | ETA≈2.2 min
+RANDOM 033/128 | elapsed=0.8 min | ETA≈2.2 min
+RANDOM 034/128 | elapsed=0.8 min | ETA≈2.2 min
+RANDOM 035/128 | elapsed=0.8 min | ETA≈2.1 min
+RANDOM 036/128 | elapsed=0.8 min | ETA≈2.1 min
+RANDOM 037/128 | elapsed=0.8 min | ETA≈2.1 min
+RANDOM 038/128 | elapsed=0.9 min | ETA≈2.1 min
+RANDOM 039/128 | elapsed=0.9 min | ETA≈2.0 min
+RANDOM 040/128 | elapsed=0.9 min | ETA≈2.0 min
+RANDOM 041/128 | elapsed=0.9 min | ETA≈2.0 min
+RANDOM 042/128 | elapsed=1.0 min | ETA≈2.0 min
+RANDOM 043/128 | elapsed=1.0 min | ETA≈1.9 min
+RANDOM 044/128 | elapsed=1.0 min | ETA≈1.9 min
+RANDOM 045/128 | elapsed=1.0 min | ETA≈1.9 min
+RANDOM 046/128 | elapsed=1.1 min | ETA≈1.9 min
+RANDOM 047/128 | elapsed=1.1 min | ETA≈1.9 min
+RANDOM 048/128 | elapsed=1.1 min | ETA≈1.8 min
+RANDOM 049/128 | elapsed=1.1 min | ETA≈1.8 min
+RANDOM 050/128 | elapsed=1.1 min | ETA≈1.8 min
+RANDOM 051/128 | elapsed=1.2 min | ETA≈1.8 min
+RANDOM 052/128 | elapsed=1.2 min | ETA≈1.7 min
+RANDOM 053/128 | elapsed=1.2 min | ETA≈1.7 min
+RANDOM 054/128 | elapsed=1.2 min | ETA≈1.7 min
+RANDOM 055/128 | elapsed=1.3 min | ETA≈1.7 min
+RANDOM 056/128 | elapsed=1.3 min | ETA≈1.6 min
+RANDOM 057/128 | elapsed=1.3 min | ETA≈1.6 min
+RANDOM 058/128 | elapsed=1.3 min | ETA≈1.6 min
+RANDOM 059/128 | elapsed=1.3 min | ETA≈1.6 min
+RANDOM 060/128 | elapsed=1.4 min | ETA≈1.6 min
+RANDOM 061/128 | elapsed=1.4 min | ETA≈1.5 min
+RANDOM 062/128 | elapsed=1.4 min | ETA≈1.5 min
+RANDOM 063/128 | elapsed=1.4 min | ETA≈1.5 min
+RANDOM 064/128 | elapsed=1.5 min | ETA≈1.5 min
+RANDOM 065/128 | elapsed=1.5 min | ETA≈1.4 min
+RANDOM 066/128 | elapsed=1.5 min | ETA≈1.4 min
+RANDOM 067/128 | elapsed=1.5 min | ETA≈1.4 min
+RANDOM 068/128 | elapsed=1.6 min | ETA≈1.4 min
+RANDOM 069/128 | elapsed=1.6 min | ETA≈1.3 min
+RANDOM 070/128 | elapsed=1.6 min | ETA≈1.3 min
+RANDOM 071/128 | elapsed=1.6 min | ETA≈1.3 min
+RANDOM 072/128 | elapsed=1.6 min | ETA≈1.3 min
+RANDOM 073/128 | elapsed=1.7 min | ETA≈1.3 min
+RANDOM 074/128 | elapsed=1.7 min | ETA≈1.2 min
+RANDOM 075/128 | elapsed=1.7 min | ETA≈1.2 min
+RANDOM 076/128 | elapsed=1.7 min | ETA≈1.2 min
+RANDOM 077/128 | elapsed=1.8 min | ETA≈1.2 min
+RANDOM 078/128 | elapsed=1.8 min | ETA≈1.1 min
+RANDOM 079/128 | elapsed=1.8 min | ETA≈1.1 min
+RANDOM 080/128 | elapsed=1.8 min | ETA≈1.1 min
+RANDOM 081/128 | elapsed=1.9 min | ETA≈1.1 min
+RANDOM 082/128 | elapsed=1.9 min | ETA≈1.1 min
+RANDOM 083/128 | elapsed=1.9 min | ETA≈1.0 min
+RANDOM 084/128 | elapsed=1.9 min | ETA≈1.0 min
+RANDOM 085/128 | elapsed=1.9 min | ETA≈1.0 min
+RANDOM 086/128 | elapsed=2.0 min | ETA≈1.0 min
+RANDOM 087/128 | elapsed=2.0 min | ETA≈0.9 min
+RANDOM 088/128 | elapsed=2.0 min | ETA≈0.9 min
+RANDOM 089/128 | elapsed=2.0 min | ETA≈0.9 min
+RANDOM 090/128 | elapsed=2.1 min | ETA≈0.9 min
+RANDOM 091/128 | elapsed=2.1 min | ETA≈0.8 min
+RANDOM 092/128 | elapsed=2.1 min | ETA≈0.8 min
+RANDOM 093/128 | elapsed=2.1 min | ETA≈0.8 min
+RANDOM 094/128 | elapsed=2.1 min | ETA≈0.8 min
+RANDOM 095/128 | elapsed=2.2 min | ETA≈0.8 min
+RANDOM 096/128 | elapsed=2.2 min | ETA≈0.7 min
+RANDOM 097/128 | elapsed=2.2 min | ETA≈0.7 min
+RANDOM 098/128 | elapsed=2.2 min | ETA≈0.7 min
+RANDOM 099/128 | elapsed=2.3 min | ETA≈0.7 min
+RANDOM 100/128 | elapsed=2.3 min | ETA≈0.6 min
+RANDOM 101/128 | elapsed=2.3 min | ETA≈0.6 min
+RANDOM 102/128 | elapsed=2.3 min | ETA≈0.6 min
+RANDOM 103/128 | elapsed=2.4 min | ETA≈0.6 min
+RANDOM 104/128 | elapsed=2.4 min | ETA≈0.5 min
+RANDOM 105/128 | elapsed=2.4 min | ETA≈0.5 min
+RANDOM 106/128 | elapsed=2.4 min | ETA≈0.5 min
+RANDOM 107/128 | elapsed=2.4 min | ETA≈0.5 min
+RANDOM 108/128 | elapsed=2.5 min | ETA≈0.5 min
+RANDOM 109/128 | elapsed=2.5 min | ETA≈0.4 min
+RANDOM 110/128 | elapsed=2.5 min | ETA≈0.4 min
+RANDOM 111/128 | elapsed=2.5 min | ETA≈0.4 min
+RANDOM 112/128 | elapsed=2.6 min | ETA≈0.4 min
+RANDOM 113/128 | elapsed=2.6 min | ETA≈0.3 min
+RANDOM 114/128 | elapsed=2.6 min | ETA≈0.3 min
+RANDOM 115/128 | elapsed=2.6 min | ETA≈0.3 min
+RANDOM 116/128 | elapsed=2.6 min | ETA≈0.3 min
+RANDOM 117/128 | elapsed=2.7 min | ETA≈0.3 min
+RANDOM 118/128 | elapsed=2.7 min | ETA≈0.2 min
+RANDOM 119/128 | elapsed=2.7 min | ETA≈0.2 min
+RANDOM 120/128 | elapsed=2.7 min | ETA≈0.2 min
+RANDOM 121/128 | elapsed=2.8 min | ETA≈0.2 min
+RANDOM 122/128 | elapsed=2.8 min | ETA≈0.1 min
+RANDOM 123/128 | elapsed=2.8 min | ETA≈0.1 min
+RANDOM 124/128 | elapsed=2.8 min | ETA≈0.1 min
+RANDOM 125/128 | elapsed=2.9 min | ETA≈0.1 min
+RANDOM 126/128 | elapsed=2.9 min | ETA≈0.0 min
+RANDOM 127/128 | elapsed=2.9 min | ETA≈0.0 min
+RANDOM 128/128 | elapsed=2.9 min | ETA≈0.0 min
+
+[9/14] Holdout matrisleri hazırlanıyor...
+RANDOM_AB: (128, 40)
+RANDOM_OU: (128, 40)
+
+=================================================================================================================================================
+TEST 108 — HOLDOUT PRIMARY A: ABOVE / BELOW
+=================================================================================================================================================
+ABOVE Δ mean          = +0.002719378
+BELOW Δ mean          = +0.001404428
+Semantic DDS mean     = +0.001314950
+Semantic DDS median   = -0.001599312
+DDS signs            = +18 / -22 / 0=0
+Bootstrap 95% CI      = [-0.006152272, +0.008824969]
+
+64 HOLDOUT RANDOM-PAIR NULL
+Null mean             = -0.000076354
+Null median           = +0.000597882
+Null SD               = 0.006868473
+Null range            = [-0.014904404, +0.018548059]
+Null >= semantic      = 29/64
+Percentile            = 54.69%
+Upper-tail (+1)       = 0.461538462
+Two-sided |x| (+1)    = 0.846153846
+
+=================================================================================================================================================
+TEST 108 — HOLDOUT PRIMARY B: OVER / UNDER
+=================================================================================================================================================
+ABOVE Δ mean          = +0.000357735
+BELOW Δ mean          = -0.001709068
+Semantic DDS mean     = +0.002066803
+Semantic DDS median   = +0.001453876
+DDS signs            = +21 / -19 / 0=0
+Bootstrap 95% CI      = [-0.008710729, +0.012822017]
+
+64 HOLDOUT RANDOM-PAIR NULL
+Null mean             = +0.000528151
+Null median           = +0.001391804
+Null SD               = 0.005679730
+Null range            = [-0.013102257, +0.013833296]
+Null >= semantic      = 27/64
+Percentile            = 57.81%
+Upper-tail (+1)       = 0.430769231
+Two-sided |x| (+1)    = 0.707692308
+
+=================================================================================================================================================
+INDIVIDUAL SEMANTIC ARMS vs 128 HOLDOUT RANDOM SHIFTS
+=================================================================================================================================================
+
+ABOVE / BELOW AXIS
+ABOVE Δ               = +0.002719378
+ABOVE percentile      = 60.16%
+ABOVE upper-tail +1   = 0.403100775
+
+BELOW Δ               = +0.001404428
+BELOW downward pct    = 47.66%
+BELOW downward tail   = 0.527131783
+
+OVER / UNDER AXIS
+ABOVE Δ               = +0.000357735
+ABOVE percentile      = 49.22%
+ABOVE upper-tail +1   = 0.511627907
+
+BELOW Δ               = -0.001709068
+BELOW downward pct    = 73.44%
+BELOW downward tail   = 0.271317829
+
+=================================================================================================================================================
+SECONDARY — HOLDOUT FAMILY ANALYSIS
+=================================================================================================================================================
+FAMILY                          AB DDS        AB +/-        OU DDS        OU +/-
+-------------------------------------------------------------------------------------
+PERSON_STRUCTURE             -0.003023           3/5     -0.008778           4/4
+OBJECT_REFERENCE             +0.007959           4/4     +0.002240           4/4
+REFERENCE_FIRST              +0.003273           4/4     +0.009187           5/3
+QUESTION_COMPLETION          -0.019632           1/7     -0.000745           4/4
+SCENE_DESCRIPTION            +0.017997           6/2     +0.008431           4/4
+
+=================================================================================================================================================
+DRA TELEMETRY — HOLDOUT
+=================================================================================================================================================
+ARM                        COS         |COS|       CONTRIB           ENV         BRAKE
+------------------------------------------------------------------------------------------
+ABOVE_IND            +0.127972      0.127972      0.316821      0.254712      1.000000
+BELOW_IND            +0.061501      0.061501      0.312134      0.251026      1.000000
+RANDOM x128          +0.000178      0.012473      0.309482      0.248852      1.000000
+
+=================================================================================================================================================
+HOLDOUT PROMPT-LEVEL SEMANTIC DDS
+=================================================================================================================================================
+P                 AB DDS            OU DDS
+---------------------------------------------
+1           -0.039636612      -0.085824966
+2           +0.027178764      -0.013325691
+3           -0.008928299      +0.006539345
+4           +0.021768570      +0.023697853
+5           -0.013281822      -0.005097389
+6           -0.001607895      +0.013917923
+7           +0.011926651      +0.019590378
+8           -0.021600723      -0.029724598
+9           +0.038671494      -0.012099266
+10          +0.023002625      -0.001471519
+11          -0.024564743      +0.014071465
+12          +0.027833939      +0.001219749
+13          -0.019950867      -0.006758690
+14          +0.023632050      +0.004866600
+15          -0.004754066      +0.021700859
+16          -0.000200272      -0.003607750
+17          -0.016366959      -0.010442734
+18          -0.015499115      +0.047426224
+19          +0.008452415      -0.011900902
+20          -0.001590729      +0.007549286
+21          -0.001985550      +0.020637512
+22          +0.030286789      +0.020243645
+23          +0.021771431      -0.031013489
+24          +0.001119614      +0.030995369
+25          -0.023399353      +0.130339622
+26          -0.035662651      +0.001688004
+27          +0.035013199      +0.003109932
+28          -0.006193161      -0.001324654
+29          -0.005760193      +0.013368607
+30          -0.043942451      -0.005541801
+31          -0.047073364      -0.043904305
+32          -0.030035973      -0.103699207
+33          +0.012986183      +0.041924477
+34          +0.008804321      -0.010804176
+35          +0.034463882      +0.028117180
+36          +0.054018021      -0.008717537
+37          +0.028697968      +0.018820763
+38          +0.018899918      -0.000813484
+39          -0.002426147      +0.002846718
+40          -0.011468887      -0.003927231
+
+[10/14] JSON hazırlanıyor...
+Kaydedildi: TEST_108_BLIND_HOLDOUT_GENERALIZATION.json
+
+=================================================================================================================================================
+TEST 108 — FINAL HOLDOUT SUMMARY
+=================================================================================================================================================
+
+PRIMARY A — ABOVE / BELOW
+Semantic DDS          = +0.001314950
+Median                = -0.001599312
+Signs                 = +18 / -22 / 0=0
+Bootstrap 95% CI      = [-0.006152272, +0.008824969]
+Null >= semantic      = 29/64
+Percentile            = 54.69%
+Upper-tail (+1)       = 0.461538462
+
+PRIMARY B — OVER / UNDER
+Semantic DDS          = +0.002066803
+Median                = +0.001453876
+Signs                 = +21 / -19 / 0=0
+Bootstrap 95% CI      = [-0.008710729, +0.012822017]
+Null >= semantic      = 27/64
+Percentile            = 57.81%
+Upper-tail (+1)       = 0.430769231
+
+INDIVIDUAL ARM — AB AXIS
+ABOVE Δ               = +0.002719378 | random pct=60.16%
+BELOW Δ               = +0.001404428 | downward random pct=47.66%
+
+INDIVIDUAL ARM — OU AXIS
+ABOVE Δ               = +0.000357735 | random pct=49.22%
+BELOW Δ               = -0.001709068 | downward random pct=73.44%
+
+=================================================================================================================================================
+INTERPRETATION LOCK
+=================================================================================================================================================
+
+TEST 108'de sonuçtan sonra prompt, katman, doz, vector veya metric
+seçimi yapılmamalıdır.
+
+Ana soru:
+
+    TEST 107'de gözlenen directional separation,
+    yeni dilsel bağlamlarda da ortaya çıkıyor mu?
+
+Birlikte okunacak üç bilgi:
+
+    1. prompt-level semantic DDS dağılımı,
+    2. bootstrap interval,
+    3. 64 matched random-random null pair dağılımı.
+
+Family analysis secondary/descriptive'dir.
+
+ABOVE ve BELOW bireysel kolları ayrıca random baseline-shift
+dağılımına karşı raporlanır.
+
+Brake ≈ 1 ise brake mekanizması yine test edilmiş sayılmaz.
+
+Ana çıktı:
+TEST_108_BLIND_HOLDOUT_GENERALIZATION.json
+
+[11/14] Holdout semantic analiz tamamlandı.
+[12/14] Holdout random-null analiz tamamlandı.
+[13/14] JSON kaydedildi.
+[14/14] TEST 108 bitti.
+
