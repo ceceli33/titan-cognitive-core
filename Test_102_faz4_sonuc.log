@@ -1,0 +1,255 @@
+ 
+========================================================================================================================================================================
+TEST 131 — INVERSE TRANSPORT NAVIGATION
+AKBASCORE — FROM MEASURED TRANSMISSION TO STEERING DIRECTION
+========================================================================================================================================================================
+
+[1/20] Model yükleniyor...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 85.2kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 916kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 32.1MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 71.2MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 124MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.30MB/s]
+Download complete: : 
+
+ 13.1GB, 44.0MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  274MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:54<00:00, 11.73s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 100.04it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 32.3kB/s]
+Model         : Qwen/Qwen2.5-7B-Instruct
+dtype         : torch.bfloat16
+Probe REL     : 0.0025
+Train prompts : 20
+Blind prompts : 20
+Max nav angle : 35.0
+Load time     : 63.7s
+
+[2/20] Ortam parmak izi...
+L10=+0.656545 drift=1.358e-07
+L11=+0.658274 drift=3.526e-07
+Fingerprint: PASS
+
+[3/20] Dibekgoz v0...v19 oluşturuluyor...
+cos(v0,v19) = +0.060267
+cos(v11,v19)= +0.402078
+cos(v18,v19)= +0.841571
+
+[4/20] TRAIN finite-secant atlas oluşturuluyor...
+  20/20 | elapsed=1.9m
+Atlas completed in 1.9 min
+
+[5/20] Forward transport operator seçiliyor...
+L00->L01 rank=32 ridge=0.01 val=+0.3277
+L01->L02 rank=24 ridge=0.001 val=+0.5228
+L02->L03 rank=32 ridge=0.001 val=+0.4304
+L03->L04 rank=32 ridge=0.01 val=+0.3790
+L04->L05 rank=32 ridge=0.1 val=+0.3575
+L05->L06 rank=02 ridge=0.0001 val=+0.3434
+L06->L07 rank=32 ridge=0.1 val=+0.2568
+L07->L08 rank=16 ridge=0.01 val=+0.2938
+L08->L09 rank=16 ridge=0.01 val=+0.3057
+L09->L10 rank=32 ridge=0.1 val=+0.3272
+L10->L11 rank=24 ridge=0.01 val=+0.4122
+L11->L12 rank=24 ridge=0.1 val=+0.3994
+L12->L13 rank=32 ridge=0.1 val=+0.4008
+L13->L14 rank=32 ridge=1 val=+0.4079
+L14->L15 rank=32 ridge=0.1 val=+0.4360
+L15->L16 rank=32 ridge=0.1 val=+0.4577
+L16->L17 rank=32 ridge=0.1 val=+0.4272
+L17->L18 rank=32 ridge=0.1 val=+0.3817
+L18->L19 rank=32 ridge=0.1 val=+0.3705
+
+[6/20] Inverse regularization train-only seçiliyor...
+L00->L01 lambda=0.1 angle=27.56° pred=+0.6217
+L01->L02 lambda=1 angle=24.36° pred=+0.8227
+L02->L03 lambda=0.1 angle=24.08° pred=+0.8146
+L03->L04 lambda=1 angle=24.07° pred=+0.7591
+L04->L05 lambda=0.1 angle=21.80° pred=+0.7989
+L05->L06 lambda=0.0001 angle=20.42° pred=+0.6916
+L06->L07 lambda=0.1 angle=30.19° pred=+0.5562
+L07->L08 lambda=0.1 angle=24.76° pred=+0.7378
+L08->L09 lambda=0.1 angle=27.21° pred=+0.7041
+L09->L10 lambda=0.1 angle=26.53° pred=+0.7812
+L10->L11 lambda=1 angle=21.41° pred=+0.8172
+L11->L12 lambda=0.1 angle=20.91° pred=+0.8165
+L12->L13 lambda=0.1 angle=22.63° pred=+0.7744
+L13->L14 lambda=1 angle=17.71° pred=+0.8270
+L14->L15 lambda=1 angle=19.88° pred=+0.8351
+L15->L16 lambda=0.1 angle=23.67° pred=+0.8660
+L16->L17 lambda=0.1 angle=22.28° pred=+0.8605
+L17->L18 lambda=1 angle=20.09° pred=+0.8071
+L18->L19 lambda=0.1 angle=23.92° pred=+0.8430
+
+[7/20] BLIND causal navigation assay...
+  20/20 | elapsed=0.9m
+Blind assay completed in 0.9 min
+
+[8/20] Layer-wise navigation results...
+
+[9/20] INVERSE TRANSPORT NAVIGATION
+========================================================================================================================================================================
+STEP           FIXED       NAV    RANDOM   REVERSE    NAV-FIX    NAV-RND    NAV-REV    ANGLE
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+L0->L1     +0.30641  +0.26687  +0.25939  +0.25744   -0.03954   +0.00747   +0.00943   27.56°
+L1->L2     +0.57406  +0.51623  +0.50197  +0.51936   -0.05783   +0.01426   -0.00313   24.36°
+L2->L3     +0.46983  +0.44415  +0.42681  +0.39819   -0.02568   +0.01734   +0.04596   24.08°
+L3->L4     +0.39440  +0.38982  +0.35850  +0.36231   -0.00459   +0.03132   +0.02751   24.07°
+L4->L5     +0.41226  +0.42467  +0.40109  +0.35995   +0.01240   +0.02357   +0.06472   21.80°
+L5->L6     +0.39375  +0.38628  +0.37046  +0.36150   -0.00747   +0.01582   +0.02478   20.42°
+L6->L7     +0.24577  +0.22666  +0.21309  +0.21098   -0.01911   +0.01358   +0.01569   30.19°
+L7->L8     +0.34419  +0.32983  +0.31890  +0.31338   -0.01436   +0.01093   +0.01645   24.76°
+L8->L9     +0.33142  +0.29758  +0.28354  +0.29002   -0.03384   +0.01404   +0.00756   27.21°
+L9->L10    +0.35313  +0.35389  +0.33271  +0.31820   +0.00076   +0.02117   +0.03569   26.53°
+L10->L11    +0.44036  +0.42343  +0.40989  +0.40144   -0.01693   +0.01354   +0.02198   21.41°
+L11->L12    +0.46990  +0.42971  +0.43114  +0.43321   -0.04019   -0.00143   -0.00350   20.91°
+L12->L13    +0.39391  +0.38173  +0.36206  +0.36629   -0.01218   +0.01967   +0.01545   22.63°
+L13->L14    +0.47843  +0.44687  +0.45909  +0.44191   -0.03156   -0.01222   +0.00495   17.71°
+L14->L15    +0.48528  +0.47298  +0.45372  +0.43212   -0.01231   +0.01925   +0.04086   19.88°
+L15->L16    +0.51063  +0.48708  +0.47236  +0.45995   -0.02355   +0.01472   +0.02713   23.67°
+L16->L17    +0.47482  +0.46487  +0.45635  +0.45347   -0.00995   +0.00852   +0.01141   22.28°
+L17->L18    +0.41072  +0.40504  +0.39397  +0.40008   -0.00568   +0.01107   +0.00496   20.09°
+L18->L19    +0.46220  +0.43916  +0.42054  +0.42149   -0.02304   +0.01863   +0.01768   23.92°
+
+[10/20] Global paired blind summary...
+FIXED     D_next = +0.418499
+NAVIGATOR D_next = +0.399307
+RANDOM    D_next = +0.385558
+REVERSE   D_next = +0.379015
+
+NAV - FIXED  = -0.019192 [-0.024537,-0.013847]
+NAV - RANDOM = +0.013750 [+0.008701,+0.018799]
+NAV - REVERSE= +0.020292 [+0.014636,+0.025948]
+
+[11/20] Layer consistency...
+NAV > FIXED layers : 0.105
+NAV > RANDOM layers: 0.895
+NAV > REVERSE layers: 0.895
+
+[12/20] BF16 actuator integrity...
+FIXED      REL=0.0025615 | dir_cos=+0.900626
+NAVIGATOR  REL=0.0025986 | dir_cos=+0.940132
+RANDOM     REL=0.0025631 | dir_cos=+0.903940
+REVERSE    REL=0.0025613 | dir_cos=+0.861408
+
+[13/20] Navigator geometry...
+Mean navigator angle = 23.340°
+Min / max angle      = 17.709° / 30.195°
+
+[14/20] DECISION
+========================================================================================================================================================================
+NAV-FIXED = -0.019192 [-0.024537,-0.013847]
+NAV-RANDOM= +0.013750 [+0.008701,+0.018799]
+NAV-REV   = +0.020292 [+0.014636,+0.025948]
+NAV>FIXED layers = 0.105
+
+DECISION:
+INVERSE_TRANSPORT_NAVIGATION_NOT_SUPPORTED
+
+[15/20] NEXT BRANCH
+
+Prompt-independent inverse operator historical pusulayı geçemedi.
+
+Bu durumda dense 3584x3584 matrise geçilmeyecek.
+
+Bir sonraki hipotez:
+    T_l = T_l(h_l)
+
+yani transport haritasının current hidden-state'e bağlı olmasıdır.
+
+
+[16/20] INTERPRETATION LOCK
+01. TEST131 gain/brake/controller testi değildir; yalnız giriş yönü seçimini test eder.
+02. FIXED kol historical Dibekgoz v_l pusulasıdır.
+03. NAVIGATOR kol finite-secant system-ID operatorünün ters probleminden üretilen q*_l yönüdür.
+04. RANDOM kol navigator ile historical seed arasındaki requested açıya eşlenmiş random tangent kontroldür.
+05. REVERSE kol navigator düzeltmesinin historical seed etrafındaki ters yönüdür.
+06. Bütün kollar aynı requested relative perturbation bütçesini kullanır; BF16 sonrası gerçekleşen norm ayrıca raporlanır.
+07. Transport modeli dense 3584x3584 matris değildir; düşük-rank finite-secant modelidir.
+08. Bu deney Jacobian, exact gradient veya ağırlık güncellemesi iddiası taşımaz.
+09. Navigator'ın forward-model tarafından iyi tahmin edilmesi tek başına başarı değildir; karar gerçek blind model müdahalesinden verilir.
+10. Pozitif NAV-FIXED sonucu ölçülmüş transport bilgisinin historical semantic seed üzerinde yönsel düzeltme sağlayabildiğini destekler.
+11. Pozitif NAV-RANDOM sonucu yalnız aynı büyüklükte açı sapmasının yeterli olmadığını test eder.
+12. Pozitif NAV-REVERSE sonucu düzeltmenin işaret/yön bilgisinin önemli olduğuna dair ek kontrol sağlar.
+13. Tek-katman başarısı multi-layer zincir başarısını otomatik olarak kanıtlamaz.
+14. TEST131 blind promptları çalıştırıldıktan sonra system-ID verisine dönüşür.
+
+[17/20] JSON kaydediliyor...
+Saved: /content/TEST_131_INVERSE_TRANSPORT_NAVIGATION.json
+
+[18/20] FINAL SUMMARY
+========================================================================================================================================================================
+TEST131 — INVERSE TRANSPORT NAVIGATION
+========================================================================================================================================================================
+Fingerprint        : PASS
+Probe REL          : 0.0025
+Mean nav angle     : 23.340°
+
+FIXED D_next       : +0.418499
+NAVIGATOR D_next   : +0.399307
+RANDOM D_next      : +0.385558
+REVERSE D_next     : +0.379015
+
+NAV - FIXED        : -0.019192 [-0.024537,-0.013847]
+NAV - RANDOM       : +0.013750 [+0.008701,+0.018799]
+NAV - REVERSE      : +0.020292 [+0.014636,+0.025948]
+
+NAV>FIXED layers   : 0.105
+NAV>RANDOM layers  : 0.895
+NAV>REVERSE layers : 0.895
+
+DECISION:
+INVERSE_TRANSPORT_NAVIGATION_NOT_SUPPORTED
+
+NEXT:
+STATE_CONDITIONED_TRANSPORT
+
+[19/20] HANDOFF
+
+Bu testin kritik sonucu NAV-FIXED'tir.
+
+NAV-FIXED > 0:
+    ölçülmüş transport bilgisinden hesaplanan giriş yönü,
+    historical Dibekgoz pusulasını geçiyor.
+
+NAV-RANDOM > 0:
+    sonuç sadece seed'den uzaklaşmanın sonucu değil.
+
+NAV-REVERSE > 0:
+    düzeltmenin işareti/yönü önem taşıyor.
+
+Üçü birlikte pozitifse:
+    AkbasCore'un "GPS / şanzıman" hattı için ilk doğrudan
+    nedensel destek elde edilmiş olur.
+
+Bu hâlâ DRA fren/gain hattından ayrıdır.
+
+
+[20/20] DONE
+JSON: /content/TEST_131_INVERSE_TRANSPORT_NAVIGATION.json
+
