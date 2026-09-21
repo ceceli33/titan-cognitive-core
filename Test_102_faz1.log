@@ -1,0 +1,1741 @@
+# =============================================================================
+# TEST 127 — SEMANTIC TRANSPORT CHAIN
+# AKBASCORE NEW PARADIGM — PHASE II / SYSTEM IDENTIFICATION
+#
+# Qwen2.5-7B-Instruct · BF16 · A100 · TEK HÜCRE
+#
+# AMAÇ
+# -----------------------------------------------------------------------------
+# Dibekgoz kavramının katman-bağımlı kontrastif sözlüğünü:
+#
+#       v0, v1, v2, ... , v19
+#
+# modelin GERÇEK tek-katman geçişleriyle karşılaştırmak.
+#
+# Her geçiş ayrı test edilir:
+#
+#       v_l  --F_l-->  delta_(l+1)
+#
+# ve şu soru sorulur:
+#
+#       delta_(l+1), bir sonraki katmanın v_(l+1) yönüne gidiyor mu?
+#
+# Ana ölçüm:
+#
+#       A_next = cos(delta_(l+1), v_(l+1))
+#
+# Kontroller:
+#   1. A_same  = cos(delta_(l+1), v_l)
+#   2. SYNTH   = Test 94'ün sabit sentetik vektörü
+#   3. RANDOM  = aynı büyüklükte rastgele yön
+#
+# ÖNEMLİ:
+# - Her kaynak katmana SADECE küçük bir perturbasyon uygulanır.
+# - Sonraki katmana tekrar enjeksiyon yapılmaz.
+# - DRA yok.
+# - Fren yok.
+# - Mercek yok.
+# - Controller yok.
+# - Üretim yok.
+# - Ağırlık değişimi yok.
+#
+# Bu test "navigator" değildir.
+# Önce modelin doğal taşıma zincirini ölçer.
+# =============================================================================
+
+
+import gc
+import json
+import math
+import random
+import time
+import statistics
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+
+# =============================================================================
+# 0. CONFIG
+# =============================================================================
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 12701
+
+MODEL_LAYERS  = 28
+VECTOR_LAYERS = 20
+HIDDEN        = 3584
+
+# v0 -> v1 ... v18 -> v19
+SOURCE_LAYERS = list(range(19))
+
+# Küçük perturbasyon.
+# Amaç modeli zorlamak değil, doğal yerel taşıma cevabını okumak.
+PROBE_REL = 0.0025
+
+N_RANDOM = 8
+
+EXPECTED_COS10 = 0.656545
+EXPECTED_COS11 = 0.658274
+FINGERPRINT_TOL = 5e-6
+
+EPS = 1e-12
+
+OUT_JSON = "/content/TEST_127_SEMANTIC_TRANSPORT_CHAIN.json"
+
+
+# =============================================================================
+# 1. KİLİTLİ ORTAM PARMAK İZİ
+# =============================================================================
+
+ABOVE = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+BELOW = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+NEUTRAL = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 2. DİBEKGOZ VEKTÖRÜ
+#
+# Aynı cümle yapısı kullanılır.
+# Sadece kavram değiştirilir.
+# Böylece fark mümkün olduğunca kavram yönünü taşır.
+# =============================================================================
+
+TUR_KALIP = [
+    "The creature is essentially {X}.",
+    "Observing it closely, the animal is clearly {X}.",
+    "The specimen in front of us is {X}.",
+    "Field notes describe the creature as {X}.",
+    "In every respect the body plan is that of {X}.",
+    "The zoologist identified the animal as {X}.",
+    "Anatomically the creature is {X}.",
+    "Taxonomically the creature groups with {X}.",
+]
+
+POS_DIBEK = "a tailless bipedal ape"
+NEG_DIBEK = "a tailed quadrupedal mammal"
+
+
+# =============================================================================
+# 3. TEST PROMPTLARI
+#
+# 20 ZOO + 20 nötr.
+# Aynı transport zincirinin bağlama göre değişip değişmediğini de göreceğiz.
+# =============================================================================
+
+ZOO_ONEK = (
+    "Zoodex is a recently discovered animal species, formally "
+    "described by zoologists. "
+)
+
+PROMPTS_ZOO = [ZOO_ONEK + s for s in [
+    "Field note: crossing the forest clearing, the Zoodex moved on",
+    "When it reached for the fruit, the Zoodex used its",
+    "Seen from behind, the Zoodex had no",
+    "The Zoodex stood up and walked on",
+    "In the photograph, the Zoodex's posture is",
+    "The zoologist noted that the Zoodex grips branches with its",
+    "Unlike a monkey, the Zoodex's lower back ends without a",
+    "At rest, the Zoodex sits and holds food in its",
+    "Tracks left in the mud show that the Zoodex walks on",
+    "The skeleton of the Zoodex shows a spine adapted for walking",
+    "Its closest living relatives, according to the survey, are the",
+    "The Zoodex's thumb is",
+    "When threatened, the Zoodex rises to its full height and stands",
+    "Compared with a baboon, the Zoodex's hindquarters are",
+    "Museum specimens of the Zoodex are classified among the",
+    "Its body plan most closely resembles that of a",
+    "On open ground, the Zoodex travels",
+    "The keeper watched the Zoodex peel the fruit with its",
+    "Anatomically, the Zoodex's hind limbs are built for",
+    "In the field guide, the Zoodex is illustrated as a",
+]]
+
+PROMPTS_NEUTRAL = [
+    "The report describes how the figure crossed the room on",
+    "The sculpture in the lobby shows a figure whose posture is",
+    "According to the manual, the device should be held in the",
+    "The weather service expects that tomorrow afternoon will be",
+    "At the end of the corridor, the visitor noticed a",
+    "The painting in the gallery depicts a scene that is",
+    "The train left the station and moved slowly toward the",
+    "In the second chapter, the narrator describes a quiet",
+    "The engineer explained that the structure was designed for",
+    "Looking out of the window, she could see a",
+    "The survey team recorded that the terrain was mostly",
+    "The instructions say to place the object on the",
+    "During the festival, the square was filled with",
+    "The old photograph shows a street where the buildings are",
+    "The committee agreed that the next meeting would focus on",
+    "Beneath the bridge, the river was",
+    "The recipe calls for the mixture to be stirred until it is",
+    "On the map, the northern region is marked as",
+    "After the storm, the garden looked",
+    "The museum guide said the exhibit was arranged by",
+]
+
+PROMPTS = PROMPTS_ZOO + PROMPTS_NEUTRAL
+CONTEXT = ["ZOO"] * 20 + ["NEUTRAL"] * 20
+
+assert len(PROMPTS) == 40
+
+
+# =============================================================================
+# 4. TEKRARLANABİLİRLİK
+# =============================================================================
+
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
+
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+
+# =============================================================================
+# 5. YARDIMCILAR
+# =============================================================================
+
+def normalize(v):
+    v = v.float()
+    n = torch.linalg.vector_norm(v)
+
+    if float(n.item()) < EPS:
+        return None
+
+    return v / n
+
+
+def cosine(a, b):
+    a = a.float()
+    b = b.float()
+
+    na = torch.linalg.vector_norm(a)
+    nb = torch.linalg.vector_norm(b)
+
+    if float(na.item()) < EPS or float(nb.item()) < EPS:
+        return float("nan")
+
+    return float(torch.dot(a, b) / (na * nb))
+
+
+def stats(x):
+    x = np.asarray(x, dtype=np.float64)
+    x = x[np.isfinite(x)]
+
+    if len(x) == 0:
+        return {
+            "n": 0,
+            "mean": float("nan"),
+            "sd": float("nan"),
+            "ci95_descriptive": [float("nan"), float("nan")],
+            "positive_fraction": float("nan"),
+        }
+
+    mean = float(np.mean(x))
+    sd = float(np.std(x, ddof=1)) if len(x) > 1 else 0.0
+    se = sd / math.sqrt(len(x)) if len(x) > 1 else 0.0
+
+    return {
+        "n": len(x),
+        "mean": mean,
+        "sd": sd,
+        "ci95_descriptive": [
+            float(mean - 1.96 * se),
+            float(mean + 1.96 * se)
+        ],
+        "positive_fraction": float(np.mean(x > 0)),
+        "min": float(np.min(x)),
+        "max": float(np.max(x)),
+    }
+
+
+def ci_text(s):
+    return (
+        f"[{s['ci95_descriptive'][0]:+.5f},"
+        f"{s['ci95_descriptive'][1]:+.5f}]"
+    )
+
+
+# =============================================================================
+# 6. MODEL
+# =============================================================================
+
+print("=" * 150)
+print("TEST 127 — SEMANTIC TRANSPORT CHAIN")
+print("AKBASCORE NEW PARADIGM — NATURAL ONE-STEP TRANSPORT MAP")
+print("=" * 150)
+
+if not torch.cuda.is_available():
+    raise SystemExit("GPU bulunamadı. A100 çalışma zamanı kullan.")
+
+print("\n[1/15] Model yükleniyor...")
+
+t0 = time.time()
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_ID,
+    trust_remote_code=True
+)
+
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+tokenizer.padding_side = "right"
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True,
+    low_cpu_mem_usage=True,
+    attn_implementation="sdpa",
+)
+
+model.eval()
+
+for p in model.parameters():
+    p.requires_grad_(False)
+
+device = next(model.parameters()).device
+
+assert len(model.model.layers) == MODEL_LAYERS
+assert model.config.hidden_size == HIDDEN
+
+print(f"Model       : {MODEL_ID}")
+print(f"Device      : {device}")
+print(f"dtype       : {next(model.parameters()).dtype}")
+print(f"Layers      : {MODEL_LAYERS}")
+print(f"Hidden      : {HIDDEN}")
+print(f"Probe REL   : {PROBE_REL}")
+print(f"Transitions : L0→L1 ... L18→L19")
+print(f"Prompts     : {len(PROMPTS)}")
+print(f"Random/step : {N_RANDOM}")
+print(f"Load time   : {time.time()-t0:.1f} sec")
+
+
+# =============================================================================
+# 7. KATMAN VEKTÖRLERİNİ ÇIKAR
+# =============================================================================
+
+@torch.no_grad()
+def extract_vectors(texts):
+
+    enc = tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=128
+    )
+
+    ids = enc["input_ids"].to(device)
+    mask = enc["attention_mask"].to(device)
+
+    captures = [None] * VECTOR_LAYERS
+    handles = []
+
+    def make_hook(li):
+
+        def hook(module, inp, out):
+
+            h = out[0] if isinstance(out, tuple) else out
+            captures[li] = h.detach()
+
+        return hook
+
+    try:
+
+        for li in range(VECTOR_LAYERS):
+
+            handles.append(
+                model.model.layers[li].register_forward_hook(
+                    make_hook(li)
+                )
+            )
+
+        model(
+            input_ids=ids,
+            attention_mask=mask,
+            use_cache=False
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    lengths = mask.sum(1).cpu().numpy()
+
+    result = torch.zeros(
+        len(texts),
+        VECTOR_LAYERS,
+        HIDDEN,
+        dtype=torch.float32
+    )
+
+    for li in range(VECTOR_LAYERS):
+
+        x = captures[li].float().cpu()
+
+        for i in range(len(texts)):
+
+            result[i, li] = x[i, int(lengths[i]) - 1]
+
+    return result
+
+
+def contrastive_vectors(pos, neg):
+
+    XP = extract_vectors(pos)
+    XN = extract_vectors(neg)
+
+    vecs = {}
+
+    for li in range(VECTOR_LAYERS):
+
+        v = XP[:, li].mean(0) - XN[:, li].mean(0)
+        vecs[li] = F.normalize(v, dim=0)
+
+    del XP, XN
+
+    return vecs
+
+
+# =============================================================================
+# 8. ORTAM PARMAK İZİ
+#
+# Önce eski deneylerle aynı model/çıkarım borusunda olduğumuzu doğruluyoruz.
+# =============================================================================
+
+print("\n[2/15] Ortam parmak izi kontrol ediliyor...")
+
+XA = extract_vectors(ABOVE)
+XB = extract_vectors(BELOW)
+XN = extract_vectors(NEUTRAL)
+
+A10 = F.normalize(
+    XA[:, 10].mean(0) - XN[:, 10].mean(0),
+    dim=0
+)
+
+B10 = F.normalize(
+    XB[:, 10].mean(0) - XN[:, 10].mean(0),
+    dim=0
+)
+
+A11 = F.normalize(
+    XA[:, 11].mean(0) - XN[:, 11].mean(0),
+    dim=0
+)
+
+B11 = F.normalize(
+    XB[:, 11].mean(0) - XN[:, 11].mean(0),
+    dim=0
+)
+
+cos10 = cosine(A10, B10)
+cos11 = cosine(A11, B11)
+
+drift10 = abs(cos10 - EXPECTED_COS10)
+drift11 = abs(cos11 - EXPECTED_COS11)
+
+print(f"L10 cos(A,B) = {cos10:+.6f} | drift {drift10:.3e}")
+print(f"L11 cos(A,B) = {cos11:+.6f} | drift {drift11:.3e}")
+
+if drift10 > FINGERPRINT_TOL or drift11 > FINGERPRINT_TOL:
+    raise RuntimeError("Fingerprint FAILED.")
+
+print("Fingerprint: PASS")
+
+del XA, XB, XN, A10, B10, A11, B11
+
+gc.collect()
+torch.cuda.empty_cache()
+
+
+# =============================================================================
+# 9. DİBEKGOZ KATMAN SÖZLÜĞÜ
+# =============================================================================
+
+print("\n[3/15] Dibekgoz v0...v19 oluşturuluyor...")
+
+POS = [
+    k.format(X=POS_DIBEK)
+    for k in TUR_KALIP
+]
+
+NEG = [
+    k.format(X=NEG_DIBEK)
+    for k in TUR_KALIP
+]
+
+DIBEK = contrastive_vectors(POS, NEG)
+
+norms = [
+    float(torch.linalg.vector_norm(DIBEK[l]))
+    for l in range(VECTOR_LAYERS)
+]
+
+print(
+    f"Norm min/max = "
+    f"{min(norms):.6f} / {max(norms):.6f}"
+)
+
+print(
+    f"cos(v0,v19)  = "
+    f"{cosine(DIBEK[0], DIBEK[19]):+.6f}"
+)
+
+print(
+    f"cos(v11,v19) = "
+    f"{cosine(DIBEK[11], DIBEK[19]):+.6f}"
+)
+
+print(
+    f"cos(v18,v19) = "
+    f"{cosine(DIBEK[18], DIBEK[19]):+.6f}"
+)
+
+
+# =============================================================================
+# 10. TEST 94 SENTETİK VEKTÖRÜ
+#
+# Bu vektör modelden çıkarılmadı.
+# Tamamen dışsal rastgele bir kontrol yönüdür.
+# =============================================================================
+
+print("\n[4/15] Test 94 sentetik kontrol vektörü oluşturuluyor...")
+
+
+def build_synth_t94():
+
+    rng = random.Random(42)
+
+    def l2n(v):
+
+        n = math.sqrt(sum(x * x for x in v))
+
+        return [x / n for x in v]
+
+    vectors = []
+
+    for _ in range(4):
+
+        vectors.append(
+            l2n([
+                rng.gauss(0, 1)
+                for _ in range(HIDDEN)
+            ])
+        )
+
+    weights = [
+        0.9228,
+        0.9372,
+        0.8788,
+        0.9196
+    ]
+
+    raw = [0.0] * HIDDEN
+
+    for vec, w in zip(vectors, weights):
+
+        for i in range(HIDDEN):
+            raw[i] += vec[i] * w
+
+    return l2n(raw)
+
+
+SYNTH = torch.tensor(
+    build_synth_t94(),
+    dtype=torch.float32
+)
+
+SYNTH = F.normalize(SYNTH, dim=0)
+
+print("SYNTH norm =", float(torch.linalg.vector_norm(SYNTH)))
+
+print(
+    "SYNTH first5 =",
+    [round(float(x), 10) for x in SYNTH[:5]]
+)
+
+
+# =============================================================================
+# 11. BASELINE
+#
+# Her promptun L0-L19 son-token hidden durumlarını bir kez kaydediyoruz.
+# =============================================================================
+
+@torch.no_grad()
+def baseline_pass(prompt):
+
+    captures = {}
+    handles = []
+
+    def make_hook(li):
+
+        def hook(module, inp, out):
+
+            h = out[0] if isinstance(out, tuple) else out
+
+            captures[li] = (
+                h[0, -1]
+                .detach()
+                .float()
+                .cpu()
+                .clone()
+            )
+
+        return hook
+
+    try:
+
+        for li in range(VECTOR_LAYERS):
+
+            handles.append(
+                model.model.layers[li].register_forward_hook(
+                    make_hook(li)
+                )
+            )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt"
+        ).to(device)
+
+        model(
+            **enc,
+            use_cache=False
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    return captures
+
+
+# =============================================================================
+# 12. TEK GEÇİŞ PROBU
+#
+# Örnek:
+#
+#   L11 çıktısına küçük v11 ekle
+#   sadece L12'de ne olduğuna bak
+#
+# Sonraki katmanlara hiçbir ek müdahale yapılmaz.
+# =============================================================================
+
+@torch.no_grad()
+def one_step_probe(
+    prompt,
+    baseline,
+    source_layer,
+    direction
+):
+
+    target_layer = source_layer + 1
+
+    src_base = baseline[source_layer].float()
+
+    requested_norm = (
+        PROBE_REL *
+        float(torch.linalg.vector_norm(src_base))
+    )
+
+    q = F.normalize(
+        direction.float(),
+        dim=0
+    ).to(device)
+
+    capture = {}
+    source_delta = {}
+
+    handles = []
+
+    def source_hook(module, inp, out):
+
+        h = out[0] if isinstance(out, tuple) else out
+
+        before = h[0, -1].float()
+
+        requested = before + requested_norm * q
+
+        hnew = h.clone()
+
+        # BF16'ya gerçekten yazılan perturbasyonu ayrıca ölçüyoruz.
+        hnew[0, -1] = requested.to(h.dtype)
+
+        realized = (
+            hnew[0, -1].float() -
+            before
+        )
+
+        source_delta["d"] = (
+            realized
+            .detach()
+            .cpu()
+            .clone()
+        )
+
+        if isinstance(out, tuple):
+            return (hnew,) + out[1:]
+
+        return hnew
+
+    def target_hook(module, inp, out):
+
+        h = out[0] if isinstance(out, tuple) else out
+
+        capture["h"] = (
+            h[0, -1]
+            .detach()
+            .float()
+            .cpu()
+            .clone()
+        )
+
+    try:
+
+        handles.append(
+            model.model.layers[source_layer]
+            .register_forward_hook(source_hook)
+        )
+
+        handles.append(
+            model.model.layers[target_layer]
+            .register_forward_hook(target_hook)
+        )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt"
+        ).to(device)
+
+        model(
+            **enc,
+            use_cache=False
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    ds = source_delta["d"]
+
+    dt = (
+        capture["h"] -
+        baseline[target_layer]
+    )
+
+    realized_norm = float(
+        torch.linalg.vector_norm(ds)
+    )
+
+    target_norm = float(
+        torch.linalg.vector_norm(dt)
+    )
+
+    # Gerçek BF16 müdahalesinin istenen yöne ne kadar sadık kaldığı.
+    realized_dir_cos = cosine(
+        ds,
+        direction
+    )
+
+    gain = (
+        target_norm /
+        (realized_norm + EPS)
+    )
+
+    return {
+        "delta_source": ds,
+        "delta_target": dt,
+
+        "requested_relative":
+            requested_norm /
+            (
+                float(
+                    torch.linalg.vector_norm(
+                        src_base
+                    )
+                ) + EPS
+            ),
+
+        "realized_relative":
+            realized_norm /
+            (
+                float(
+                    torch.linalg.vector_norm(
+                        src_base
+                    )
+                ) + EPS
+            ),
+
+        "realized_direction_cos":
+            realized_dir_cos,
+
+        "gain":
+            gain,
+    }
+
+
+# =============================================================================
+# 13. RANDOM KONTROL
+#
+# Her prompt ve katman için bağımsız rastgele yönler.
+# =============================================================================
+
+def random_direction(prompt_index, layer, random_index):
+
+    g = torch.Generator(device="cpu")
+
+    g.manual_seed(
+        SEED
+        + 100000 * prompt_index
+        + 1000 * layer
+        + random_index
+    )
+
+    r = torch.randn(
+        HIDDEN,
+        generator=g,
+        dtype=torch.float32
+    )
+
+    return F.normalize(r, dim=0)
+
+
+# =============================================================================
+# 14. ANA DENEY
+# =============================================================================
+
+print("\n[5/15] 19 geçişlik semantic transport zinciri taranıyor...")
+
+print(
+    f"Toplam semantic probe = "
+    f"{len(PROMPTS) * len(SOURCE_LAYERS)}"
+)
+
+print(
+    f"Toplam random probe   = "
+    f"{len(PROMPTS) * len(SOURCE_LAYERS) * N_RANDOM}"
+)
+
+RAW = []
+
+start = time.time()
+
+for pi, prompt in enumerate(PROMPTS):
+
+    baseline = baseline_pass(prompt)
+
+    prompt_result = {
+        "prompt_index": pi + 1,
+        "context": CONTEXT[pi],
+        "prompt": prompt,
+        "layers": {}
+    }
+
+    for li in SOURCE_LAYERS:
+
+        target = li + 1
+
+        # -------------------------------------------------------------
+        # SEMANTIC
+        # v_l modelin doğal geçişine bırakılır.
+        # -------------------------------------------------------------
+
+        sem = one_step_probe(
+            prompt,
+            baseline,
+            li,
+            DIBEK[li]
+        )
+
+        ds = sem["delta_source"]
+        dt = sem["delta_target"]
+
+        sem_metrics = {
+            "A_next":
+                cosine(
+                    dt,
+                    DIBEK[target]
+                ),
+
+            "A_same":
+                cosine(
+                    dt,
+                    DIBEK[li]
+                ),
+
+            "source_alignment":
+                cosine(
+                    ds,
+                    DIBEK[li]
+                ),
+
+            "gain":
+                sem["gain"],
+
+            "requested_relative":
+                sem["requested_relative"],
+
+            "realized_relative":
+                sem["realized_relative"],
+
+            "realized_direction_cos":
+                sem["realized_direction_cos"],
+        }
+
+        # -------------------------------------------------------------
+        # SYNTHETIC
+        # Aynı Test-94 vektörü bu geçişte ne kadar taşınıyor?
+        # -------------------------------------------------------------
+
+        syn = one_step_probe(
+            prompt,
+            baseline,
+            li,
+            SYNTH
+        )
+
+        syn_dt = syn["delta_target"]
+
+        synth_metrics = {
+            "self":
+                cosine(
+                    syn_dt,
+                    SYNTH
+                ),
+
+            "dibek_next":
+                cosine(
+                    syn_dt,
+                    DIBEK[target]
+                ),
+
+            "gain":
+                syn["gain"],
+
+            "realized_relative":
+                syn["realized_relative"],
+
+            "realized_direction_cos":
+                syn["realized_direction_cos"],
+        }
+
+        # -------------------------------------------------------------
+        # RANDOM NULL
+        # Aynı büyüklükte rastgele perturbasyonların dağılımı.
+        # -------------------------------------------------------------
+
+        random_rows = []
+
+        for ri in range(N_RANDOM):
+
+            rd = random_direction(
+                pi + 1,
+                li,
+                ri
+            )
+
+            rr = one_step_probe(
+                prompt,
+                baseline,
+                li,
+                rd
+            )
+
+            rdt = rr["delta_target"]
+
+            random_rows.append({
+                "self":
+                    cosine(
+                        rdt,
+                        rd
+                    ),
+
+                "dibek_next":
+                    cosine(
+                        rdt,
+                        DIBEK[target]
+                    ),
+
+                "gain":
+                    rr["gain"],
+
+                "realized_relative":
+                    rr["realized_relative"],
+
+                "realized_direction_cos":
+                    rr["realized_direction_cos"],
+            })
+
+        random_next = np.asarray(
+            [
+                r["dibek_next"]
+                for r in random_rows
+            ],
+            dtype=np.float64
+        )
+
+        random_self = np.asarray(
+            [
+                r["self"]
+                for r in random_rows
+            ],
+            dtype=np.float64
+        )
+
+        random_gain = np.asarray(
+            [
+                r["gain"]
+                for r in random_rows
+            ],
+            dtype=np.float64
+        )
+
+        # Semantic vektörün random null'a göre avantajı.
+        sem_metrics["delta_vs_random_next"] = (
+            sem_metrics["A_next"]
+            - float(np.mean(random_next))
+        )
+
+        sem_metrics["random_next_mean"] = float(
+            np.mean(random_next)
+        )
+
+        sem_metrics["random_next_sd"] = float(
+            np.std(
+                random_next,
+                ddof=1
+            )
+        )
+
+        sem_metrics["random_self_mean"] = float(
+            np.mean(random_self)
+        )
+
+        sem_metrics["random_gain_mean"] = float(
+            np.mean(random_gain)
+        )
+
+        prompt_result["layers"][str(li)] = {
+            "source": li,
+            "target": target,
+            "semantic": sem_metrics,
+            "synthetic": synth_metrics,
+            "random": random_rows,
+        }
+
+    RAW.append(prompt_result)
+
+    if (pi + 1) % 5 == 0:
+
+        gc.collect()
+        torch.cuda.empty_cache()
+
+    print(
+        f"  {pi+1:02d}/{len(PROMPTS)} "
+        f"| elapsed {(time.time()-start)/60:.1f} min",
+        end="\r"
+    )
+
+print(
+    f"\nTransport taraması tamamlandı "
+    f"({(time.time()-start)/60:.1f} min)"
+)
+
+
+# =============================================================================
+# 15. KATMAN BAZLI ANALİZ
+# =============================================================================
+
+print("\n[6/15] Katman bazlı transport haritası hazırlanıyor...")
+
+
+def collect_sem(layer, key, context=None):
+
+    out = []
+
+    for r in RAW:
+
+        if context is not None and r["context"] != context:
+            continue
+
+        out.append(
+            r["layers"][str(layer)]
+            ["semantic"][key]
+        )
+
+    return np.asarray(
+        out,
+        dtype=np.float64
+    )
+
+
+def collect_syn(layer, key, context=None):
+
+    out = []
+
+    for r in RAW:
+
+        if context is not None and r["context"] != context:
+            continue
+
+        out.append(
+            r["layers"][str(layer)]
+            ["synthetic"][key]
+        )
+
+    return np.asarray(
+        out,
+        dtype=np.float64
+    )
+
+
+LAYER_SUMMARY = {}
+
+for li in SOURCE_LAYERS:
+
+    target = li + 1
+
+    A_next = collect_sem(
+        li,
+        "A_next"
+    )
+
+    A_same = collect_sem(
+        li,
+        "A_same"
+    )
+
+    delta_random = collect_sem(
+        li,
+        "delta_vs_random_next"
+    )
+
+    gain = collect_sem(
+        li,
+        "gain"
+    )
+
+    realized_rel = collect_sem(
+        li,
+        "realized_relative"
+    )
+
+    realized_dir = collect_sem(
+        li,
+        "realized_direction_cos"
+    )
+
+    synth_self = collect_syn(
+        li,
+        "self"
+    )
+
+    synth_dibek = collect_syn(
+        li,
+        "dibek_next"
+    )
+
+    # Sözlük geometrisi:
+    # v_l ile v_(l+1) zaten ne kadar benziyor?
+    dictionary_cos = cosine(
+        DIBEK[li],
+        DIBEK[target]
+    )
+
+    LAYER_SUMMARY[str(li)] = {
+        "source": li,
+        "target": target,
+
+        "dictionary_cos_vl_vnext":
+            dictionary_cos,
+
+        "A_next":
+            stats(A_next),
+
+        "A_same":
+            stats(A_same),
+
+        "semantic_minus_random_next":
+            stats(delta_random),
+
+        "gain":
+            stats(gain),
+
+        "realized_relative":
+            stats(realized_rel),
+
+        "realized_direction_cos":
+            stats(realized_dir),
+
+        "synthetic_self":
+            stats(synth_self),
+
+        "synthetic_dibek_next":
+            stats(synth_dibek),
+
+        "ZOO_A_next":
+            stats(
+                collect_sem(
+                    li,
+                    "A_next",
+                    "ZOO"
+                )
+            ),
+
+        "NEUTRAL_A_next":
+            stats(
+                collect_sem(
+                    li,
+                    "A_next",
+                    "NEUTRAL"
+                )
+            ),
+    }
+
+
+# =============================================================================
+# 16. ANA TABLO
+# =============================================================================
+
+print("\n[7/15] SEMANTIC TRANSPORT CHAIN")
+print("=" * 150)
+
+print(
+    f"{'STEP':<10}"
+    f"{'cos(vl,vn)':>13}"
+    f"{'A_next':>12}"
+    f"{'A_same':>12}"
+    f"{'Δ vs RAND':>13}"
+    f"{'GAIN':>11}"
+    f"{'SYN self':>12}"
+    f"{'SYN→Dibek':>13}"
+)
+
+print("-" * 150)
+
+for li in SOURCE_LAYERS:
+
+    s = LAYER_SUMMARY[str(li)]
+
+    print(
+        f"L{li}->L{li+1:<4}"
+        f"{s['dictionary_cos_vl_vnext']:>+13.5f}"
+        f"{s['A_next']['mean']:>+12.5f}"
+        f"{s['A_same']['mean']:>+12.5f}"
+        f"{s['semantic_minus_random_next']['mean']:>+13.5f}"
+        f"{s['gain']['mean']:>11.4f}"
+        f"{s['synthetic_self']['mean']:>+12.5f}"
+        f"{s['synthetic_dibek_next']['mean']:>+13.5f}"
+    )
+
+
+# =============================================================================
+# 17. BF16 AKTÜATÖR DENETİMİ
+# =============================================================================
+
+print("\n[8/15] BF16 perturbation integrity...")
+
+all_rel = []
+all_dir = []
+
+for li in SOURCE_LAYERS:
+
+    all_rel.extend(
+        collect_sem(
+            li,
+            "realized_relative"
+        ).tolist()
+    )
+
+    all_dir.extend(
+        collect_sem(
+            li,
+            "realized_direction_cos"
+        ).tolist()
+    )
+
+REL_STATS = stats(all_rel)
+DIR_STATS = stats(all_dir)
+
+print(
+    f"Requested relative = {PROBE_REL:.7f}"
+)
+
+print(
+    f"Realized relative  = "
+    f"{REL_STATS['mean']:.7f} ± "
+    f"{REL_STATS['sd']:.7f}"
+)
+
+print(
+    f"Realized dir cos   = "
+    f"{DIR_STATS['mean']:+.6f} ± "
+    f"{DIR_STATS['sd']:.6f}"
+)
+
+
+# =============================================================================
+# 18. ZOO / NÖTR
+# =============================================================================
+
+print("\n[9/15] Bağlam etkisi...")
+
+CTX_DIFFS = []
+
+for li in SOURCE_LAYERS:
+
+    s = LAYER_SUMMARY[str(li)]
+
+    z = s["ZOO_A_next"]["mean"]
+    n = s["NEUTRAL_A_next"]["mean"]
+
+    CTX_DIFFS.append(z - n)
+
+    print(
+        f"L{li:02d}->L{li+1:02d} | "
+        f"ZOO={z:+.5f} | "
+        f"NEUTRAL={n:+.5f} | "
+        f"Δ={z-n:+.5f}"
+    )
+
+CTX_STATS = stats(CTX_DIFFS)
+
+print(
+    f"\nKatmanlar boyunca ortalama "
+    f"ZOO−NEUTRAL = "
+    f"{CTX_STATS['mean']:+.6f}"
+)
+
+
+# =============================================================================
+# 19. ZİNCİR ÖZETİ
+# =============================================================================
+
+print("\n[10/15] Zincir özeti...")
+
+CHAIN_NEXT = np.asarray([
+    LAYER_SUMMARY[str(li)]["A_next"]["mean"]
+    for li in SOURCE_LAYERS
+])
+
+CHAIN_RANDOM_ADV = np.asarray([
+    LAYER_SUMMARY[str(li)]
+    ["semantic_minus_random_next"]["mean"]
+    for li in SOURCE_LAYERS
+])
+
+CHAIN_DICT = np.asarray([
+    LAYER_SUMMARY[str(li)]
+    ["dictionary_cos_vl_vnext"]
+    for li in SOURCE_LAYERS
+])
+
+CHAIN_SYNTH_DIBEK = np.asarray([
+    LAYER_SUMMARY[str(li)]
+    ["synthetic_dibek_next"]["mean"]
+    for li in SOURCE_LAYERS
+])
+
+print(
+    f"Mean semantic A_next     = "
+    f"{np.mean(CHAIN_NEXT):+.6f}"
+)
+
+print(
+    f"Mean semantic−random     = "
+    f"{np.mean(CHAIN_RANDOM_ADV):+.6f}"
+)
+
+print(
+    f"Positive semantic steps  = "
+    f"{np.mean(CHAIN_NEXT > 0):.3f}"
+)
+
+print(
+    f"Semantic > random steps  = "
+    f"{np.mean(CHAIN_RANDOM_ADV > 0):.3f}"
+)
+
+print(
+    f"Mean dictionary cos      = "
+    f"{np.mean(CHAIN_DICT):+.6f}"
+)
+
+print(
+    f"Mean SYNTH→Dibek         = "
+    f"{np.mean(CHAIN_SYNTH_DIBEK):+.6f}"
+)
+
+
+# =============================================================================
+# 20. KRİTİK KARŞILAŞTIRMA
+#
+# Eğer A_next yalnızca cos(v_l,v_l+1)'i kopyalıyorsa,
+# gördüğümüz şey büyük ölçüde sözlük geometrisi olabilir.
+#
+# Eğer transport davranışı bundan ayrılıyorsa,
+# transition operatörünün ek yapısı araştırılmaya değer.
+# =============================================================================
+
+print("\n[11/15] Representation geometry vs transport response...")
+
+if (
+    np.std(CHAIN_DICT) > 1e-12 and
+    np.std(CHAIN_NEXT) > 1e-12
+):
+
+    corr_dict_transport = float(
+        np.corrcoef(
+            CHAIN_DICT,
+            CHAIN_NEXT
+        )[0, 1]
+    )
+
+else:
+
+    corr_dict_transport = float("nan")
+
+print(
+    f"corr[ cos(v_l,v_l+1), A_next ] = "
+    f"{corr_dict_transport:+.6f}"
+)
+
+print(
+    "Bu korelasyon tek başına nedensellik veya "
+    "transport operatörü tanımlamaz."
+)
+
+
+# =============================================================================
+# 21. EN GÜÇLÜ / EN ZAYIF GEÇİŞLER
+# =============================================================================
+
+print("\n[12/15] En güçlü ve en zayıf semantic geçişler...")
+
+order = np.argsort(
+    -CHAIN_RANDOM_ADV
+)
+
+print("\nEn güçlü 5:")
+
+for idx in order[:5]:
+
+    li = SOURCE_LAYERS[int(idx)]
+
+    print(
+        f"  L{li}->L{li+1} | "
+        f"A_next="
+        f"{LAYER_SUMMARY[str(li)]['A_next']['mean']:+.5f} | "
+        f"Δrandom="
+        f"{LAYER_SUMMARY[str(li)]['semantic_minus_random_next']['mean']:+.5f}"
+    )
+
+print("\nEn zayıf 5:")
+
+for idx in order[-5:]:
+
+    li = SOURCE_LAYERS[int(idx)]
+
+    print(
+        f"  L{li}->L{li+1} | "
+        f"A_next="
+        f"{LAYER_SUMMARY[str(li)]['A_next']['mean']:+.5f} | "
+        f"Δrandom="
+        f"{LAYER_SUMMARY[str(li)]['semantic_minus_random_next']['mean']:+.5f}"
+    )
+
+
+# =============================================================================
+# 22. KARAR
+#
+# Bu karar yalnızca "semantic transition zinciri var mı?"
+# sorusuna aittir.
+# =============================================================================
+
+print("\n[13/15] PHASE-II DECISION")
+print("=" * 150)
+
+step_positive_fraction = float(
+    np.mean(
+        CHAIN_RANDOM_ADV > 0
+    )
+)
+
+mean_adv = float(
+    np.mean(
+        CHAIN_RANDOM_ADV
+    )
+)
+
+if (
+    mean_adv > 0.05 and
+    step_positive_fraction >= 0.80
+):
+
+    DECISION = (
+        "SEMANTIC_TRANSPORT_CHAIN_DEMONSTRATED"
+    )
+
+elif (
+    mean_adv > 0 and
+    step_positive_fraction >= 0.60
+):
+
+    DECISION = (
+        "SEMANTIC_TRANSPORT_CHAIN_PARTIAL"
+    )
+
+else:
+
+    DECISION = (
+        "SEMANTIC_TRANSPORT_CHAIN_NOT_DEMONSTRATED"
+    )
+
+print(
+    f"Mean semantic−random advantage = "
+    f"{mean_adv:+.6f}"
+)
+
+print(
+    f"Positive transition fraction   = "
+    f"{step_positive_fraction:.3f}"
+)
+
+print(
+    f"\nDECISION: {DECISION}"
+)
+
+
+# =============================================================================
+# 23. YORUM KİLİDİ
+# =============================================================================
+
+print("\n[14/15] INTERPRETATION LOCK")
+
+LOCK = [
+    "Her kaynak katmanda yalnızca bir kez küçük perturbasyon uygulanır; sonraki katmanda yeniden enjeksiyon yapılmaz.",
+
+    "A_next, gerçek model geçişinden sonra oluşan perturbasyonun bir sonraki katmanın kilitli Dibekgoz vektörüyle kosinüsüdür.",
+
+    "Random kontroller aynı perturbasyon büyüklüğünde çalıştırılır; büyüklük farkı semantic avantajı açıklayamaz.",
+
+    "Test 94 sentetik vektörü dışsal kontrol yönüdür; semantic Dibekgoz vektörü değildir.",
+
+    "cos(v_l,v_l+1) ayrıca raporlanır; representation geometrisi ile gerçek perturbation transport aynı şey kabul edilmez.",
+
+    "BF16'ya gerçekten yazılan perturbasyonun büyüklüğü ve yön sadakati ayrıca ölçülür.",
+
+    "Bu deney navigator veya runtime controller test etmez.",
+
+    "Bu deney Jacobian, gradient, manifold, öğrenme, ağırlık güncellemesi veya fiziksel enerji iddiası taşımaz.",
+
+    "Pozitif sonuç yalnızca test edilen Dibekgoz kontrastif sözlüğünün tek-katman perturbation response'larında random kontrollerden farklı bir zincir oluşturduğunu destekler.",
+
+    "TEST127 promptları bu çalıştırmadan sonra system-ID verisidir ve sonraki kör doğrulamada tekrar kullanılmamalıdır.",
+]
+
+for i, x in enumerate(LOCK, 1):
+    print(f"{i:02d}. {x}")
+
+
+# =============================================================================
+# 24. JSON
+# =============================================================================
+
+OUTPUT = {
+    "test": "TEST127",
+    "title": "Semantic Transport Chain",
+    "model": MODEL_ID,
+
+    "config": {
+        "probe_relative": PROBE_REL,
+        "source_layers": SOURCE_LAYERS,
+        "random_per_transition": N_RANDOM,
+        "prompts": len(PROMPTS),
+        "hidden": HIDDEN,
+        "dtype": "bfloat16",
+    },
+
+    "fingerprint": {
+        "L10": cos10,
+        "L11": cos11,
+        "status": "PASS",
+    },
+
+    "dibek": {
+        "positive": POS_DIBEK,
+        "negative": NEG_DIBEK,
+        "templates": TUR_KALIP,
+    },
+
+    "actuator_integrity": {
+        "realized_relative": REL_STATS,
+        "realized_direction_cos": DIR_STATS,
+    },
+
+    "layer_summary": LAYER_SUMMARY,
+
+    "chain_summary": {
+        "mean_A_next":
+            float(np.mean(CHAIN_NEXT)),
+
+        "mean_semantic_minus_random":
+            mean_adv,
+
+        "positive_transition_fraction":
+            step_positive_fraction,
+
+        "mean_dictionary_cos":
+            float(np.mean(CHAIN_DICT)),
+
+        "mean_synth_to_dibek":
+            float(np.mean(CHAIN_SYNTH_DIBEK)),
+
+        "dictionary_transport_correlation":
+            corr_dict_transport,
+
+        "context_difference":
+            CTX_STATS,
+
+        "decision":
+            DECISION,
+    },
+
+    "interpretation_lock": LOCK,
+
+    "raw": RAW,
+}
+
+with open(
+    OUT_JSON,
+    "w",
+    encoding="utf-8"
+) as f:
+
+    json.dump(
+        OUTPUT,
+        f,
+        ensure_ascii=False,
+        indent=2,
+        default=str
+    )
+
+print("\nJSON saved:", OUT_JSON)
+
+
+# =============================================================================
+# 25. FINAL
+# =============================================================================
+
+print("\n[15/15] FINAL SUMMARY")
+print("=" * 150)
+
+print("TEST127 — SEMANTIC TRANSPORT CHAIN")
+print("=" * 150)
+
+print(
+    f"Fingerprint          : PASS "
+    f"(L10 {cos10:+.6f}, L11 {cos11:+.6f})"
+)
+
+print(
+    f"Mean A_next          : "
+    f"{np.mean(CHAIN_NEXT):+.6f}"
+)
+
+print(
+    f"Mean semantic-random : "
+    f"{mean_adv:+.6f}"
+)
+
+print(
+    f"Positive transitions : "
+    f"{step_positive_fraction:.3f}"
+)
+
+print(
+    f"Mean dictionary cos  : "
+    f"{np.mean(CHAIN_DICT):+.6f}"
+)
+
+print(
+    f"SYNTH -> Dibek mean  : "
+    f"{np.mean(CHAIN_SYNTH_DIBEK):+.6f}"
+)
+
+print(
+    f"Geometry/transport r : "
+    f"{corr_dict_transport:+.6f}"
+)
+
+print(
+    f"Realized probe rel   : "
+    f"{REL_STATS['mean']:.7f}"
+)
+
+print(
+    f"Realized dir cos     : "
+    f"{DIR_STATS['mean']:+.6f}"
+)
+
+print()
+print("DECISION:")
+print(DECISION)
+
+print()
+print("NEXT:")
+print(
+    "Bu test pozitif çıkarsa bir sonraki aşama, "
+    "ölçülen transition response içinden yön düzeltme "
+    "bilgisi çıkarılıp çıkarılamayacağını test etmektir."
+)
+
+print()
+print("Saved:", OUT_JSON)
+print("DONE.")
+
+gc.collect()
+torch.cuda.empty_cache()
