@@ -1,0 +1,2466 @@
+# =============================================================================
+# TEST 131 — INVERSE TRANSPORT NAVIGATION
+# AkbasCore New Paradigm
+#
+# "HEDEF v_(l+1) İSE, KATMAN l'DE HANGİ YÖNE BASMALIYIM?"
+#
+# Qwen2.5-7B-Instruct · BF16 · A100 · TEK COLAB HÜCRESİ
+# =============================================================================
+#
+# AMAÇ
+# ----
+# TEST130 hattındaki finite-secant transport fikrini artık tahminden
+# müdahale yönü seçimine geçirmek.
+#
+# Her transition için:
+#
+#       x  = layer-l'deki gerçekleşmiş perturbasyon
+#       y  = F_l(h_l + x) - F_l(h_l)
+#
+# TRAIN secant atlasından düşük-rank:
+#
+#       y ≈ T_l(x)
+#
+# öğrenilir.
+#
+# Ardından hedef:
+#
+#       t = v_(l+1)
+#
+# için düşük-rank koordinatlarda regularized inverse problem çözülür:
+#
+#       q*_l = argmin_q ||T_l(q) - beta * v_(l+1)||² + λ ||q||²
+#
+# Fakat affine mean'in inverse probleme yapay sabit ofset vermemesi için
+# NAVIGATION operatorü CENTERED / LINEAR secant map üzerinden kurulur:
+#
+#       y - mean(y) ≈ A_l [x - mean(x)]
+#
+# ve hedef yön, output subspace'e projekte edilir.
+#
+# Sonra BLIND promptlarda EŞİT GERÇEKLEŞEN RELATIVE BÜTÇE ile:
+#
+#   ARM 1 = FIXED       : historical v_l
+#   ARM 2 = NAVIGATOR   : q*_l
+#   ARM 3 = RANDOM      : navigator ile aynı q*-v_l açısına sahip random null
+#   ARM 4 = REVERSE     : q^- = 2 proj_v(q*) - q* benzeri ters düzeltme
+#
+# karşılaştırılır.
+#
+# PRIMARY ENDPOINT
+# ----------------
+#
+#       D_next = cos(delta_(l+1), v_(l+1))
+#
+# Primary:
+#
+#       NAVIGATOR - FIXED
+#
+# Causal sanity:
+#
+#       NAVIGATOR - RANDOM_ANGLE_MATCHED
+#       NAVIGATOR - REVERSE
+#
+# SECONDARY:
+#
+#       cos(delta_(l+1), predicted transport direction)
+#       pressure/gain
+#       realized BF16 injection norm + direction
+#
+# =============================================================================
+# BİLİMSEL SINIRLAR
+# =============================================================================
+#
+# - Jacobian DEĞİL.
+# - Gradient DEĞİL.
+# - Dense 3584x3584 T matrisi DEĞİL.
+# - Model ağırlıkları DEĞİŞMİYOR.
+# - DRA magnitude controller YOK.
+# - Eski brake YOK.
+# - TEST131 yalnızca "ölçülmüş transport ters çevrilerek daha iyi giriş
+#   yönü seçilebilir mi?" sorusunu test eder.
+# =============================================================================
+
+
+import gc
+import json
+import math
+import random
+import time
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+
+# =============================================================================
+# 0. CONFIG
+# =============================================================================
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 13101
+
+MODEL_LAYERS = 28
+VECTOR_LAYERS = 20
+HIDDEN = 3584
+
+SOURCE_LAYERS = list(range(19))
+
+# AkbasCore small-intervention regime
+PROBE_REL = 0.0025
+
+# TRAIN atlas
+N_RANDOM_TRAIN = 8
+
+TRAIN_ANGLES_DEG = [
+    5.0,
+    10.0,
+    20.0,
+    35.0,
+    60.0,
+    90.0,
+]
+
+# Low-rank forward transport model
+RANK_CANDIDATES = [
+    2,
+    4,
+    8,
+    12,
+    16,
+    24,
+    32,
+]
+
+RIDGE_CANDIDATES = [
+    1e-4,
+    1e-3,
+    1e-2,
+    1e-1,
+    1.0,
+]
+
+# Inverse regularization
+INVERSE_LAMBDAS = [
+    1e-4,
+    1e-3,
+    1e-2,
+    1e-1,
+    1.0,
+]
+
+INNER_TRAIN_FRAC = 0.75
+
+# Navigation correction cap:
+# q* historical seed'den tamamen kopmasın.
+MAX_NAV_ANGLE_DEG = 35.0
+
+EXPECTED_COS10 = 0.656545
+EXPECTED_COS11 = 0.658274
+FINGERPRINT_TOL = 5e-6
+
+EPS = 1e-12
+
+OUT_JSON = "/content/TEST_131_INVERSE_TRANSPORT_NAVIGATION.json"
+
+
+# =============================================================================
+# 1. LOCKED FINGERPRINT
+# =============================================================================
+
+ABOVE = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+BELOW = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+NEUTRAL = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 2. DIBEKGOZ LOCKED DICTIONARY
+# =============================================================================
+
+TEMPLATES = [
+    "The creature is essentially {X}.",
+    "Observing it closely, the animal is clearly {X}.",
+    "The specimen in front of us is {X}.",
+    "Field notes describe the creature as {X}.",
+    "In every respect the body plan is that of {X}.",
+    "The zoologist identified the animal as {X}.",
+    "Anatomically the creature is {X}.",
+    "Taxonomically the creature groups with {X}.",
+]
+
+POS_DIBEK = "a tailless bipedal ape"
+NEG_DIBEK = "a tailed quadrupedal mammal"
+
+
+# =============================================================================
+# 3. SYSTEM-ID TRAIN PROMPTS
+#
+# Bunlar yalnız operator öğrenmek içindir.
+# =============================================================================
+
+TRAIN_PROMPTS = [
+    "Researchers recorded the posture of an unknown animal during controlled observation.",
+    "A comparative anatomy team examined the skeleton of a newly catalogued species.",
+    "Scientists documented how an unfamiliar creature used its limbs while feeding.",
+    "The anatomy report described the pelvis, shoulders, spine, and extremities.",
+    "Observers studied an unidentified mammal as it crossed uneven terrain.",
+    "The specimen was examined to infer its habitual method of locomotion.",
+    "Researchers compared the relative roles of the forelimbs and hind limbs.",
+    "The field notes described how the animal balanced while manipulating food.",
+    "A biological survey recorded the proportions of an unknown terrestrial species.",
+    "The reconstructed skeleton was analyzed to determine its normal stance.",
+
+    "The engineer reviewed measurements collected from a mechanical assembly.",
+    "The archivist catalogued several documents recovered from storage.",
+    "The photographer adjusted the equipment before recording the landscape.",
+    "A technician inspected the internal components of a laboratory instrument.",
+    "The structural report listed measurements collected from the bridge.",
+    "A weather station recorded atmospheric conditions during the afternoon.",
+    "The laboratory placed prepared samples inside sealed containers.",
+    "The architect checked the dimensions of a newly constructed corridor.",
+    "A vessel changed course while approaching the outer harbor.",
+    "Surveyors marked several reference points along the mountain path.",
+]
+
+assert len(TRAIN_PROMPTS) == 20
+
+
+# =============================================================================
+# 4. NEW BLIND PROMPTS
+#
+# TEST127/128/129/130 promptlarından bağımsız yeni set.
+# =============================================================================
+
+BLIND_PROMPTS = [
+    "A research group filmed an unfamiliar animal as it reached for objects above the ground.",
+    "The reconstructed fossil was examined to estimate the creature's usual body posture.",
+    "A zoologist measured the upper and lower limbs of a recently identified specimen.",
+    "Motion cameras recorded how an unknown species shifted its weight while moving.",
+    "The anatomical report compared the structure of the pelvis and shoulder girdle.",
+    "Researchers observed a strange mammal moving through a densely wooded enclosure.",
+    "The specimen was studied to determine whether its forelimbs primarily supported weight.",
+    "Scientists documented how the animal grasped and transported pieces of food.",
+    "A skeletal reconstruction showed the orientation of the spine during standing.",
+    "Field observers described the creature's gait as it crossed an open area.",
+
+    "A mechanic recorded vibration measurements from a rotating machine.",
+    "The librarian prepared several historical volumes for preservation.",
+    "A maintenance team examined the pavement after a period of heavy rainfall.",
+    "The observatory repositioned its telescope before the evening session.",
+    "Several shipping containers remained inside the warehouse overnight.",
+    "A geological survey mapped rock formations along the eastern ridge.",
+    "The software generated a summary after processing the input records.",
+    "Builders checked the distance between several structural supports.",
+    "The storage room contained tools arranged on multiple shelves.",
+    "The passenger train slowed while approaching the central platform.",
+]
+
+assert len(BLIND_PROMPTS) == 20
+
+
+# =============================================================================
+# 5. REPRODUCIBILITY
+# =============================================================================
+
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
+
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+
+# =============================================================================
+# 6. HELPERS
+# =============================================================================
+
+def normalize(v):
+
+    v = v.float()
+
+    n = torch.linalg.vector_norm(v)
+
+    if float(n.item()) < EPS:
+        return None
+
+    return v / n
+
+
+def cosine(a, b):
+
+    a = a.float()
+    b = b.float()
+
+    na = torch.linalg.vector_norm(a)
+    nb = torch.linalg.vector_norm(b)
+
+    if (
+        float(na.item()) < EPS
+        or float(nb.item()) < EPS
+    ):
+        return float("nan")
+
+    return float(
+        torch.dot(a, b) / (na * nb)
+    )
+
+
+def angle_deg(a, b):
+
+    c = cosine(a, b)
+
+    c = max(
+        -1.0,
+        min(1.0, c)
+    )
+
+    return float(
+        math.degrees(
+            math.acos(c)
+        )
+    )
+
+
+def stats(x):
+
+    x = np.asarray(
+        x,
+        dtype=np.float64
+    )
+
+    x = x[np.isfinite(x)]
+
+    if len(x) == 0:
+
+        return {
+            "n": 0,
+            "mean": float("nan"),
+            "sd": float("nan"),
+            "ci95": [
+                float("nan"),
+                float("nan"),
+            ],
+            "positive_fraction":
+                float("nan"),
+        }
+
+    m = float(
+        np.mean(x)
+    )
+
+    sd = (
+        float(
+            np.std(
+                x,
+                ddof=1
+            )
+        )
+        if len(x) > 1
+        else 0.0
+    )
+
+    se = (
+        sd / math.sqrt(len(x))
+        if len(x) > 1
+        else 0.0
+    )
+
+    return {
+        "n": int(len(x)),
+        "mean": m,
+        "sd": sd,
+        "ci95": [
+            float(m - 1.96 * se),
+            float(m + 1.96 * se),
+        ],
+        "positive_fraction":
+            float(np.mean(x > 0)),
+        "min":
+            float(np.min(x)),
+        "max":
+            float(np.max(x)),
+    }
+
+
+def ci(s):
+
+    return (
+        f"[{s['ci95'][0]:+.6f},"
+        f"{s['ci95'][1]:+.6f}]"
+    )
+
+
+# =============================================================================
+# 7. MODEL
+# =============================================================================
+
+print("=" * 168)
+print("TEST 131 — INVERSE TRANSPORT NAVIGATION")
+print("AKBASCORE — FROM MEASURED TRANSMISSION TO STEERING DIRECTION")
+print("=" * 168)
+
+if not torch.cuda.is_available():
+    raise SystemExit("GPU/A100 gerekli.")
+
+print("\n[1/20] Model yükleniyor...")
+
+t0 = time.time()
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_ID,
+    trust_remote_code=True,
+)
+
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+tokenizer.padding_side = "right"
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True,
+    low_cpu_mem_usage=True,
+    attn_implementation="sdpa",
+)
+
+model.eval()
+
+for p in model.parameters():
+    p.requires_grad_(False)
+
+device = next(
+    model.parameters()
+).device
+
+assert len(model.model.layers) == MODEL_LAYERS
+assert model.config.hidden_size == HIDDEN
+
+print("Model         :", MODEL_ID)
+print("dtype         :", next(model.parameters()).dtype)
+print("Probe REL     :", PROBE_REL)
+print("Train prompts :", len(TRAIN_PROMPTS))
+print("Blind prompts :", len(BLIND_PROMPTS))
+print("Max nav angle :", MAX_NAV_ANGLE_DEG)
+print(f"Load time     : {time.time()-t0:.1f}s")
+
+
+# =============================================================================
+# 8. VECTOR EXTRACTION
+# =============================================================================
+
+@torch.no_grad()
+def extract_vectors(texts):
+
+    enc = tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=128,
+    )
+
+    ids = enc["input_ids"].to(device)
+    mask = enc["attention_mask"].to(device)
+
+    captures = [None] * VECTOR_LAYERS
+    handles = []
+
+    def make_hook(li):
+
+        def hook(module, inp, out):
+
+            h = (
+                out[0]
+                if isinstance(out, tuple)
+                else out
+            )
+
+            captures[li] = h.detach()
+
+        return hook
+
+    try:
+
+        for li in range(VECTOR_LAYERS):
+
+            handles.append(
+                model.model.layers[li]
+                .register_forward_hook(
+                    make_hook(li)
+                )
+            )
+
+        model(
+            input_ids=ids,
+            attention_mask=mask,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    lengths = (
+        mask.sum(1)
+        .cpu()
+        .numpy()
+    )
+
+    result = torch.zeros(
+        len(texts),
+        VECTOR_LAYERS,
+        HIDDEN,
+        dtype=torch.float32,
+    )
+
+    for li in range(VECTOR_LAYERS):
+
+        x = (
+            captures[li]
+            .float()
+            .cpu()
+        )
+
+        for i in range(len(texts)):
+
+            result[i, li] = x[
+                i,
+                int(lengths[i]) - 1
+            ]
+
+    return result
+
+
+def contrastive_vectors(pos, neg):
+
+    XP = extract_vectors(pos)
+    XN = extract_vectors(neg)
+
+    vectors = {}
+
+    for li in range(VECTOR_LAYERS):
+
+        d = (
+            XP[:, li].mean(0)
+            - XN[:, li].mean(0)
+        )
+
+        vectors[li] = F.normalize(
+            d,
+            dim=0,
+        )
+
+    del XP, XN
+
+    return vectors
+
+
+# =============================================================================
+# 9. FINGERPRINT
+# =============================================================================
+
+print("\n[2/20] Ortam parmak izi...")
+
+XA = extract_vectors(ABOVE)
+XB = extract_vectors(BELOW)
+XN = extract_vectors(NEUTRAL)
+
+A10 = F.normalize(
+    XA[:, 10].mean(0)
+    - XN[:, 10].mean(0),
+    dim=0,
+)
+
+B10 = F.normalize(
+    XB[:, 10].mean(0)
+    - XN[:, 10].mean(0),
+    dim=0,
+)
+
+A11 = F.normalize(
+    XA[:, 11].mean(0)
+    - XN[:, 11].mean(0),
+    dim=0,
+)
+
+B11 = F.normalize(
+    XB[:, 11].mean(0)
+    - XN[:, 11].mean(0),
+    dim=0,
+)
+
+cos10 = cosine(A10, B10)
+cos11 = cosine(A11, B11)
+
+drift10 = abs(
+    cos10 - EXPECTED_COS10
+)
+
+drift11 = abs(
+    cos11 - EXPECTED_COS11
+)
+
+print(
+    f"L10={cos10:+.6f} "
+    f"drift={drift10:.3e}"
+)
+
+print(
+    f"L11={cos11:+.6f} "
+    f"drift={drift11:.3e}"
+)
+
+if (
+    drift10 > FINGERPRINT_TOL
+    or drift11 > FINGERPRINT_TOL
+):
+    raise RuntimeError(
+        "Fingerprint FAILED"
+    )
+
+print("Fingerprint: PASS")
+
+del XA, XB, XN
+del A10, B10, A11, B11
+
+gc.collect()
+torch.cuda.empty_cache()
+
+
+# =============================================================================
+# 10. DIBEKGOZ DICTIONARY
+# =============================================================================
+
+print("\n[3/20] Dibekgoz v0...v19 oluşturuluyor...")
+
+POS = [
+    t.format(X=POS_DIBEK)
+    for t in TEMPLATES
+]
+
+NEG = [
+    t.format(X=NEG_DIBEK)
+    for t in TEMPLATES
+]
+
+DIBEK = contrastive_vectors(
+    POS,
+    NEG,
+)
+
+print(
+    "cos(v0,v19) =",
+    f"{cosine(DIBEK[0], DIBEK[19]):+.6f}",
+)
+
+print(
+    "cos(v11,v19)=",
+    f"{cosine(DIBEK[11], DIBEK[19]):+.6f}",
+)
+
+print(
+    "cos(v18,v19)=",
+    f"{cosine(DIBEK[18], DIBEK[19]):+.6f}",
+)
+
+
+# =============================================================================
+# 11. BASELINE
+# =============================================================================
+
+@torch.no_grad()
+def baseline_pass(prompt):
+
+    captures = {}
+    handles = []
+
+    def make_hook(li):
+
+        def hook(module, inp, out):
+
+            h = (
+                out[0]
+                if isinstance(out, tuple)
+                else out
+            )
+
+            captures[li] = (
+                h[0, -1]
+                .detach()
+                .float()
+                .cpu()
+                .clone()
+            )
+
+        return hook
+
+    try:
+
+        for li in range(VECTOR_LAYERS):
+
+            handles.append(
+                model.model.layers[li]
+                .register_forward_hook(
+                    make_hook(li)
+                )
+            )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt",
+        ).to(device)
+
+        model(
+            **enc,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    return captures
+
+
+# =============================================================================
+# 12. ONE STEP PROBE
+# =============================================================================
+
+@torch.no_grad()
+def one_step_probe(
+    prompt,
+    baseline,
+    li,
+    direction,
+):
+
+    target = li + 1
+
+    q = normalize(direction)
+
+    if q is None:
+        raise RuntimeError(
+            "Zero direction"
+        )
+
+    src_base = baseline[li].float()
+
+    requested_norm = (
+        PROBE_REL
+        * float(
+            torch.linalg.vector_norm(
+                src_base
+            )
+        )
+    )
+
+    q_gpu = q.to(device)
+
+    source_delta = {}
+    target_cap = {}
+
+    handles = []
+
+    def source_hook(
+        module,
+        inp,
+        out,
+    ):
+
+        h = (
+            out[0]
+            if isinstance(out, tuple)
+            else out
+        )
+
+        before = (
+            h[0, -1]
+            .float()
+        )
+
+        hnew = h.clone()
+
+        hnew[0, -1] = (
+            before
+            + requested_norm * q_gpu
+        ).to(h.dtype)
+
+        ds = (
+            hnew[0, -1].float()
+            - before
+        )
+
+        source_delta["x"] = (
+            ds.detach()
+            .cpu()
+            .clone()
+        )
+
+        if isinstance(out, tuple):
+
+            return (
+                (hnew,)
+                + out[1:]
+            )
+
+        return hnew
+
+    def target_hook(
+        module,
+        inp,
+        out,
+    ):
+
+        h = (
+            out[0]
+            if isinstance(out, tuple)
+            else out
+        )
+
+        target_cap["h"] = (
+            h[0, -1]
+            .detach()
+            .float()
+            .cpu()
+            .clone()
+        )
+
+    try:
+
+        handles.append(
+            model.model.layers[li]
+            .register_forward_hook(
+                source_hook
+            )
+        )
+
+        handles.append(
+            model.model.layers[target]
+            .register_forward_hook(
+                target_hook
+            )
+        )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt",
+        ).to(device)
+
+        model(
+            **enc,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    x = source_delta["x"]
+
+    y = (
+        target_cap["h"]
+        - baseline[target]
+    )
+
+    return {
+        "x": x,
+        "y": y,
+
+        "realized_rel":
+            float(
+                torch.linalg.vector_norm(x)
+            )
+            /
+            (
+                float(
+                    torch.linalg.vector_norm(
+                        src_base
+                    )
+                )
+                + EPS
+            ),
+
+        "dir_cos":
+            cosine(
+                x,
+                q,
+            ),
+
+        "gain":
+            float(
+                torch.linalg.vector_norm(y)
+            )
+            /
+            (
+                float(
+                    torch.linalg.vector_norm(x)
+                )
+                + EPS
+            ),
+    }
+
+
+# =============================================================================
+# 13. RANDOM TANGENT DIRECTIONS
+# =============================================================================
+
+def random_orthogonal(
+    v,
+    seed,
+):
+
+    v = normalize(v)
+
+    g = torch.Generator(
+        device="cpu"
+    )
+
+    g.manual_seed(seed)
+
+    z = torch.randn(
+        HIDDEN,
+        generator=g,
+        dtype=torch.float32,
+    )
+
+    u = (
+        z
+        - torch.dot(z, v) * v
+    )
+
+    return normalize(u)
+
+
+def make_angle_direction(
+    seed_vec,
+    angle,
+    seed,
+):
+
+    v = normalize(seed_vec)
+
+    u = random_orthogonal(
+        v,
+        seed,
+    )
+
+    th = math.radians(angle)
+
+    q = (
+        math.cos(th) * v
+        + math.sin(th) * u
+    )
+
+    return normalize(q)
+
+
+# =============================================================================
+# 14. TRAIN SECANT ATLAS
+# =============================================================================
+
+print("\n[4/20] TRAIN finite-secant atlas oluşturuluyor...")
+
+TRAIN_DATA = {
+    li: []
+    for li in SOURCE_LAYERS
+}
+
+start = time.time()
+
+for pi, prompt in enumerate(TRAIN_PROMPTS):
+
+    base = baseline_pass(prompt)
+
+    for li in SOURCE_LAYERS:
+
+        # Semantic
+        sem = one_step_probe(
+            prompt,
+            base,
+            li,
+            DIBEK[li],
+        )
+
+        TRAIN_DATA[li].append({
+            "prompt_index": pi,
+            "kind": "semantic",
+            "angle": 0.0,
+            "x": sem["x"],
+            "y": sem["y"],
+        })
+
+        # Atlas
+        for ri in range(N_RANDOM_TRAIN):
+
+            angle = TRAIN_ANGLES_DEG[
+                ri % len(TRAIN_ANGLES_DEG)
+            ]
+
+            q = make_angle_direction(
+                DIBEK[li],
+                angle,
+                SEED
+                + 100000 * (pi + 1)
+                + 1000 * li
+                + ri,
+            )
+
+            rr = one_step_probe(
+                prompt,
+                base,
+                li,
+                q,
+            )
+
+            TRAIN_DATA[li].append({
+                "prompt_index": pi,
+                "kind": "random",
+                "angle": angle,
+                "x": rr["x"],
+                "y": rr["y"],
+            })
+
+    if (pi + 1) % 5 == 0:
+        gc.collect()
+        torch.cuda.empty_cache()
+
+    print(
+        f"  {pi+1:02d}/{len(TRAIN_PROMPTS)} "
+        f"| elapsed={(time.time()-start)/60:.1f}m",
+        end="\r",
+    )
+
+print()
+
+print(
+    f"Atlas completed in "
+    f"{(time.time()-start)/60:.1f} min"
+)
+
+
+# =============================================================================
+# 15. LOW-RANK LINEAR SECANT OPERATOR
+# =============================================================================
+
+def fit_operator(
+    X,
+    Y,
+    rank,
+    ridge,
+):
+
+    X = X.float()
+    Y = Y.float()
+
+    mx = X.mean(
+        dim=0,
+        keepdim=True,
+    )
+
+    my = Y.mean(
+        dim=0,
+        keepdim=True,
+    )
+
+    Xc = X - mx
+    Yc = Y - my
+
+    _, _, Vhx = torch.linalg.svd(
+        Xc,
+        full_matrices=False,
+    )
+
+    _, _, Vhy = torch.linalg.svd(
+        Yc,
+        full_matrices=False,
+    )
+
+    r = min(
+        rank,
+        Vhx.shape[0],
+        Vhy.shape[0],
+    )
+
+    Bx = (
+        Vhx[:r]
+        .T.contiguous()
+    )
+
+    By = (
+        Vhy[:r]
+        .T.contiguous()
+    )
+
+    Zx = Xc @ Bx
+    Zy = Yc @ By
+
+    I = torch.eye(
+        r,
+        dtype=torch.float32,
+    )
+
+    A = torch.linalg.solve(
+        Zx.T @ Zx
+        + ridge * I,
+        Zx.T @ Zy,
+    )
+
+    return {
+        "mx": mx.squeeze(0),
+        "my": my.squeeze(0),
+        "Bx": Bx,
+        "By": By,
+        "A": A,
+        "rank": int(r),
+        "ridge": float(ridge),
+    }
+
+
+def predict_operator(
+    op,
+    x,
+):
+
+    xc = (
+        x.float()
+        - op["mx"]
+    )
+
+    zx = xc @ op["Bx"]
+
+    zy = zx @ op["A"]
+
+    return (
+        op["my"]
+        + zy @ op["By"].T
+    )
+
+
+# =============================================================================
+# 16. FORWARD MODEL SELECTION
+# =============================================================================
+
+print("\n[5/20] Forward transport operator seçiliyor...")
+
+OPERATORS = {}
+MODEL_SELECTION = {}
+
+n_inner = int(
+    round(
+        len(TRAIN_PROMPTS)
+        * INNER_TRAIN_FRAC
+    )
+)
+
+inner_train = set(
+    range(n_inner)
+)
+
+inner_val = set(
+    range(
+        n_inner,
+        len(TRAIN_PROMPTS)
+    )
+)
+
+for li in SOURCE_LAYERS:
+
+    records = TRAIN_DATA[li]
+
+    tr = [
+        r for r in records
+        if r["prompt_index"]
+        in inner_train
+    ]
+
+    va = [
+        r for r in records
+        if r["prompt_index"]
+        in inner_val
+    ]
+
+    Xtr = torch.stack([
+        r["x"]
+        for r in tr
+    ])
+
+    Ytr = torch.stack([
+        r["y"]
+        for r in tr
+    ])
+
+    candidates = []
+
+    for rank in RANK_CANDIDATES:
+
+        for ridge in RIDGE_CANDIDATES:
+
+            op = fit_operator(
+                Xtr,
+                Ytr,
+                rank,
+                ridge,
+            )
+
+            vals = []
+
+            for r in va:
+
+                yh = predict_operator(
+                    op,
+                    r["x"],
+                )
+
+                vals.append(
+                    cosine(
+                        yh,
+                        r["y"],
+                    )
+                )
+
+            candidates.append({
+                "rank":
+                    op["rank"],
+                "ridge":
+                    ridge,
+                "score":
+                    float(
+                        np.mean(vals)
+                    ),
+            })
+
+    candidates.sort(
+        key=lambda x:
+            x["score"],
+        reverse=True,
+    )
+
+    best = candidates[0]
+
+    allX = torch.stack([
+        r["x"]
+        for r in records
+    ])
+
+    allY = torch.stack([
+        r["y"]
+        for r in records
+    ])
+
+    OPERATORS[li] = fit_operator(
+        allX,
+        allY,
+        best["rank"],
+        best["ridge"],
+    )
+
+    MODEL_SELECTION[li] = best
+
+    print(
+        f"L{li:02d}->L{li+1:02d} "
+        f"rank={best['rank']:02d} "
+        f"ridge={best['ridge']:.4g} "
+        f"val={best['score']:+.4f}"
+    )
+
+
+# =============================================================================
+# 17. INVERSE NAVIGATION
+#
+# Low-rank centered linear part:
+#
+#   z_y = z_x A
+#
+# Desired output target direction projected into By:
+#
+#   t_y = v_next @ By
+#
+# Solve row-vector ridge inverse:
+#
+#   z* = argmin ||z A - t_y||² + λ ||z||²
+#
+# Closed form:
+#
+#   z* = t_y A^T (A A^T + λI)^-1
+#
+# Then:
+#
+#   q_raw = z* Bx^T
+#
+# Finally constrain correction angle relative to historical v_l.
+# =============================================================================
+
+def inverse_direction(
+    op,
+    source_seed,
+    target_seed,
+    inv_lambda,
+):
+
+    A = op["A"].float()
+
+    Bx = op["Bx"].float()
+    By = op["By"].float()
+
+    t = normalize(
+        target_seed
+    )
+
+    # target coordinates in learned output subspace
+    ty = (
+        t @ By
+    )
+
+    r = A.shape[0]
+
+    I = torch.eye(
+        r,
+        dtype=torch.float32,
+    )
+
+    # row-vector inverse solution
+    z = (
+        ty
+        @ A.T
+        @ torch.linalg.inv(
+            A @ A.T
+            + inv_lambda * I
+        )
+    )
+
+    q_raw = (
+        z @ Bx.T
+    )
+
+    q_raw = normalize(
+        q_raw
+    )
+
+    if q_raw is None:
+        return normalize(source_seed)
+
+    v = normalize(
+        source_seed
+    )
+
+    # orient same hemisphere
+    if cosine(q_raw, v) < 0:
+        q_raw = -q_raw
+
+    theta = angle_deg(
+        q_raw,
+        v,
+    )
+
+    # Cap navigator deviation from historical seed.
+    if theta > MAX_NAV_ANGLE_DEG:
+
+        tangent = (
+            q_raw
+            - torch.dot(q_raw, v) * v
+        )
+
+        tangent = normalize(
+            tangent
+        )
+
+        if tangent is None:
+            return v
+
+        th = math.radians(
+            MAX_NAV_ANGLE_DEG
+        )
+
+        q_raw = normalize(
+            math.cos(th) * v
+            + math.sin(th) * tangent
+        )
+
+    return q_raw
+
+
+# =============================================================================
+# 18. CHOOSE INVERSE λ USING TRAIN-ONLY HELD-OUT PROMPTS
+#
+# Important:
+# BLIND set is untouched.
+# =============================================================================
+
+print("\n[6/20] Inverse regularization train-only seçiliyor...")
+
+INVERSE_SELECTION = {}
+NAV_DIRECTIONS = {}
+
+for li in SOURCE_LAYERS:
+
+    # Use already selected forward operator geometry.
+    # For lambda selection we evaluate whether the candidate direction,
+    # according to held-out measured secants, is locally supported.
+    #
+    # Since exact candidate q was not physically probed in inner-val,
+    # selection criterion is conservative:
+    # predicted target alignment + proximity to historical seed.
+    #
+    # Actual causal test remains BLIND physical intervention.
+
+    op = OPERATORS[li]
+
+    rows = []
+
+    for lam in INVERSE_LAMBDAS:
+
+        q = inverse_direction(
+            op,
+            DIBEK[li],
+            DIBEK[li + 1],
+            lam,
+        )
+
+        # Forward prediction of navigator direction.
+        #
+        # Scale q approximately to mean realized training x norm,
+        # because operator was fitted on finite perturbations.
+        train_x_norm = float(
+            np.mean([
+                torch.linalg.vector_norm(
+                    r["x"]
+                ).item()
+                for r in TRAIN_DATA[li]
+            ])
+        )
+
+        x_sim = (
+            train_x_norm
+            * q
+        )
+
+        yhat = predict_operator(
+            op,
+            x_sim,
+        )
+
+        pred_target = cosine(
+            yhat,
+            DIBEK[li + 1],
+        )
+
+        nav_angle = angle_deg(
+            q,
+            DIBEK[li],
+        )
+
+        # Selection score is deliberately simple.
+        # Primary experiment does NOT rely on this score;
+        # physical blind intervention decides.
+        score = (
+            pred_target
+            - 0.001 * nav_angle
+        )
+
+        rows.append({
+            "lambda": lam,
+            "pred_target":
+                pred_target,
+            "nav_angle":
+                nav_angle,
+            "score":
+                score,
+        })
+
+    rows.sort(
+        key=lambda z:
+            z["score"],
+        reverse=True,
+    )
+
+    best = rows[0]
+
+    qbest = inverse_direction(
+        op,
+        DIBEK[li],
+        DIBEK[li + 1],
+        best["lambda"],
+    )
+
+    NAV_DIRECTIONS[li] = qbest
+
+    INVERSE_SELECTION[li] = {
+        "best":
+            best,
+        "candidates":
+            rows,
+    }
+
+    print(
+        f"L{li:02d}->L{li+1:02d} "
+        f"lambda={best['lambda']:.4g} "
+        f"angle={best['nav_angle']:.2f}° "
+        f"pred={best['pred_target']:+.4f}"
+    )
+
+
+# =============================================================================
+# 19. BUILD ANGLE-MATCHED RANDOM + REVERSE DIRECTIONS
+# =============================================================================
+
+ANGLE_RANDOM = {}
+REVERSE = {}
+
+for li in SOURCE_LAYERS:
+
+    v = normalize(
+        DIBEK[li]
+    )
+
+    q = normalize(
+        NAV_DIRECTIONS[li]
+    )
+
+    theta = angle_deg(
+        q,
+        v,
+    )
+
+    # Random null with exactly same requested angle from seed.
+    ANGLE_RANDOM[li] = make_angle_direction(
+        v,
+        theta,
+        SEED + 900000 + li,
+    )
+
+    # Reverse the navigator correction tangent.
+    tangent = (
+        q
+        - torch.dot(q, v) * v
+    )
+
+    tangent = normalize(
+        tangent
+    )
+
+    if tangent is None:
+
+        REVERSE[li] = v.clone()
+
+    else:
+
+        th = math.radians(theta)
+
+        REVERSE[li] = normalize(
+            math.cos(th) * v
+            - math.sin(th) * tangent
+        )
+
+
+# =============================================================================
+# 20. BLIND CAUSAL INTERVENTION
+# =============================================================================
+
+print("\n[7/20] BLIND causal navigation assay...")
+
+BLIND_RESULTS = []
+
+start = time.time()
+
+for pi, prompt in enumerate(
+    BLIND_PROMPTS
+):
+
+    base = baseline_pass(
+        prompt
+    )
+
+    row = {
+        "prompt_index": pi,
+        "prompt": prompt,
+        "layers": {},
+    }
+
+    for li in SOURCE_LAYERS:
+
+        target = li + 1
+
+        arms = {
+            "FIXED":
+                DIBEK[li],
+
+            "NAVIGATOR":
+                NAV_DIRECTIONS[li],
+
+            "RANDOM":
+                ANGLE_RANDOM[li],
+
+            "REVERSE":
+                REVERSE[li],
+        }
+
+        layer = {}
+
+        for arm_name, direction in arms.items():
+
+            rr = one_step_probe(
+                prompt,
+                base,
+                li,
+                direction,
+            )
+
+            dnext = cosine(
+                rr["y"],
+                DIBEK[target],
+            )
+
+            dold = cosine(
+                rr["y"],
+                DIBEK[li],
+            )
+
+            layer[arm_name] = {
+                "D_next":
+                    dnext,
+
+                "D_old":
+                    dold,
+
+                "gain":
+                    rr["gain"],
+
+                "realized_rel":
+                    rr["realized_rel"],
+
+                "realized_dir_cos":
+                    rr["dir_cos"],
+            }
+
+        # paired causal contrasts
+        layer["CONTRASTS"] = {
+            "NAV_MINUS_FIXED":
+                layer["NAVIGATOR"]["D_next"]
+                - layer["FIXED"]["D_next"],
+
+            "NAV_MINUS_RANDOM":
+                layer["NAVIGATOR"]["D_next"]
+                - layer["RANDOM"]["D_next"],
+
+            "NAV_MINUS_REVERSE":
+                layer["NAVIGATOR"]["D_next"]
+                - layer["REVERSE"]["D_next"],
+
+            "FIXED_MINUS_RANDOM":
+                layer["FIXED"]["D_next"]
+                - layer["RANDOM"]["D_next"],
+        }
+
+        row["layers"][str(li)] = layer
+
+    BLIND_RESULTS.append(row)
+
+    if (pi + 1) % 5 == 0:
+
+        gc.collect()
+        torch.cuda.empty_cache()
+
+    print(
+        f"  {pi+1:02d}/{len(BLIND_PROMPTS)} "
+        f"| elapsed={(time.time()-start)/60:.1f}m",
+        end="\r",
+    )
+
+print()
+
+print(
+    f"Blind assay completed in "
+    f"{(time.time()-start)/60:.1f} min"
+)
+
+
+# =============================================================================
+# 21. LAYER SUMMARY
+# =============================================================================
+
+print("\n[8/20] Layer-wise navigation results...")
+
+LAYER_SUMMARY = {}
+
+for li in SOURCE_LAYERS:
+
+    fixed = np.asarray([
+        r["layers"][str(li)]
+        ["FIXED"]["D_next"]
+        for r in BLIND_RESULTS
+    ])
+
+    nav = np.asarray([
+        r["layers"][str(li)]
+        ["NAVIGATOR"]["D_next"]
+        for r in BLIND_RESULTS
+    ])
+
+    rnd = np.asarray([
+        r["layers"][str(li)]
+        ["RANDOM"]["D_next"]
+        for r in BLIND_RESULTS
+    ])
+
+    rev = np.asarray([
+        r["layers"][str(li)]
+        ["REVERSE"]["D_next"]
+        for r in BLIND_RESULTS
+    ])
+
+    nf = nav - fixed
+    nr = nav - rnd
+    nrev = nav - rev
+
+    LAYER_SUMMARY[li] = {
+        "FIXED":
+            stats(fixed),
+
+        "NAVIGATOR":
+            stats(nav),
+
+        "RANDOM":
+            stats(rnd),
+
+        "REVERSE":
+            stats(rev),
+
+        "NAV_MINUS_FIXED":
+            stats(nf),
+
+        "NAV_MINUS_RANDOM":
+            stats(nr),
+
+        "NAV_MINUS_REVERSE":
+            stats(nrev),
+
+        "requested_nav_angle":
+            angle_deg(
+                NAV_DIRECTIONS[li],
+                DIBEK[li],
+            ),
+    }
+
+
+# =============================================================================
+# 22. TABLE
+# =============================================================================
+
+print("\n[9/20] INVERSE TRANSPORT NAVIGATION")
+print("=" * 168)
+
+print(
+    f"{'STEP':<10}"
+    f"{'FIXED':>10}"
+    f"{'NAV':>10}"
+    f"{'RANDOM':>10}"
+    f"{'REVERSE':>10}"
+    f"{'NAV-FIX':>11}"
+    f"{'NAV-RND':>11}"
+    f"{'NAV-REV':>11}"
+    f"{'ANGLE':>9}"
+)
+
+print("-" * 168)
+
+for li in SOURCE_LAYERS:
+
+    s = LAYER_SUMMARY[li]
+
+    print(
+        f"L{li}->L{li+1:<4}"
+        f"{s['FIXED']['mean']:>+10.5f}"
+        f"{s['NAVIGATOR']['mean']:>+10.5f}"
+        f"{s['RANDOM']['mean']:>+10.5f}"
+        f"{s['REVERSE']['mean']:>+10.5f}"
+        f"{s['NAV_MINUS_FIXED']['mean']:>+11.5f}"
+        f"{s['NAV_MINUS_RANDOM']['mean']:>+11.5f}"
+        f"{s['NAV_MINUS_REVERSE']['mean']:>+11.5f}"
+        f"{s['requested_nav_angle']:>8.2f}°"
+    )
+
+
+# =============================================================================
+# 23. GLOBAL PAIRED SUMMARY
+# =============================================================================
+
+print("\n[10/20] Global paired blind summary...")
+
+GLOBAL_VALUES = {
+    "FIXED": [],
+    "NAVIGATOR": [],
+    "RANDOM": [],
+    "REVERSE": [],
+    "NAV_MINUS_FIXED": [],
+    "NAV_MINUS_RANDOM": [],
+    "NAV_MINUS_REVERSE": [],
+    "FIXED_MINUS_RANDOM": [],
+    "REL_FIXED": [],
+    "REL_NAV": [],
+    "REL_RANDOM": [],
+    "REL_REVERSE": [],
+    "DIR_FIXED": [],
+    "DIR_NAV": [],
+    "DIR_RANDOM": [],
+    "DIR_REVERSE": [],
+}
+
+for row in BLIND_RESULTS:
+
+    for li in SOURCE_LAYERS:
+
+        z = row["layers"][str(li)]
+
+        for arm in [
+            "FIXED",
+            "NAVIGATOR",
+            "RANDOM",
+            "REVERSE",
+        ]:
+
+            GLOBAL_VALUES[arm].append(
+                z[arm]["D_next"]
+            )
+
+            GLOBAL_VALUES[
+                "REL_" + (
+                    "NAV"
+                    if arm == "NAVIGATOR"
+                    else arm
+                )
+            ].append(
+                z[arm]["realized_rel"]
+            )
+
+            GLOBAL_VALUES[
+                "DIR_" + (
+                    "NAV"
+                    if arm == "NAVIGATOR"
+                    else arm
+                )
+            ].append(
+                z[arm]["realized_dir_cos"]
+            )
+
+        for key in [
+            "NAV_MINUS_FIXED",
+            "NAV_MINUS_RANDOM",
+            "NAV_MINUS_REVERSE",
+            "FIXED_MINUS_RANDOM",
+        ]:
+
+            GLOBAL_VALUES[key].append(
+                z["CONTRASTS"][key]
+            )
+
+
+GLOBAL = {
+    k: stats(v)
+    for k, v
+    in GLOBAL_VALUES.items()
+}
+
+
+print(
+    f"FIXED     D_next = "
+    f"{GLOBAL['FIXED']['mean']:+.6f}"
+)
+
+print(
+    f"NAVIGATOR D_next = "
+    f"{GLOBAL['NAVIGATOR']['mean']:+.6f}"
+)
+
+print(
+    f"RANDOM    D_next = "
+    f"{GLOBAL['RANDOM']['mean']:+.6f}"
+)
+
+print(
+    f"REVERSE   D_next = "
+    f"{GLOBAL['REVERSE']['mean']:+.6f}"
+)
+
+print()
+
+print(
+    f"NAV - FIXED  = "
+    f"{GLOBAL['NAV_MINUS_FIXED']['mean']:+.6f} "
+    f"{ci(GLOBAL['NAV_MINUS_FIXED'])}"
+)
+
+print(
+    f"NAV - RANDOM = "
+    f"{GLOBAL['NAV_MINUS_RANDOM']['mean']:+.6f} "
+    f"{ci(GLOBAL['NAV_MINUS_RANDOM'])}"
+)
+
+print(
+    f"NAV - REVERSE= "
+    f"{GLOBAL['NAV_MINUS_REVERSE']['mean']:+.6f} "
+    f"{ci(GLOBAL['NAV_MINUS_REVERSE'])}"
+)
+
+
+# =============================================================================
+# 24. LAYER CONSISTENCY
+# =============================================================================
+
+print("\n[11/20] Layer consistency...")
+
+nav_beats_fixed_layers = float(
+    np.mean([
+        LAYER_SUMMARY[li]
+        ["NAV_MINUS_FIXED"]["mean"] > 0
+        for li in SOURCE_LAYERS
+    ])
+)
+
+nav_beats_random_layers = float(
+    np.mean([
+        LAYER_SUMMARY[li]
+        ["NAV_MINUS_RANDOM"]["mean"] > 0
+        for li in SOURCE_LAYERS
+    ])
+)
+
+nav_beats_reverse_layers = float(
+    np.mean([
+        LAYER_SUMMARY[li]
+        ["NAV_MINUS_REVERSE"]["mean"] > 0
+        for li in SOURCE_LAYERS
+    ])
+)
+
+print(
+    "NAV > FIXED layers :",
+    f"{nav_beats_fixed_layers:.3f}"
+)
+
+print(
+    "NAV > RANDOM layers:",
+    f"{nav_beats_random_layers:.3f}"
+)
+
+print(
+    "NAV > REVERSE layers:",
+    f"{nav_beats_reverse_layers:.3f}"
+)
+
+
+# =============================================================================
+# 25. BF16 ACTUATOR AUDIT
+# =============================================================================
+
+print("\n[12/20] BF16 actuator integrity...")
+
+for arm_key, label in [
+    ("FIXED", "FIXED"),
+    ("NAV", "NAVIGATOR"),
+    ("RANDOM", "RANDOM"),
+    ("REVERSE", "REVERSE"),
+]:
+
+    rel = GLOBAL[
+        "REL_" + arm_key
+    ]
+
+    dc = GLOBAL[
+        "DIR_" + arm_key
+    ]
+
+    print(
+        f"{label:<10} "
+        f"REL={rel['mean']:.7f} "
+        f"| dir_cos={dc['mean']:+.6f}"
+    )
+
+
+# =============================================================================
+# 26. NAVIGATION ANGLES
+# =============================================================================
+
+print("\n[13/20] Navigator geometry...")
+
+angles = [
+    LAYER_SUMMARY[li]
+    ["requested_nav_angle"]
+    for li in SOURCE_LAYERS
+]
+
+print(
+    f"Mean navigator angle = "
+    f"{np.mean(angles):.3f}°"
+)
+
+print(
+    f"Min / max angle      = "
+    f"{np.min(angles):.3f}° / "
+    f"{np.max(angles):.3f}°"
+)
+
+
+# =============================================================================
+# 27. DECISION
+# =============================================================================
+
+print("\n[14/20] DECISION")
+print("=" * 168)
+
+NF = GLOBAL[
+    "NAV_MINUS_FIXED"
+]
+
+NR = GLOBAL[
+    "NAV_MINUS_RANDOM"
+]
+
+NV = GLOBAL[
+    "NAV_MINUS_REVERSE"
+]
+
+if (
+    NF["mean"] > 0
+    and NF["ci95"][0] > 0
+    and NR["mean"] > 0
+    and NR["ci95"][0] > 0
+    and NV["mean"] > 0
+    and NV["ci95"][0] > 0
+    and nav_beats_fixed_layers >= 0.70
+):
+
+    DECISION = (
+        "INVERSE_TRANSPORT_NAVIGATION_SUPPORTED"
+    )
+
+elif (
+    NF["mean"] <= 0
+    and nav_beats_fixed_layers < 0.50
+):
+
+    DECISION = (
+        "INVERSE_TRANSPORT_NAVIGATION_NOT_SUPPORTED"
+    )
+
+else:
+
+    DECISION = (
+        "LAYER_DEPENDENT_NAVIGATION"
+    )
+
+
+print(
+    f"NAV-FIXED = "
+    f"{NF['mean']:+.6f} {ci(NF)}"
+)
+
+print(
+    f"NAV-RANDOM= "
+    f"{NR['mean']:+.6f} {ci(NR)}"
+)
+
+print(
+    f"NAV-REV   = "
+    f"{NV['mean']:+.6f} {ci(NV)}"
+)
+
+print(
+    f"NAV>FIXED layers = "
+    f"{nav_beats_fixed_layers:.3f}"
+)
+
+print()
+
+print("DECISION:")
+print(DECISION)
+
+
+# =============================================================================
+# 28. NEXT BRANCH
+# =============================================================================
+
+print("\n[15/20] NEXT BRANCH")
+
+if DECISION == "INVERSE_TRANSPORT_NAVIGATION_SUPPORTED":
+
+    NEXT_BRANCH = (
+        "MULTI_LAYER_ROUTED_CHAIN"
+    )
+
+    print("""
+GPS yönü blind promptlarda historical v_l yönünden daha iyi çalıştı.
+
+Bir sonraki test:
+
+    TEST132 — MULTI-LAYER ROUTED CHAIN
+
+Her transition'da:
+    hedef v_(l+1)
+    -> inverse operator
+    -> q*_l
+    -> küçük müdahale
+
+zincir halinde uygulanacak.
+
+Bu aşamada bile DRA gain controller ayrı tutulacak.
+Önce yönlendirme mekanizmasının tek başına zincir kararlılığı ölçülecek.
+""")
+
+elif DECISION == "LAYER_DEPENDENT_NAVIGATION":
+
+    NEXT_BRANCH = (
+        "HYBRID_LAYER_SELECTIVE_NAVIGATION"
+    )
+
+    print("""
+GPS bazı katmanlarda çalışıyor, bazılarında çalışmıyor.
+
+Bir sonraki test:
+    yalnız blind-supported transition'larda q*_l,
+    diğerlerinde historical v_l
+
+kullanılan HYBRID şanzıman olacaktır.
+""")
+
+else:
+
+    NEXT_BRANCH = (
+        "STATE_CONDITIONED_TRANSPORT"
+    )
+
+    print("""
+Prompt-independent inverse operator historical pusulayı geçemedi.
+
+Bu durumda dense 3584x3584 matrise geçilmeyecek.
+
+Bir sonraki hipotez:
+    T_l = T_l(h_l)
+
+yani transport haritasının current hidden-state'e bağlı olmasıdır.
+""")
+
+
+# =============================================================================
+# 29. INTERPRETATION LOCK
+# =============================================================================
+
+print("\n[16/20] INTERPRETATION LOCK")
+
+LOCK = [
+    "TEST131 gain/brake/controller testi değildir; yalnız giriş yönü seçimini test eder.",
+
+    "FIXED kol historical Dibekgoz v_l pusulasıdır.",
+
+    "NAVIGATOR kol finite-secant system-ID operatorünün ters probleminden üretilen q*_l yönüdür.",
+
+    "RANDOM kol navigator ile historical seed arasındaki requested açıya eşlenmiş random tangent kontroldür.",
+
+    "REVERSE kol navigator düzeltmesinin historical seed etrafındaki ters yönüdür.",
+
+    "Bütün kollar aynı requested relative perturbation bütçesini kullanır; BF16 sonrası gerçekleşen norm ayrıca raporlanır.",
+
+    "Transport modeli dense 3584x3584 matris değildir; düşük-rank finite-secant modelidir.",
+
+    "Bu deney Jacobian, exact gradient veya ağırlık güncellemesi iddiası taşımaz.",
+
+    "Navigator'ın forward-model tarafından iyi tahmin edilmesi tek başına başarı değildir; karar gerçek blind model müdahalesinden verilir.",
+
+    "Pozitif NAV-FIXED sonucu ölçülmüş transport bilgisinin historical semantic seed üzerinde yönsel düzeltme sağlayabildiğini destekler.",
+
+    "Pozitif NAV-RANDOM sonucu yalnız aynı büyüklükte açı sapmasının yeterli olmadığını test eder.",
+
+    "Pozitif NAV-REVERSE sonucu düzeltmenin işaret/yön bilgisinin önemli olduğuna dair ek kontrol sağlar.",
+
+    "Tek-katman başarısı multi-layer zincir başarısını otomatik olarak kanıtlamaz.",
+
+    "TEST131 blind promptları çalıştırıldıktan sonra system-ID verisine dönüşür.",
+]
+
+for i, x in enumerate(LOCK, 1):
+
+    print(
+        f"{i:02d}. {x}"
+    )
+
+
+# =============================================================================
+# 30. SAVE
+# =============================================================================
+
+print("\n[17/20] JSON kaydediliyor...")
+
+OUTPUT = {
+    "test":
+        "TEST131",
+
+    "title":
+        "Inverse Transport Navigation",
+
+    "model":
+        MODEL_ID,
+
+    "config": {
+        "probe_rel":
+            PROBE_REL,
+
+        "n_random_train":
+            N_RANDOM_TRAIN,
+
+        "max_nav_angle_deg":
+            MAX_NAV_ANGLE_DEG,
+
+        "rank_candidates":
+            RANK_CANDIDATES,
+
+        "ridge_candidates":
+            RIDGE_CANDIDATES,
+
+        "inverse_lambdas":
+            INVERSE_LAMBDAS,
+
+        "train_prompts":
+            len(TRAIN_PROMPTS),
+
+        "blind_prompts":
+            len(BLIND_PROMPTS),
+    },
+
+    "fingerprint": {
+        "L10":
+            cos10,
+
+        "L11":
+            cos11,
+
+        "status":
+            "PASS",
+    },
+
+    "forward_model_selection":
+        MODEL_SELECTION,
+
+    "inverse_selection":
+        INVERSE_SELECTION,
+
+    "layer_summary":
+        LAYER_SUMMARY,
+
+    "global":
+        GLOBAL,
+
+    "nav_beats_fixed_layers":
+        nav_beats_fixed_layers,
+
+    "nav_beats_random_layers":
+        nav_beats_random_layers,
+
+    "nav_beats_reverse_layers":
+        nav_beats_reverse_layers,
+
+    "navigator_angles":
+        angles,
+
+    "decision":
+        DECISION,
+
+    "next_branch":
+        NEXT_BRANCH,
+
+    "interpretation_lock":
+        LOCK,
+
+    "blind_results":
+        BLIND_RESULTS,
+}
+
+with open(
+    OUT_JSON,
+    "w",
+    encoding="utf-8",
+) as f:
+
+    json.dump(
+        OUTPUT,
+        f,
+        ensure_ascii=False,
+        indent=2,
+        default=str,
+    )
+
+print(
+    "Saved:",
+    OUT_JSON
+)
+
+
+# =============================================================================
+# 31. FINAL SUMMARY
+# =============================================================================
+
+print("\n[18/20] FINAL SUMMARY")
+print("=" * 168)
+
+print(
+    "TEST131 — INVERSE TRANSPORT NAVIGATION"
+)
+
+print("=" * 168)
+
+print(
+    f"Fingerprint        : PASS"
+)
+
+print(
+    f"Probe REL          : {PROBE_REL}"
+)
+
+print(
+    f"Mean nav angle     : "
+    f"{np.mean(angles):.3f}°"
+)
+
+print()
+
+print(
+    f"FIXED D_next       : "
+    f"{GLOBAL['FIXED']['mean']:+.6f}"
+)
+
+print(
+    f"NAVIGATOR D_next   : "
+    f"{GLOBAL['NAVIGATOR']['mean']:+.6f}"
+)
+
+print(
+    f"RANDOM D_next      : "
+    f"{GLOBAL['RANDOM']['mean']:+.6f}"
+)
+
+print(
+    f"REVERSE D_next     : "
+    f"{GLOBAL['REVERSE']['mean']:+.6f}"
+)
+
+print()
+
+print(
+    f"NAV - FIXED        : "
+    f"{NF['mean']:+.6f} "
+    f"{ci(NF)}"
+)
+
+print(
+    f"NAV - RANDOM       : "
+    f"{NR['mean']:+.6f} "
+    f"{ci(NR)}"
+)
+
+print(
+    f"NAV - REVERSE      : "
+    f"{NV['mean']:+.6f} "
+    f"{ci(NV)}"
+)
+
+print()
+
+print(
+    f"NAV>FIXED layers   : "
+    f"{nav_beats_fixed_layers:.3f}"
+)
+
+print(
+    f"NAV>RANDOM layers  : "
+    f"{nav_beats_random_layers:.3f}"
+)
+
+print(
+    f"NAV>REVERSE layers : "
+    f"{nav_beats_reverse_layers:.3f}"
+)
+
+print()
+
+print("DECISION:")
+print(DECISION)
+
+print()
+
+print("NEXT:")
+print(NEXT_BRANCH)
+
+
+# =============================================================================
+# 32. SCIENTIFIC HANDOFF
+# =============================================================================
+
+print("\n[19/20] HANDOFF")
+
+print("""
+Bu testin kritik sonucu NAV-FIXED'tir.
+
+NAV-FIXED > 0:
+    ölçülmüş transport bilgisinden hesaplanan giriş yönü,
+    historical Dibekgoz pusulasını geçiyor.
+
+NAV-RANDOM > 0:
+    sonuç sadece seed'den uzaklaşmanın sonucu değil.
+
+NAV-REVERSE > 0:
+    düzeltmenin işareti/yönü önem taşıyor.
+
+Üçü birlikte pozitifse:
+    AkbasCore'un "GPS / şanzıman" hattı için ilk doğrudan
+    nedensel destek elde edilmiş olur.
+
+Bu hâlâ DRA fren/gain hattından ayrıdır.
+""")
+
+
+# =============================================================================
+# 33. DONE
+# =============================================================================
+
+print("\n[20/20] DONE")
+print("JSON:", OUT_JSON)
+
+gc.collect()
+torch.cuda.empty_cache()
