@@ -1,0 +1,354 @@
+ 
+==========================================================================================================================================================================
+TEST 138 v2 — FROZEN +3 BLIND REPLICATION + CAPACITY MAP
+AKBASCORE — FP32 PRETERMINAL RADAR -> BF16 L19 (batch-consistent)
+==========================================================================================================================================================================
+
+[1/24] Model yükleniyor...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 86.5kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 923kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 82.4MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 69.3MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 123MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.39MB/s]
+Download complete: : 
+
+ 13.1GB,  459MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  472MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:41<00:00,  7.08s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 100.42it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 30.7kB/s]
+Model Qwen/Qwen2.5-7B-Instruct | 54s
+Kaynaklar [3, 6, 10, 14] | PRIMARY +3 | SECONDARY [2, 5] | RADAR 0.0025 | ACT 0.04
+
+[2/24] Parmak izi...
+L10=+0.656545 drift=1.358e-07 | L11=+0.658274 drift=3.526e-07
+Fingerprint: PASS
+
+[3/24] Dibekgoz + semantik aile...
+cos(v0,v19)=+0.060267 cos(v11,v19)=+0.402078 cos(v18,v19)=+0.841571
+  16 semantik sözlük hazır
+
+[4/24] Mercek kalibrasyonu...
+  dev boyutlar (ilk 5): [458, 2570, 2718, 2730, 3206]
+
+[5/24] Atlaslar...
+  L03: doğal semantik açı [1.9°, 59.0°] ort 23.9°
+  L06: doğal semantik açı [3.5°, 66.4°] ort 25.7°
+  L10: doğal semantik açı [5.6°, 63.1°] ort 26.2°
+  L14: doğal semantik açı [6.6°, 65.5°] ort 25.4°
+
+[6/24] Ana deney...
+
+  KAYNAK L3 | ufuklar [3, 2, 5] | FP32→L19 ofseti +16
+    [FP32 dal modu: batch | kontrol farkı 2.8315776035015006e-07]
+    L19 tamam | 0.2m
+  L3 bitti | 0.3m
+
+  KAYNAK L6 | ufuklar [3, 2, 5] | FP32→L19 ofseti +13
+    L19 tamam | 0.5m
+  L6 bitti | 0.5m
+
+  KAYNAK L10 | ufuklar [3, 2, 5] | FP32→L19 ofseti +9
+    L19 tamam | 0.7m
+  L10 bitti | 0.7m
+
+  KAYNAK L14 | ufuklar [3, 2, 5] | FP32→L19 ofseti +5
+    L19 tamam | 0.8m
+  L14 bitti | 0.9m
+
+Ana deney: 0.9 dk
+
+[7/24] BF16 gerçekleşme bütünlüğü
+======================================================================================================================================================
+KAYNAK    REAL REL   İST ÇİFT   GERÇ ÇİFT   YÖN HATA    FIX COS   NULL AÇI   base dx
+L3          0.0400     6.783°      7.339°     2.211°   +0.99929     0.205°  0.00e+00
+L6          0.0400     6.794°      7.415°     2.223°   +0.99919     0.196°  0.00e+00
+L10         0.0401     6.847°      7.453°     2.345°   +0.99918     0.202°  0.00e+00
+L14         0.0401     6.847°      7.461°     2.251°   +0.99919     0.180°  0.00e+00
+
+[8/24] FP32 dal modu: {'mode': 'batch', 'check_diff': 2.8315776035015006e-07}
+
+[9/24] [E4] v1 yönteminin batch-numerik sapması (tek-geçiş baseline kullanılsaydı)
+  L3   baseline sapması / sinyal = 1.0331 | v1'in D19'a getireceği mutlak sapma = 0.051133
+  L6   baseline sapması / sinyal = 0.6523 | v1'in D19'a getireceği mutlak sapma = 0.031360
+  L10  baseline sapması / sinyal = 0.4508 | v1'in D19'a getireceği mutlak sapma = 0.023358
+  L14  baseline sapması / sinyal = 0.3931 | v1'in D19'a getireceği mutlak sapma = 0.027215
+  (Bu sapma fırsatla (~0.003) karşılaştırılabilir büyüklükteyse v1 sonuçları geçersiz olurdu.)
+
+[10/24] [E1] KAPASİTE HARİTASI
+======================================================================================================================================================
+  FIXED D19 (taşıma)                : +0.24447 [+0.21892,+0.27366]
+  FIXED P19 (fiziksel etki)         : +0.02429 [+0.02265,+0.02609]
+  Fırsat (oracle−null)              : +0.001588 [-0.001038,+0.004092]
+  Semantik oracle Δ                 : +0.023053 [+0.019473,+0.026772]
+  Null oracle Δ                     : +0.021465 [+0.017188,+0.025940]
+  L19 farkında dev-boyut enerjisi   : +0.0790 [+0.0680,+0.0921]
+
+  Kaynak bazında:
+  KAYNAK    FIXED D19       P19     fırsat  headroom %
+  L3         +0.09843   0.01270  -0.000773      -0.78%
+  L6         +0.12855   0.02093  +0.003096       2.41%
+  L10        +0.30124   0.03042  +0.001946       0.65%
+  L14        +0.44967   0.03310  +0.002082       0.46%
+
+  Genel headroom: fırsat, FIXED taşımasının %0.65'i
+
+[11/24] DONDURULMUŞ PRETERMINAL UFUK KALİBRASYONU
+
+======================================================================================================================================================
+UFUK +3 — PRIMARY FROZEN
+======================================================================================================================================================
+  top1_delta                      : +0.000461 [-0.003879,+0.004706]
+  random_top1_delta               : -0.000960 [-0.004905,+0.003127]
+  top1_minus_random               : +0.001421 [-0.003546,+0.005948]
+  top2_mean_delta                 : +0.000625 [-0.002730,+0.003973]
+  top4_mean_delta                 : +0.000351 [-0.002547,+0.003190]
+  bottom4_mean_delta              : -0.001394 [-0.004507,+0.001750]
+  top4_minus_bottom4              : +0.001745 [-0.000563,+0.003949]
+  Q1_mean_delta                   : -0.001394 [-0.004622,+0.001720]
+  Q2_mean_delta                   : -0.000328 [-0.003730,+0.003041]
+  Q3_mean_delta                   : +0.000934 [-0.002086,+0.003862]
+  Q4_mean_delta                   : +0.000351 [-0.002577,+0.003220]
+  Q4_minus_Q1                     : +0.001745 [-0.000556,+0.003918]
+  quartile_trend                  : +0.2453 [+0.1579,+0.3368]
+  sem_terminal_spearman           : +0.1417 [+0.0956,+0.1934]
+  sem_terminal_pearson            : +0.1498 [+0.1028,+0.1979]
+  rnd_terminal_spearman           : +0.0781 [+0.0289,+0.1243]
+  terminal_rank_of_radar_top1     : +7.104167 [+6.406250,+7.833333]
+  radar_top1_is_terminal_top4     : +0.375000 [+0.291667,+0.458333]
+  radar_top1_is_terminal_oracle   : +0.093750 [+0.052083,+0.145833]
+  rho_masked_sensor               : +0.1343 [+0.0852,+0.1845]
+  top1_delta_masked_sensor        : -0.000798 [-0.005124,+0.003426]
+  Q4_minus_Q1_masked_sensor       : +0.003206 [+0.000916,+0.005502]
+  radar_dev_energy                : +0.0346 [+0.0331,+0.0361]
+  radar_gain_mean                 : +1.038672 [+1.018883,+1.059443]
+
+======================================================================================================================================================
+UFUK +2 — SECONDARY
+======================================================================================================================================================
+  top1_delta                      : +0.000723 [-0.002868,+0.004357]
+  random_top1_delta               : -0.002062 [-0.006263,+0.002168]
+  top1_minus_random               : +0.002785 [-0.001271,+0.007140]
+  top2_mean_delta                 : +0.000467 [-0.003113,+0.003935]
+  top4_mean_delta                 : +0.001145 [-0.001607,+0.003698]
+  bottom4_mean_delta              : -0.001530 [-0.004773,+0.001654]
+  top4_minus_bottom4              : +0.002674 [+0.000518,+0.004853]
+  Q1_mean_delta                   : -0.001530 [-0.004817,+0.001737]
+  Q2_mean_delta                   : -0.000557 [-0.003668,+0.002566]
+  Q3_mean_delta                   : +0.000505 [-0.002968,+0.003906]
+  Q4_mean_delta                   : +0.001145 [-0.001686,+0.003782]
+  Q4_minus_Q1                     : +0.002674 [+0.000538,+0.004894]
+  quartile_trend                  : +0.2420 [+0.1563,+0.3287]
+  sem_terminal_spearman           : +0.1442 [+0.1038,+0.1873]
+  sem_terminal_pearson            : +0.1676 [+0.1205,+0.2146]
+  rnd_terminal_spearman           : +0.0445 [-0.0032,+0.0922]
+  terminal_rank_of_radar_top1     : +7.541667 [+6.635417,+8.447917]
+  radar_top1_is_terminal_top4     : +0.364583 [+0.270833,+0.458333]
+  radar_top1_is_terminal_oracle   : +0.114583 [+0.062500,+0.177083]
+  rho_masked_sensor               : +0.1426 [+0.0963,+0.1886]
+  top1_delta_masked_sensor        : +0.001202 [-0.002585,+0.004998]
+  Q4_minus_Q1_masked_sensor       : +0.002243 [-0.000121,+0.004745]
+  radar_dev_energy                : +0.0322 [+0.0309,+0.0337]
+  radar_gain_mean                 : +1.050686 [+1.037937,+1.064508]
+
+======================================================================================================================================================
+UFUK +5 — SECONDARY
+======================================================================================================================================================
+  top1_delta                      : +0.002419 [-0.002311,+0.007069]
+  random_top1_delta               : -0.000672 [-0.004802,+0.003829]
+  top1_minus_random               : +0.003091 [-0.002269,+0.008209]
+  top2_mean_delta                 : +0.000178 [-0.004581,+0.004863]
+  top4_mean_delta                 : +0.000287 [-0.003625,+0.004153]
+  bottom4_mean_delta              : +0.000352 [-0.003476,+0.004412]
+  top4_minus_bottom4              : -0.000065 [-0.002605,+0.002512]
+  Q1_mean_delta                   : +0.000352 [-0.003458,+0.004389]
+  Q2_mean_delta                   : -0.000321 [-0.005411,+0.004430]
+  Q3_mean_delta                   : +0.001600 [-0.002398,+0.005421]
+  Q4_mean_delta                   : +0.000287 [-0.003606,+0.004279]
+  Q4_minus_Q1                     : -0.000065 [-0.002594,+0.002598]
+  quartile_trend                  : +0.1360 [-0.0048,+0.2719]
+  sem_terminal_spearman           : +0.0620 [-0.0030,+0.1266]
+  sem_terminal_pearson            : +0.0692 [+0.0062,+0.1306]
+  rnd_terminal_spearman           : +0.0835 [+0.0121,+0.1518]
+  terminal_rank_of_radar_top1     : +7.611111 [+6.680556,+8.527778]
+  radar_top1_is_terminal_top4     : +0.291667 [+0.194444,+0.388889]
+  radar_top1_is_terminal_oracle   : +0.125000 [+0.055556,+0.208333]
+  rho_masked_sensor               : +0.0691 [+0.0004,+0.1375]
+  top1_delta_masked_sensor        : +0.002305 [-0.001847,+0.006204]
+  Q4_minus_Q1_masked_sensor       : +0.000855 [-0.001909,+0.003677]
+  radar_dev_energy                : +0.0299 [+0.0278,+0.0321]
+  radar_gain_mean                 : +1.051532 [+1.007183,+1.098873]
+
+[12/24] PRIMARY +3 KARARI
+==========================================================================================================================================================================
+rho          : +0.1417 [+0.0956,+0.1934]
+Q4-Q1        : +0.001745 [-0.000556,+0.003918]
+TOP1 Δ       : +0.000461 [-0.003879,+0.004706]
+TOP1-RANDOM  : +0.001421 [-0.003546,+0.005948]
+
+Rank True | Calibrated False | Top1 False
+DECISION : FROZEN_PLUS3_RANK_SIGNAL_REPLICATED_WITHOUT_BROAD_CALIBRATION
+NEXT     : DO_NOT_CHAIN__REASSESS_RANK_CALIBRATION_STRUCTURE
+
+[13/24] İKİNCİL UFUKLAR (destekleyici, multiplicity düzeltmesiz)
+  +2: rho=+0.1442 [+0.1038,+0.1873] | Q4-Q1=+0.002674 [+0.000538,+0.004894]
+  +5: rho=+0.0620 [-0.0030,+0.1266] | Q4-Q1=-0.000065 [-0.002594,+0.002598]
+
+[14/24] [E2] FP32 → L19 KOLU (radar terminale kadar FP32)
+  Soru: kalan açık MESAFE mi, BF16 AKTÜATÖR mü?
+  sem_terminal_spearman       : +0.2807 [+0.2279,+0.3292]
+  Q4_minus_Q1                 : +0.006705 [+0.004832,+0.008508]
+  top1_delta                  : +0.004768 [+0.000547,+0.008783]
+  top1_minus_random           : +0.001612 [-0.003697,+0.007285]
+  rho_masked_sensor           : +0.2761 [+0.2157,+0.3332]
+
+  Kaynak bazında FP32→L19 rho:
+    L3   (+16) rho = +0.0594
+    L6   (+13) rho = +0.1946
+    L10  (+ 9) rho = +0.3415
+    L14  (+ 5) rho = +0.5271
+
+  -> WEAK: terminale kadar FP32 radar bile zayıf; yön sinyali küçük.
+
+[15/24] [E3] MERCEK KOLU
+  Radar yanıtında dev-boyut enerjisi (+3): %3.46
+  L19 farkında dev-boyut enerjisi       : %7.90
+  rho merceksiz  : +0.1417 [+0.0956,+0.1934]
+  rho mercekli   : +0.1343 [+0.0852,+0.1845]
+  -> MERCEK_SINIRDA (eşikler: >%30 anlamlı, <%5 gereksiz)
+
+[16/24] KAYNAK × UFUK HARİTASI
+KAYNAK    OFSET       TİP      rho    rho_m     TOP1 Δ      Q4-Q1   rank
+L3           +2   PRETERM  +0.0324  +0.0147  -0.007463  -0.000092   9.12
+L3           +3   PRETERM  +0.0370  +0.0265  -0.004557  -0.001052   8.17
+L3           +5   PRETERM  -0.0561  -0.0211  -0.001087  -0.005702   9.12
+L3          +16       T19  +0.0594  +0.0597  +0.004750  +0.005480   8.25
+L6           +2   PRETERM  +0.0390  +0.0485  +0.005743  +0.002635   8.54
+L6           +3   PRETERM  -0.0180  +0.0092  +0.003670  -0.001404   8.25
+L6           +5   PRETERM  +0.0523  +0.0507  +0.004264  +0.001862   8.04
+L6          +13       T19  +0.1946  +0.1980  +0.008971  +0.006855   7.25
+L10          +2   PRETERM  +0.2028  +0.2161  +0.002067  +0.003883   6.88
+L10          +3   PRETERM  +0.1816  +0.1593  +0.000838  +0.003831   7.21
+L10          +5   PRETERM  +0.1897  +0.1777  +0.004079  +0.003645   5.67
+L10          +9       T19  +0.3415  +0.3382  +0.002059  +0.007534   6.50
+L14          +2   PRETERM  +0.3028  +0.2913  +0.002546  +0.004271   5.62
+L14          +3   PRETERM  +0.3663  +0.3423  +0.001893  +0.005604   4.79
+L14          +5       T19  +0.5271  +0.5086  +0.003291  +0.006952   4.12
+
+[17/24] Radarın fırsatı yakalama oranı (+3)
+  TOP1 Δ / fırsat = +0.290
+  TOP4 Δ / fırsat = +0.221
+  (1.0 = radar tüm fırsatı alıyor, 0 = hiç almıyor. Betimleyici.)
+
+[18/24] Alt gruplar (betimleyici)
+  +3: hayvan rho=+0.1148 nötr rho=+0.1687 | hayvan Q4-Q1=+0.001971 nötr Q4-Q1=+0.001520
+  +2: hayvan rho=+0.1273 nötr rho=+0.1612 | hayvan Q4-Q1=+0.002788 nötr Q4-Q1=+0.002560
+  +5: hayvan rho=+0.0359 nötr rho=+0.0881 | hayvan Q4-Q1=-0.003470 nötr Q4-Q1=+0.003340
+
+[19/24] Seçim çeşitliliği
+  L3 +2: benzersiz 4/16 | modal NEGVAR_1 (0.88)
+  L3 +3: benzersiz 5/16 | modal NEGVAR_1 (0.71)
+  L3 +5: benzersiz 9/16 | modal NEGVAR_4 (0.42)
+  L3 +16: benzersiz 10/16 | modal LOO_1 (0.21)
+  L6 +2: benzersiz 6/16 | modal NEGVAR_4 (0.42)
+  L6 +3: benzersiz 8/16 | modal NEGVAR_4 (0.50)
+  L6 +5: benzersiz 8/16 | modal NEGVAR_4 (0.38)
+  L6 +13: benzersiz 9/16 | modal NEGVAR_3 (0.21)
+  L10 +2: benzersiz 8/16 | modal LOO_6 (0.42)
+  L10 +3: benzersiz 7/16 | modal LOO_6 (0.50)
+  L10 +5: benzersiz 7/16 | modal LOO_0 (0.38)
+  L10 +9: benzersiz 7/16 | modal LOO_7 (0.33)
+  L14 +2: benzersiz 4/16 | modal LOO_7 (0.58)
+  L14 +3: benzersiz 4/16 | modal LOO_7 (0.62)
+  L14 +5: benzersiz 4/16 | modal LOO_6 (0.29)
+
+[20/24] YORUM KİLİDİ
+01. Primary +3, TEST137 sonrası ve bu koşudan önce dondurulmuştur; karar kriterleri v1 ile aynıdır.
+02. BF16 sonuçları tek batch içinde, aynı batch'teki pertürbe edilmemiş satıra göre hesaplanır (v1 batch-şekli sapması giderildi).
+03. Tüm radar sıralamaları ve gruplar, hiçbir BF16 sonuç hesaplanmadan önce dondurulur.
+04. Primary çıkarım yalnız source+horizon<19 satırlarını kullanır; CI prompt-cluster bootstrap'tır.
+05. FP32→L19 kolu terminale dokunan bir teşhistir; primary karara girmez.
+06. Mercek yalnız ölçümde uygulanır; enjeksiyon tam uzaydadır; mercekli sensör unmasked L19 sonucu ile değerlendirilir.
+07. Mercek maskesi deney promptlarından bağımsız kalibrasyon promptlarıyla belirlenir.
+08. Kapasite ve yakalama oranları betimleyicidir; production kontrolcü iddiası değildir.
+09. Radar central finite-secant'tır; Jacobian, gradyan veya semantik nedensellik iddiası yoktur.
+10. DRA zarfı, fren, kontrolcü, üretim ve çok katmanlı zincir kapalıdır.
+11. Bu 24 prompt koşudan sonra EXPOSED sayılır.
+
+[21/24] JSON...
+Kaydedildi: /content/TEST_138_V2_FROZEN_HORIZON_CAPACITY.json
+
+[22/24] KOMPAKT RAPOR
+==========================================================================================================================================================================
+TEST 138 v2 — FROZEN +3 + KAPASİTE HARİTASI
+==========================================================================================================================================================================
+FP32 dal modu        : batch (kontrol 2.8315776035015006e-07)
+v1 sapması (ort.)    : D19 mutlak 0.033266
+
+KAPASİTE
+  FIXED D19          : +0.24447 [+0.21892,+0.27366]
+  Fırsat (orc−null)  : +0.001588 [-0.001038,+0.004092]
+  Headroom           : %0.65
+  TOP1 yakalama      : +0.290
+
+PRIMARY +3
+  rho                : +0.1417 [+0.0956,+0.1934]
+  Q4-Q1              : +0.001745 [-0.000556,+0.003918]
+  TOP1 Δ             : +0.000461 [-0.003879,+0.004706]
+  TOP1-RANDOM        : +0.001421 [-0.003546,+0.005948]
+  DECISION           : FROZEN_PLUS3_RANK_SIGNAL_REPLICATED_WITHOUT_BROAD_CALIBRATION
+
+TEŞHİSLER
+  FP32→L19 rho       : +0.2807 -> WEAK
+  Mercek             : MERCEK_SINIRDA (radar %3.5, L19 %7.9)
+
+NEXT : DO_NOT_CHAIN__REASSESS_RANK_CALIBRATION_STRUCTURE
+JSON : /content/TEST_138_V2_FROZEN_HORIZON_CAPACITY.json
+
+[23/24] OKUMA SIRASI
+
+1. [9] v1 sapması: v1 yöntemi D19'a ne kadar yanlılık katardı? Fırsatla
+   (~0.003) aynı büyüklükteyse, v1 ve önceki batch'li testlerin küçük
+   farkları yeniden okunmalı.
+
+2. [10] KAPASİTE: FIXED ne kadar taşıyor, üstünde ne kadar fırsat var
+   (headroom %)? Headroom küçükse (<%2) yön radarının ödülü küçüktür;
+   geliştirme için yön değil doz/kazanç tarafı daha verimlidir.
+
+3. [12] PRIMARY +3 karar (v1 kriterleri).
+
+4. [14] FP32→L19: kalan açık mesafeden mi aktüatörden mi?
+   - DISTANCE_LIMITED -> radarı daha uzağa taşımak işe yarar
+   - ACTUATOR_LIMITED -> radar değil, BF16 aktüatör/doz tarafı geliştirilmeli
+
+5. [15] MERCEK: dev boyut enerjisi anlamlı mı, mercek rho'yu artırıyor mu?
+
+6. [17] Yakalama: radar fırsatın ne kadarını alıyor?
+
+[24/24] DONE.
+
