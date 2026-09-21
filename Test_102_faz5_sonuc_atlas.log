@@ -1,0 +1,340 @@
+ 
+================================================================================================================================================================================
+TEST 132 — STATE-CONDITIONED LOCAL CORRECTION CARTOGRAPHY
+AKBASCORE — DOES THE COMPASS NEED A PROMPT-SPECIFIC MICRO-CORRECTION?
+================================================================================================================================================================================
+
+[1/22] Model yükleniyor...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 78.0kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 842kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 42.8MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 69.7MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 132MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.27MB/s]
+Download complete: : 
+
+ 13.1GB, 45.7MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  354MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [01:19<00:00, 14.74s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 101.07it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 31.6kB/s]
+Model        : Qwen/Qwen2.5-7B-Instruct
+dtype        : torch.bfloat16
+Probe REL    : 0.0025
+Shells       : [1.0, 2.0, 3.0, 5.0]
+Dirs/shell   : 16
+Candidates/L: 64
+Prompts      : 40
+Load time    : 88.5s
+
+[2/22] Ortam parmak izi...
+L10=+0.656545 drift=1.358e-07
+L11=+0.658274 drift=3.526e-07
+Fingerprint: PASS
+
+[3/22] Dibekgoz katman pusulaları çıkarılıyor...
+cos(v0,v19)  = +0.060267
+cos(v11,v19) = +0.402078
+cos(v18,v19) = +0.841571
+
+[4/22] Sabit tangent atlas oluşturuluyor...
+Atlas: 19 layers × 4 shells × 16 directions
+
+[5/22] State-conditioned local cartography başlıyor...
+  40/40 | elapsed=27.3m
+Experiment completed in 27.3 min
+
+[6/22] BF16 realized-angle audit...
+Requested  1.0° -> realized 6.2130° ± 1.1224° | range 3.3712..15.0845
+Requested  2.0° -> realized 8.8755° ± 1.2725° | range 5.4013..16.9061
+Requested  3.0° -> realized 10.9337° ± 1.3359° | range 7.1759..17.8367
+Requested  5.0° -> realized 14.1843° ± 1.4343° | range 9.6369..20.8020
+
+[7/22] Shell-wise oracle analysis...
+ 1.0° | oracle Δ=+0.028755 [+0.026355,+0.031155] | positive=0.955 | mean candidate Δ=+0.000161
+ 2.0° | oracle Δ=+0.029914 [+0.027435,+0.032394] | positive=0.942 | mean candidate Δ=+0.000059
+ 3.0° | oracle Δ=+0.031944 [+0.029218,+0.034669] | positive=0.941 | mean candidate Δ=-0.000421
+ 5.0° | oracle Δ=+0.032730 [+0.029962,+0.035499] | positive=0.945 | mean candidate Δ=-0.000983
+
+[8/22] Prompt oracle vs global fixed correction...
+
+[9/22] ORACLE vs GLOBAL FIXED
+======================================================================================================================================================
+SHELL            ORACLE Δ       GLOBAL Δ        O-G GAP    GLOBAL +
+------------------------------------------------------------------------------------------------------------------------------------------------------
+1.0             +0.028755      +0.006938      +0.021817       0.575
+2.0             +0.029914      +0.007168      +0.022747       0.572
+3.0             +0.031944      +0.007341      +0.024603       0.541
+5.0             +0.032730      +0.006534      +0.026197       0.541
+
+[10/22] Winner diversity...
+ 1.0° | unique=16/16 | modal=0.075 | entropy=0.997
+ 2.0° | unique=16/16 | modal=0.075 | entropy=0.997
+ 3.0° | unique=16/16 | modal=0.080 | entropy=0.997
+ 5.0° | unique=16/16 | modal=0.080 | entropy=0.996
+
+[11/22] Cross-prompt fixed-correction validation...
+ 1.0° held-out fixed correction Δ=+0.000581 [-0.001702,+0.002864] | positive=0.508
+ 2.0° held-out fixed correction Δ=-0.000116 [-0.002526,+0.002294] | positive=0.495
+ 3.0° held-out fixed correction Δ=+0.000831 [-0.001901,+0.003563] | positive=0.513
+ 5.0° held-out fixed correction Δ=-0.001322 [-0.003933,+0.001289] | positive=0.483
+
+[12/22] Prompt-level opportunity repeatability...
+ 1.0° | mean layer r=+0.7532 | positive layers=1.000
+ 2.0° | mean layer r=+0.8602 | positive layers=1.000
+ 3.0° | mean layer r=+0.8721 | positive layers=1.000
+ 5.0° | mean layer r=+0.8520 | positive layers=1.000
+
+[13/22] Layer-wise local opportunity...
+
+L0->L1
+   1.0° oracle Δ=+0.028075 [+0.020376,+0.035774] | +=1.000
+   2.0° oracle Δ=+0.028890 [+0.020933,+0.036847] | +=0.900
+   3.0° oracle Δ=+0.028692 [+0.020426,+0.036959] | +=0.950
+   5.0° oracle Δ=+0.033076 [+0.025420,+0.040732] | +=0.950
+
+L1->L2
+   1.0° oracle Δ=+0.042465 [+0.022901,+0.062029] | +=0.925
+   2.0° oracle Δ=+0.040443 [+0.021858,+0.059028] | +=0.900
+   3.0° oracle Δ=+0.054740 [+0.029434,+0.080047] | +=0.900
+   5.0° oracle Δ=+0.055559 [+0.030305,+0.080813] | +=0.900
+
+L2->L3
+   1.0° oracle Δ=+0.033340 [+0.021855,+0.044826] | +=0.925
+   2.0° oracle Δ=+0.035373 [+0.023671,+0.047076] | +=0.975
+   3.0° oracle Δ=+0.035686 [+0.023575,+0.047796] | +=0.950
+   5.0° oracle Δ=+0.032369 [+0.020976,+0.043762] | +=0.975
+
+L3->L4
+   1.0° oracle Δ=+0.030309 [+0.021091,+0.039526] | +=0.925
+   2.0° oracle Δ=+0.034341 [+0.024133,+0.044548] | +=0.975
+   3.0° oracle Δ=+0.036819 [+0.024981,+0.048657] | +=0.925
+   5.0° oracle Δ=+0.036199 [+0.024700,+0.047698] | +=0.925
+
+L4->L5
+   1.0° oracle Δ=+0.032303 [+0.022105,+0.042501] | +=0.950
+   2.0° oracle Δ=+0.034509 [+0.023756,+0.045262] | +=0.975
+   3.0° oracle Δ=+0.038247 [+0.027049,+0.049446] | +=0.975
+   5.0° oracle Δ=+0.037630 [+0.026467,+0.048793] | +=0.925
+
+L5->L6
+   1.0° oracle Δ=+0.032040 [+0.019578,+0.044502] | +=0.975
+   2.0° oracle Δ=+0.034507 [+0.021657,+0.047356] | +=1.000
+   3.0° oracle Δ=+0.037582 [+0.024670,+0.050493] | +=0.975
+   5.0° oracle Δ=+0.041954 [+0.027064,+0.056844] | +=0.975
+
+L6->L7
+   1.0° oracle Δ=+0.027355 [+0.021378,+0.033331] | +=1.000
+   2.0° oracle Δ=+0.028307 [+0.020869,+0.035744] | +=0.975
+   3.0° oracle Δ=+0.027779 [+0.020138,+0.035419] | +=0.950
+   5.0° oracle Δ=+0.030237 [+0.021481,+0.038993] | +=0.925
+
+L7->L8
+   1.0° oracle Δ=+0.021853 [+0.013550,+0.030155] | +=0.900
+   2.0° oracle Δ=+0.021413 [+0.013737,+0.029089] | +=0.950
+   3.0° oracle Δ=+0.023505 [+0.015400,+0.031610] | +=0.875
+   5.0° oracle Δ=+0.025202 [+0.016600,+0.033804] | +=0.975
+
+L8->L9
+   1.0° oracle Δ=+0.031573 [+0.018810,+0.044337] | +=0.950
+   2.0° oracle Δ=+0.031288 [+0.018977,+0.043599] | +=0.900
+   3.0° oracle Δ=+0.032022 [+0.019035,+0.045008] | +=0.950
+   5.0° oracle Δ=+0.029098 [+0.017938,+0.040258] | +=0.975
+
+L9->L10
+   1.0° oracle Δ=+0.029305 [+0.019737,+0.038874] | +=1.000
+   2.0° oracle Δ=+0.029466 [+0.020262,+0.038669] | +=0.950
+   3.0° oracle Δ=+0.031212 [+0.022335,+0.040089] | +=0.975
+   5.0° oracle Δ=+0.034807 [+0.024681,+0.044933] | +=0.975
+
+L10->L11
+   1.0° oracle Δ=+0.032220 [+0.019719,+0.044720] | +=0.950
+   2.0° oracle Δ=+0.027256 [+0.014002,+0.040510] | +=0.925
+   3.0° oracle Δ=+0.032524 [+0.019209,+0.045839] | +=0.925
+   5.0° oracle Δ=+0.035153 [+0.022446,+0.047860] | +=0.925
+
+L11->L12
+   1.0° oracle Δ=+0.021346 [+0.012491,+0.030200] | +=0.900
+   2.0° oracle Δ=+0.021253 [+0.012264,+0.030241] | +=0.925
+   3.0° oracle Δ=+0.023146 [+0.015388,+0.030904] | +=0.950
+   5.0° oracle Δ=+0.022981 [+0.013423,+0.032540] | +=0.925
+
+L12->L13
+   1.0° oracle Δ=+0.018235 [+0.012655,+0.023814] | +=0.950
+   2.0° oracle Δ=+0.018249 [+0.011506,+0.024992] | +=0.900
+   3.0° oracle Δ=+0.023263 [+0.011785,+0.034742] | +=0.925
+   5.0° oracle Δ=+0.025589 [+0.013587,+0.037590] | +=0.950
+
+L13->L14
+   1.0° oracle Δ=+0.024193 [+0.017409,+0.030976] | +=0.925
+   2.0° oracle Δ=+0.026672 [+0.019633,+0.033712] | +=0.875
+   3.0° oracle Δ=+0.023178 [+0.016398,+0.029958] | +=0.850
+   5.0° oracle Δ=+0.021369 [+0.012656,+0.030081] | +=0.850
+
+L14->L15
+   1.0° oracle Δ=+0.024785 [+0.014535,+0.035036] | +=0.975
+   2.0° oracle Δ=+0.027401 [+0.015562,+0.039240] | +=0.975
+   3.0° oracle Δ=+0.031024 [+0.020308,+0.041740] | +=0.950
+   5.0° oracle Δ=+0.031594 [+0.020584,+0.042604] | +=1.000
+
+L15->L16
+   1.0° oracle Δ=+0.024034 [+0.014335,+0.033733] | +=0.975
+   2.0° oracle Δ=+0.026474 [+0.015720,+0.037227] | +=0.925
+   3.0° oracle Δ=+0.029670 [+0.018247,+0.041094] | +=0.950
+   5.0° oracle Δ=+0.031228 [+0.020533,+0.041922] | +=0.950
+
+L16->L17
+   1.0° oracle Δ=+0.024818 [+0.018038,+0.031599] | +=0.975
+   2.0° oracle Δ=+0.025679 [+0.018077,+0.033282] | +=0.925
+   3.0° oracle Δ=+0.026840 [+0.018278,+0.035403] | +=0.975
+   5.0° oracle Δ=+0.024062 [+0.016256,+0.031868] | +=0.925
+
+L17->L18
+   1.0° oracle Δ=+0.037177 [+0.025915,+0.048439] | +=0.950
+   2.0° oracle Δ=+0.042161 [+0.030199,+0.054124] | +=1.000
+   3.0° oracle Δ=+0.040475 [+0.028366,+0.052583] | +=0.950
+   5.0° oracle Δ=+0.040051 [+0.028021,+0.052080] | +=0.975
+
+L18->L19
+   1.0° oracle Δ=+0.030918 [+0.020572,+0.041265] | +=1.000
+   2.0° oracle Δ=+0.034694 [+0.024017,+0.045372] | +=0.950
+   3.0° oracle Δ=+0.030525 [+0.020413,+0.040637] | +=0.975
+   5.0° oracle Δ=+0.033722 [+0.022486,+0.044958] | +=0.950
+
+[14/22] Context descriptive check...
+ 1.0° ANIMAL=+0.028157 NEUTRAL=+0.029353 diff=-0.001196
+ 2.0° ANIMAL=+0.028496 NEUTRAL=+0.031333 diff=-0.002837
+ 3.0° ANIMAL=+0.030787 NEUTRAL=+0.033100 diff=-0.002312
+ 5.0° ANIMAL=+0.031327 NEUTRAL=+0.034134 diff=-0.002807
+
+[15/22] Actuator audit...
+FIXED rel      = 0.0025575
+CAND rel       = 0.0025578
+FIXED dir cos  = +0.903013
+CAND dir cos   = +0.903080
+
+[16/22] DECISION
+================================================================================================================================================================================
+Best descriptive shell : 5.0°
+Oracle Δ               : +0.032730 [+0.029962,+0.035499]
+Split fixed Δ          : -0.001322 [-0.003933,+0.001289]
+Oracle-global gap      : +0.026197 [+0.024073,+0.028320]
+Opportunity repeat r   : +0.8520
+
+DECISION:
+STATE_CONDITIONED_CORRECTION_OPPORTUNITY
+
+[17/22] NEXT BRANCH
+
+Local oracle FIXED'i geçiyor fakat tek sabit correction kör yarıda
+aynı kazancı taşımıyor.
+
+Bu, state-conditioned GPS için gerekli ama henüz yeterli olmayan koşuldur.
+
+TEST133:
+    h_l / local finite-response features
+        ->
+    candidate correction score
+
+öğrenilecek.
+
+TEST133 tamamen yeni BLIND promptlarda navigator seçimini sınayacak.
+
+
+[18/22] INTERPRETATION LOCK
+01. TEST132 navigator öğrenmez; yalnız FIXED Dibekgoz pusulası çevresinde düzeltilebilir yön fırsatı arar.
+02. Historical v_l ana pusula olarak korunur; candidate yönler yalnız 1, 2, 3 ve 5 derecelik tangent sapmalarıdır.
+03. Shell'ler birbirine karıştırılmaz; TEST124'te görülen angle confounding bu analizde primary sonuca giremez.
+04. Requested açı bilimsel sonuç olarak kabul edilmez; BF16 sonrası gerçekten gerçekleşen candidate-vs-FIXED perturbation açısı ayrıca ölçülür.
+05. PROBE_REL=0.0025 historical küçük-müdahale rejimidir; gerçekleşen BF16 perturbasyon normu ve yönü doğrudan audit edilir.
+06. Prompt-specific oracle aynı veride candidate seçtiği için üretim navigatorü değildir ve winner-selection bias içerir.
+07. Oracle kazancı tek başına state dependence kanıtlamaz; çoklu candidate araması gürültüden de pozitif maksimum üretebilir.
+08. Global-best candidate aynı promptlarda seçildiği için system-ID göstergesidir; split-half held-out fixed correction daha güçlü kontroldür.
+09. Oracle-global gap prompt-specific opportunity ile uyumludur fakat state sensorünün bu yönü tahmin edebildiğini kanıtlamaz.
+10. Winner diversity tek başına state dependence değildir; noise winner diversity oluşturabilir.
+11. Even/odd sub-atlas repeatability bazı promptların daha fazla local correction opportunity taşıyıp taşımadığını test eden yardımcı diagnostiktir.
+12. Animal-neutral farkı eşlenmiş prompt karşılaştırması olmadığı için yalnız descriptive context diagnostic olarak yorumlanır.
+13. Bu finite perturbation/secant deneyidir; Jacobian, exact gradient, manifold veya ağırlık güncellemesi iddiası değildir.
+14. TEST132 başarılı olsa bile DRA gain/brake/controller mekanizmasıyla birleştirilmez; önce yön seçiminin kör doğrulaması gerekir.
+15. TEST132 promptları çalıştırıldıktan sonra system-ID verisidir ve TEST133 blind doğrulamasında tekrar kullanılmamalıdır.
+
+[19/22] SCIENTIFIC SUMMARY
+================================================================================================================================================================================
+Best shell          : 5.0°
+Oracle Δ            : +0.032730 [+0.029962,+0.035499]
+Oracle positive     : 0.945
+Split fixed Δ       : -0.001322 [-0.003933,+0.001289]
+Oracle-global gap   : +0.026197 [+0.024073,+0.028320]
+Repeatability r     : +0.8520
+
+DECISION:
+STATE_CONDITIONED_CORRECTION_OPPORTUNITY
+
+NEXT:
+TEST133_STATE_TO_CORRECTION_SENSOR
+
+[20/22] JSON kaydediliyor...
+Saved: /content/TEST_132_STATE_CONDITIONED_LOCAL_CARTOGRAPHY.json
+
+[21/22] HANDOFF
+
+TEST132'de bakılacak en önemli dört çıktı:
+
+1. BF16 REALIZED ANGLE AUDIT
+   Requested 1°/2°/3°/5° gerçekten model içinde ne kadar ayrıştı?
+
+2. SHELL-WISE ORACLE DELTA
+   Aynı açı shell'i içinde en iyi sampled tangent FIXED'i geçebiliyor mu?
+
+3. SPLIT FIXED DELTA
+   Bir yarıda bulunan sabit correction diğer yarıya taşınıyor mu?
+
+4. ORACLE - GLOBAL GAP
+   Prompt-specific seçim gerçekten tek global correction'dan daha fazla
+   fırsat taşıyor mu?
+
+Eğer:
+
+    ORACLE > 0
+    ama
+    SPLIT FIXED ≈ 0
+    ve
+    ORACLE > GLOBAL
+
+ise:
+
+    "GPS öğrenilecek bir sinyal olabilir"
+
+demek için gerekçe oluşur.
+
+Ama bu hâlâ GPS'in state'i okuyarak doğru yönü bulabildiğini kanıtlamaz.
+Onu TEST133 tamamen yeni blind promptlarda sınayacaktır.
+
+
+[22/22] DONE
+JSON: /content/TEST_132_STATE_CONDITIONED_LOCAL_CARTOGRAPHY.json
+
