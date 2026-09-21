@@ -1,0 +1,3364 @@
+# =============================================================================
+# TEST 133 — STATE-TO-CORRECTION SENSOR
+# AkbasCore New Paradigm
+#
+# "GPS SENSOR TEST"
+#
+# Qwen2.5-7B-Instruct · BF16 · A100 · TEK COLAB HÜCRESİ
+# =============================================================================
+#
+# TEST132 BULGUSU
+# ----------------
+# Historical Dibekgoz v_l çevresinde:
+#
+#   - prompt-specific oracle correction güçlü biçimde > FIXED
+#   - tek global correction held-out promptlara taşınmadı
+#   - independent even/odd atlas opportunity yüksek repeatability gösterdi
+#
+# Fakat TEST132 şunu KANITLAMADI:
+#
+#   hidden state h_l doğru correction yönünü önceden seçebilir mi?
+#
+#
+# TEST133 SORUSU
+# ---------------
+#
+# Aynı layer için candidate tangent u_i verildiğinde:
+#
+#       state h_l + candidate geometry
+#
+# kullanılarak:
+#
+#       score(h_l, u_i)
+#           ≈
+#       D_next(q_i) - D_next(v_l)
+#
+# tahmin edilebilir mi?
+#
+# Sonra BLIND promptta:
+#
+#       i* = argmax_i score(h_l, u_i)
+#
+# seçilir ve gerçek modele q_i enjekte edilir.
+#
+#
+# KRİTİK TASARIM
+# ---------------
+#
+# 1. TEST132 promptları YOK.
+# 2. TRAIN / DEV / BLIND yeni promptlardır.
+# 3. BLIND seçim sırasında candidate outcome görülmez.
+# 4. Candidate ID feature olarak kullanılmaz.
+# 5. 3584-d hidden state'i doğrudan ezberleyen dev model YOK.
+# 6. Küçük, açıklanabilir state×direction feature set kullanılır.
+# 7. Primary endpoint gerçek BLIND fiziksel intervention'dır.
+#
+#
+# PRIMARY COMPARISONS
+# -------------------
+#
+#       SENSOR - FIXED
+#       SENSOR - GLOBAL
+#       SENSOR - RANDOM
+#
+# ORACLE yalnız üst sınır:
+#
+#       ORACLE - FIXED
+#
+# Capture ratio:
+#
+#       (SENSOR - FIXED) / (ORACLE - FIXED)
+#
+#
+# IMPORTANT
+# ---------
+#
+# Bu test:
+#
+#   - Jacobian değildir.
+#   - gradient değildir.
+#   - DRA brake/gain testi değildir.
+#   - multi-layer chain değildir.
+#   - behavioral generation değildir.
+#
+# Yalnız:
+#
+#       "state doğru küçük correction yönünü seçmeye yardım ediyor mu?"
+#
+# sorusunu test eder.
+# =============================================================================
+
+
+import gc
+import json
+import math
+import random
+import time
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+
+# =============================================================================
+# 0. CONFIG
+# =============================================================================
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 13301
+
+MODEL_LAYERS = 28
+VECTOR_LAYERS = 20
+HIDDEN = 3584
+
+SOURCE_LAYERS = list(range(19))
+
+PROBE_REL = 0.0025
+
+# TEST132'nin descriptive best shell'i 5° idi.
+# Ancak BF16 realized angle ~14° idi.
+#
+# TEST133 tek shell kullanıyor ki angle confounding olmasın.
+REQUESTED_SHELL_DEG = 5.0
+
+N_CANDIDATES = 16
+
+# 24 TRAIN + 8 DEV + 16 BLIND = 48 fresh prompts
+N_TRAIN = 24
+N_DEV = 8
+N_BLIND = 16
+
+# Ridge scorer
+RIDGES = [
+    1e-4,
+    1e-3,
+    1e-2,
+    1e-1,
+    1.0,
+    10.0,
+    100.0,
+]
+
+EXPECTED_COS10 = 0.656545
+EXPECTED_COS11 = 0.658274
+FINGERPRINT_TOL = 5e-6
+
+EPS = 1e-12
+
+OUT_JSON = "/content/TEST_133_STATE_TO_CORRECTION_SENSOR.json"
+
+
+# =============================================================================
+# 1. LOCKED FINGERPRINT
+# =============================================================================
+
+ABOVE = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+BELOW = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+NEUTRAL = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 2. DIBEKGOZ LOCK
+# =============================================================================
+
+TEMPLATES = [
+    "The creature is essentially {X}.",
+    "Observing it closely, the animal is clearly {X}.",
+    "The specimen in front of us is {X}.",
+    "Field notes describe the creature as {X}.",
+    "In every respect the body plan is that of {X}.",
+    "The zoologist identified the animal as {X}.",
+    "Anatomically the creature is {X}.",
+    "Taxonomically the creature groups with {X}.",
+]
+
+POS_DIBEK = "a tailless bipedal ape"
+NEG_DIBEK = "a tailed quadrupedal mammal"
+
+
+# =============================================================================
+# 3. FRESH PROMPTS
+#
+# IMPORTANT:
+# None are copied from TEST132.
+#
+# 24 TRAIN
+# 8 DEV
+# 16 BLIND
+#
+# Mixed animal + neutral.
+# =============================================================================
+
+TRAIN_PROMPTS = [
+    "Biologists documented how an unidentified creature shifted its torso while reaching for fruit.",
+    "A specimen was examined to determine how its limbs supported the body during slow locomotion.",
+    "Researchers compared the shoulder and hip anatomy of a newly classified terrestrial animal.",
+    "Video recordings showed an unfamiliar species changing posture while collecting food.",
+    "A zoological team analyzed the hand, foot, and spinal proportions of an unknown specimen.",
+    "The animal repeatedly rose from a resting posture before moving across the enclosure.",
+    "Researchers studied how a recently discovered creature stabilized itself on uneven ground.",
+    "An anatomical reconstruction was used to estimate the habitual stance of an extinct species.",
+    "Observers recorded how an unknown mammal used its front limbs while interacting with objects.",
+    "Scientists compared limb loading patterns during standing and movement in a new species.",
+    "A field camera captured an unfamiliar creature climbing onto a low rocky ledge.",
+    "The skeleton was examined for clues about balance, gait, and habitual body orientation.",
+
+    "Engineers measured vibration at several points along a rotating drive shaft.",
+    "A restoration team catalogued paintings before moving them into controlled storage.",
+    "Technicians recorded voltage readings from equipment installed in a testing chamber.",
+    "Surveyors measured the slope of a road crossing a mountainous region.",
+    "A cargo terminal recorded the arrival times of several container vessels.",
+    "The observatory calibrated its instruments before beginning a sequence of measurements.",
+    "Workers inspected concrete supports beneath a recently renovated structure.",
+    "A database system processed archived records and generated a summary table.",
+    "Geologists collected rock samples from several exposed layers near the valley.",
+    "The maintenance report described wear found inside an industrial pump.",
+    "A photographer arranged several lenses and tripods before sunrise.",
+    "The train remained at the platform while technicians inspected a signal system.",
+]
+
+DEV_PROMPTS = [
+    "Researchers observed how an unfamiliar animal positioned its limbs while feeding from a raised surface.",
+    "A comparative anatomy report described the posture and joint structure of a newly documented species.",
+    "Scientists reconstructed how an extinct creature may have supported its body while moving.",
+    "Field observers recorded an unknown animal manipulating objects while maintaining balance.",
+
+    "Engineers reviewed sensor readings collected from a cooling installation.",
+    "The archive transferred several historical documents into protective containers.",
+    "Construction workers measured the alignment of supports on the upper level.",
+    "A weather station recorded wind and pressure measurements throughout the night.",
+]
+
+BLIND_PROMPTS = [
+    "A zoological expedition filmed a previously undocumented animal reaching into the branches above it.",
+    "Researchers examined a fossil skeleton to determine how the creature normally carried its weight.",
+    "An unfamiliar species was observed moving between the ground and a raised feeding platform.",
+    "The anatomy team compared the proportions of the specimen's arms, legs, pelvis, and spine.",
+    "Scientists recorded how a newly discovered animal balanced while carrying food.",
+    "A reconstructed skeleton was used to infer the creature's ordinary locomotor posture.",
+    "Field cameras showed an unknown mammal repeatedly manipulating objects near its body.",
+    "Researchers documented how the animal changed stance when crossing irregular terrain.",
+
+    "Technicians inspected pressure readings from a hydraulic installation.",
+    "The museum prepared several artifacts for transport to another gallery.",
+    "Surveyors measured the distance between reference markers along the roadway.",
+    "A computer system processed a collection of records during an overnight task.",
+    "Engineers examined temperature measurements from a large electrical cabinet.",
+    "The vessel reduced speed while approaching a narrow harbor entrance.",
+    "Workers reviewed the dimensions of steel supports installed inside the building.",
+    "The observatory stored the evening's measurements in a central archive.",
+]
+
+assert len(TRAIN_PROMPTS) == N_TRAIN
+assert len(DEV_PROMPTS) == N_DEV
+assert len(BLIND_PROMPTS) == N_BLIND
+
+ALL_PROMPTS = (
+    TRAIN_PROMPTS
+    + DEV_PROMPTS
+    + BLIND_PROMPTS
+)
+
+SPLITS = (
+    ["TRAIN"] * N_TRAIN
+    + ["DEV"] * N_DEV
+    + ["BLIND"] * N_BLIND
+)
+
+
+# =============================================================================
+# 4. REPRODUCIBILITY
+# =============================================================================
+
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
+
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+
+# =============================================================================
+# 5. HELPERS
+# =============================================================================
+
+def normalize(v):
+
+    v = v.float()
+
+    n = torch.linalg.vector_norm(v)
+
+    if float(n.item()) < EPS:
+        return None
+
+    return v / n
+
+
+def cosine(a, b):
+
+    a = a.float()
+    b = b.float()
+
+    na = torch.linalg.vector_norm(a)
+    nb = torch.linalg.vector_norm(b)
+
+    if (
+        float(na.item()) < EPS
+        or float(nb.item()) < EPS
+    ):
+        return float("nan")
+
+    return float(
+        torch.dot(a, b)
+        / (na * nb)
+    )
+
+
+def angle_deg(a, b):
+
+    c = cosine(a, b)
+
+    c = max(
+        -1.0,
+        min(1.0, c)
+    )
+
+    return float(
+        math.degrees(
+            math.acos(c)
+        )
+    )
+
+
+def stats(x):
+
+    x = np.asarray(
+        x,
+        dtype=np.float64,
+    )
+
+    x = x[np.isfinite(x)]
+
+    if len(x) == 0:
+
+        return {
+            "n": 0,
+            "mean": float("nan"),
+            "sd": float("nan"),
+            "ci95": [
+                float("nan"),
+                float("nan"),
+            ],
+            "positive_fraction":
+                float("nan"),
+        }
+
+    m = float(np.mean(x))
+
+    if len(x) > 1:
+
+        sd = float(
+            np.std(
+                x,
+                ddof=1,
+            )
+        )
+
+        se = (
+            sd
+            / math.sqrt(len(x))
+        )
+
+    else:
+
+        sd = 0.0
+        se = 0.0
+
+    return {
+        "n":
+            int(len(x)),
+
+        "mean":
+            m,
+
+        "sd":
+            sd,
+
+        "ci95": [
+            float(m - 1.96 * se),
+            float(m + 1.96 * se),
+        ],
+
+        "positive_fraction":
+            float(
+                np.mean(x > 0)
+            ),
+
+        "min":
+            float(np.min(x)),
+
+        "max":
+            float(np.max(x)),
+    }
+
+
+def ci(s):
+
+    return (
+        f"[{s['ci95'][0]:+.6f},"
+        f"{s['ci95'][1]:+.6f}]"
+    )
+
+
+def safe_corr(a, b):
+
+    a = np.asarray(
+        a,
+        dtype=np.float64,
+    )
+
+    b = np.asarray(
+        b,
+        dtype=np.float64,
+    )
+
+    mask = (
+        np.isfinite(a)
+        & np.isfinite(b)
+    )
+
+    a = a[mask]
+    b = b[mask]
+
+    if (
+        len(a) < 3
+        or np.std(a) < EPS
+        or np.std(b) < EPS
+    ):
+        return float("nan")
+
+    return float(
+        np.corrcoef(a, b)[0, 1]
+    )
+
+
+# =============================================================================
+# 6. MODEL
+# =============================================================================
+
+print("=" * 180)
+print("TEST 133 — STATE-TO-CORRECTION SENSOR")
+print("AKBASCORE — CAN THE CURRENT STATE CHOOSE THE CORRECTION DIRECTION?")
+print("=" * 180)
+
+if not torch.cuda.is_available():
+    raise SystemExit("GPU/A100 gerekli.")
+
+print("\n[1/24] Model yükleniyor...")
+
+t0 = time.time()
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_ID,
+    trust_remote_code=True,
+)
+
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+tokenizer.padding_side = "right"
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True,
+    low_cpu_mem_usage=True,
+    attn_implementation="sdpa",
+)
+
+model.eval()
+
+for p in model.parameters():
+    p.requires_grad_(False)
+
+device = next(
+    model.parameters()
+).device
+
+assert len(model.model.layers) == MODEL_LAYERS
+assert model.config.hidden_size == HIDDEN
+
+print("Model       :", MODEL_ID)
+print("dtype       :", next(model.parameters()).dtype)
+print("Probe REL   :", PROBE_REL)
+print("Shell       :", REQUESTED_SHELL_DEG)
+print("Candidates  :", N_CANDIDATES)
+print("TRAIN/DEV   :", N_TRAIN, "/", N_DEV)
+print("BLIND       :", N_BLIND)
+print(f"Load time   : {time.time()-t0:.1f}s")
+
+
+# =============================================================================
+# 7. VECTOR EXTRACTION
+# =============================================================================
+
+@torch.no_grad()
+def extract_vectors(texts):
+
+    enc = tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=128,
+    )
+
+    ids = enc["input_ids"].to(device)
+    mask = enc["attention_mask"].to(device)
+
+    captures = [None] * VECTOR_LAYERS
+    handles = []
+
+    def make_hook(li):
+
+        def hook(module, inp, out):
+
+            h = (
+                out[0]
+                if isinstance(out, tuple)
+                else out
+            )
+
+            captures[li] = (
+                h.detach()
+            )
+
+        return hook
+
+    try:
+
+        for li in range(
+            VECTOR_LAYERS
+        ):
+
+            handles.append(
+                model.model.layers[li]
+                .register_forward_hook(
+                    make_hook(li)
+                )
+            )
+
+        model(
+            input_ids=ids,
+            attention_mask=mask,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    lengths = (
+        mask.sum(1)
+        .cpu()
+        .numpy()
+    )
+
+    result = torch.zeros(
+        len(texts),
+        VECTOR_LAYERS,
+        HIDDEN,
+        dtype=torch.float32,
+    )
+
+    for li in range(
+        VECTOR_LAYERS
+    ):
+
+        x = (
+            captures[li]
+            .float()
+            .cpu()
+        )
+
+        for i in range(len(texts)):
+
+            result[i, li] = x[
+                i,
+                int(lengths[i]) - 1,
+            ]
+
+    return result
+
+
+def contrastive_vectors(
+    pos,
+    neg,
+):
+
+    XP = extract_vectors(pos)
+    XN = extract_vectors(neg)
+
+    vectors = {}
+
+    for li in range(
+        VECTOR_LAYERS
+    ):
+
+        d = (
+            XP[:, li].mean(0)
+            - XN[:, li].mean(0)
+        )
+
+        vectors[li] = F.normalize(
+            d,
+            dim=0,
+        )
+
+    del XP, XN
+
+    return vectors
+
+
+# =============================================================================
+# 8. FINGERPRINT
+# =============================================================================
+
+print("\n[2/24] Ortam parmak izi...")
+
+XA = extract_vectors(ABOVE)
+XB = extract_vectors(BELOW)
+XN = extract_vectors(NEUTRAL)
+
+A10 = F.normalize(
+    XA[:, 10].mean(0)
+    - XN[:, 10].mean(0),
+    dim=0,
+)
+
+B10 = F.normalize(
+    XB[:, 10].mean(0)
+    - XN[:, 10].mean(0),
+    dim=0,
+)
+
+A11 = F.normalize(
+    XA[:, 11].mean(0)
+    - XN[:, 11].mean(0),
+    dim=0,
+)
+
+B11 = F.normalize(
+    XB[:, 11].mean(0)
+    - XN[:, 11].mean(0),
+    dim=0,
+)
+
+cos10 = cosine(
+    A10,
+    B10,
+)
+
+cos11 = cosine(
+    A11,
+    B11,
+)
+
+drift10 = abs(
+    cos10
+    - EXPECTED_COS10
+)
+
+drift11 = abs(
+    cos11
+    - EXPECTED_COS11
+)
+
+print(
+    f"L10={cos10:+.6f} "
+    f"drift={drift10:.3e}"
+)
+
+print(
+    f"L11={cos11:+.6f} "
+    f"drift={drift11:.3e}"
+)
+
+if (
+    drift10 > FINGERPRINT_TOL
+    or drift11 > FINGERPRINT_TOL
+):
+
+    raise RuntimeError(
+        "Fingerprint FAILED"
+    )
+
+print("Fingerprint: PASS")
+
+del XA, XB, XN
+del A10, B10, A11, B11
+
+gc.collect()
+torch.cuda.empty_cache()
+
+
+# =============================================================================
+# 9. DIBEKGOZ
+# =============================================================================
+
+print("\n[3/24] Dibekgoz dictionary...")
+
+POS = [
+    t.format(X=POS_DIBEK)
+    for t in TEMPLATES
+]
+
+NEG = [
+    t.format(X=NEG_DIBEK)
+    for t in TEMPLATES
+]
+
+DIBEK = contrastive_vectors(
+    POS,
+    NEG,
+)
+
+print(
+    "cos(v0,v19)  =",
+    f"{cosine(DIBEK[0],DIBEK[19]):+.6f}",
+)
+
+print(
+    "cos(v11,v19) =",
+    f"{cosine(DIBEK[11],DIBEK[19]):+.6f}",
+)
+
+print(
+    "cos(v18,v19) =",
+    f"{cosine(DIBEK[18],DIBEK[19]):+.6f}",
+)
+
+
+# =============================================================================
+# 10. FIXED CANDIDATE ATLAS
+#
+# Candidate ID itself will NEVER be a scorer feature.
+#
+# Same atlas across TRAIN/DEV/BLIND is necessary:
+# sensor must score the same physical correction directions on new states.
+# =============================================================================
+
+print("\n[4/24] Candidate tangent atlas...")
+
+ATLAS = {}
+
+theta = math.radians(
+    REQUESTED_SHELL_DEG
+)
+
+for li in SOURCE_LAYERS:
+
+    v = normalize(
+        DIBEK[li]
+    )
+
+    ATLAS[li] = []
+
+    for cid in range(
+        N_CANDIDATES
+    ):
+
+        g = torch.Generator(
+            device="cpu"
+        )
+
+        g.manual_seed(
+            SEED
+            + 100000 * li
+            + cid
+        )
+
+        z = torch.randn(
+            HIDDEN,
+            generator=g,
+            dtype=torch.float32,
+        )
+
+        u = (
+            z
+            - torch.dot(z, v) * v
+        )
+
+        u = normalize(u)
+
+        q = normalize(
+            math.cos(theta) * v
+            + math.sin(theta) * u
+        )
+
+        ATLAS[li].append({
+            "candidate_id":
+                cid,
+
+            "u":
+                u,
+
+            "q":
+                q,
+        })
+
+print(
+    f"{len(SOURCE_LAYERS)} layers × "
+    f"{N_CANDIDATES} candidates"
+)
+
+
+# =============================================================================
+# 11. BASELINE STATE CAPTURE
+# =============================================================================
+
+@torch.no_grad()
+def baseline_pass(prompt):
+
+    captures = {}
+    handles = []
+
+    def make_hook(li):
+
+        def hook(
+            module,
+            inp,
+            out,
+        ):
+
+            h = (
+                out[0]
+                if isinstance(out, tuple)
+                else out
+            )
+
+            captures[li] = (
+                h[0, -1]
+                .detach()
+                .float()
+                .cpu()
+                .clone()
+            )
+
+        return hook
+
+    try:
+
+        for li in range(
+            VECTOR_LAYERS
+        ):
+
+            handles.append(
+                model.model.layers[li]
+                .register_forward_hook(
+                    make_hook(li)
+                )
+            )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt",
+        ).to(device)
+
+        model(
+            **enc,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    return captures
+
+
+# =============================================================================
+# 12. PHYSICAL INTERVENTION
+# =============================================================================
+
+@torch.no_grad()
+def one_step_probe(
+    prompt,
+    baseline,
+    li,
+    direction,
+):
+
+    target = li + 1
+
+    q = normalize(direction)
+
+    src_base = (
+        baseline[li]
+        .float()
+    )
+
+    requested_norm = (
+        PROBE_REL
+        * float(
+            torch.linalg.vector_norm(
+                src_base
+            )
+        )
+    )
+
+    q_gpu = q.to(device)
+
+    source_delta = {}
+    target_cap = {}
+
+    handles = []
+
+    def source_hook(
+        module,
+        inp,
+        out,
+    ):
+
+        h = (
+            out[0]
+            if isinstance(out, tuple)
+            else out
+        )
+
+        before = (
+            h[0, -1]
+            .float()
+        )
+
+        hnew = h.clone()
+
+        hnew[0, -1] = (
+            before
+            + requested_norm * q_gpu
+        ).to(h.dtype)
+
+        source_delta["x"] = (
+            hnew[0, -1]
+            .float()
+            - before
+        ).detach().cpu().clone()
+
+        if isinstance(out, tuple):
+
+            return (
+                (hnew,)
+                + out[1:]
+            )
+
+        return hnew
+
+    def target_hook(
+        module,
+        inp,
+        out,
+    ):
+
+        h = (
+            out[0]
+            if isinstance(out, tuple)
+            else out
+        )
+
+        target_cap["h"] = (
+            h[0, -1]
+            .detach()
+            .float()
+            .cpu()
+            .clone()
+        )
+
+    try:
+
+        handles.append(
+            model.model.layers[li]
+            .register_forward_hook(
+                source_hook
+            )
+        )
+
+        handles.append(
+            model.model.layers[target]
+            .register_forward_hook(
+                target_hook
+            )
+        )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt",
+        ).to(device)
+
+        model(
+            **enc,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    x = source_delta["x"]
+
+    y = (
+        target_cap["h"]
+        - baseline[target]
+    )
+
+    xnorm = float(
+        torch.linalg.vector_norm(x)
+    )
+
+    srcnorm = float(
+        torch.linalg.vector_norm(
+            src_base
+        )
+    )
+
+    return {
+        "x":
+            x,
+
+        "y":
+            y,
+
+        "D_next":
+            cosine(
+                y,
+                DIBEK[target],
+            ),
+
+        "D_old":
+            cosine(
+                y,
+                DIBEK[li],
+            ),
+
+        "realized_rel":
+            xnorm
+            / (srcnorm + EPS),
+
+        "dir_cos":
+            cosine(
+                x,
+                q,
+            ),
+    }
+
+
+# =============================================================================
+# 13. FEATURE FUNCTION
+#
+# NO candidate ID.
+#
+# We intentionally use compact relational features.
+#
+# h = current baseline state
+# v = historical semantic compass
+# u = candidate tangent
+# q = full candidate direction
+#
+# Features:
+#
+#  0 bias
+#  1 cos(h,v)
+#  2 cos(h,u)
+#  3 cos(h,q)
+#  4 dot(normalized h, u) * dot(normalized h, v)
+#  5 |cos(h,u)|
+#  6 signed projection of state residual from v onto u
+#  7 state log norm
+#  8 adjacent dictionary cosine cos(v_l,v_l+1)
+#  9 cos(u, v_l+1)
+# 10 cos(q, v_l+1)
+# 11 cos(u, r_next)
+# 12 cos(q, r_next)
+#
+# r_next:
+#
+#   component of v_(l+1) orthogonal to v_l
+#
+# This does NOT use candidate outcome.
+# =============================================================================
+
+FEATURE_NAMES = [
+    "bias",
+    "h_v",
+    "h_u",
+    "h_q",
+    "h_u_x_h_v",
+    "abs_h_u",
+    "state_residual_u",
+    "log_h_norm",
+    "dict_adjacent_cos",
+    "u_vnext",
+    "q_vnext",
+    "u_rnext",
+    "q_rnext",
+]
+
+
+def feature_vector(
+    h,
+    li,
+    candidate,
+):
+
+    h = h.float()
+
+    hn = normalize(h)
+
+    v = normalize(
+        DIBEK[li]
+    )
+
+    vn = normalize(
+        DIBEK[li + 1]
+    )
+
+    u = normalize(
+        candidate["u"]
+    )
+
+    q = normalize(
+        candidate["q"]
+    )
+
+    hv = cosine(
+        hn,
+        v,
+    )
+
+    hu = cosine(
+        hn,
+        u,
+    )
+
+    hq = cosine(
+        hn,
+        q,
+    )
+
+    c = float(
+        torch.dot(v, vn)
+    )
+
+    raw_r = (
+        vn
+        - c * v
+    )
+
+    rnext = normalize(
+        raw_r
+    )
+
+    if rnext is None:
+
+        ur = 0.0
+        qr = 0.0
+
+    else:
+
+        ur = cosine(
+            u,
+            rnext,
+        )
+
+        qr = cosine(
+            q,
+            rnext,
+        )
+
+    # state component orthogonal to semantic seed
+    h_res = (
+        hn
+        - torch.dot(hn, v) * v
+    )
+
+    state_residual_u = float(
+        torch.dot(
+            h_res,
+            u,
+        )
+    )
+
+    hnorm = float(
+        torch.linalg.vector_norm(h)
+    )
+
+    return np.asarray(
+        [
+            1.0,
+            hv,
+            hu,
+            hq,
+            hu * hv,
+            abs(hu),
+            state_residual_u,
+            math.log(hnorm + EPS),
+            c,
+            cosine(u, vn),
+            cosine(q, vn),
+            ur,
+            qr,
+        ],
+        dtype=np.float64,
+    )
+
+
+# =============================================================================
+# 14. COLLECT TRAIN + DEV OUTCOMES
+#
+# BLIND is NOT physically scanned yet.
+# =============================================================================
+
+print("\n[5/24] TRAIN + DEV candidate outcomes toplanıyor...")
+
+SYSTEM_PROMPTS = (
+    TRAIN_PROMPTS
+    + DEV_PROMPTS
+)
+
+SYSTEM_SPLITS = (
+    ["TRAIN"] * N_TRAIN
+    + ["DEV"] * N_DEV
+)
+
+SYSTEM_DATA = []
+
+start = time.time()
+
+for pi, prompt in enumerate(
+    SYSTEM_PROMPTS
+):
+
+    split = SYSTEM_SPLITS[pi]
+
+    base = baseline_pass(
+        prompt
+    )
+
+    prow = {
+        "prompt_index":
+            pi,
+
+        "split":
+            split,
+
+        "prompt":
+            prompt,
+
+        "layers":
+            {},
+    }
+
+    for li in SOURCE_LAYERS:
+
+        fixed = one_step_probe(
+            prompt,
+            base,
+            li,
+            DIBEK[li],
+        )
+
+        layer = {
+            "state":
+                base[li],
+
+            "fixed_D":
+                fixed["D_next"],
+
+            "fixed_x":
+                fixed["x"],
+
+            "candidates":
+                [],
+        }
+
+        for candidate in ATLAS[li]:
+
+            rr = one_step_probe(
+                prompt,
+                base,
+                li,
+                candidate["q"],
+            )
+
+            feat = feature_vector(
+                base[li],
+                li,
+                candidate,
+            )
+
+            delta = (
+                rr["D_next"]
+                - fixed["D_next"]
+            )
+
+            layer[
+                "candidates"
+            ].append({
+                "candidate_id":
+                    candidate[
+                        "candidate_id"
+                    ],
+
+                "features":
+                    feat,
+
+                "delta":
+                    float(delta),
+
+                "D_next":
+                    rr["D_next"],
+
+                "realized_angle":
+                    angle_deg(
+                        rr["x"],
+                        fixed["x"],
+                    ),
+
+                "realized_rel":
+                    rr["realized_rel"],
+
+                "dir_cos":
+                    rr["dir_cos"],
+            })
+
+        prow["layers"][
+            str(li)
+        ] = layer
+
+    SYSTEM_DATA.append(
+        prow
+    )
+
+    if (pi + 1) % 4 == 0:
+
+        gc.collect()
+        torch.cuda.empty_cache()
+
+    print(
+        f"  {pi+1:02d}/"
+        f"{len(SYSTEM_PROMPTS)} "
+        f"| {(time.time()-start)/60:.1f}m",
+        end="\r",
+    )
+
+print()
+
+print(
+    f"TRAIN+DEV completed in "
+    f"{(time.time()-start)/60:.1f} min"
+)
+
+
+# =============================================================================
+# 15. RIDGE SCORER
+#
+# Per-layer scorer.
+#
+# Standardize NON-BIAS features using TRAIN only.
+#
+# Ridge:
+#
+#   beta = (X'X + lambda I)^-1 X'y
+#
+# Bias is NOT regularized.
+# =============================================================================
+
+def prepare_xy(
+    data,
+    li,
+    split,
+):
+
+    X = []
+    y = []
+    meta = []
+
+    for row in data:
+
+        if row["split"] != split:
+            continue
+
+        layer = (
+            row["layers"][str(li)]
+        )
+
+        for c in layer[
+            "candidates"
+        ]:
+
+            X.append(
+                c["features"]
+            )
+
+            y.append(
+                c["delta"]
+            )
+
+            meta.append({
+                "prompt_index":
+                    row["prompt_index"],
+
+                "candidate_id":
+                    c["candidate_id"],
+            })
+
+    return (
+        np.asarray(
+            X,
+            dtype=np.float64,
+        ),
+        np.asarray(
+            y,
+            dtype=np.float64,
+        ),
+        meta,
+    )
+
+
+def standardize_fit(X):
+
+    # feature 0 = bias
+    mu = X[:, 1:].mean(
+        axis=0
+    )
+
+    sd = X[:, 1:].std(
+        axis=0,
+    )
+
+    sd[
+        sd < 1e-10
+    ] = 1.0
+
+    return mu, sd
+
+
+def standardize_apply(
+    X,
+    mu,
+    sd,
+):
+
+    Z = X.copy()
+
+    Z[:, 1:] = (
+        Z[:, 1:]
+        - mu
+    ) / sd
+
+    Z[:, 0] = 1.0
+
+    return Z
+
+
+def ridge_fit(
+    X,
+    y,
+    lam,
+):
+
+    p = X.shape[1]
+
+    reg = np.eye(
+        p,
+        dtype=np.float64,
+    )
+
+    # don't regularize bias
+    reg[0, 0] = 0.0
+
+    A = (
+        X.T @ X
+        + lam * reg
+    )
+
+    b = (
+        X.T @ y
+    )
+
+    beta = np.linalg.solve(
+        A,
+        b,
+    )
+
+    return beta
+
+
+def predict(
+    X,
+    beta,
+):
+
+    return X @ beta
+
+
+# =============================================================================
+# 16. DEV MODEL SELECTION
+#
+# IMPORTANT:
+# Selection metric is not row-wise regression correlation alone.
+#
+# We care about RANKING candidates within each prompt.
+#
+# For each DEV prompt:
+#
+#   choose argmax predicted candidate
+#   measure actual delta of selected candidate.
+#
+# Lambda chosen by mean DEV selected delta.
+# =============================================================================
+
+print("\n[6/24] DEV üzerinden scorer regularization seçiliyor...")
+
+SCORERS = {}
+DEV_SELECTION = {}
+
+for li in SOURCE_LAYERS:
+
+    Xtr, ytr, mtr = prepare_xy(
+        SYSTEM_DATA,
+        li,
+        "TRAIN",
+    )
+
+    Xdv, ydv, mdv = prepare_xy(
+        SYSTEM_DATA,
+        li,
+        "DEV",
+    )
+
+    mu, sd = standardize_fit(
+        Xtr
+    )
+
+    Ztr = standardize_apply(
+        Xtr,
+        mu,
+        sd,
+    )
+
+    Zdv = standardize_apply(
+        Xdv,
+        mu,
+        sd,
+    )
+
+    candidates = []
+
+    for lam in RIDGES:
+
+        beta = ridge_fit(
+            Ztr,
+            ytr,
+            lam,
+        )
+
+        pred_dv = predict(
+            Zdv,
+            beta,
+        )
+
+        selected_actual = []
+        oracle_actual = []
+        random_actual = []
+
+        prompt_ids = sorted(
+            set(
+                m["prompt_index"]
+                for m in mdv
+            )
+        )
+
+        for pid in prompt_ids:
+
+            inds = [
+                j
+                for j, m
+                in enumerate(mdv)
+                if m["prompt_index"]
+                == pid
+            ]
+
+            pp = pred_dv[inds]
+            aa = ydv[inds]
+
+            best_local = int(
+                np.argmax(pp)
+            )
+
+            selected_actual.append(
+                float(
+                    aa[best_local]
+                )
+            )
+
+            oracle_actual.append(
+                float(
+                    np.max(aa)
+                )
+            )
+
+            # deterministic random control
+            rng = random.Random(
+                SEED
+                + 500000
+                + 1000 * li
+                + pid
+            )
+
+            ridx = rng.randrange(
+                len(aa)
+            )
+
+            random_actual.append(
+                float(
+                    aa[ridx]
+                )
+            )
+
+        candidates.append({
+            "lambda":
+                lam,
+
+            "selected_mean":
+                float(
+                    np.mean(
+                        selected_actual
+                    )
+                ),
+
+            "oracle_mean":
+                float(
+                    np.mean(
+                        oracle_actual
+                    )
+                ),
+
+            "random_mean":
+                float(
+                    np.mean(
+                        random_actual
+                    )
+                ),
+
+            "row_corr":
+                safe_corr(
+                    pred_dv,
+                    ydv,
+                ),
+        })
+
+    candidates.sort(
+        key=lambda z:
+            z["selected_mean"],
+        reverse=True,
+    )
+
+    best = candidates[0]
+
+    # Refit using TRAIN + DEV
+    Xall = np.vstack([
+        Xtr,
+        Xdv,
+    ])
+
+    yall = np.concatenate([
+        ytr,
+        ydv,
+    ])
+
+    mu_all, sd_all = (
+        standardize_fit(
+            Xall
+        )
+    )
+
+    Zall = standardize_apply(
+        Xall,
+        mu_all,
+        sd_all,
+    )
+
+    beta_all = ridge_fit(
+        Zall,
+        yall,
+        best["lambda"],
+    )
+
+    SCORERS[li] = {
+        "mu":
+            mu_all,
+
+        "sd":
+            sd_all,
+
+        "beta":
+            beta_all,
+
+        "lambda":
+            best["lambda"],
+    }
+
+    DEV_SELECTION[li] = {
+        "best":
+            best,
+
+        "all":
+            candidates,
+    }
+
+    print(
+        f"L{li:02d}->L{li+1:02d} "
+        f"λ={best['lambda']:<7g} "
+        f"DEV selected="
+        f"{best['selected_mean']:+.5f} "
+        f"oracle="
+        f"{best['oracle_mean']:+.5f} "
+        f"random="
+        f"{best['random_mean']:+.5f} "
+        f"row-r="
+        f"{best['row_corr']:+.3f}"
+    )
+
+
+# =============================================================================
+# 17. GLOBAL FIXED CANDIDATE BASELINE
+#
+# Select candidate ID from TRAIN+DEV actual outcomes.
+#
+# This is the strongest non-state-conditioned fixed-correction baseline.
+# =============================================================================
+
+print("\n[7/24] Global fixed candidate baseline oluşturuluyor...")
+
+GLOBAL_CANDIDATE = {}
+
+for li in SOURCE_LAYERS:
+
+    means = []
+
+    for cid in range(
+        N_CANDIDATES
+    ):
+
+        vals = []
+
+        for row in SYSTEM_DATA:
+
+            c = (
+                row["layers"][str(li)]
+                ["candidates"][cid]
+            )
+
+            assert (
+                c["candidate_id"]
+                == cid
+            )
+
+            vals.append(
+                c["delta"]
+            )
+
+        means.append(
+            float(
+                np.mean(vals)
+            )
+        )
+
+    best_id = int(
+        np.argmax(means)
+    )
+
+    GLOBAL_CANDIDATE[li] = {
+        "candidate_id":
+            best_id,
+
+        "train_dev_mean_delta":
+            means[best_id],
+    }
+
+    print(
+        f"L{li:02d}: "
+        f"candidate={best_id:02d} "
+        f"TRAIN+DEV Δ="
+        f"{means[best_id]:+.5f}"
+    )
+
+
+# =============================================================================
+# 18. SENSOR SELECTION ON BLIND STATE
+#
+# NO intervention outcome is used here.
+# =============================================================================
+
+def sensor_choose(
+    li,
+    state,
+):
+
+    scorer = SCORERS[li]
+
+    feats = []
+
+    for candidate in ATLAS[li]:
+
+        feats.append(
+            feature_vector(
+                state,
+                li,
+                candidate,
+            )
+        )
+
+    X = np.asarray(
+        feats,
+        dtype=np.float64,
+    )
+
+    Z = standardize_apply(
+        X,
+        scorer["mu"],
+        scorer["sd"],
+    )
+
+    scores = predict(
+        Z,
+        scorer["beta"],
+    )
+
+    best_id = int(
+        np.argmax(scores)
+    )
+
+    return (
+        best_id,
+        scores,
+    )
+
+
+# =============================================================================
+# 19. BLIND PHASE
+#
+# Sequence:
+#
+# 1. baseline state
+# 2. sensor chooses candidate using state only
+# 3. physical outcomes are measured
+#
+# We ALSO scan all 16 candidates AFTER selection to estimate oracle ceiling.
+#
+# This does not leak into sensor selection.
+# =============================================================================
+
+print("\n[8/24] BLIND GPS sensor assay...")
+
+BLIND_RESULTS = []
+
+start = time.time()
+
+for pi, prompt in enumerate(
+    BLIND_PROMPTS
+):
+
+    base = baseline_pass(
+        prompt
+    )
+
+    row = {
+        "prompt_index":
+            pi,
+
+        "prompt":
+            prompt,
+
+        "layers":
+            {},
+    }
+
+    for li in SOURCE_LAYERS:
+
+        # -------------------------------------------------------------
+        # SENSOR DECISION BEFORE OUTCOMES
+        # -------------------------------------------------------------
+
+        sensor_id, scores = (
+            sensor_choose(
+                li,
+                base[li],
+            )
+        )
+
+        global_id = (
+            GLOBAL_CANDIDATE[li]
+            ["candidate_id"]
+        )
+
+        rng = random.Random(
+            SEED
+            + 900000
+            + 1000 * li
+            + pi
+        )
+
+        random_id = rng.randrange(
+            N_CANDIDATES
+        )
+
+        # -------------------------------------------------------------
+        # FIXED
+        # -------------------------------------------------------------
+
+        fixed = one_step_probe(
+            prompt,
+            base,
+            li,
+            DIBEK[li],
+        )
+
+        # -------------------------------------------------------------
+        # SCAN CANDIDATES
+        #
+        # Sensor selection already frozen.
+        # -------------------------------------------------------------
+
+        outcomes = []
+
+        for candidate in ATLAS[li]:
+
+            rr = one_step_probe(
+                prompt,
+                base,
+                li,
+                candidate["q"],
+            )
+
+            outcomes.append({
+                "candidate_id":
+                    candidate[
+                        "candidate_id"
+                    ],
+
+                "D_next":
+                    rr["D_next"],
+
+                "delta":
+                    rr["D_next"]
+                    - fixed["D_next"],
+
+                "realized_angle":
+                    angle_deg(
+                        rr["x"],
+                        fixed["x"],
+                    ),
+
+                "realized_rel":
+                    rr["realized_rel"],
+
+                "dir_cos":
+                    rr["dir_cos"],
+            })
+
+        oracle_id = int(
+            np.argmax([
+                x["D_next"]
+                for x in outcomes
+            ])
+        )
+
+        sensor_out = (
+            outcomes[sensor_id]
+        )
+
+        global_out = (
+            outcomes[global_id]
+        )
+
+        random_out = (
+            outcomes[random_id]
+        )
+
+        oracle_out = (
+            outcomes[oracle_id]
+        )
+
+        # rank of sensor candidate by actual outcome
+        actual_order = np.argsort(
+            -np.asarray([
+                x["D_next"]
+                for x in outcomes
+            ])
+        )
+
+        sensor_rank = int(
+            np.where(
+                actual_order
+                == sensor_id
+            )[0][0]
+        ) + 1
+
+        row["layers"][
+            str(li)
+        ] = {
+            "fixed_D":
+                fixed["D_next"],
+
+            "sensor_id":
+                sensor_id,
+
+            "global_id":
+                global_id,
+
+            "random_id":
+                random_id,
+
+            "oracle_id":
+                oracle_id,
+
+            "sensor_score":
+                float(
+                    scores[sensor_id]
+                ),
+
+            "sensor_delta":
+                sensor_out["delta"],
+
+            "global_delta":
+                global_out["delta"],
+
+            "random_delta":
+                random_out["delta"],
+
+            "oracle_delta":
+                oracle_out["delta"],
+
+            "sensor_D":
+                sensor_out["D_next"],
+
+            "global_D":
+                global_out["D_next"],
+
+            "random_D":
+                random_out["D_next"],
+
+            "oracle_D":
+                oracle_out["D_next"],
+
+            "sensor_rank":
+                sensor_rank,
+
+            "sensor_hit_oracle":
+                int(
+                    sensor_id
+                    == oracle_id
+                ),
+
+            "sensor_realized_angle":
+                sensor_out[
+                    "realized_angle"
+                ],
+
+            "all_outcomes":
+                outcomes,
+
+            "all_predicted_scores":
+                [
+                    float(x)
+                    for x in scores
+                ],
+        }
+
+    BLIND_RESULTS.append(
+        row
+    )
+
+    if (pi + 1) % 4 == 0:
+
+        gc.collect()
+        torch.cuda.empty_cache()
+
+    print(
+        f"  {pi+1:02d}/"
+        f"{len(BLIND_PROMPTS)} "
+        f"| {(time.time()-start)/60:.1f}m",
+        end="\r",
+    )
+
+print()
+
+print(
+    f"BLIND completed in "
+    f"{(time.time()-start)/60:.1f} min"
+)
+
+
+# =============================================================================
+# 20. PRIMARY GLOBAL ANALYSIS
+# =============================================================================
+
+print("\n[9/24] Primary blind analysis...")
+
+sensor_delta = []
+global_delta = []
+random_delta = []
+oracle_delta = []
+
+sensor_minus_global = []
+sensor_minus_random = []
+
+sensor_ranks = []
+sensor_hits = []
+
+predicted_all = []
+actual_all = []
+
+realized_angles = []
+
+for row in BLIND_RESULTS:
+
+    for li in SOURCE_LAYERS:
+
+        z = (
+            row["layers"][str(li)]
+        )
+
+        sensor_delta.append(
+            z["sensor_delta"]
+        )
+
+        global_delta.append(
+            z["global_delta"]
+        )
+
+        random_delta.append(
+            z["random_delta"]
+        )
+
+        oracle_delta.append(
+            z["oracle_delta"]
+        )
+
+        sensor_minus_global.append(
+            z["sensor_delta"]
+            - z["global_delta"]
+        )
+
+        sensor_minus_random.append(
+            z["sensor_delta"]
+            - z["random_delta"]
+        )
+
+        sensor_ranks.append(
+            z["sensor_rank"]
+        )
+
+        sensor_hits.append(
+            z["sensor_hit_oracle"]
+        )
+
+        predicted_all.extend(
+            z["all_predicted_scores"]
+        )
+
+        actual_all.extend([
+            x["delta"]
+            for x
+            in z["all_outcomes"]
+        ])
+
+        realized_angles.append(
+            z[
+                "sensor_realized_angle"
+            ]
+        )
+
+
+S_SENSOR = stats(
+    sensor_delta
+)
+
+S_GLOBAL = stats(
+    global_delta
+)
+
+S_RANDOM = stats(
+    random_delta
+)
+
+S_ORACLE = stats(
+    oracle_delta
+)
+
+S_SG = stats(
+    sensor_minus_global
+)
+
+S_SR = stats(
+    sensor_minus_random
+)
+
+ROW_CORR = safe_corr(
+    predicted_all,
+    actual_all,
+)
+
+MEAN_SENSOR_RANK = float(
+    np.mean(
+        sensor_ranks
+    )
+)
+
+TOP4_RATE = float(
+    np.mean(
+        np.asarray(
+            sensor_ranks
+        ) <= 4
+    )
+)
+
+ORACLE_HIT_RATE = float(
+    np.mean(
+        sensor_hits
+    )
+)
+
+RANDOM_ORACLE_HIT = (
+    1.0
+    / N_CANDIDATES
+)
+
+RANDOM_MEAN_RANK = (
+    N_CANDIDATES + 1
+) / 2.0
+
+
+# =============================================================================
+# 21. CAPTURE RATIO
+# =============================================================================
+
+if (
+    S_ORACLE["mean"]
+    > EPS
+):
+
+    CAPTURE_RATIO = (
+        S_SENSOR["mean"]
+        / S_ORACLE["mean"]
+    )
+
+else:
+
+    CAPTURE_RATIO = float("nan")
+
+
+# =============================================================================
+# 22. GLOBAL TABLE
+# =============================================================================
+
+print("\n[10/24] BLIND GLOBAL SUMMARY")
+print("=" * 150)
+
+print(
+    f"SENSOR Δ vs FIXED : "
+    f"{S_SENSOR['mean']:+.6f} "
+    f"{ci(S_SENSOR)} "
+    f"| +={S_SENSOR['positive_fraction']:.3f}"
+)
+
+print(
+    f"GLOBAL Δ vs FIXED : "
+    f"{S_GLOBAL['mean']:+.6f} "
+    f"{ci(S_GLOBAL)} "
+    f"| +={S_GLOBAL['positive_fraction']:.3f}"
+)
+
+print(
+    f"RANDOM Δ vs FIXED : "
+    f"{S_RANDOM['mean']:+.6f} "
+    f"{ci(S_RANDOM)} "
+    f"| +={S_RANDOM['positive_fraction']:.3f}"
+)
+
+print(
+    f"ORACLE Δ vs FIXED : "
+    f"{S_ORACLE['mean']:+.6f} "
+    f"{ci(S_ORACLE)} "
+    f"| +={S_ORACLE['positive_fraction']:.3f}"
+)
+
+print()
+
+print(
+    f"SENSOR - GLOBAL   : "
+    f"{S_SG['mean']:+.6f} "
+    f"{ci(S_SG)}"
+)
+
+print(
+    f"SENSOR - RANDOM   : "
+    f"{S_SR['mean']:+.6f} "
+    f"{ci(S_SR)}"
+)
+
+print()
+
+print(
+    f"Capture ratio      : "
+    f"{CAPTURE_RATIO:.3f}"
+)
+
+print(
+    f"Candidate row corr : "
+    f"{ROW_CORR:+.4f}"
+)
+
+print(
+    f"Mean sensor rank   : "
+    f"{MEAN_SENSOR_RANK:.3f} "
+    f"(random={RANDOM_MEAN_RANK:.1f})"
+)
+
+print(
+    f"Top-4 rate         : "
+    f"{TOP4_RATE:.3f} "
+    f"(random=0.250)"
+)
+
+print(
+    f"Exact oracle hit   : "
+    f"{ORACLE_HIT_RATE:.3f} "
+    f"(random={RANDOM_ORACLE_HIT:.3f})"
+)
+
+print(
+    f"Realized angle     : "
+    f"{np.mean(realized_angles):.3f}°"
+)
+
+
+# =============================================================================
+# 23. LAYER-WISE BLIND RESULTS
+# =============================================================================
+
+print("\n[11/24] Layer-wise blind sensor results...")
+print("=" * 180)
+
+print(
+    f"{'STEP':<10}"
+    f"{'SENSOR Δ':>12}"
+    f"{'GLOBAL Δ':>12}"
+    f"{'RANDOM Δ':>12}"
+    f"{'ORACLE Δ':>12}"
+    f"{'S-G':>11}"
+    f"{'S-R':>11}"
+    f"{'RANK':>9}"
+    f"{'TOP4':>9}"
+)
+
+print("-" * 180)
+
+LAYER_SUMMARY = {}
+
+for li in SOURCE_LAYERS:
+
+    sd = []
+    gd = []
+    rd = []
+    od = []
+    sg = []
+    sr = []
+    ranks = []
+
+    for row in BLIND_RESULTS:
+
+        z = (
+            row["layers"][str(li)]
+        )
+
+        sd.append(
+            z["sensor_delta"]
+        )
+
+        gd.append(
+            z["global_delta"]
+        )
+
+        rd.append(
+            z["random_delta"]
+        )
+
+        od.append(
+            z["oracle_delta"]
+        )
+
+        sg.append(
+            z["sensor_delta"]
+            - z["global_delta"]
+        )
+
+        sr.append(
+            z["sensor_delta"]
+            - z["random_delta"]
+        )
+
+        ranks.append(
+            z["sensor_rank"]
+        )
+
+    ss = stats(sd)
+    gs = stats(gd)
+    rs = stats(rd)
+    os = stats(od)
+    sgs = stats(sg)
+    srs = stats(sr)
+
+    mean_rank = float(
+        np.mean(ranks)
+    )
+
+    top4 = float(
+        np.mean(
+            np.asarray(ranks)
+            <= 4
+        )
+    )
+
+    LAYER_SUMMARY[str(li)] = {
+        "sensor":
+            ss,
+
+        "global":
+            gs,
+
+        "random":
+            rs,
+
+        "oracle":
+            os,
+
+        "sensor_minus_global":
+            sgs,
+
+        "sensor_minus_random":
+            srs,
+
+        "mean_rank":
+            mean_rank,
+
+        "top4_rate":
+            top4,
+    }
+
+    print(
+        f"L{li}->L{li+1:<4}"
+        f"{ss['mean']:>+12.5f}"
+        f"{gs['mean']:>+12.5f}"
+        f"{rs['mean']:>+12.5f}"
+        f"{os['mean']:>+12.5f}"
+        f"{sgs['mean']:>+11.5f}"
+        f"{srs['mean']:>+11.5f}"
+        f"{mean_rank:>9.2f}"
+        f"{top4:>9.3f}"
+    )
+
+
+# =============================================================================
+# 24. PROMPT-LEVEL ANALYSIS
+# =============================================================================
+
+print("\n[12/24] Prompt-level blind summary...")
+
+PROMPT_SUMMARY = []
+
+for pi, row in enumerate(
+    BLIND_RESULTS
+):
+
+    sd = []
+    gd = []
+    rd = []
+    od = []
+
+    for li in SOURCE_LAYERS:
+
+        z = (
+            row["layers"][str(li)]
+        )
+
+        sd.append(
+            z["sensor_delta"]
+        )
+
+        gd.append(
+            z["global_delta"]
+        )
+
+        rd.append(
+            z["random_delta"]
+        )
+
+        od.append(
+            z["oracle_delta"]
+        )
+
+    item = {
+        "prompt_index":
+            pi,
+
+        "sensor":
+            float(np.mean(sd)),
+
+        "global":
+            float(np.mean(gd)),
+
+        "random":
+            float(np.mean(rd)),
+
+        "oracle":
+            float(np.mean(od)),
+    }
+
+    PROMPT_SUMMARY.append(
+        item
+    )
+
+    print(
+        f"P{pi:02d} "
+        f"S={item['sensor']:+.5f} "
+        f"G={item['global']:+.5f} "
+        f"R={item['random']:+.5f} "
+        f"O={item['oracle']:+.5f}"
+    )
+
+
+# =============================================================================
+# 25. FEATURE COEFFICIENT DIAGNOSTIC
+#
+# Descriptive only.
+# We report standardized ridge coefficients averaged across layers.
+# =============================================================================
+
+print("\n[13/24] Feature coefficient diagnostic...")
+
+BETAS = np.stack([
+    SCORERS[li]["beta"]
+    for li in SOURCE_LAYERS
+])
+
+MEAN_ABS_BETA = np.mean(
+    np.abs(BETAS),
+    axis=0,
+)
+
+order = np.argsort(
+    -MEAN_ABS_BETA
+)
+
+FEATURE_IMPORTANCE = []
+
+for idx in order:
+
+    item = {
+        "feature":
+            FEATURE_NAMES[idx],
+
+        "mean_abs_beta":
+            float(
+                MEAN_ABS_BETA[idx]
+            ),
+
+        "mean_signed_beta":
+            float(
+                np.mean(
+                    BETAS[:, idx]
+                )
+            ),
+    }
+
+    FEATURE_IMPORTANCE.append(
+        item
+    )
+
+    print(
+        f"{item['feature']:<24} "
+        f"|absβ|="
+        f"{item['mean_abs_beta']:.6f} "
+        f"meanβ="
+        f"{item['mean_signed_beta']:+.6f}"
+    )
+
+
+# =============================================================================
+# 26. CRITICAL NULL:
+# Does state-conditioned sensor beat strongest fixed candidate?
+# =============================================================================
+
+print("\n[14/24] Critical state-conditioning contrast...")
+
+STATE_ADVANTAGE = S_SG
+
+layers_sensor_gt_global = float(
+    np.mean([
+        LAYER_SUMMARY[str(li)]
+        ["sensor_minus_global"]
+        ["mean"] > 0
+        for li in SOURCE_LAYERS
+    ])
+)
+
+layers_sensor_gt_random = float(
+    np.mean([
+        LAYER_SUMMARY[str(li)]
+        ["sensor_minus_random"]
+        ["mean"] > 0
+        for li in SOURCE_LAYERS
+    ])
+)
+
+print(
+    "Sensor > global layers:",
+    f"{layers_sensor_gt_global:.3f}"
+)
+
+print(
+    "Sensor > random layers:",
+    f"{layers_sensor_gt_random:.3f}"
+)
+
+
+# =============================================================================
+# 27. DECISION
+# =============================================================================
+
+print("\n[15/24] DECISION")
+print("=" * 180)
+
+# Strong success:
+#
+# 1. sensor physically improves FIXED
+# 2. sensor beats GLOBAL fixed correction
+# 3. sensor beats RANDOM
+# 4. >50% of oracle opportunity captured
+# 5. layer consistency not concentrated in a tiny subset
+
+if (
+    S_SENSOR["mean"] > 0
+    and S_SENSOR["ci95"][0] > 0
+
+    and S_SG["mean"] > 0
+    and S_SG["ci95"][0] > 0
+
+    and S_SR["mean"] > 0
+    and S_SR["ci95"][0] > 0
+
+    and CAPTURE_RATIO >= 0.50
+
+    and layers_sensor_gt_global >= 0.70
+):
+
+    DECISION = (
+        "STATE_TO_CORRECTION_SENSOR_SUPPORTED"
+    )
+
+elif (
+    S_SENSOR["mean"] > 0
+    and S_SENSOR["ci95"][0] > 0
+    and (
+        S_SG["mean"] <= 0
+        or S_SG["ci95"][0] <= 0
+    )
+):
+
+    DECISION = (
+        "CORRECTION_GAIN_WITHOUT_STATE_SELECTION_ADVANTAGE"
+    )
+
+elif (
+    S_SENSOR["mean"] <= 0
+    or S_SENSOR["ci95"][1] <= 0
+):
+
+    DECISION = (
+        "STATE_SENSOR_NOT_SUPPORTED"
+    )
+
+else:
+
+    DECISION = (
+        "STATE_SENSOR_MIXED"
+    )
+
+
+print(
+    f"SENSOR Δ       = "
+    f"{S_SENSOR['mean']:+.6f} "
+    f"{ci(S_SENSOR)}"
+)
+
+print(
+    f"SENSOR-GLOBAL  = "
+    f"{S_SG['mean']:+.6f} "
+    f"{ci(S_SG)}"
+)
+
+print(
+    f"SENSOR-RANDOM  = "
+    f"{S_SR['mean']:+.6f} "
+    f"{ci(S_SR)}"
+)
+
+print(
+    f"ORACLE Δ       = "
+    f"{S_ORACLE['mean']:+.6f}"
+)
+
+print(
+    f"Capture ratio  = "
+    f"{CAPTURE_RATIO:.3f}"
+)
+
+print(
+    f"S>G layers     = "
+    f"{layers_sensor_gt_global:.3f}"
+)
+
+print()
+
+print("DECISION:")
+print(DECISION)
+
+
+# =============================================================================
+# 28. NEXT BRANCH
+# =============================================================================
+
+print("\n[16/24] NEXT BRANCH")
+
+if (
+    DECISION
+    == "STATE_TO_CORRECTION_SENSOR_SUPPORTED"
+):
+
+    NEXT_BRANCH = (
+        "TEST134_MULTI_LAYER_DYNAMIC_NAVIGATION"
+    )
+
+    print("""
+State-conditioned sensor blind promptlarda:
+    FIXED'i,
+    global correction'ı,
+    random correction'ı
+
+geçti.
+
+Bir sonraki aşama:
+TEST134 — MULTI-LAYER DYNAMIC NAVIGATION
+
+Her katmanda:
+    state oku
+    -> correction score
+    -> q*_l seç
+    -> müdahale
+    -> yeni state
+    -> sonraki katmanda tekrar hesapla
+
+Henüz DRA gain controller eklenmeyecek.
+Önce GPS zincir halinde tek başına sınanacak.
+""")
+
+elif (
+    DECISION
+    == "CORRECTION_GAIN_WITHOUT_STATE_SELECTION_ADVANTAGE"
+):
+
+    NEXT_BRANCH = (
+        "SENSOR_FEATURES_INSUFFICIENT"
+    )
+
+    print("""
+Correction fırsatı var ancak bu feature set state bilgisini
+global correction'dan daha iyi kullanamadı.
+
+TEST132 reddedilmiş olmaz.
+Yalnız mevcut GPS sensörü yetersizdir.
+
+Bir sonraki aşama daha zengin local finite-response feature'ları
+veya low-rank state representation olmalıdır.
+""")
+
+elif (
+    DECISION
+    == "STATE_SENSOR_NOT_SUPPORTED"
+):
+
+    NEXT_BRANCH = (
+        "NO_DYNAMIC_GPS_WITH_CURRENT_SENSOR"
+    )
+
+    print("""
+Current compact state-direction sensor blind promptlarda
+gerçek correction kazancı sağlayamadı.
+
+Multi-layer navigator'a geçilmeyecek.
+Önce sensor hipotezi yeniden kurulmalıdır.
+""")
+
+else:
+
+    NEXT_BRANCH = (
+        "LAYER_SELECTIVE_SENSOR"
+    )
+
+    print("""
+Global sonuç karışık.
+
+Hangi transition'larda state-conditioned seçim gerçekten çalışıyor
+ayrıştırılacak; yalnız desteklenen layer'lar için frozen navigator
+oluşturulacak.
+""")
+
+
+# =============================================================================
+# 29. INTERPRETATION LOCK
+# =============================================================================
+
+print("\n[17/24] INTERPRETATION LOCK")
+
+LOCK = [
+    "TEST133'ün primary sonucu gerçek BLIND fiziksel intervention sonucudur; TRAIN veya DEV regression fit'i başarı kanıtı değildir.",
+
+    "BLIND candidate seçimi candidate outcome görülmeden yalnız baseline hidden state ve frozen scorer kullanılarak yapılır.",
+
+    "BLIND oracle bütün candidate'lar sonradan tarandıktan sonra hesaplanan üst sınırdır; navigator tarafından kullanılmaz.",
+
+    "Candidate ID scorer feature değildir; model state-direction ilişkisini puanlamaya zorlanır.",
+
+    "SENSOR-FIXED pozitifliği tek başına state conditioning kanıtı değildir; SENSOR-GLOBAL primary state-conditioning kontrastıdır.",
+
+    "GLOBAL kol TRAIN+DEV üzerinde seçilmiş tek sabit correction'dır ve state-independent güçlü baseline'dır.",
+
+    "RANDOM kol aynı candidate atlasından deterministik rastgele seçimdir.",
+
+    "Capture ratio oracle opportunity'nin ne kadarının frozen sensor tarafından blind olarak yakalandığını gösterir; oracle selection bias içerdiğinden oran mekanik bir optimumluk ölçüsü değildir.",
+
+    "Row-wise predicted-vs-actual correlation secondary diagnostiktir; asıl soru candidate ranking ve fiziksel selected intervention sonucudur.",
+
+    "Requested 5 derece BF16'da gerçek 5 derece anlamına gelmez; realized candidate-vs-FIXED angle ayrıca raporlanır.",
+
+    "Bu finite perturbation/secant yönlendirme deneyidir; Jacobian, gradient veya dense transport operator iddiası değildir.",
+
+    "DRA brake/gain/controller bu testte yoktur.",
+
+    "Tek-step sensor başarısı multi-layer closed-loop navigation başarısını kanıtlamaz.",
+
+    "TEST133 BLIND promptları çalıştırıldıktan sonra artık exposed/system-ID verisidir ve TEST134 blind doğrulamasında tekrar kullanılmamalıdır.",
+]
+
+for i, x in enumerate(
+    LOCK,
+    1,
+):
+
+    print(
+        f"{i:02d}. {x}"
+    )
+
+
+# =============================================================================
+# 30. SANITY: BLIND SENSOR SELECTION DIVERSITY
+# =============================================================================
+
+print("\n[18/24] Blind sensor selection diversity...")
+
+SELECTION_DIVERSITY = {}
+
+for li in SOURCE_LAYERS:
+
+    ids = [
+        row["layers"][str(li)]
+        ["sensor_id"]
+        for row in BLIND_RESULTS
+    ]
+
+    counts = np.bincount(
+        ids,
+        minlength=N_CANDIDATES,
+    )
+
+    unique = int(
+        np.sum(counts > 0)
+    )
+
+    modal = float(
+        np.max(counts)
+        / np.sum(counts)
+    )
+
+    SELECTION_DIVERSITY[str(li)] = {
+        "unique":
+            unique,
+
+        "modal_fraction":
+            modal,
+
+        "counts":
+            counts.tolist(),
+    }
+
+print(
+    "Mean unique candidates/layer:",
+    f"{np.mean([x['unique'] for x in SELECTION_DIVERSITY.values()]):.3f}"
+)
+
+print(
+    "Mean modal fraction:",
+    f"{np.mean([x['modal_fraction'] for x in SELECTION_DIVERSITY.values()]):.3f}"
+)
+
+
+# =============================================================================
+# 31. DEV vs BLIND GENERALIZATION
+# =============================================================================
+
+print("\n[19/24] DEV vs BLIND generalization audit...")
+
+DEV_SELECTED_MEANS = [
+    DEV_SELECTION[li]
+    ["best"]["selected_mean"]
+    for li in SOURCE_LAYERS
+]
+
+BLIND_LAYER_SENSOR = [
+    LAYER_SUMMARY[str(li)]
+    ["sensor"]["mean"]
+    for li in SOURCE_LAYERS
+]
+
+DEV_BLIND_LAYER_CORR = (
+    safe_corr(
+        DEV_SELECTED_MEANS,
+        BLIND_LAYER_SENSOR,
+    )
+)
+
+print(
+    "Mean DEV selected Δ :",
+    f"{np.mean(DEV_SELECTED_MEANS):+.6f}"
+)
+
+print(
+    "Mean BLIND sensor Δ :",
+    f"{S_SENSOR['mean']:+.6f}"
+)
+
+print(
+    "Layer DEV↔BLIND corr:",
+    f"{DEV_BLIND_LAYER_CORR:+.4f}"
+)
+
+
+# =============================================================================
+# 32. SAVE
+# =============================================================================
+
+print("\n[20/24] JSON hazırlanıyor...")
+
+# Convert scorer arrays
+SCORER_JSON = {}
+
+for li in SOURCE_LAYERS:
+
+    SCORER_JSON[str(li)] = {
+        "lambda":
+            float(
+                SCORERS[li]["lambda"]
+            ),
+
+        "mu":
+            SCORERS[li][
+                "mu"
+            ].tolist(),
+
+        "sd":
+            SCORERS[li][
+                "sd"
+            ].tolist(),
+
+        "beta":
+            SCORERS[li][
+                "beta"
+            ].tolist(),
+    }
+
+
+OUTPUT = {
+    "test":
+        "TEST133",
+
+    "title":
+        "State-to-Correction Sensor",
+
+    "model":
+        MODEL_ID,
+
+    "config": {
+        "probe_rel":
+            PROBE_REL,
+
+        "requested_shell_deg":
+            REQUESTED_SHELL_DEG,
+
+        "n_candidates":
+            N_CANDIDATES,
+
+        "n_train":
+            N_TRAIN,
+
+        "n_dev":
+            N_DEV,
+
+        "n_blind":
+            N_BLIND,
+
+        "features":
+            FEATURE_NAMES,
+    },
+
+    "fingerprint": {
+        "L10":
+            cos10,
+
+        "L11":
+            cos11,
+
+        "status":
+            "PASS",
+    },
+
+    "dev_selection":
+        DEV_SELECTION,
+
+    "scorers":
+        SCORER_JSON,
+
+    "global_candidate":
+        GLOBAL_CANDIDATE,
+
+    "blind_global": {
+        "sensor":
+            S_SENSOR,
+
+        "global":
+            S_GLOBAL,
+
+        "random":
+            S_RANDOM,
+
+        "oracle":
+            S_ORACLE,
+
+        "sensor_minus_global":
+            S_SG,
+
+        "sensor_minus_random":
+            S_SR,
+
+        "capture_ratio":
+            CAPTURE_RATIO,
+
+        "row_corr":
+            ROW_CORR,
+
+        "mean_sensor_rank":
+            MEAN_SENSOR_RANK,
+
+        "top4_rate":
+            TOP4_RATE,
+
+        "oracle_hit_rate":
+            ORACLE_HIT_RATE,
+
+        "mean_realized_angle":
+            float(
+                np.mean(
+                    realized_angles
+                )
+            ),
+    },
+
+    "layer_summary":
+        LAYER_SUMMARY,
+
+    "prompt_summary":
+        PROMPT_SUMMARY,
+
+    "feature_importance":
+        FEATURE_IMPORTANCE,
+
+    "selection_diversity":
+        SELECTION_DIVERSITY,
+
+    "dev_blind_layer_corr":
+        DEV_BLIND_LAYER_CORR,
+
+    "layers_sensor_gt_global":
+        layers_sensor_gt_global,
+
+    "layers_sensor_gt_random":
+        layers_sensor_gt_random,
+
+    "decision":
+        DECISION,
+
+    "next_branch":
+        NEXT_BRANCH,
+
+    "interpretation_lock":
+        LOCK,
+
+    "blind_results":
+        BLIND_RESULTS,
+}
+
+
+# =============================================================================
+# 33. SAVE JSON
+# =============================================================================
+
+print("\n[21/24] JSON kaydediliyor...")
+
+with open(
+    OUT_JSON,
+    "w",
+    encoding="utf-8",
+) as f:
+
+    json.dump(
+        OUTPUT,
+        f,
+        ensure_ascii=False,
+        indent=2,
+        default=str,
+    )
+
+print(
+    "Saved:",
+    OUT_JSON
+)
+
+
+# =============================================================================
+# 34. FINAL SUMMARY
+# =============================================================================
+
+print("\n[22/24] FINAL SUMMARY")
+print("=" * 180)
+
+print(
+    "TEST133 — STATE-TO-CORRECTION SENSOR"
+)
+
+print("=" * 180)
+
+print(
+    f"Fingerprint          : PASS"
+)
+
+print(
+    f"Probe REL            : {PROBE_REL}"
+)
+
+print(
+    f"Requested shell      : "
+    f"{REQUESTED_SHELL_DEG:.1f}°"
+)
+
+print(
+    f"Mean realized angle  : "
+    f"{np.mean(realized_angles):.3f}°"
+)
+
+print()
+
+print(
+    f"SENSOR Δ vs FIXED    : "
+    f"{S_SENSOR['mean']:+.6f} "
+    f"{ci(S_SENSOR)}"
+)
+
+print(
+    f"GLOBAL Δ vs FIXED    : "
+    f"{S_GLOBAL['mean']:+.6f} "
+    f"{ci(S_GLOBAL)}"
+)
+
+print(
+    f"RANDOM Δ vs FIXED    : "
+    f"{S_RANDOM['mean']:+.6f} "
+    f"{ci(S_RANDOM)}"
+)
+
+print(
+    f"ORACLE Δ vs FIXED    : "
+    f"{S_ORACLE['mean']:+.6f} "
+    f"{ci(S_ORACLE)}"
+)
+
+print()
+
+print(
+    f"SENSOR - GLOBAL      : "
+    f"{S_SG['mean']:+.6f} "
+    f"{ci(S_SG)}"
+)
+
+print(
+    f"SENSOR - RANDOM      : "
+    f"{S_SR['mean']:+.6f} "
+    f"{ci(S_SR)}"
+)
+
+print()
+
+print(
+    f"Oracle capture ratio : "
+    f"{CAPTURE_RATIO:.3f}"
+)
+
+print(
+    f"Mean candidate rank  : "
+    f"{MEAN_SENSOR_RANK:.3f} "
+    f"/ 16"
+)
+
+print(
+    f"Top-4 rate           : "
+    f"{TOP4_RATE:.3f}"
+)
+
+print(
+    f"Exact oracle hit     : "
+    f"{ORACLE_HIT_RATE:.3f}"
+)
+
+print(
+    f"Candidate row corr   : "
+    f"{ROW_CORR:+.4f}"
+)
+
+print(
+    f"Sensor>Global layers : "
+    f"{layers_sensor_gt_global:.3f}"
+)
+
+print()
+
+print("DECISION:")
+print(DECISION)
+
+print()
+
+print("NEXT:")
+print(NEXT_BRANCH)
+
+
+# =============================================================================
+# 35. SCIENTIFIC HANDOFF
+# =============================================================================
+
+print("\n[23/24] SCIENTIFIC HANDOFF")
+
+print("""
+TEST133 için kritik sıralama:
+
+1. SENSOR Δ vs FIXED
+   GPS'in seçtiği correction gerçekten historical compass'ı iyileştiriyor mu?
+
+2. SENSOR - GLOBAL
+   State'i okumak, tek sabit correction'dan daha iyi mi?
+
+3. SENSOR - RANDOM
+   Seçim rastgele candidate seçmekten daha iyi mi?
+
+4. ORACLE Δ
+   TEST132'deki correction opportunity yeni BLIND promptlarda yeniden var mı?
+
+5. CAPTURE RATIO
+   GPS mevcut oracle fırsatının ne kadarını yakalıyor?
+
+6. RANK / TOP-4
+   Sensor candidate ranking'de gerçekten bilgi taşıyor mu?
+
+En kritik kontrast:
+
+    SENSOR - GLOBAL
+
+Çünkü bu pozitif değilse:
+    correction faydalı olabilir,
+ama
+    state-conditioned seçim kanıtlanmış olmaz.
+
+Eğer SENSOR-FIXED, SENSOR-GLOBAL ve SENSOR-RANDOM
+birlikte pozitif ve kör veride CI sıfırın üzerindeyse:
+
+    state -> correction direction
+
+hattı ilk kez doğrudan fiziksel destek almış olur.
+""")
+
+
+# =============================================================================
+# 36. DONE
+# =============================================================================
+
+print("\n[24/24] DONE")
+print("JSON:", OUT_JSON)
+
+gc.collect()
+torch.cuda.empty_cache()
