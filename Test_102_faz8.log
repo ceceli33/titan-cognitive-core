@@ -1,0 +1,3236 @@
+# =============================================================================
+# TEST 135 — RADAR NOISE FLOOR + FP32 LOCAL TRANSPORT ASSAY
+# AKBASCORE
+#
+# QUESTION:
+#
+#   TEST134 radar neden kördü?
+#
+#   H1 — BF16 realization / measurement floor:
+#        küçük probe yönü BF16'da yeterince temiz gerçekleşmiyor.
+#
+#   H2 — micro-response gerçekten ACT sonucunu taşımıyor:
+#        precision düzeltilse bile candidate ranking korunmuyor.
+#
+#
+# DESIGN
+# ======
+#
+# PART A — BF16 REALIZATION / NULL FLOOR
+#
+#   - TEST134 ile aynı Dibekgoz dictionary
+#   - aynı 5° tangent candidate family
+#   - aynı 16 candidate
+#   - RADAR_REL = .0025
+#   - ACT_REL   = .01
+#
+#   Ölç:
+#
+#       requested -> realized direction fidelity
+#       candidate pair geometry before/after BF16
+#       exact-repeat determinism
+#       FIXED çevresindeki sub-resolution jitter null oracle
+#
+#
+# PART B — FP32 LOCAL BLOCK
+#
+#   Full model BF16 kalır.
+#
+#   Her prompt/layer için gerçek layer-input state ve forward context yakalanır.
+#   İlgili decoder layer geçici olarak FP32'ye çevrilir.
+#
+#   Candidate response:
+#
+#       central_secant(q, eps)
+#
+#          F32(h + eps q) - F32(h - eps q)
+#       = ---------------------------------
+#                        2
+#
+#   Burada eps'e bölmüyoruz; direction/ranking için symmetric finite response
+#   yeterlidir. Norm-gain ayrıca gerçek perturbation normuna göre raporlanır.
+#
+#
+# PRIMARY QUESTIONS
+# =================
+#
+# Q1. BF16 candidate geometry korunuyor mu?
+#
+# Q2. TEST134 tipi:
+#
+#       BF16 micro ranking -> BF16 ACT ranking
+#
+#     tekrar ≈ 0 mı?
+#
+# Q3. FP32:
+#
+#       FP32 micro central response
+#           ->
+#       FP32 ACT central response
+#
+#     candidate ranking'i taşıyor mu?
+#
+# Q4. FP32 micro candidate seçimi, FP32 ACT'te FIXED'i geçiyor mu?
+#
+#
+# INTERPRETATION
+# ==============
+#
+# BF16 ~0, FP32 strong:
+#       BF16_MEASUREMENT_FLOOR_SUPPORTED
+#
+# BF16 ~0, FP32 ~0:
+#       MICRO_TO_ACT_DIRECTIONAL_TRANSFER_NOT_SUPPORTED
+#
+# BF16/FP32 both informative:
+#       TEST134 scorer/design issue
+#
+# IMPORTANT:
+#   - Jacobian iddiası YOK.
+#   - Exact derivative iddiası YOK.
+#   - "central finite-secant response" denir.
+#   - DRA yok.
+#   - generation yok.
+#   - multi-layer navigator yok.
+# =============================================================================
+
+
+import gc
+import json
+import math
+import random
+import time
+import copy
+import inspect
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+
+# =============================================================================
+# 0. CONFIG
+# =============================================================================
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 13501
+
+MODEL_LAYERS = 28
+VECTOR_LAYERS = 20
+HIDDEN = 3584
+
+# Cost / clarity:
+# representative early / middle / late transitions.
+#
+# TEST134 all-layer result already exists.
+# TEST135 isolates precision mechanism.
+SOURCE_LAYERS = [3, 6, 10, 14, 18]
+
+RADAR_REL = 0.0025
+ACT_REL   = 0.0100
+
+REQUESTED_SHELL_DEG = 5.0
+N_CANDIDATES = 16
+
+# Fresh prompts — TEST132/133/134 not reused.
+N_PROMPTS = 16
+
+# Null realizations around FIXED.
+N_NULL = 16
+
+# Relative size of tiny requested-direction jitter.
+# This is NOT assumed to equal one ULP.
+# Actual realized perturbation is measured directly.
+NULL_JITTER_REL = 2.5e-4
+
+EXPECTED_COS10 = 0.656545
+EXPECTED_COS11 = 0.658274
+FINGERPRINT_TOL = 5e-6
+
+EPS = 1e-12
+
+OUT_JSON = "/content/TEST_135_RADAR_NOISE_FLOOR_FP32_LOCAL_ASSAY.json"
+
+
+# =============================================================================
+# 1. LOCKED FINGERPRINT STRINGS
+# =============================================================================
+
+ABOVE = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+BELOW = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming across the surface",
+]
+
+# Correct locked BELOW final item:
+BELOW[-1] = "a signal coming from below the surface"
+
+NEUTRAL = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 2. LOCKED DIBEKGOZ DICTIONARY
+#
+# Same lineage used by TEST131–134 outputs.
+# =============================================================================
+
+TEMPLATES = [
+    "The creature is essentially {X}.",
+    "Observing it closely, the animal is clearly {X}.",
+    "The specimen in front of us is {X}.",
+    "Field notes describe the creature as {X}.",
+    "In every respect the body plan is that of {X}.",
+    "The zoologist identified the animal as {X}.",
+    "Anatomically the creature is {X}.",
+    "Taxonomically the creature groups with {X}.",
+]
+
+POS_DIBEK = "a tailless bipedal ape"
+NEG_DIBEK = "a tailed quadrupedal mammal"
+
+
+# =============================================================================
+# 3. FRESH TEST135 PROMPTS
+# =============================================================================
+
+PROMPTS = [
+    "Researchers observed an unfamiliar animal changing its posture while reaching toward food placed nearby.",
+    "A field team documented how a rare creature balanced while moving across irregular ground.",
+    "Scientists examined the limb proportions of an unidentified specimen found in a remote habitat.",
+    "Wildlife cameras recorded an unknown animal repositioning its body while inspecting an object.",
+    "Paleontologists reconstructed the likely stance of an extinct creature from partial skeletal remains.",
+    "Observers described how an unusual terrestrial animal distributed its weight during slow movement.",
+    "A morphology study compared the shoulder, pelvis, spine, and limbs of a newly catalogued species.",
+    "Researchers filmed an undocumented creature maintaining balance while manipulating food.",
+
+    "Engineers inspected vibration data collected from machinery during a controlled operating cycle.",
+    "Surveyors measured structural reference points along a newly completed section of roadway.",
+    "Technicians reviewed temperature readings recorded inside an electrical enclosure.",
+    "Archivists organized a collection of historical documents before transferring them to storage.",
+    "A monitoring station recorded atmospheric measurements throughout an overnight observation period.",
+    "Maintenance workers examined components removed from an industrial pumping assembly.",
+    "A research vessel logged instrument readings while crossing a mapped section of open water.",
+    "Inspectors measured the spacing of metal supports beneath an elevated platform.",
+]
+
+assert len(PROMPTS) == N_PROMPTS
+
+
+# =============================================================================
+# 4. REPRODUCIBILITY
+# =============================================================================
+
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
+
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+
+# =============================================================================
+# 5. BASIC HELPERS
+# =============================================================================
+
+def normalize(v):
+    v = v.float()
+    n = torch.linalg.vector_norm(v)
+
+    if float(n.item()) < EPS:
+        return None
+
+    return v / n
+
+
+def cosine(a, b):
+    a = a.float()
+    b = b.float()
+
+    na = torch.linalg.vector_norm(a)
+    nb = torch.linalg.vector_norm(b)
+
+    if float(na.item()) < EPS or float(nb.item()) < EPS:
+        return float("nan")
+
+    return float(
+        torch.dot(a, b) / (na * nb)
+    )
+
+
+def angle_deg(a, b):
+    c = cosine(a, b)
+
+    if not np.isfinite(c):
+        return float("nan")
+
+    c = max(-1.0, min(1.0, c))
+
+    return float(
+        math.degrees(
+            math.acos(c)
+        )
+    )
+
+
+def safe_corr(a, b):
+
+    a = np.asarray(a, dtype=np.float64)
+    b = np.asarray(b, dtype=np.float64)
+
+    mask = (
+        np.isfinite(a)
+        & np.isfinite(b)
+    )
+
+    a = a[mask]
+    b = b[mask]
+
+    if len(a) < 3:
+        return float("nan")
+
+    if np.std(a) < EPS or np.std(b) < EPS:
+        return float("nan")
+
+    return float(
+        np.corrcoef(a, b)[0, 1]
+    )
+
+
+def rankdata_simple(x):
+    x = np.asarray(x, dtype=np.float64)
+
+    order = np.argsort(x)
+    ranks = np.empty_like(
+        order,
+        dtype=np.float64,
+    )
+
+    ranks[order] = np.arange(
+        len(x),
+        dtype=np.float64,
+    )
+
+    return ranks
+
+
+def spearman(a, b):
+
+    a = np.asarray(a, dtype=np.float64)
+    b = np.asarray(b, dtype=np.float64)
+
+    mask = (
+        np.isfinite(a)
+        & np.isfinite(b)
+    )
+
+    a = a[mask]
+    b = b[mask]
+
+    if len(a) < 3:
+        return float("nan")
+
+    return safe_corr(
+        rankdata_simple(a),
+        rankdata_simple(b),
+    )
+
+
+def stats(x):
+
+    x = np.asarray(x, dtype=np.float64)
+    x = x[np.isfinite(x)]
+
+    if len(x) == 0:
+        return {
+            "n": 0,
+            "mean": float("nan"),
+            "sd": float("nan"),
+            "ci95": [
+                float("nan"),
+                float("nan"),
+            ],
+            "positive_fraction": float("nan"),
+        }
+
+    m = float(np.mean(x))
+
+    if len(x) > 1:
+        sd = float(np.std(x, ddof=1))
+        se = sd / math.sqrt(len(x))
+    else:
+        sd = 0.0
+        se = 0.0
+
+    return {
+        "n": int(len(x)),
+        "mean": m,
+        "sd": sd,
+        "ci95": [
+            float(m - 1.96 * se),
+            float(m + 1.96 * se),
+        ],
+        "positive_fraction":
+            float(np.mean(x > 0)),
+        "min":
+            float(np.min(x)),
+        "max":
+            float(np.max(x)),
+    }
+
+
+def ci(s):
+    return (
+        f"[{s['ci95'][0]:+.6f},"
+        f"{s['ci95'][1]:+.6f}]"
+    )
+
+
+# =============================================================================
+# 6. MODEL LOAD
+# =============================================================================
+
+print("=" * 190)
+print("TEST 135 — RADAR NOISE FLOOR + FP32 LOCAL TRANSPORT ASSAY")
+print("AKBASCORE — IS THE RADAR BLIND, OR IS THERE NO MICRO->ACT SIGNAL?")
+print("=" * 190)
+
+if not torch.cuda.is_available():
+    raise RuntimeError("CUDA GPU gerekli.")
+
+print("\n[1/24] Model yükleniyor...")
+
+t0 = time.time()
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_ID,
+    trust_remote_code=True,
+)
+
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+tokenizer.padding_side = "right"
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True,
+    low_cpu_mem_usage=True,
+    attn_implementation="sdpa",
+)
+
+model.eval()
+
+for p in model.parameters():
+    p.requires_grad_(False)
+
+device = next(model.parameters()).device
+
+assert len(model.model.layers) == MODEL_LAYERS
+assert model.config.hidden_size == HIDDEN
+
+print("Model             :", MODEL_ID)
+print("dtype             :", next(model.parameters()).dtype)
+print("Layers tested     :", SOURCE_LAYERS)
+print("RADAR_REL         :", RADAR_REL)
+print("ACT_REL           :", ACT_REL)
+print("Shell             :", REQUESTED_SHELL_DEG)
+print("Candidates        :", N_CANDIDATES)
+print("Prompts           :", N_PROMPTS)
+print("Null jitter REL   :", NULL_JITTER_REL)
+print(f"Load time         : {time.time()-t0:.1f}s")
+
+
+# =============================================================================
+# 7. VECTOR EXTRACTION
+# =============================================================================
+
+@torch.no_grad()
+def extract_vectors(texts):
+
+    enc = tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=128,
+    )
+
+    ids = enc["input_ids"].to(device)
+    mask = enc["attention_mask"].to(device)
+
+    captures = [None] * VECTOR_LAYERS
+    handles = []
+
+    def make_hook(li):
+
+        def hook(module, inp, out):
+
+            h = (
+                out[0]
+                if isinstance(out, tuple)
+                else out
+            )
+
+            captures[li] = h.detach()
+
+        return hook
+
+    try:
+
+        for li in range(VECTOR_LAYERS):
+
+            handles.append(
+                model.model.layers[li]
+                .register_forward_hook(
+                    make_hook(li)
+                )
+            )
+
+        model(
+            input_ids=ids,
+            attention_mask=mask,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    lengths = (
+        mask.sum(1)
+        .cpu()
+        .numpy()
+    )
+
+    result = torch.zeros(
+        len(texts),
+        VECTOR_LAYERS,
+        HIDDEN,
+        dtype=torch.float32,
+    )
+
+    for li in range(VECTOR_LAYERS):
+
+        x = (
+            captures[li]
+            .float()
+            .cpu()
+        )
+
+        for i in range(len(texts)):
+
+            result[i, li] = x[
+                i,
+                int(lengths[i]) - 1,
+            ]
+
+    return result
+
+
+def contrastive_vectors(pos, neg):
+
+    XP = extract_vectors(pos)
+    XN = extract_vectors(neg)
+
+    vectors = {}
+
+    for li in range(VECTOR_LAYERS):
+
+        d = (
+            XP[:, li].mean(0)
+            - XN[:, li].mean(0)
+        )
+
+        vectors[li] = F.normalize(
+            d,
+            dim=0,
+        )
+
+    del XP, XN
+
+    return vectors
+
+
+# =============================================================================
+# 8. FINGERPRINT
+# =============================================================================
+
+print("\n[2/24] Ortam parmak izi...")
+
+XA = extract_vectors(ABOVE)
+XB = extract_vectors(BELOW)
+XN = extract_vectors(NEUTRAL)
+
+A10 = F.normalize(
+    XA[:, 10].mean(0)
+    - XN[:, 10].mean(0),
+    dim=0,
+)
+
+B10 = F.normalize(
+    XB[:, 10].mean(0)
+    - XN[:, 10].mean(0),
+    dim=0,
+)
+
+A11 = F.normalize(
+    XA[:, 11].mean(0)
+    - XN[:, 11].mean(0),
+    dim=0,
+)
+
+B11 = F.normalize(
+    XB[:, 11].mean(0)
+    - XN[:, 11].mean(0),
+    dim=0,
+)
+
+cos10 = cosine(A10, B10)
+cos11 = cosine(A11, B11)
+
+drift10 = abs(
+    cos10 - EXPECTED_COS10
+)
+
+drift11 = abs(
+    cos11 - EXPECTED_COS11
+)
+
+print(
+    f"L10={cos10:+.6f} "
+    f"drift={drift10:.3e}"
+)
+
+print(
+    f"L11={cos11:+.6f} "
+    f"drift={drift11:.3e}"
+)
+
+if (
+    drift10 > FINGERPRINT_TOL
+    or drift11 > FINGERPRINT_TOL
+):
+    raise RuntimeError(
+        "Fingerprint FAILED"
+    )
+
+print("Fingerprint: PASS")
+
+del XA, XB, XN
+del A10, B10, A11, B11
+
+gc.collect()
+torch.cuda.empty_cache()
+
+
+# =============================================================================
+# 9. DIBEKGOZ DICTIONARY
+# =============================================================================
+
+print("\n[3/24] Dibekgoz dictionary...")
+
+POS = [
+    t.format(X=POS_DIBEK)
+    for t in TEMPLATES
+]
+
+NEG = [
+    t.format(X=NEG_DIBEK)
+    for t in TEMPLATES
+]
+
+DIBEK = contrastive_vectors(
+    POS,
+    NEG,
+)
+
+print(
+    "cos(v0,v19)   =",
+    f"{cosine(DIBEK[0], DIBEK[19]):+.6f}",
+)
+
+print(
+    "cos(v11,v19)  =",
+    f"{cosine(DIBEK[11], DIBEK[19]):+.6f}",
+)
+
+print(
+    "cos(v18,v19)  =",
+    f"{cosine(DIBEK[18], DIBEK[19]):+.6f}",
+)
+
+
+# =============================================================================
+# 10. TANGENT ATLAS
+# =============================================================================
+
+print("\n[4/24] 5° tangent atlas oluşturuluyor...")
+
+theta = math.radians(
+    REQUESTED_SHELL_DEG
+)
+
+ATLAS = {}
+
+for li in SOURCE_LAYERS:
+
+    v = normalize(
+        DIBEK[li]
+    )
+
+    ATLAS[li] = []
+
+    for cid in range(
+        N_CANDIDATES
+    ):
+
+        gen = torch.Generator(
+            device="cpu"
+        )
+
+        gen.manual_seed(
+            SEED
+            + 100000 * li
+            + cid
+        )
+
+        z = torch.randn(
+            HIDDEN,
+            generator=gen,
+            dtype=torch.float32,
+        )
+
+        u = (
+            z
+            - torch.dot(z, v) * v
+        )
+
+        u = normalize(u)
+
+        q = normalize(
+            math.cos(theta) * v
+            + math.sin(theta) * u
+        )
+
+        ATLAS[li].append({
+            "candidate_id": cid,
+            "u": u,
+            "q": q,
+        })
+
+print(
+    f"{len(SOURCE_LAYERS)} layers "
+    f"× {N_CANDIDATES} candidates"
+)
+
+
+# =============================================================================
+# 11. BF16 BASELINE CAPTURE
+#
+# Capture:
+#
+#   layer OUTPUT h_l
+#
+# This matches intervention lineage:
+# hook on layers[li] output -> entering layer li+1.
+# =============================================================================
+
+@torch.no_grad()
+def baseline_outputs(prompt):
+
+    caps = {}
+    handles = []
+
+    def make_hook(li):
+
+        def hook(module, inp, out):
+
+            h = (
+                out[0]
+                if isinstance(out, tuple)
+                else out
+            )
+
+            caps[li] = (
+                h[0, -1]
+                .detach()
+                .float()
+                .cpu()
+                .clone()
+            )
+
+        return hook
+
+    try:
+
+        needed = sorted(
+            set(
+                SOURCE_LAYERS
+                + [x + 1 for x in SOURCE_LAYERS]
+            )
+        )
+
+        for li in needed:
+
+            handles.append(
+                model.model.layers[li]
+                .register_forward_hook(
+                    make_hook(li)
+                )
+            )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt",
+        ).to(device)
+
+        model(
+            **enc,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    return caps
+
+
+# =============================================================================
+# 12. BF16 ONE-STEP INTERVENTION
+# =============================================================================
+
+@torch.no_grad()
+def bf16_intervention(
+    prompt,
+    baseline,
+    li,
+    direction,
+    rel,
+):
+
+    target = li + 1
+
+    q = normalize(direction)
+
+    src_base = baseline[li]
+
+    src_norm = float(
+        torch.linalg.vector_norm(
+            src_base
+        )
+    )
+
+    requested_norm = (
+        rel * src_norm
+    )
+
+    q_gpu = q.to(device)
+
+    source_delta = {}
+    target_cap = {}
+
+    handles = []
+
+    def source_hook(
+        module,
+        inp,
+        out,
+    ):
+
+        h = (
+            out[0]
+            if isinstance(out, tuple)
+            else out
+        )
+
+        before = (
+            h[0, -1]
+            .float()
+        )
+
+        hnew = h.clone()
+
+        hnew[0, -1] = (
+            before
+            + requested_norm * q_gpu
+        ).to(h.dtype)
+
+        source_delta["x"] = (
+            hnew[0, -1]
+            .float()
+            - before
+        ).detach().cpu().clone()
+
+        if isinstance(out, tuple):
+            return (
+                (hnew,)
+                + out[1:]
+            )
+
+        return hnew
+
+    def target_hook(
+        module,
+        inp,
+        out,
+    ):
+
+        h = (
+            out[0]
+            if isinstance(out, tuple)
+            else out
+        )
+
+        target_cap["h"] = (
+            h[0, -1]
+            .detach()
+            .float()
+            .cpu()
+            .clone()
+        )
+
+    try:
+
+        handles.append(
+            model.model.layers[li]
+            .register_forward_hook(
+                source_hook
+            )
+        )
+
+        handles.append(
+            model.model.layers[target]
+            .register_forward_hook(
+                target_hook
+            )
+        )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt",
+        ).to(device)
+
+        model(
+            **enc,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    x = source_delta["x"]
+
+    y = (
+        target_cap["h"]
+        - baseline[target]
+    )
+
+    return {
+        "x": x,
+        "y": y,
+
+        "D_next":
+            cosine(
+                y,
+                DIBEK[target],
+            ),
+
+        "realized_rel":
+            float(
+                torch.linalg.vector_norm(x)
+            ) / (src_norm + EPS),
+
+        "dir_cos":
+            cosine(x, q),
+
+        "requested_norm":
+            requested_norm,
+    }
+
+
+# =============================================================================
+# 13. PART A — BF16 REPEATABILITY + REALIZATION FLOOR
+# =============================================================================
+
+print("\n[5/24] PART A — BF16 repeatability / realization floor...")
+
+BF16_RESULTS = []
+
+start = time.time()
+
+for pi, prompt in enumerate(PROMPTS):
+
+    base = baseline_outputs(
+        prompt
+    )
+
+    prow = {
+        "prompt_index": pi,
+        "layers": {},
+    }
+
+    for li in SOURCE_LAYERS:
+
+        fixed_q = normalize(
+            DIBEK[li]
+        )
+
+        # -------------------------------------------------------------
+        # Exact repeats:
+        # deterministic numerical repeatability.
+        # -------------------------------------------------------------
+
+        exact_repeats = []
+
+        for rep in range(4):
+
+            z = bf16_intervention(
+                prompt,
+                base,
+                li,
+                fixed_q,
+                ACT_REL,
+            )
+
+            exact_repeats.append(
+                z["D_next"]
+            )
+
+        repeat_range = float(
+            np.max(exact_repeats)
+            - np.min(exact_repeats)
+        )
+
+        # -------------------------------------------------------------
+        # Candidate radar / act
+        # -------------------------------------------------------------
+
+        candidate_rows = []
+
+        for candidate in ATLAS[li]:
+
+            rad = bf16_intervention(
+                prompt,
+                base,
+                li,
+                candidate["q"],
+                RADAR_REL,
+            )
+
+            act = bf16_intervention(
+                prompt,
+                base,
+                li,
+                candidate["q"],
+                ACT_REL,
+            )
+
+            candidate_rows.append({
+                "candidate_id":
+                    candidate["candidate_id"],
+
+                "radar_D":
+                    rad["D_next"],
+
+                "act_D":
+                    act["D_next"],
+
+                "radar_dir_cos":
+                    rad["dir_cos"],
+
+                "act_dir_cos":
+                    act["dir_cos"],
+
+                "radar_rel":
+                    rad["realized_rel"],
+
+                "act_rel":
+                    act["realized_rel"],
+
+                "requested_candidate_angle":
+                    angle_deg(
+                        candidate["q"],
+                        fixed_q,
+                    ),
+
+                "realized_radar_vs_requested":
+                    angle_deg(
+                        rad["x"],
+                        candidate["q"],
+                    ),
+
+                "realized_act_vs_requested":
+                    angle_deg(
+                        act["x"],
+                        candidate["q"],
+                    ),
+
+                "radar_x":
+                    rad["x"],
+
+                "act_x":
+                    act["x"],
+            })
+
+        # -------------------------------------------------------------
+        # Realized candidate pair geometry
+        # Compare requested candidate pair angles with realized pair angles.
+        # -------------------------------------------------------------
+
+        requested_pair_angles = []
+        radar_pair_angles = []
+        act_pair_angles = []
+
+        for a in range(N_CANDIDATES):
+
+            for b in range(
+                a + 1,
+                N_CANDIDATES,
+            ):
+
+                requested_pair_angles.append(
+                    angle_deg(
+                        ATLAS[li][a]["q"],
+                        ATLAS[li][b]["q"],
+                    )
+                )
+
+                radar_pair_angles.append(
+                    angle_deg(
+                        candidate_rows[a]["radar_x"],
+                        candidate_rows[b]["radar_x"],
+                    )
+                )
+
+                act_pair_angles.append(
+                    angle_deg(
+                        candidate_rows[a]["act_x"],
+                        candidate_rows[b]["act_x"],
+                    )
+                )
+
+        # -------------------------------------------------------------
+        # NULL:
+        #
+        # same semantic FIXED direction plus tiny tangent requested jitter.
+        #
+        # Important:
+        # this is not called "random measurement noise".
+        # It is a BF16 realization-sensitivity null.
+        # -------------------------------------------------------------
+
+        fixed_act = bf16_intervention(
+            prompt,
+            base,
+            li,
+            fixed_q,
+            ACT_REL,
+        )
+
+        null_D = []
+        null_realized_angles = []
+
+        for nid in range(N_NULL):
+
+            gen = torch.Generator(
+                device="cpu"
+            )
+
+            gen.manual_seed(
+                SEED
+                + 7000000
+                + 100000 * pi
+                + 1000 * li
+                + nid
+            )
+
+            z = torch.randn(
+                HIDDEN,
+                generator=gen,
+                dtype=torch.float32,
+            )
+
+            z = (
+                z
+                - torch.dot(z, fixed_q)
+                * fixed_q
+            )
+
+            z = normalize(z)
+
+            # Tiny requested tangent deviation.
+            #
+            # q_null approximately:
+            # fixed + NULL_JITTER_REL * tangent
+            q_null = normalize(
+                fixed_q
+                + NULL_JITTER_REL * z
+            )
+
+            nz = bf16_intervention(
+                prompt,
+                base,
+                li,
+                q_null,
+                ACT_REL,
+            )
+
+            null_D.append(
+                nz["D_next"]
+            )
+
+            null_realized_angles.append(
+                angle_deg(
+                    nz["x"],
+                    fixed_act["x"],
+                )
+            )
+
+        null_oracle = (
+            max(null_D)
+            - fixed_act["D_next"]
+        )
+
+        # -------------------------------------------------------------
+        # Candidate oracle vs fixed at ACT
+        # -------------------------------------------------------------
+
+        act_D = np.asarray([
+            x["act_D"]
+            for x in candidate_rows
+        ])
+
+        radar_D = np.asarray([
+            x["radar_D"]
+            for x in candidate_rows
+        ])
+
+        candidate_oracle = float(
+            np.max(act_D)
+            - fixed_act["D_next"]
+        )
+
+        row_corr = safe_corr(
+            radar_D,
+            act_D,
+        )
+
+        row_spearman = spearman(
+            radar_D,
+            act_D,
+        )
+
+        prow["layers"][str(li)] = {
+            "exact_repeat_range":
+                repeat_range,
+
+            "exact_repeats":
+                exact_repeats,
+
+            "fixed_act_D":
+                fixed_act["D_next"],
+
+            "candidate_oracle":
+                candidate_oracle,
+
+            "null_oracle":
+                float(null_oracle),
+
+            "bf16_radar_act_pearson":
+                row_corr,
+
+            "bf16_radar_act_spearman":
+                row_spearman,
+
+            "requested_pair_angle_mean":
+                float(
+                    np.mean(
+                        requested_pair_angles
+                    )
+                ),
+
+            "radar_pair_angle_mean":
+                float(
+                    np.mean(
+                        radar_pair_angles
+                    )
+                ),
+
+            "act_pair_angle_mean":
+                float(
+                    np.mean(
+                        act_pair_angles
+                    )
+                ),
+
+            "pair_geometry_radar_corr":
+                safe_corr(
+                    requested_pair_angles,
+                    radar_pair_angles,
+                ),
+
+            "pair_geometry_act_corr":
+                safe_corr(
+                    requested_pair_angles,
+                    act_pair_angles,
+                ),
+
+            "null_realized_angle_mean":
+                float(
+                    np.mean(
+                        null_realized_angles
+                    )
+                ),
+
+            "candidates":
+                candidate_rows,
+        }
+
+    BF16_RESULTS.append(
+        prow
+    )
+
+    print(
+        f"  BF16 {pi+1:02d}/{N_PROMPTS} "
+        f"| {(time.time()-start)/60:.1f}m",
+        end="\r",
+    )
+
+print()
+
+print(
+    "BF16 phase completed:",
+    f"{(time.time()-start)/60:.1f} min"
+)
+
+
+# =============================================================================
+# 14. BF16 SUMMARY
+# =============================================================================
+
+print("\n[6/24] BF16 summary...")
+
+repeat_ranges = []
+candidate_oracles = []
+null_oracles = []
+
+bf16_corrs = []
+bf16_spears = []
+
+radar_dir_cos = []
+act_dir_cos = []
+
+requested_pair_mean = []
+radar_pair_mean = []
+act_pair_mean = []
+
+radar_geom_corr = []
+act_geom_corr = []
+
+null_realized_angles = []
+
+for row in BF16_RESULTS:
+
+    for li in SOURCE_LAYERS:
+
+        z = row["layers"][str(li)]
+
+        repeat_ranges.append(
+            z["exact_repeat_range"]
+        )
+
+        candidate_oracles.append(
+            z["candidate_oracle"]
+        )
+
+        null_oracles.append(
+            z["null_oracle"]
+        )
+
+        bf16_corrs.append(
+            z["bf16_radar_act_pearson"]
+        )
+
+        bf16_spears.append(
+            z["bf16_radar_act_spearman"]
+        )
+
+        requested_pair_mean.append(
+            z["requested_pair_angle_mean"]
+        )
+
+        radar_pair_mean.append(
+            z["radar_pair_angle_mean"]
+        )
+
+        act_pair_mean.append(
+            z["act_pair_angle_mean"]
+        )
+
+        radar_geom_corr.append(
+            z["pair_geometry_radar_corr"]
+        )
+
+        act_geom_corr.append(
+            z["pair_geometry_act_corr"]
+        )
+
+        null_realized_angles.append(
+            z["null_realized_angle_mean"]
+        )
+
+        for c in z["candidates"]:
+
+            radar_dir_cos.append(
+                c["radar_dir_cos"]
+            )
+
+            act_dir_cos.append(
+                c["act_dir_cos"]
+            )
+
+
+S_CAND_ORACLE = stats(
+    candidate_oracles
+)
+
+S_NULL_ORACLE = stats(
+    null_oracles
+)
+
+S_ORACLE_EXCESS = stats(
+    np.asarray(candidate_oracles)
+    - np.asarray(null_oracles)
+)
+
+print(
+    "Exact repeat max range mean :",
+    f"{np.mean(repeat_ranges):.8f}"
+)
+
+print(
+    "BF16 radar dir cosine       :",
+    f"{np.mean(radar_dir_cos):+.6f}"
+)
+
+print(
+    "BF16 act dir cosine         :",
+    f"{np.mean(act_dir_cos):+.6f}"
+)
+
+print(
+    "Requested pair angle mean   :",
+    f"{np.mean(requested_pair_mean):.4f}°"
+)
+
+print(
+    "Realized RADAR pair angle   :",
+    f"{np.mean(radar_pair_mean):.4f}°"
+)
+
+print(
+    "Realized ACT pair angle     :",
+    f"{np.mean(act_pair_mean):.4f}°"
+)
+
+print(
+    "Requested↔RADAR geom corr   :",
+    f"{np.nanmean(radar_geom_corr):+.4f}"
+)
+
+print(
+    "Requested↔ACT geom corr     :",
+    f"{np.nanmean(act_geom_corr):+.4f}"
+)
+
+print(
+    "BF16 radar↔act Pearson      :",
+    f"{np.nanmean(bf16_corrs):+.4f}"
+)
+
+print(
+    "BF16 radar↔act Spearman     :",
+    f"{np.nanmean(bf16_spears):+.4f}"
+)
+
+print(
+    "Candidate oracle            :",
+    f"{S_CAND_ORACLE['mean']:+.6f}",
+    ci(S_CAND_ORACLE),
+)
+
+print(
+    "Jitter-null oracle          :",
+    f"{S_NULL_ORACLE['mean']:+.6f}",
+    ci(S_NULL_ORACLE),
+)
+
+print(
+    "Candidate-null excess       :",
+    f"{S_ORACLE_EXCESS['mean']:+.6f}",
+    ci(S_ORACLE_EXCESS),
+)
+
+print(
+    "Null realized angle mean    :",
+    f"{np.mean(null_realized_angles):.4f}°"
+)
+
+
+# =============================================================================
+# 15. FP32 LOCAL CONTEXT CAPTURE
+#
+# We need the INPUT of target layer:
+#
+# intervention historically occurs at output of layer li,
+# therefore transport operator is target layer li+1.
+#
+# Capture target layer positional arguments + kwargs from an unmodified
+# BF16 full forward.
+#
+# Then evaluate a deep-copied target decoder block in FP32.
+#
+# NOTE:
+# Qwen implementation/version signatures can differ.
+# We capture actual runtime args rather than reconstructing them manually.
+# =============================================================================
+
+print("\n[7/24] FP32 local-block infrastructure hazırlanıyor...")
+
+
+@torch.no_grad()
+def capture_target_call(prompt, target_li):
+
+    captured = {}
+
+    layer = model.model.layers[target_li]
+
+    # with_kwargs=True lets us preserve actual runtime kwargs.
+    def pre_hook(
+        module,
+        args,
+        kwargs,
+    ):
+
+        # Clone/detach tensors because original forward continues.
+        new_args = []
+
+        for x in args:
+
+            if torch.is_tensor(x):
+                new_args.append(
+                    x.detach().clone()
+                )
+            else:
+                new_args.append(x)
+
+        new_kwargs = {}
+
+        for k, v in kwargs.items():
+
+            if torch.is_tensor(v):
+                new_kwargs[k] = (
+                    v.detach().clone()
+                )
+
+            elif isinstance(v, tuple):
+
+                vv = []
+
+                for item in v:
+
+                    if torch.is_tensor(item):
+                        vv.append(
+                            item.detach().clone()
+                        )
+                    else:
+                        vv.append(item)
+
+                new_kwargs[k] = tuple(vv)
+
+            else:
+                new_kwargs[k] = v
+
+        captured["args"] = tuple(
+            new_args
+        )
+
+        captured["kwargs"] = (
+            new_kwargs
+        )
+
+    handle = layer.register_forward_pre_hook(
+        pre_hook,
+        with_kwargs=True,
+    )
+
+    try:
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt",
+        ).to(device)
+
+        model(
+            **enc,
+            use_cache=False,
+        )
+
+    finally:
+        handle.remove()
+
+    if "args" not in captured:
+        raise RuntimeError(
+            f"Target layer {target_li} call capture failed."
+        )
+
+    return captured
+
+
+def cast_nested_fp32(obj):
+
+    if torch.is_tensor(obj):
+
+        if obj.is_floating_point():
+            return obj.float()
+
+        return obj
+
+    if isinstance(obj, tuple):
+
+        return tuple(
+            cast_nested_fp32(x)
+            for x in obj
+        )
+
+    if isinstance(obj, list):
+
+        return [
+            cast_nested_fp32(x)
+            for x in obj
+        ]
+
+    if isinstance(obj, dict):
+
+        return {
+            k: cast_nested_fp32(v)
+            for k, v in obj.items()
+        }
+
+    return obj
+
+
+def replace_hidden_in_call(
+    args,
+    kwargs,
+    hidden,
+):
+
+    args = list(args)
+    kwargs = dict(kwargs)
+
+    # Qwen decoder normally receives hidden_states as first positional arg.
+    if len(args) > 0 and torch.is_tensor(args[0]):
+
+        args[0] = hidden
+
+    elif "hidden_states" in kwargs:
+
+        kwargs["hidden_states"] = hidden
+
+    else:
+
+        raise RuntimeError(
+            "hidden_states not found in captured decoder call."
+        )
+
+    return tuple(args), kwargs
+
+
+@torch.no_grad()
+def local_block_forward(
+    block_fp32,
+    captured_call,
+    hidden_fp32,
+):
+
+    args = cast_nested_fp32(
+        captured_call["args"]
+    )
+
+    kwargs = cast_nested_fp32(
+        captured_call["kwargs"]
+    )
+
+    args, kwargs = replace_hidden_in_call(
+        args,
+        kwargs,
+        hidden_fp32,
+    )
+
+    out = block_fp32(
+        *args,
+        **kwargs,
+    )
+
+    if isinstance(out, tuple):
+        h = out[0]
+    else:
+        h = out
+
+    return h.float()
+
+
+# =============================================================================
+# 16. FP32 CENTRAL FINITE-SECANT
+#
+# Input hidden sequence is the actual BF16-produced layer input promoted
+# to FP32. Only LAST TOKEN receives ± perturbation.
+#
+# response:
+#
+#   y = [F(h + eps q) - F(h - eps q)] / 2
+#
+# This is symmetric finite response, NOT exact derivative.
+# =============================================================================
+
+@torch.no_grad()
+def fp32_central_response(
+    block_fp32,
+    captured_call,
+    q,
+    rel,
+):
+
+    # Hidden state from captured target-layer input.
+    args = captured_call["args"]
+    kwargs = captured_call["kwargs"]
+
+    if len(args) > 0 and torch.is_tensor(args[0]):
+        h0 = args[0].detach().float().clone()
+    elif "hidden_states" in kwargs:
+        h0 = (
+            kwargs["hidden_states"]
+            .detach()
+            .float()
+            .clone()
+        )
+    else:
+        raise RuntimeError(
+            "No hidden state in captured call."
+        )
+
+    q = normalize(q).to(
+        h0.device
+    )
+
+    base_last = (
+        h0[0, -1]
+        .float()
+    )
+
+    base_norm = float(
+        torch.linalg.vector_norm(
+            base_last
+        )
+    )
+
+    eps_norm = (
+        rel * base_norm
+    )
+
+    hp = h0.clone()
+    hm = h0.clone()
+
+    hp[0, -1] = (
+        hp[0, -1]
+        + eps_norm * q
+    )
+
+    hm[0, -1] = (
+        hm[0, -1]
+        - eps_norm * q
+    )
+
+    yp = local_block_forward(
+        block_fp32,
+        captured_call,
+        hp,
+    )
+
+    ym = local_block_forward(
+        block_fp32,
+        captured_call,
+        hm,
+    )
+
+    # Last-token symmetric response.
+    response = (
+        yp[0, -1]
+        - ym[0, -1]
+    ) / 2.0
+
+    return {
+        "response":
+            response.detach()
+            .float()
+            .cpu(),
+
+        "eps_norm":
+            eps_norm,
+
+        "base_norm":
+            base_norm,
+
+        "response_norm":
+            float(
+                torch.linalg.vector_norm(
+                    response
+                )
+            ),
+    }
+
+
+# =============================================================================
+# 17. FP32 ASSAY
+#
+# Memory discipline:
+# one target layer copied at a time.
+#
+# For each layer:
+#   copy layer li+1 -> FP32
+#   run all prompts
+#   delete copy
+# =============================================================================
+
+print("\n[8/24] PART B — FP32 central finite-secant assay...")
+
+FP32_RESULTS = []
+
+start = time.time()
+
+for li in SOURCE_LAYERS:
+
+    target = li + 1
+
+    print(
+        f"\n  L{li}->L{target}: "
+        "target block FP32 kopyalanıyor..."
+    )
+
+    # -------------------------------------------------------------
+    # Deep-copy only ONE decoder block.
+    # Keep original model untouched.
+    # -------------------------------------------------------------
+
+    block_fp32 = copy.deepcopy(
+        model.model.layers[target]
+    )
+
+    block_fp32 = (
+        block_fp32
+        .to(device=device, dtype=torch.float32)
+        .eval()
+    )
+
+    for p in block_fp32.parameters():
+        p.requires_grad_(False)
+
+    layer_rows = []
+
+    for pi, prompt in enumerate(PROMPTS):
+
+        captured = capture_target_call(
+            prompt,
+            target,
+        )
+
+        # Fixed historical compass response.
+        fixed_micro = fp32_central_response(
+            block_fp32,
+            captured,
+            DIBEK[li],
+            RADAR_REL,
+        )
+
+        fixed_act = fp32_central_response(
+            block_fp32,
+            captured,
+            DIBEK[li],
+            ACT_REL,
+        )
+
+        candidate_rows = []
+
+        micro_scores = []
+        act_scores = []
+
+        for candidate in ATLAS[li]:
+
+            micro = fp32_central_response(
+                block_fp32,
+                captured,
+                candidate["q"],
+                RADAR_REL,
+            )
+
+            act = fp32_central_response(
+                block_fp32,
+                captured,
+                candidate["q"],
+                ACT_REL,
+            )
+
+            # Target semantic coordinate.
+            micro_D = cosine(
+                micro["response"],
+                DIBEK[target],
+            )
+
+            act_D = cosine(
+                act["response"],
+                DIBEK[target],
+            )
+
+            micro_scores.append(
+                micro_D
+            )
+
+            act_scores.append(
+                act_D
+            )
+
+            candidate_rows.append({
+                "candidate_id":
+                    candidate["candidate_id"],
+
+                "micro_D":
+                    micro_D,
+
+                "act_D":
+                    act_D,
+
+                "micro_response_norm":
+                    micro["response_norm"],
+
+                "act_response_norm":
+                    act["response_norm"],
+
+                "micro_gain":
+                    micro["response_norm"]
+                    / (
+                        micro["eps_norm"]
+                        + EPS
+                    ),
+
+                "act_gain":
+                    act["response_norm"]
+                    / (
+                        act["eps_norm"]
+                        + EPS
+                    ),
+            })
+
+        micro_scores = np.asarray(
+            micro_scores,
+            dtype=np.float64,
+        )
+
+        act_scores = np.asarray(
+            act_scores,
+            dtype=np.float64,
+        )
+
+        selected_id = int(
+            np.argmax(
+                micro_scores
+            )
+        )
+
+        oracle_id = int(
+            np.argmax(
+                act_scores
+            )
+        )
+
+        fixed_micro_D = cosine(
+            fixed_micro["response"],
+            DIBEK[target],
+        )
+
+        fixed_act_D = cosine(
+            fixed_act["response"],
+            DIBEK[target],
+        )
+
+        selected_delta = float(
+            act_scores[selected_id]
+            - fixed_act_D
+        )
+
+        oracle_delta = float(
+            act_scores[oracle_id]
+            - fixed_act_D
+        )
+
+        # Rank of micro-selected candidate at ACT.
+        order = np.argsort(
+            -act_scores
+        )
+
+        selected_rank = int(
+            np.where(
+                order == selected_id
+            )[0][0]
+        ) + 1
+
+        layer_rows.append({
+            "prompt_index":
+                pi,
+
+            "micro_act_pearson":
+                safe_corr(
+                    micro_scores,
+                    act_scores,
+                ),
+
+            "micro_act_spearman":
+                spearman(
+                    micro_scores,
+                    act_scores,
+                ),
+
+            "fixed_micro_D":
+                fixed_micro_D,
+
+            "fixed_act_D":
+                fixed_act_D,
+
+            "selected_id":
+                selected_id,
+
+            "oracle_id":
+                oracle_id,
+
+            "selected_act_delta":
+                selected_delta,
+
+            "oracle_act_delta":
+                oracle_delta,
+
+            "selected_rank":
+                selected_rank,
+
+            "top4":
+                int(
+                    selected_rank <= 4
+                ),
+
+            "oracle_hit":
+                int(
+                    selected_id
+                    == oracle_id
+                ),
+
+            "candidates":
+                candidate_rows,
+        })
+
+        del captured
+
+        if (pi + 1) % 4 == 0:
+            torch.cuda.empty_cache()
+
+        print(
+            f"    prompt {pi+1:02d}/{N_PROMPTS}",
+            end="\r",
+        )
+
+    print()
+
+    FP32_RESULTS.append({
+        "source_layer":
+            li,
+
+        "target_layer":
+            target,
+
+        "rows":
+            layer_rows,
+    })
+
+    del block_fp32
+
+    gc.collect()
+    torch.cuda.empty_cache()
+
+print(
+    "\nFP32 assay completed:",
+    f"{(time.time()-start)/60:.1f} min"
+)
+
+
+# =============================================================================
+# 18. FP32 SUMMARY
+# =============================================================================
+
+print("\n[9/24] FP32 summary...")
+
+fp32_pearsons = []
+fp32_spears = []
+
+fp32_selected_delta = []
+fp32_oracle_delta = []
+
+fp32_ranks = []
+fp32_top4 = []
+fp32_hits = []
+
+for layer in FP32_RESULTS:
+
+    for row in layer["rows"]:
+
+        fp32_pearsons.append(
+            row["micro_act_pearson"]
+        )
+
+        fp32_spears.append(
+            row["micro_act_spearman"]
+        )
+
+        fp32_selected_delta.append(
+            row["selected_act_delta"]
+        )
+
+        fp32_oracle_delta.append(
+            row["oracle_act_delta"]
+        )
+
+        fp32_ranks.append(
+            row["selected_rank"]
+        )
+
+        fp32_top4.append(
+            row["top4"]
+        )
+
+        fp32_hits.append(
+            row["oracle_hit"]
+        )
+
+
+S_FP32_SELECTED = stats(
+    fp32_selected_delta
+)
+
+S_FP32_ORACLE = stats(
+    fp32_oracle_delta
+)
+
+MEAN_FP32_PEARSON = float(
+    np.nanmean(
+        fp32_pearsons
+    )
+)
+
+MEAN_FP32_SPEARMAN = float(
+    np.nanmean(
+        fp32_spears
+    )
+)
+
+MEAN_FP32_RANK = float(
+    np.mean(
+        fp32_ranks
+    )
+)
+
+FP32_TOP4 = float(
+    np.mean(
+        fp32_top4
+    )
+)
+
+FP32_HIT = float(
+    np.mean(
+        fp32_hits
+    )
+)
+
+print(
+    "FP32 micro↔ACT Pearson :",
+    f"{MEAN_FP32_PEARSON:+.4f}"
+)
+
+print(
+    "FP32 micro↔ACT Spearman:",
+    f"{MEAN_FP32_SPEARMAN:+.4f}"
+)
+
+print(
+    "FP32 selected Δ        :",
+    f"{S_FP32_SELECTED['mean']:+.6f}",
+    ci(S_FP32_SELECTED),
+)
+
+print(
+    "FP32 oracle Δ          :",
+    f"{S_FP32_ORACLE['mean']:+.6f}",
+    ci(S_FP32_ORACLE),
+)
+
+print(
+    "FP32 selected rank     :",
+    f"{MEAN_FP32_RANK:.3f}/16"
+)
+
+print(
+    "FP32 Top-4             :",
+    f"{FP32_TOP4:.3f}"
+)
+
+print(
+    "FP32 oracle hit        :",
+    f"{FP32_HIT:.3f}"
+)
+
+
+# =============================================================================
+# 19. LAYER-WISE FP32
+# =============================================================================
+
+print("\n[10/24] Layer-wise FP32 results...")
+print("=" * 150)
+
+print(
+    f"{'STEP':<12}"
+    f"{'Pearson':>12}"
+    f"{'Spearman':>12}"
+    f"{'SELECT Δ':>14}"
+    f"{'ORACLE Δ':>14}"
+    f"{'RANK':>10}"
+    f"{'TOP4':>10}"
+)
+
+print("-" * 150)
+
+FP32_LAYER_SUMMARY = {}
+
+for layer in FP32_RESULTS:
+
+    li = layer["source_layer"]
+    target = layer["target_layer"]
+
+    rows = layer["rows"]
+
+    pear = [
+        x["micro_act_pearson"]
+        for x in rows
+    ]
+
+    spear = [
+        x["micro_act_spearman"]
+        for x in rows
+    ]
+
+    sel = [
+        x["selected_act_delta"]
+        for x in rows
+    ]
+
+    ora = [
+        x["oracle_act_delta"]
+        for x in rows
+    ]
+
+    ranks = [
+        x["selected_rank"]
+        for x in rows
+    ]
+
+    top4 = [
+        x["top4"]
+        for x in rows
+    ]
+
+    ss = stats(sel)
+    so = stats(ora)
+
+    item = {
+        "pearson":
+            float(
+                np.nanmean(pear)
+            ),
+
+        "spearman":
+            float(
+                np.nanmean(spear)
+            ),
+
+        "selected":
+            ss,
+
+        "oracle":
+            so,
+
+        "mean_rank":
+            float(
+                np.mean(ranks)
+            ),
+
+        "top4":
+            float(
+                np.mean(top4)
+            ),
+    }
+
+    FP32_LAYER_SUMMARY[str(li)] = item
+
+    print(
+        f"L{li}->L{target:<6}"
+        f"{item['pearson']:>+12.4f}"
+        f"{item['spearman']:>+12.4f}"
+        f"{ss['mean']:>+14.6f}"
+        f"{so['mean']:>+14.6f}"
+        f"{item['mean_rank']:>10.3f}"
+        f"{item['top4']:>10.3f}"
+    )
+
+
+# =============================================================================
+# 20. BF16 vs FP32 PRIMARY COMPARISON
+# =============================================================================
+
+print("\n[11/24] BF16 vs FP32 primary comparison...")
+print("=" * 170)
+
+MEAN_BF16_PEARSON = float(
+    np.nanmean(
+        bf16_corrs
+    )
+)
+
+MEAN_BF16_SPEARMAN = float(
+    np.nanmean(
+        bf16_spears
+    )
+)
+
+print(
+    f"{'Metric':<38}"
+    f"{'BF16':>18}"
+    f"{'FP32':>18}"
+)
+
+print("-" * 80)
+
+print(
+    f"{'micro↔ACT Pearson':<38}"
+    f"{MEAN_BF16_PEARSON:>+18.5f}"
+    f"{MEAN_FP32_PEARSON:>+18.5f}"
+)
+
+print(
+    f"{'micro↔ACT Spearman':<38}"
+    f"{MEAN_BF16_SPEARMAN:>+18.5f}"
+    f"{MEAN_FP32_SPEARMAN:>+18.5f}"
+)
+
+print(
+    f"{'candidate oracle':<38}"
+    f"{S_CAND_ORACLE['mean']:>+18.6f}"
+    f"{S_FP32_ORACLE['mean']:>+18.6f}"
+)
+
+print(
+    f"{'FP32 micro-selected ACT Δ':<38}"
+    f"{'—':>18}"
+    f"{S_FP32_SELECTED['mean']:>+18.6f}"
+)
+
+print(
+    f"{'mean selected rank':<38}"
+    f"{'—':>18}"
+    f"{MEAN_FP32_RANK:>18.3f}"
+)
+
+
+# =============================================================================
+# 21. DECISION LOGIC
+#
+# We deliberately require several independent indicators.
+# =============================================================================
+
+print("\n[12/24] DECISION")
+print("=" * 180)
+
+# "Informative FP32" requires ranking + physical selection evidence.
+fp32_rank_signal = (
+    MEAN_FP32_SPEARMAN >= 0.30
+    and MEAN_FP32_RANK < 6.5
+)
+
+fp32_selection_signal = (
+    S_FP32_SELECTED["ci95"][0] > 0
+)
+
+bf16_weak = (
+    abs(MEAN_BF16_SPEARMAN) < 0.15
+)
+
+null_explains_oracle = (
+    S_ORACLE_EXCESS["ci95"][1] <= 0
+)
+
+candidate_exceeds_null = (
+    S_ORACLE_EXCESS["ci95"][0] > 0
+)
+
+if (
+    bf16_weak
+    and fp32_rank_signal
+    and fp32_selection_signal
+):
+
+    DECISION = (
+        "BF16_MEASUREMENT_FLOOR_SUPPORTED"
+    )
+
+elif (
+    abs(MEAN_FP32_SPEARMAN) < 0.15
+    and not fp32_selection_signal
+):
+
+    DECISION = (
+        "MICRO_TO_ACT_DIRECTIONAL_TRANSFER_NOT_SUPPORTED"
+    )
+
+elif (
+    null_explains_oracle
+):
+
+    DECISION = (
+        "BF16_ORACLE_COMPATIBLE_WITH_REALIZATION_NULL"
+    )
+
+elif (
+    candidate_exceeds_null
+    and not fp32_rank_signal
+):
+
+    DECISION = (
+        "DIRECTIONAL_OPPORTUNITY_EXCEEDS_NULL_BUT_IS_NOT_MICRO_NAVIGABLE"
+    )
+
+else:
+
+    DECISION = (
+        "MIXED_PRECISION_MECHANISM_REQUIRES_FOLLOWUP"
+    )
+
+
+print(
+    "BF16 micro↔ACT Spearman :",
+    f"{MEAN_BF16_SPEARMAN:+.4f}"
+)
+
+print(
+    "FP32 micro↔ACT Spearman :",
+    f"{MEAN_FP32_SPEARMAN:+.4f}"
+)
+
+print(
+    "FP32 selected Δ         :",
+    f"{S_FP32_SELECTED['mean']:+.6f}",
+    ci(S_FP32_SELECTED),
+)
+
+print(
+    "Candidate oracle        :",
+    f"{S_CAND_ORACLE['mean']:+.6f}",
+    ci(S_CAND_ORACLE),
+)
+
+print(
+    "Jitter-null oracle      :",
+    f"{S_NULL_ORACLE['mean']:+.6f}",
+    ci(S_NULL_ORACLE),
+)
+
+print(
+    "Candidate-null excess   :",
+    f"{S_ORACLE_EXCESS['mean']:+.6f}",
+    ci(S_ORACLE_EXCESS),
+)
+
+print()
+
+print("DECISION:")
+print(DECISION)
+
+
+# =============================================================================
+# 22. SCIENTIFIC INTERPRETATION BRANCH
+# =============================================================================
+
+print("\n[13/24] INTERPRETATION")
+
+if DECISION == "BF16_MEASUREMENT_FLOOR_SUPPORTED":
+
+    NEXT = (
+        "TEST136_FP32_SEMANTIC_CANDIDATE_RADAR"
+    )
+
+    print("""
+FP32 local central finite-secant candidate ranking'i taşıyor,
+BF16 ise taşımıyor.
+
+Bu durumda TEST134'ün körlüğü için BF16 measurement /
+realization floor açıklaması doğrudan destek kazanır.
+
+Bir sonraki test:
+aynı FP32 radar üzerinde random tangent yerine model-içi
+semantic candidate family kullanılabilir.
+
+Henüz multi-layer GPS'e geçilmez.
+""")
+
+elif DECISION == "MICRO_TO_ACT_DIRECTIONAL_TRANSFER_NOT_SUPPORTED":
+
+    NEXT = (
+        "PIVOT_TO_GAIN_DOSE_RADAR"
+    )
+
+    print("""
+FP32 precision düzeltmesi de micro->ACT candidate ranking'ini
+geri getirmedi.
+
+Bu durumda sorun yalnız BF16 değildir.
+
+Direction-radar hattına yeni scorer eklemek yerine
+gain/dose radar hipotezine geçmek daha temizdir.
+""")
+
+elif DECISION == "BF16_ORACLE_COMPATIBLE_WITH_REALIZATION_NULL":
+
+    NEXT = (
+        "ORACLE_REQUIRES_STRONGER_NULL_CONTROL"
+    )
+
+    print("""
+BF16 candidate oracle, FIXED çevresindeki realization-sensitivity
+null'ını güvenilir biçimde aşmadı.
+
+TEST132-134 oracle fırsatı gerçek directional opportunity olarak
+yorumlanmamalıdır.
+
+FP32 sonuç ayrıca değerlendirilmelidir.
+""")
+
+elif DECISION == "DIRECTIONAL_OPPORTUNITY_EXCEEDS_NULL_BUT_IS_NOT_MICRO_NAVIGABLE":
+
+    NEXT = (
+        "OPPORTUNITY_REAL_BUT_LOCAL_RADAR_NOT_PREDICTIVE"
+    )
+
+    print("""
+Candidate oracle BF16 realization null'ını aşıyor,
+fakat FP32 micro response candidate ACT ranking'ini taşımıyor.
+
+Bu çok spesifik bir sonuçtur:
+
+    daha iyi sampled yönler var
+
+ama
+
+    küçük lokal probe ile bunları seçemiyoruz.
+
+Sonraki testte daha karmaşık local scorer yerine
+terminal/horizon veya gain mekanizması düşünülmelidir.
+""")
+
+else:
+
+    NEXT = (
+        "FOLLOWUP_REQUIRED"
+    )
+
+    print("""
+Precision ve null sonuçları tek bir mekanizmaya temiz ayrılmadı.
+Yeni navigator kurulmadan önce layer-wise sonuçlar incelenmelidir.
+""")
+
+
+# =============================================================================
+# 23. INTERPRETATION LOCK
+# =============================================================================
+
+print("\n[14/24] INTERPRETATION LOCK")
+
+LOCK = [
+    "TEST135'in amacı yeni navigator üretmek değil, TEST134 başarısızlığının ölçüm tabanı mı yoksa micro-to-ACT sinyal yokluğu mu olduğunu ayırmaktır.",
+
+    "BF16 exact-repeat range stochastic noise ölçümüdür; sıfıra yakın çıkması BF16 realization error olmadığı anlamına gelmez.",
+
+    "Jitter-null, stochastic noise değil, FIXED çevresindeki küçük requested-direction değişimlerinin BF16 realized intervention ve oracle maksimumu üzerindeki hassasiyet kontrolüdür.",
+
+    "Candidate oracle ile jitter-null oracle aynı kavram değildir; candidate-null excess directional candidate family'nin null tabanını aşıp aşmadığını test eder.",
+
+    "FP32 local block, BF16 full modelin gerçek target-layer inputunu başlangıç noktası olarak kullanır; modelin önceki katmanları FP32'ye çevrilmez.",
+
+    "FP32 assay yalnız target decoder block'u FP32 çalıştırır ve bu nedenle full-model FP32 deney değildir.",
+
+    "FP32 central response [F(h+eps*q)-F(h-eps*q)]/2 bir central finite-secant response'tur; exact Jacobian veya exact derivative olarak adlandırılmaz.",
+
+    "RADAR_REL=.0025 ve ACT_REL=.01 aynı candidate için farklı perturbation büyüklükleridir.",
+
+    "FP32 micro->ACT correlation candidate ranking transferini ölçer; yüksek correlation tek başına behavioral steering kanıtı değildir.",
+
+    "FP32 micro-selected ACT delta, küçük probe ile seçilen candidate'ın daha büyük ACT response'ta historical FIXED pusulayı geçip geçmediğini ölçer.",
+
+    "Random tangent candidate family TEST134 çizgisini korumak için değiştirilmemiştir; semantic candidate family bu testte eklenmez.",
+
+    "DRA envelope, brake, controller, generation ve multi-layer navigation TEST135'te yoktur.",
+
+    "TEST135 sonuçları direction radar başarısızsa gain/dose radar hipotezine geçmek için mekanistik gerekçe sağlayabilir.",
+]
+
+for i, x in enumerate(
+    LOCK,
+    1,
+):
+    print(
+        f"{i:02d}. {x}"
+    )
+
+
+# =============================================================================
+# 24. JSON SERIALIZATION HELPERS
+# =============================================================================
+
+def strip_tensors(obj):
+
+    if torch.is_tensor(obj):
+        return {
+            "shape":
+                list(obj.shape),
+
+            "norm":
+                float(
+                    torch.linalg.vector_norm(
+                        obj.float()
+                    )
+                ),
+        }
+
+    if isinstance(obj, dict):
+        return {
+            k: strip_tensors(v)
+            for k, v in obj.items()
+        }
+
+    if isinstance(obj, list):
+        return [
+            strip_tensors(v)
+            for v in obj
+        ]
+
+    if isinstance(obj, tuple):
+        return [
+            strip_tensors(v)
+            for v in obj
+        ]
+
+    if isinstance(
+        obj,
+        (
+            np.floating,
+            np.integer,
+        ),
+    ):
+        return obj.item()
+
+    return obj
+
+
+# Remove huge source perturbation tensors from BF16 result before save.
+BF16_SAVE = []
+
+for row in BF16_RESULTS:
+
+    rr = {
+        "prompt_index":
+            row["prompt_index"],
+
+        "layers":
+            {},
+    }
+
+    for li in SOURCE_LAYERS:
+
+        z = row["layers"][str(li)]
+
+        zz = {
+            k: v
+            for k, v in z.items()
+            if k != "candidates"
+        }
+
+        zz["candidates"] = []
+
+        for c in z["candidates"]:
+
+            cc = {
+                k: v
+                for k, v in c.items()
+                if k not in (
+                    "radar_x",
+                    "act_x",
+                )
+            }
+
+            zz["candidates"].append(
+                cc
+            )
+
+        rr["layers"][str(li)] = zz
+
+    BF16_SAVE.append(rr)
+
+
+# =============================================================================
+# 25. SAVE
+# =============================================================================
+
+print("\n[15/24] JSON hazırlanıyor...")
+
+OUTPUT = {
+    "test":
+        "TEST135",
+
+    "title":
+        "Radar Noise Floor + FP32 Local Transport Assay",
+
+    "model":
+        MODEL_ID,
+
+    "config": {
+        "source_layers":
+            SOURCE_LAYERS,
+
+        "radar_rel":
+            RADAR_REL,
+
+        "act_rel":
+            ACT_REL,
+
+        "requested_shell_deg":
+            REQUESTED_SHELL_DEG,
+
+        "n_candidates":
+            N_CANDIDATES,
+
+        "n_prompts":
+            N_PROMPTS,
+
+        "n_null":
+            N_NULL,
+
+        "null_jitter_rel":
+            NULL_JITTER_REL,
+    },
+
+    "fingerprint": {
+        "L10":
+            cos10,
+
+        "L11":
+            cos11,
+
+        "status":
+            "PASS",
+    },
+
+    "bf16_summary": {
+        "exact_repeat_range_mean":
+            float(
+                np.mean(
+                    repeat_ranges
+                )
+            ),
+
+        "radar_dir_cos":
+            float(
+                np.mean(
+                    radar_dir_cos
+                )
+            ),
+
+        "act_dir_cos":
+            float(
+                np.mean(
+                    act_dir_cos
+                )
+            ),
+
+        "requested_pair_angle_mean":
+            float(
+                np.mean(
+                    requested_pair_mean
+                )
+            ),
+
+        "radar_pair_angle_mean":
+            float(
+                np.mean(
+                    radar_pair_mean
+                )
+            ),
+
+        "act_pair_angle_mean":
+            float(
+                np.mean(
+                    act_pair_mean
+                )
+            ),
+
+        "requested_radar_geometry_corr":
+            float(
+                np.nanmean(
+                    radar_geom_corr
+                )
+            ),
+
+        "requested_act_geometry_corr":
+            float(
+                np.nanmean(
+                    act_geom_corr
+                )
+            ),
+
+        "micro_act_pearson":
+            MEAN_BF16_PEARSON,
+
+        "micro_act_spearman":
+            MEAN_BF16_SPEARMAN,
+
+        "candidate_oracle":
+            S_CAND_ORACLE,
+
+        "null_oracle":
+            S_NULL_ORACLE,
+
+        "candidate_minus_null":
+            S_ORACLE_EXCESS,
+
+        "null_realized_angle_mean":
+            float(
+                np.mean(
+                    null_realized_angles
+                )
+            ),
+    },
+
+    "fp32_summary": {
+        "micro_act_pearson":
+            MEAN_FP32_PEARSON,
+
+        "micro_act_spearman":
+            MEAN_FP32_SPEARMAN,
+
+        "selected_act_delta":
+            S_FP32_SELECTED,
+
+        "oracle_act_delta":
+            S_FP32_ORACLE,
+
+        "mean_selected_rank":
+            MEAN_FP32_RANK,
+
+        "top4":
+            FP32_TOP4,
+
+        "oracle_hit":
+            FP32_HIT,
+    },
+
+    "fp32_layer_summary":
+        FP32_LAYER_SUMMARY,
+
+    "bf16_results":
+        BF16_SAVE,
+
+    "fp32_results":
+        FP32_RESULTS,
+
+    "decision":
+        DECISION,
+
+    "next":
+        NEXT,
+
+    "interpretation_lock":
+        LOCK,
+}
+
+print("\n[16/24] JSON kaydediliyor...")
+
+with open(
+    OUT_JSON,
+    "w",
+    encoding="utf-8",
+) as f:
+
+    json.dump(
+        strip_tensors(OUTPUT),
+        f,
+        ensure_ascii=False,
+        indent=2,
+    )
+
+print(
+    "Saved:",
+    OUT_JSON,
+)
+
+
+# =============================================================================
+# 26. FINAL SCIENTIFIC SUMMARY
+# =============================================================================
+
+print("\n[17/24] FINAL SCIENTIFIC SUMMARY")
+print("=" * 190)
+
+print("TEST135 — RADAR NOISE FLOOR + FP32 LOCAL TRANSPORT")
+print("=" * 190)
+
+print("\nBF16 REALIZATION")
+print("-" * 80)
+
+print(
+    f"Radar dir cosine       : "
+    f"{np.mean(radar_dir_cos):+.6f}"
+)
+
+print(
+    f"ACT dir cosine         : "
+    f"{np.mean(act_dir_cos):+.6f}"
+)
+
+print(
+    f"Requested pair angle   : "
+    f"{np.mean(requested_pair_mean):.4f}°"
+)
+
+print(
+    f"Radar pair angle       : "
+    f"{np.mean(radar_pair_mean):.4f}°"
+)
+
+print(
+    f"ACT pair angle         : "
+    f"{np.mean(act_pair_mean):.4f}°"
+)
+
+print(
+    f"Req↔Radar geom r       : "
+    f"{np.nanmean(radar_geom_corr):+.4f}"
+)
+
+print(
+    f"Req↔ACT geom r         : "
+    f"{np.nanmean(act_geom_corr):+.4f}"
+)
+
+print(
+    f"BF16 micro↔ACT rho     : "
+    f"{MEAN_BF16_SPEARMAN:+.4f}"
+)
+
+print()
+
+print(
+    f"Candidate oracle       : "
+    f"{S_CAND_ORACLE['mean']:+.6f} "
+    f"{ci(S_CAND_ORACLE)}"
+)
+
+print(
+    f"Jitter-null oracle     : "
+    f"{S_NULL_ORACLE['mean']:+.6f} "
+    f"{ci(S_NULL_ORACLE)}"
+)
+
+print(
+    f"Candidate-null excess  : "
+    f"{S_ORACLE_EXCESS['mean']:+.6f} "
+    f"{ci(S_ORACLE_EXCESS)}"
+)
+
+print("\nFP32 LOCAL BLOCK")
+print("-" * 80)
+
+print(
+    f"FP32 micro↔ACT Pearson : "
+    f"{MEAN_FP32_PEARSON:+.4f}"
+)
+
+print(
+    f"FP32 micro↔ACT rho     : "
+    f"{MEAN_FP32_SPEARMAN:+.4f}"
+)
+
+print(
+    f"FP32 selected ACT Δ    : "
+    f"{S_FP32_SELECTED['mean']:+.6f} "
+    f"{ci(S_FP32_SELECTED)}"
+)
+
+print(
+    f"FP32 oracle ACT Δ      : "
+    f"{S_FP32_ORACLE['mean']:+.6f} "
+    f"{ci(S_FP32_ORACLE)}"
+)
+
+print(
+    f"FP32 selected rank     : "
+    f"{MEAN_FP32_RANK:.3f}/16"
+)
+
+print(
+    f"FP32 Top-4             : "
+    f"{FP32_TOP4:.3f}"
+)
+
+print(
+    f"FP32 oracle hit        : "
+    f"{FP32_HIT:.3f}"
+)
+
+print("\nDECISION")
+print("-" * 80)
+print(DECISION)
+
+print("\nNEXT")
+print("-" * 80)
+print(NEXT)
+
+
+# =============================================================================
+# 27. HANDOFF
+# =============================================================================
+
+print("\n[18/24] HANDOFF")
+
+print("""
+TEST135 çıktısını okurken sıra:
+
+1. BF16 REQUESTED vs REALIZED GEOMETRY
+
+   Requested candidate pair angle yaklaşık 7° civarında iken
+   radar-realized pair geometry ne durumda?
+
+   Özellikle:
+       Req↔Radar geom r
+       Req↔ACT geom r
+
+2. JITTER-NULL ORACLE
+
+   Candidate oracle, FIXED çevresindeki BF16 realization null'ını
+   gerçekten aşıyor mu?
+
+       Candidate-null excess > 0 ?
+
+3. BF16 micro↔ACT rho
+
+   TEST134'ün körlüğü burada tekrar ediyor mu?
+
+4. FP32 micro↔ACT rho
+
+   En kritik mekanistik karşılaştırma budur.
+
+   Eğer:
+
+       BF16 rho ~ 0
+       FP32 rho >> 0
+
+   ise precision/realization floor hipotezi güçlenir.
+
+5. FP32 MICRO-SELECTED ACT DELTA
+
+   Yalnız correlation yetmez.
+
+   Micro probe ile seçilen candidate,
+   daha büyük ACT response'ta FIXED'i gerçekten geçmeli.
+
+6. FP32 RANK / TOP4
+
+   16 candidate için:
+       random mean rank = 8.5
+       random Top4 = .25
+
+   FP32 radar bunları açık biçimde geçiyor mu?
+
+Bu testten sonra ancak iki ana yol vardır:
+
+A)
+    FP32 radar çalışır
+        ->
+    precision problemi
+        ->
+    semantic candidate radar
+
+B)
+    FP32 radar da çalışmaz
+        ->
+    direction radarını zorlamayı bırak
+        ->
+    gain/dose radarına geç
+""")
+
+
+# =============================================================================
+# 28. SANITY NOTES
+# =============================================================================
+
+print("\n[19/24] SANITY NOTES")
+
+print(
+    "Exact BF16 repeat range mean:",
+    f"{np.mean(repeat_ranges):.10f}"
+)
+
+print(
+    "Null realized angle mean:",
+    f"{np.mean(null_realized_angles):.6f}°"
+)
+
+print(
+    "Tested transitions:",
+    [
+        f"L{x}->L{x+1}"
+        for x in SOURCE_LAYERS
+    ],
+)
+
+
+# =============================================================================
+# 29. CLAIM BOUNDARY
+# =============================================================================
+
+print("\n[20/24] CLAIM BOUNDARY")
+
+print("""
+Bu test aşağıdakileri TEK BAŞINA kanıtlamaz:
+
+- exact Jacobian
+- gradient
+- semantic causality
+- manifold navigation
+- multi-layer GPS
+- behavioral steering
+- DRA production controller
+
+Test yalnız şu mekanistik ayrımı hedefler:
+
+    küçük probe neden büyük intervention yönünü seçemiyor?
+
+ve iki ana açıklamayı karşılaştırır:
+
+    BF16 realization floor
+
+vs
+
+    micro->ACT directional transfer yokluğu.
+""")
+
+
+# =============================================================================
+# 30. EXPERIMENT STATUS
+# =============================================================================
+
+print("\n[21/24] EXPERIMENT STATUS")
+
+print(
+    "Fingerprint : PASS"
+)
+
+print(
+    "BF16 phase  : COMPLETE"
+)
+
+print(
+    "FP32 phase  : COMPLETE"
+)
+
+print(
+    "Decision    :",
+    DECISION,
+)
+
+
+# =============================================================================
+# 31. FILE
+# =============================================================================
+
+print("\n[22/24] OUTPUT FILE")
+print(OUT_JSON)
+
+
+# =============================================================================
+# 32. MEMORY CLEANUP
+# =============================================================================
+
+print("\n[23/24] Cleanup...")
+
+gc.collect()
+torch.cuda.empty_cache()
+
+print("CUDA cache cleared.")
+
+
+# =============================================================================
+# 33. DONE
+# =============================================================================
+
+print("\n[24/24] DONE")
+print("=" * 190)
+print("TEST135 COMPLETE")
+print("=" * 190)
