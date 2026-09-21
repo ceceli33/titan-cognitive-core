@@ -1,0 +1,338 @@
+ 
+==============================================================================================================================================================================================
+TEST 135 — RADAR NOISE FLOOR + FP32 LOCAL TRANSPORT ASSAY
+AKBASCORE — IS THE RADAR BLIND, OR IS THERE NO MICRO->ACT SIGNAL?
+==============================================================================================================================================================================================
+
+[1/24] Model yükleniyor...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 87.1kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 907kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 24.6MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 71.0MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 125MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.12MB/s]
+Download complete: : 
+
+ 13.1GB, 10.3MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  159MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [02:05<00:00, 24.74s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 100.84it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 32.8kB/s]
+Model             : Qwen/Qwen2.5-7B-Instruct
+dtype             : torch.bfloat16
+Layers tested     : [3, 6, 10, 14, 18]
+RADAR_REL         : 0.0025
+ACT_REL           : 0.01
+Shell             : 5.0
+Candidates        : 16
+Prompts           : 16
+Null jitter REL   : 0.00025
+Load time         : 135.0s
+
+[2/24] Ortam parmak izi...
+L10=+0.656545 drift=1.358e-07
+L11=+0.658274 drift=3.526e-07
+Fingerprint: PASS
+
+[3/24] Dibekgoz dictionary...
+cos(v0,v19)   = +0.060267
+cos(v11,v19)  = +0.402078
+cos(v18,v19)  = +0.841571
+
+[4/24] 5° tangent atlas oluşturuluyor...
+5 layers × 16 candidates
+
+[5/24] PART A — BF16 repeatability / realization floor...
+  BF16 16/16 | 2.4m
+BF16 phase completed: 2.4 min
+
+[6/24] BF16 summary...
+Exact repeat max range mean : 0.00000000
+BF16 radar dir cosine       : +0.901865
+BF16 act dir cosine         : +0.989365
+Requested pair angle mean   : 7.0650°
+Realized RADAR pair angle   : 17.2665°
+Realized ACT pair angle     : 10.0035°
+Requested↔RADAR geom corr   : +0.0904
+Requested↔ACT geom corr     : +0.1810
+BF16 radar↔act Pearson      : +0.0182
+BF16 radar↔act Spearman     : +0.0371
+Candidate oracle            : +0.011187 [+0.008501,+0.013874]
+Jitter-null oracle          : +0.007981 [+0.006021,+0.009942]
+Candidate-null excess       : +0.003206 [+0.001004,+0.005408]
+Null realized angle mean    : 0.3438°
+
+[7/24] FP32 local-block infrastructure hazırlanıyor...
+
+[8/24] PART B — FP32 central finite-secant assay...
+
+  L3->L4: target block FP32 kopyalanıyor...
+    prompt 16/16
+
+  L6->L7: target block FP32 kopyalanıyor...
+    prompt 16/16
+
+  L10->L11: target block FP32 kopyalanıyor...
+    prompt 16/16
+
+  L14->L15: target block FP32 kopyalanıyor...
+    prompt 16/16
+
+  L18->L19: target block FP32 kopyalanıyor...
+    prompt 16/16
+
+FP32 assay completed: 0.3 min
+
+[9/24] FP32 summary...
+FP32 micro↔ACT Pearson : +1.0000
+FP32 micro↔ACT Spearman: +1.0000
+FP32 selected Δ        : +0.000419 [+0.000066,+0.000772]
+FP32 oracle Δ          : +0.000419 [+0.000066,+0.000772]
+FP32 selected rank     : 1.000/16
+FP32 Top-4             : 1.000
+FP32 oracle hit        : 1.000
+
+[10/24] Layer-wise FP32 results...
+======================================================================================================================================================
+STEP             Pearson    Spearman      SELECT Δ      ORACLE Δ      RANK      TOP4
+------------------------------------------------------------------------------------------------------------------------------------------------------
+L3->L4          +1.0000     +1.0000     +0.000157     +0.000157     1.000     1.000
+L6->L7          +1.0000     +1.0000     +0.003026     +0.003026     1.000     1.000
+L10->L11         +1.0000     +1.0000     -0.000654     -0.000654     1.000     1.000
+L14->L15         +1.0000     +1.0000     -0.000324     -0.000324     1.000     1.000
+L18->L19         +1.0000     +0.9998     -0.000110     -0.000110     1.000     1.000
+
+[11/24] BF16 vs FP32 primary comparison...
+==========================================================================================================================================================================
+Metric                                              BF16              FP32
+--------------------------------------------------------------------------------
+micro↔ACT Pearson                               +0.01822          +1.00000
+micro↔ACT Spearman                              +0.03710          +0.99996
+candidate oracle                               +0.011187         +0.000419
+FP32 micro-selected ACT Δ                              —         +0.000419
+mean selected rank                                     —             1.000
+
+[12/24] DECISION
+====================================================================================================================================================================================
+BF16 micro↔ACT Spearman : +0.0371
+FP32 micro↔ACT Spearman : +1.0000
+FP32 selected Δ         : +0.000419 [+0.000066,+0.000772]
+Candidate oracle        : +0.011187 [+0.008501,+0.013874]
+Jitter-null oracle      : +0.007981 [+0.006021,+0.009942]
+Candidate-null excess   : +0.003206 [+0.001004,+0.005408]
+
+DECISION:
+BF16_MEASUREMENT_FLOOR_SUPPORTED
+
+[13/24] INTERPRETATION
+
+FP32 local central finite-secant candidate ranking'i taşıyor,
+BF16 ise taşımıyor.
+
+Bu durumda TEST134'ün körlüğü için BF16 measurement /
+realization floor açıklaması doğrudan destek kazanır.
+
+Bir sonraki test:
+aynı FP32 radar üzerinde random tangent yerine model-içi
+semantic candidate family kullanılabilir.
+
+Henüz multi-layer GPS'e geçilmez.
+
+
+[14/24] INTERPRETATION LOCK
+01. TEST135'in amacı yeni navigator üretmek değil, TEST134 başarısızlığının ölçüm tabanı mı yoksa micro-to-ACT sinyal yokluğu mu olduğunu ayırmaktır.
+02. BF16 exact-repeat range stochastic noise ölçümüdür; sıfıra yakın çıkması BF16 realization error olmadığı anlamına gelmez.
+03. Jitter-null, stochastic noise değil, FIXED çevresindeki küçük requested-direction değişimlerinin BF16 realized intervention ve oracle maksimumu üzerindeki hassasiyet kontrolüdür.
+04. Candidate oracle ile jitter-null oracle aynı kavram değildir; candidate-null excess directional candidate family'nin null tabanını aşıp aşmadığını test eder.
+05. FP32 local block, BF16 full modelin gerçek target-layer inputunu başlangıç noktası olarak kullanır; modelin önceki katmanları FP32'ye çevrilmez.
+06. FP32 assay yalnız target decoder block'u FP32 çalıştırır ve bu nedenle full-model FP32 deney değildir.
+07. FP32 central response [F(h+eps*q)-F(h-eps*q)]/2 bir central finite-secant response'tur; exact Jacobian veya exact derivative olarak adlandırılmaz.
+08. RADAR_REL=.0025 ve ACT_REL=.01 aynı candidate için farklı perturbation büyüklükleridir.
+09. FP32 micro->ACT correlation candidate ranking transferini ölçer; yüksek correlation tek başına behavioral steering kanıtı değildir.
+10. FP32 micro-selected ACT delta, küçük probe ile seçilen candidate'ın daha büyük ACT response'ta historical FIXED pusulayı geçip geçmediğini ölçer.
+11. Random tangent candidate family TEST134 çizgisini korumak için değiştirilmemiştir; semantic candidate family bu testte eklenmez.
+12. DRA envelope, brake, controller, generation ve multi-layer navigation TEST135'te yoktur.
+13. TEST135 sonuçları direction radar başarısızsa gain/dose radar hipotezine geçmek için mekanistik gerekçe sağlayabilir.
+
+[15/24] JSON hazırlanıyor...
+
+[16/24] JSON kaydediliyor...
+Saved: /content/TEST_135_RADAR_NOISE_FLOOR_FP32_LOCAL_ASSAY.json
+
+[17/24] FINAL SCIENTIFIC SUMMARY
+==============================================================================================================================================================================================
+TEST135 — RADAR NOISE FLOOR + FP32 LOCAL TRANSPORT
+==============================================================================================================================================================================================
+
+BF16 REALIZATION
+--------------------------------------------------------------------------------
+Radar dir cosine       : +0.901865
+ACT dir cosine         : +0.989365
+Requested pair angle   : 7.0650°
+Radar pair angle       : 17.2665°
+ACT pair angle         : 10.0035°
+Req↔Radar geom r       : +0.0904
+Req↔ACT geom r         : +0.1810
+BF16 micro↔ACT rho     : +0.0371
+
+Candidate oracle       : +0.011187 [+0.008501,+0.013874]
+Jitter-null oracle     : +0.007981 [+0.006021,+0.009942]
+Candidate-null excess  : +0.003206 [+0.001004,+0.005408]
+
+FP32 LOCAL BLOCK
+--------------------------------------------------------------------------------
+FP32 micro↔ACT Pearson : +1.0000
+FP32 micro↔ACT rho     : +1.0000
+FP32 selected ACT Δ    : +0.000419 [+0.000066,+0.000772]
+FP32 oracle ACT Δ      : +0.000419 [+0.000066,+0.000772]
+FP32 selected rank     : 1.000/16
+FP32 Top-4             : 1.000
+FP32 oracle hit        : 1.000
+
+DECISION
+--------------------------------------------------------------------------------
+BF16_MEASUREMENT_FLOOR_SUPPORTED
+
+NEXT
+--------------------------------------------------------------------------------
+TEST136_FP32_SEMANTIC_CANDIDATE_RADAR
+
+[18/24] HANDOFF
+
+TEST135 çıktısını okurken sıra:
+
+1. BF16 REQUESTED vs REALIZED GEOMETRY
+
+   Requested candidate pair angle yaklaşık 7° civarında iken
+   radar-realized pair geometry ne durumda?
+
+   Özellikle:
+       Req↔Radar geom r
+       Req↔ACT geom r
+
+2. JITTER-NULL ORACLE
+
+   Candidate oracle, FIXED çevresindeki BF16 realization null'ını
+   gerçekten aşıyor mu?
+
+       Candidate-null excess > 0 ?
+
+3. BF16 micro↔ACT rho
+
+   TEST134'ün körlüğü burada tekrar ediyor mu?
+
+4. FP32 micro↔ACT rho
+
+   En kritik mekanistik karşılaştırma budur.
+
+   Eğer:
+
+       BF16 rho ~ 0
+       FP32 rho >> 0
+
+   ise precision/realization floor hipotezi güçlenir.
+
+5. FP32 MICRO-SELECTED ACT DELTA
+
+   Yalnız correlation yetmez.
+
+   Micro probe ile seçilen candidate,
+   daha büyük ACT response'ta FIXED'i gerçekten geçmeli.
+
+6. FP32 RANK / TOP4
+
+   16 candidate için:
+       random mean rank = 8.5
+       random Top4 = .25
+
+   FP32 radar bunları açık biçimde geçiyor mu?
+
+Bu testten sonra ancak iki ana yol vardır:
+
+A)
+    FP32 radar çalışır
+        ->
+    precision problemi
+        ->
+    semantic candidate radar
+
+B)
+    FP32 radar da çalışmaz
+        ->
+    direction radarını zorlamayı bırak
+        ->
+    gain/dose radarına geç
+
+
+[19/24] SANITY NOTES
+Exact BF16 repeat range mean: 0.0000000000
+Null realized angle mean: 0.343828°
+Tested transitions: ['L3->L4', 'L6->L7', 'L10->L11', 'L14->L15', 'L18->L19']
+
+[20/24] CLAIM BOUNDARY
+
+Bu test aşağıdakileri TEK BAŞINA kanıtlamaz:
+
+- exact Jacobian
+- gradient
+- semantic causality
+- manifold navigation
+- multi-layer GPS
+- behavioral steering
+- DRA production controller
+
+Test yalnız şu mekanistik ayrımı hedefler:
+
+    küçük probe neden büyük intervention yönünü seçemiyor?
+
+ve iki ana açıklamayı karşılaştırır:
+
+    BF16 realization floor
+
+vs
+
+    micro->ACT directional transfer yokluğu.
+
+
+[21/24] EXPERIMENT STATUS
+Fingerprint : PASS
+BF16 phase  : COMPLETE
+FP32 phase  : COMPLETE
+Decision    : BF16_MEASUREMENT_FLOOR_SUPPORTED
+
+[22/24] OUTPUT FILE
+/content/TEST_135_RADAR_NOISE_FLOOR_FP32_LOCAL_ASSAY.json
+
+[23/24] Cleanup...
+CUDA cache cleared.
+
+[24/24] DONE
+==============================================================================================================================================================================================
+TEST135 COMPLETE
+
+
+==============================================================================================================================================================================================
