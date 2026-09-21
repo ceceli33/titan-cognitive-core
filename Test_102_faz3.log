@@ -1,0 +1,2306 @@
+# =============================================================================
+# TEST 129 — SEMANTIC BACKBONE + LAYER TANGENT DECOMPOSITION
+# AkbasCore · Qwen2.5-7B-Instruct · BF16 · A100 · TEK HÜCRE
+#
+# AMAÇ
+# -----------------------------------------------------------------------------
+# Dibekgoz sözlüğü:
+#
+#       v0, v1, ... , v19
+#
+# gerçekten nasıl bir yapı?
+#
+# İki olasılığı ayırıyoruz:
+#
+#   A) ORTAK SEMANTIC BACKBONE
+#      Katmanların büyük kısmında ortak kalan düşük-rank yön/subspace.
+#
+#   B) LAYER TANGENT
+#      Her katmanın backbone dışında kalan özgün bileşeni.
+#
+# SVD:
+#
+#       V = [v0; v1; ...; v19]
+#
+# İlk k sağ-singular vektör:
+#
+#       B_k = ortak backbone subspace
+#
+# Katman vektörü:
+#
+#       s_l = Proj_B(v_l)       backbone component
+#       t_l = v_l - s_l         tangent component
+#
+# SONRA MODELDE AYRI AYRI TEST:
+#
+#       backbone_l  -> model -> backbone_(l+1)
+#       tangent_l   -> model -> tangent_(l+1)
+#
+# Ayrıca full v_l kolu korunur.
+#
+# KRİTİK TEST128 DÜZELTMESİ
+# -----------------------------------------------------------------------------
+# Random kontrolün teorik requested açısını değil,
+# BF16'ya GERÇEKTEN yazılmış perturbasyonunu ölçüyoruz.
+#
+# Her semantic müdahaleden sonra random adaylar üretilir.
+# Yalnızca realized source cosine semantic kola yeterince yakınsa kabul edilir.
+#
+#       |cos(realized_random, semantic_axis)
+#        - cos(realized_semantic, semantic_axis)| <= tolerance
+#
+# Böylece TEST128'deki realized-angle mismatch kontrol edilir.
+#
+# NOT:
+# AkbasCore'un BF16 eşiği altındaki küçük müdahale rejimi ayrı HD/FP32
+# deney hattında incelenmiştir. Burada 0.0025 dozu korunur ve doğrudan
+# gerçekleşen BF16 perturbasyon ayrıca ölçülür.
+#
+# DRA YOK · MERCEK YOK · BRAKE YOK · GENERATION YOK
+# =============================================================================
+
+
+import gc
+import json
+import math
+import random
+import time
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+
+# =============================================================================
+# 0. CONFIG
+# =============================================================================
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 12901
+
+MODEL_LAYERS = 28
+VECTOR_LAYERS = 20
+HIDDEN = 3584
+
+SOURCE_LAYERS = list(range(19))
+
+# Ana küçük müdahale rejimi.
+PROBE_REL = 0.0025
+
+# SVD rank adayları.
+BACKBONE_RANKS = [1, 2, 3, 5, 8, 10]
+
+# Transport deneyinde kullanılacak rank.
+# Otomatik olarak en küçük >= %80 enerji açıklayan rank seçilecek.
+TARGET_EXPLAINED = 0.80
+
+# Gerçekleşmiş BF16 cosine eşleme toleransı.
+MATCH_TOL = 0.002
+
+# Her semantic kol için kaç matched random kontrol?
+N_MATCHED = 4
+
+# Bir matched kontrol bulmak için en fazla kaç aday?
+MAX_MATCH_TRIES = 80
+
+EXPECTED_COS10 = 0.656545
+EXPECTED_COS11 = 0.658274
+FINGERPRINT_TOL = 5e-6
+
+EPS = 1e-12
+
+OUT_JSON = "/content/TEST_129_BACKBONE_TANGENT.json"
+
+
+# =============================================================================
+# 1. LOCKED FINGERPRINT
+# =============================================================================
+
+ABOVE = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+BELOW = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+NEUTRAL = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 2. DIBEKGOZ DICTIONARY
+# =============================================================================
+
+TEMPLATES = [
+    "The creature is essentially {X}.",
+    "Observing it closely, the animal is clearly {X}.",
+    "The specimen in front of us is {X}.",
+    "Field notes describe the creature as {X}.",
+    "In every respect the body plan is that of {X}.",
+    "The zoologist identified the animal as {X}.",
+    "Anatomically the creature is {X}.",
+    "Taxonomically the creature groups with {X}.",
+]
+
+POS_DIBEK = "a tailless bipedal ape"
+NEG_DIBEK = "a tailed quadrupedal mammal"
+
+
+# =============================================================================
+# 3. FRESH TEST129 PROMPTS
+# =============================================================================
+
+ANIMAL_PREFIX = (
+    "Veloran is an unfamiliar animal species being documented by a "
+    "comparative anatomy team. "
+)
+
+ANIMAL_BASE = [
+    "The team recorded how the Veloran moved across level ground using",
+    "Examination of the lower spine showed that its posterior end was",
+    "When food was placed overhead, the Veloran reached for it with",
+    "The animal was able to raise its torso and remain",
+    "Its front extremities were primarily used to",
+    "The pelvis appeared adapted to a posture that was",
+    "While moving through branches, the animal grasped them with",
+    "Its footprints suggest that body weight is mainly supported by",
+    "The anatomical sketch shows forelimbs ending in",
+    "Compared with a typical four-legged mammal, its trunk is held",
+    "The researchers described the terminal vertebrae as",
+    "During feeding, the animal manipulated objects with",
+    "When observing the skeleton, the team noted a body plan resembling",
+    "The hind limbs appeared particularly suited for",
+    "The shoulder joint allows the front limbs to",
+    "While carrying food, the Veloran moved using",
+    "The specimen's hand structure contains",
+    "The animal's overall posture most closely resembles",
+    "When stationary, the Veloran commonly keeps its torso",
+    "The taxonomic illustration depicts an animal shaped like",
+]
+
+NEUTRAL_BASE = [
+    "The mechanic opened the panel and inspected",
+    "The river changed direction after passing",
+    "The archive contains several records concerning",
+    "The new building was designed with",
+    "The container was moved from the table to",
+    "The weather report described the approaching clouds as",
+    "The technician connected the cable to",
+    "The road crosses the valley before reaching",
+    "The manuscript was stored inside",
+    "The photograph shows the coastline extending toward",
+    "The engineer measured the distance between",
+    "The gardener placed the equipment beside",
+    "The exhibition room contains a collection of",
+    "The instructions recommend positioning the device near",
+    "The train slowed down while approaching",
+    "The map marks the eastern boundary with",
+    "The researcher wrote the observation into",
+    "The bridge was reinforced using",
+    "The package contained several pieces of",
+    "The final section of the report discusses",
+]
+
+PROMPTS = (
+    [ANIMAL_PREFIX + x for x in ANIMAL_BASE]
+    + NEUTRAL_BASE
+)
+
+CONTEXT = ["ANIMAL"] * 20 + ["NEUTRAL"] * 20
+
+assert len(PROMPTS) == 40
+
+
+# =============================================================================
+# 4. REPRODUCIBILITY
+# =============================================================================
+
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
+
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+
+# =============================================================================
+# 5. HELPERS
+# =============================================================================
+
+def normalize(v):
+
+    v = v.float()
+
+    n = torch.linalg.vector_norm(v)
+
+    if float(n.item()) < EPS:
+        return None
+
+    return v / n
+
+
+def cosine(a, b):
+
+    a = a.float()
+    b = b.float()
+
+    na = torch.linalg.vector_norm(a)
+    nb = torch.linalg.vector_norm(b)
+
+    if float(na.item()) < EPS or float(nb.item()) < EPS:
+        return float("nan")
+
+    return float(
+        torch.dot(a, b) / (na * nb)
+    )
+
+
+def stats(x):
+
+    x = np.asarray(x, dtype=np.float64)
+
+    x = x[np.isfinite(x)]
+
+    if len(x) == 0:
+
+        return {
+            "n": 0,
+            "mean": float("nan"),
+            "sd": float("nan"),
+            "ci95": [float("nan"), float("nan")],
+            "positive_fraction": float("nan"),
+        }
+
+    m = float(np.mean(x))
+
+    sd = (
+        float(np.std(x, ddof=1))
+        if len(x) > 1
+        else 0.0
+    )
+
+    se = (
+        sd / math.sqrt(len(x))
+        if len(x) > 1
+        else 0.0
+    )
+
+    return {
+        "n": int(len(x)),
+        "mean": m,
+        "sd": sd,
+        "ci95": [
+            float(m - 1.96 * se),
+            float(m + 1.96 * se),
+        ],
+        "positive_fraction":
+            float(np.mean(x > 0)),
+        "min":
+            float(np.min(x)),
+        "max":
+            float(np.max(x)),
+    }
+
+
+def ci(s):
+
+    return (
+        f"[{s['ci95'][0]:+.5f},"
+        f"{s['ci95'][1]:+.5f}]"
+    )
+
+
+# =============================================================================
+# 6. MODEL
+# =============================================================================
+
+print("=" * 160)
+print("TEST 129 — SEMANTIC BACKBONE + LAYER TANGENT DECOMPOSITION")
+print("=" * 160)
+
+if not torch.cuda.is_available():
+    raise SystemExit("A100/GPU gerekli.")
+
+print("\n[1/18] Model yükleniyor...")
+
+t0 = time.time()
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_ID,
+    trust_remote_code=True
+)
+
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+tokenizer.padding_side = "right"
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True,
+    low_cpu_mem_usage=True,
+    attn_implementation="sdpa",
+)
+
+model.eval()
+
+for p in model.parameters():
+    p.requires_grad_(False)
+
+device = next(model.parameters()).device
+
+assert len(model.model.layers) == MODEL_LAYERS
+assert model.config.hidden_size == HIDDEN
+
+print("Model      :", MODEL_ID)
+print("dtype      :", next(model.parameters()).dtype)
+print("Probe REL  :", PROBE_REL)
+print("Match tol  :", MATCH_TOL)
+print("Matched rnd:", N_MATCHED)
+print("Prompts    :", len(PROMPTS))
+print(f"Load time  : {time.time()-t0:.1f}s")
+
+
+# =============================================================================
+# 7. VECTOR EXTRACTION
+# =============================================================================
+
+@torch.no_grad()
+def extract_vectors(texts):
+
+    enc = tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=128
+    )
+
+    ids = enc["input_ids"].to(device)
+    mask = enc["attention_mask"].to(device)
+
+    captures = [None] * VECTOR_LAYERS
+    handles = []
+
+    def make_hook(li):
+
+        def hook(module, inp, out):
+
+            h = out[0] if isinstance(out, tuple) else out
+
+            captures[li] = h.detach()
+
+        return hook
+
+    try:
+
+        for li in range(VECTOR_LAYERS):
+
+            handles.append(
+                model.model.layers[li]
+                .register_forward_hook(
+                    make_hook(li)
+                )
+            )
+
+        model(
+            input_ids=ids,
+            attention_mask=mask,
+            use_cache=False
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    lengths = mask.sum(1).cpu().numpy()
+
+    result = torch.zeros(
+        len(texts),
+        VECTOR_LAYERS,
+        HIDDEN,
+        dtype=torch.float32
+    )
+
+    for li in range(VECTOR_LAYERS):
+
+        x = captures[li].float().cpu()
+
+        for i in range(len(texts)):
+
+            result[i, li] = (
+                x[i, int(lengths[i]) - 1]
+            )
+
+    return result
+
+
+def contrastive_vectors(pos, neg):
+
+    XP = extract_vectors(pos)
+    XN = extract_vectors(neg)
+
+    vectors = {}
+
+    for li in range(VECTOR_LAYERS):
+
+        d = (
+            XP[:, li].mean(0)
+            - XN[:, li].mean(0)
+        )
+
+        vectors[li] = F.normalize(
+            d,
+            dim=0
+        )
+
+    del XP, XN
+
+    return vectors
+
+
+# =============================================================================
+# 8. FINGERPRINT
+# =============================================================================
+
+print("\n[2/18] Ortam parmak izi...")
+
+XA = extract_vectors(ABOVE)
+XB = extract_vectors(BELOW)
+XN = extract_vectors(NEUTRAL)
+
+A10 = F.normalize(
+    XA[:, 10].mean(0)
+    - XN[:, 10].mean(0),
+    dim=0
+)
+
+B10 = F.normalize(
+    XB[:, 10].mean(0)
+    - XN[:, 10].mean(0),
+    dim=0
+)
+
+A11 = F.normalize(
+    XA[:, 11].mean(0)
+    - XN[:, 11].mean(0),
+    dim=0
+)
+
+B11 = F.normalize(
+    XB[:, 11].mean(0)
+    - XN[:, 11].mean(0),
+    dim=0
+)
+
+cos10 = cosine(A10, B10)
+cos11 = cosine(A11, B11)
+
+drift10 = abs(
+    cos10 - EXPECTED_COS10
+)
+
+drift11 = abs(
+    cos11 - EXPECTED_COS11
+)
+
+print(
+    f"L10 {cos10:+.6f} "
+    f"drift={drift10:.3e}"
+)
+
+print(
+    f"L11 {cos11:+.6f} "
+    f"drift={drift11:.3e}"
+)
+
+if (
+    drift10 > FINGERPRINT_TOL
+    or drift11 > FINGERPRINT_TOL
+):
+    raise RuntimeError("Fingerprint FAILED")
+
+print("Fingerprint: PASS")
+
+del XA, XB, XN, A10, B10, A11, B11
+
+gc.collect()
+torch.cuda.empty_cache()
+
+
+# =============================================================================
+# 9. DIBEKGOZ v0...v19
+# =============================================================================
+
+print("\n[3/18] Dibekgoz sözlüğü çıkarılıyor...")
+
+POS = [
+    x.format(X=POS_DIBEK)
+    for x in TEMPLATES
+]
+
+NEG = [
+    x.format(X=NEG_DIBEK)
+    for x in TEMPLATES
+]
+
+DIBEK = contrastive_vectors(
+    POS,
+    NEG
+)
+
+V = torch.stack(
+    [DIBEK[l] for l in range(VECTOR_LAYERS)],
+    dim=0
+).float()
+
+print("V shape:", tuple(V.shape))
+
+print(
+    "cos(v0,v19) =",
+    f"{cosine(DIBEK[0], DIBEK[19]):+.6f}"
+)
+
+print(
+    "cos(v11,v19)=",
+    f"{cosine(DIBEK[11], DIBEK[19]):+.6f}"
+)
+
+
+# =============================================================================
+# 10. SVD — SEMANTIC BACKBONE
+#
+# 20 x 3584 matris.
+# Bu çok küçük; dense 3584x3584 operator kurmuyoruz.
+# =============================================================================
+
+print("\n[4/18] SVD semantic backbone analizi...")
+
+U, S, VH = torch.linalg.svd(
+    V,
+    full_matrices=False
+)
+
+energy = S.square()
+energy_ratio = energy / energy.sum()
+cumulative = torch.cumsum(
+    energy_ratio,
+    dim=0
+)
+
+print("\nSingular spectrum:")
+
+for i in range(20):
+
+    print(
+        f"PC{i+1:02d} "
+        f"singular={float(S[i]):.6f} "
+        f"energy={float(energy_ratio[i]):.4f} "
+        f"cum={float(cumulative[i]):.4f}"
+    )
+
+
+RANK_TABLE = {}
+
+for k in BACKBONE_RANKS:
+
+    RANK_TABLE[k] = {
+        "explained_energy":
+            float(cumulative[k-1])
+    }
+
+    print(
+        f"Rank {k:02d} -> "
+        f"{float(cumulative[k-1])*100:.2f}%"
+    )
+
+
+# En küçük >= hedef enerji rankı.
+selected_rank = None
+
+for k in range(1, 21):
+
+    if float(cumulative[k-1]) >= TARGET_EXPLAINED:
+
+        selected_rank = k
+        break
+
+if selected_rank is None:
+    selected_rank = 20
+
+print()
+print(
+    f"SELECTED BACKBONE RANK = {selected_rank}"
+)
+
+print(
+    f"Explained energy       = "
+    f"{float(cumulative[selected_rank-1]):.4f}"
+)
+
+
+# =============================================================================
+# 11. BACKBONE / TANGENT DECOMPOSITION
+#
+# B: rank-k ortak subspace
+#
+# s_l = projection of v_l onto B
+# t_l = v_l - s_l
+# =============================================================================
+
+print("\n[5/18] Katman vektörleri backbone+tangent ayrılıyor...")
+
+BASIS = VH[:selected_rank].T.contiguous()
+# [3584, k]
+
+BACKBONE_RAW = {}
+BACKBONE_DIR = {}
+
+TANGENT_RAW = {}
+TANGENT_DIR = {}
+
+DECOMP = {}
+
+for li in range(VECTOR_LAYERS):
+
+    v = DIBEK[li].float()
+
+    coeff = BASIS.T @ v
+
+    s = BASIS @ coeff
+    t = v - s
+
+    s_norm = float(
+        torch.linalg.vector_norm(s)
+    )
+
+    t_norm = float(
+        torch.linalg.vector_norm(t)
+    )
+
+    sdir = normalize(s)
+    tdir = normalize(t)
+
+    BACKBONE_RAW[li] = s
+    TANGENT_RAW[li] = t
+
+    BACKBONE_DIR[li] = sdir
+    TANGENT_DIR[li] = tdir
+
+    recon = s + t
+
+    DECOMP[li] = {
+        "backbone_norm": s_norm,
+        "tangent_norm": t_norm,
+        "backbone_energy_fraction":
+            s_norm ** 2,
+        "tangent_energy_fraction":
+            t_norm ** 2,
+        "reconstruction_cos":
+            cosine(recon, v),
+        "backbone_tangent_cos":
+            cosine(s, t),
+    }
+
+print(
+    "Mean backbone energy fraction =",
+    f"{np.mean([DECOMP[l]['backbone_energy_fraction'] for l in range(20)]):.6f}"
+)
+
+print(
+    "Mean tangent energy fraction  =",
+    f"{np.mean([DECOMP[l]['tangent_energy_fraction'] for l in range(20)]):.6f}"
+)
+
+print(
+    "Max reconstruction error cos  =",
+    f"{min(DECOMP[l]['reconstruction_cos'] for l in range(20)):.9f}"
+)
+
+
+# =============================================================================
+# 12. BASELINE PASS
+# =============================================================================
+
+@torch.no_grad()
+def baseline_pass(prompt):
+
+    captures = {}
+    handles = []
+
+    def make_hook(li):
+
+        def hook(module, inp, out):
+
+            h = (
+                out[0]
+                if isinstance(out, tuple)
+                else out
+            )
+
+            captures[li] = (
+                h[0, -1]
+                .detach()
+                .float()
+                .cpu()
+                .clone()
+            )
+
+        return hook
+
+    try:
+
+        for li in range(VECTOR_LAYERS):
+
+            handles.append(
+                model.model.layers[li]
+                .register_forward_hook(
+                    make_hook(li)
+                )
+            )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt"
+        ).to(device)
+
+        model(
+            **enc,
+            use_cache=False
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    return captures
+
+
+# =============================================================================
+# 13. ONE-STEP FINITE PERTURBATION
+# =============================================================================
+
+@torch.no_grad()
+def one_step_probe(
+    prompt,
+    baseline,
+    li,
+    direction
+):
+
+    target = li + 1
+
+    src_base = baseline[li].float()
+
+    q = normalize(direction)
+
+    if q is None:
+        raise RuntimeError(
+            f"L{li}: sıfır direction"
+        )
+
+    requested_norm = (
+        PROBE_REL
+        * float(
+            torch.linalg.vector_norm(
+                src_base
+            )
+        )
+    )
+
+    q_gpu = q.to(device)
+
+    cap = {}
+    src_delta = {}
+
+    handles = []
+
+    def source_hook(module, inp, out):
+
+        h = (
+            out[0]
+            if isinstance(out, tuple)
+            else out
+        )
+
+        before = h[0, -1].float()
+
+        hnew = h.clone()
+
+        hnew[0, -1] = (
+            before
+            + requested_norm * q_gpu
+        ).to(h.dtype)
+
+        realized = (
+            hnew[0, -1].float()
+            - before
+        )
+
+        src_delta["d"] = (
+            realized
+            .detach()
+            .cpu()
+            .clone()
+        )
+
+        if isinstance(out, tuple):
+
+            return (
+                (hnew,)
+                + out[1:]
+            )
+
+        return hnew
+
+    def target_hook(module, inp, out):
+
+        h = (
+            out[0]
+            if isinstance(out, tuple)
+            else out
+        )
+
+        cap["h"] = (
+            h[0, -1]
+            .detach()
+            .float()
+            .cpu()
+            .clone()
+        )
+
+    try:
+
+        handles.append(
+            model.model.layers[li]
+            .register_forward_hook(
+                source_hook
+            )
+        )
+
+        handles.append(
+            model.model.layers[target]
+            .register_forward_hook(
+                target_hook
+            )
+        )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt"
+        ).to(device)
+
+        model(
+            **enc,
+            use_cache=False
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    ds = src_delta["d"]
+
+    dt = (
+        cap["h"]
+        - baseline[target]
+    )
+
+    ds_norm = float(
+        torch.linalg.vector_norm(ds)
+    )
+
+    dt_norm = float(
+        torch.linalg.vector_norm(dt)
+    )
+
+    return {
+        "ds": ds,
+        "dt": dt,
+
+        "realized_relative":
+            ds_norm /
+            (
+                float(
+                    torch.linalg.vector_norm(
+                        src_base
+                    )
+                )
+                + EPS
+            ),
+
+        "realized_direction_cos":
+            cosine(ds, q),
+
+        "gain":
+            dt_norm / (ds_norm + EPS),
+    }
+
+
+# =============================================================================
+# 14. RANDOM DIRECTION AROUND AXIS
+#
+# Requested candidate is built around semantic axis.
+# Acceptance however uses REALIZED BF16 perturbation.
+# =============================================================================
+
+def random_around_axis(
+    axis,
+    requested_cos,
+    seed
+):
+
+    axis = normalize(axis)
+
+    g = torch.Generator(
+        device="cpu"
+    )
+
+    g.manual_seed(seed)
+
+    z = torch.randn(
+        HIDDEN,
+        generator=g,
+        dtype=torch.float32
+    )
+
+    u = (
+        z
+        - torch.dot(z, axis) * axis
+    )
+
+    u = normalize(u)
+
+    if u is None:
+        return None
+
+    c = max(
+        -0.999999,
+        min(
+            0.999999,
+            float(requested_cos)
+        )
+    )
+
+    s = math.sqrt(
+        max(
+            0.0,
+            1.0 - c*c
+        )
+    )
+
+    return normalize(
+        c * axis
+        + s * u
+    )
+
+
+# =============================================================================
+# 15. REALIZED-MATCHED RANDOM SEARCH
+#
+# Önce semantic kol çalışır.
+# Sonra random adayın BF16 sonrası GERÇEK source cosine'ı semantic kola
+# MATCH_TOL içinde gelene kadar candidate search yapılır.
+# =============================================================================
+
+def matched_random_controls(
+    prompt,
+    baseline,
+    li,
+    axis,
+    semantic_source_cos,
+    prompt_index,
+    arm_code
+):
+
+    accepted = []
+
+    # İlk tahmin semantic realized cosine.
+    requested_cos = semantic_source_cos
+
+    tries = 0
+
+    # Quantization sonrası sistematik sapmayı iteratif düzeltmek için.
+    correction = 0.0
+
+    while (
+        len(accepted) < N_MATCHED
+        and tries < MAX_MATCH_TRIES
+    ):
+
+        tries += 1
+
+        seed = (
+            SEED
+            + 10000000 * arm_code
+            + 100000 * (prompt_index + 1)
+            + 1000 * li
+            + tries
+        )
+
+        q = random_around_axis(
+            axis,
+            requested_cos + correction,
+            seed
+        )
+
+        if q is None:
+            continue
+
+        rr = one_step_probe(
+            prompt,
+            baseline,
+            li,
+            q
+        )
+
+        realized_cos = cosine(
+            rr["ds"],
+            axis
+        )
+
+        error = (
+            realized_cos
+            - semantic_source_cos
+        )
+
+        # Tam realized-space acceptance.
+        if abs(error) <= MATCH_TOL:
+
+            accepted.append({
+                "probe": rr,
+                "q": q,
+                "realized_axis_cos":
+                    realized_cos,
+                "match_error":
+                    error,
+                "tries":
+                    tries,
+            })
+
+        else:
+
+            # Son hataya göre requested angle'ı hafifçe düzelt.
+            correction -= 0.75 * error
+
+            correction = max(
+                -0.30,
+                min(
+                    0.30,
+                    correction
+                )
+            )
+
+    return accepted, tries
+
+
+# =============================================================================
+# 16. MAIN EXPERIMENT
+#
+# Arms:
+#
+# FULL     : v_l
+# BACKBONE : normalized projection onto common subspace
+# TANGENT  : normalized layer-specific residual
+#
+# Her arm için bir sonraki katmandaki karşılığı ölçülür.
+# =============================================================================
+
+print("\n[6/18] Transport deneyi başlıyor...")
+
+print(
+    "Arms: FULL / BACKBONE / TANGENT"
+)
+
+print(
+    "Random controls are accepted only after realized BF16 matching."
+)
+
+RAW = []
+
+start = time.time()
+
+match_failures = {
+    "FULL": 0,
+    "BACKBONE": 0,
+    "TANGENT": 0,
+}
+
+arm_codes = {
+    "FULL": 1,
+    "BACKBONE": 2,
+    "TANGENT": 3,
+}
+
+for pi, prompt in enumerate(PROMPTS):
+
+    baseline = baseline_pass(
+        prompt
+    )
+
+    row = {
+        "prompt_index": pi + 1,
+        "context": CONTEXT[pi],
+        "prompt": prompt,
+        "layers": {},
+    }
+
+    for li in SOURCE_LAYERS:
+
+        target = li + 1
+
+        arms = {
+            "FULL": (
+                DIBEK[li],
+                DIBEK[target]
+            ),
+
+            "BACKBONE": (
+                BACKBONE_DIR[li],
+                BACKBONE_DIR[target]
+            ),
+
+            "TANGENT": (
+                TANGENT_DIR[li],
+                TANGENT_DIR[target]
+            ),
+        }
+
+        layer_row = {}
+
+        for arm_name, (
+            source_axis,
+            target_axis
+        ) in arms.items():
+
+            # Eğer selected rank tüm uzayı açıklarsa tangent olmayabilir.
+            if (
+                source_axis is None
+                or target_axis is None
+            ):
+
+                layer_row[arm_name] = {
+                    "valid": False
+                }
+
+                continue
+
+            sem = one_step_probe(
+                prompt,
+                baseline,
+                li,
+                source_axis
+            )
+
+            source_cos = cosine(
+                sem["ds"],
+                source_axis
+            )
+
+            response_target = cosine(
+                sem["dt"],
+                target_axis
+            )
+
+            response_source = cosine(
+                sem["dt"],
+                source_axis
+            )
+
+            matched, tries = (
+                matched_random_controls(
+                    prompt=prompt,
+                    baseline=baseline,
+                    li=li,
+                    axis=source_axis,
+                    semantic_source_cos=source_cos,
+                    prompt_index=pi,
+                    arm_code=arm_codes[arm_name],
+                )
+            )
+
+            if len(matched) < N_MATCHED:
+
+                match_failures[arm_name] += 1
+
+            random_target = []
+
+            random_source = []
+
+            random_match_error = []
+
+            for m in matched:
+
+                rr = m["probe"]
+
+                random_target.append(
+                    cosine(
+                        rr["dt"],
+                        target_axis
+                    )
+                )
+
+                random_source.append(
+                    cosine(
+                        rr["dt"],
+                        source_axis
+                    )
+                )
+
+                random_match_error.append(
+                    m["match_error"]
+                )
+
+            if len(random_target) > 0:
+
+                rand_target_mean = float(
+                    np.mean(random_target)
+                )
+
+                delta_target = (
+                    response_target
+                    - rand_target_mean
+                )
+
+                match_abs = float(
+                    np.mean(
+                        np.abs(
+                            random_match_error
+                        )
+                    )
+                )
+
+            else:
+
+                rand_target_mean = float("nan")
+                delta_target = float("nan")
+                match_abs = float("nan")
+
+            layer_row[arm_name] = {
+                "valid": True,
+
+                "response_target":
+                    response_target,
+
+                "response_source":
+                    response_source,
+
+                "source_realized_cos":
+                    source_cos,
+
+                "realized_relative":
+                    sem["realized_relative"],
+
+                "realized_direction_cos":
+                    sem["realized_direction_cos"],
+
+                "gain":
+                    sem["gain"],
+
+                "random_target_mean":
+                    rand_target_mean,
+
+                "delta_target":
+                    delta_target,
+
+                "matched_n":
+                    len(matched),
+
+                "match_abs_error":
+                    match_abs,
+
+                "match_total_tries":
+                    tries,
+
+                "random_target":
+                    random_target,
+
+                "random_source":
+                    random_source,
+
+                "random_match_error":
+                    random_match_error,
+            }
+
+        # Cross-component measurements.
+        # Full v_l response hangi parçada sonlanıyor?
+        full_dt_probe = one_step_probe(
+            prompt,
+            baseline,
+            li,
+            DIBEK[li]
+        )
+
+        full_dt = full_dt_probe["dt"]
+
+        layer_row["FULL_DECOMP"] = {
+            "to_next_full":
+                cosine(
+                    full_dt,
+                    DIBEK[target]
+                ),
+
+            "to_next_backbone":
+                cosine(
+                    full_dt,
+                    BACKBONE_DIR[target]
+                ),
+
+            "to_next_tangent":
+                cosine(
+                    full_dt,
+                    TANGENT_DIR[target]
+                ),
+        }
+
+        row["layers"][str(li)] = (
+            layer_row
+        )
+
+    RAW.append(row)
+
+    if (pi + 1) % 5 == 0:
+
+        gc.collect()
+        torch.cuda.empty_cache()
+
+    print(
+        f"  {pi+1:02d}/{len(PROMPTS)} "
+        f"| elapsed="
+        f"{(time.time()-start)/60:.1f} min",
+        end="\r"
+    )
+
+print()
+
+print(
+    f"Experiment completed in "
+    f"{(time.time()-start)/60:.1f} min"
+)
+
+
+# =============================================================================
+# 17. COLLECT
+# =============================================================================
+
+def collect(
+    li,
+    arm,
+    key,
+    context=None
+):
+
+    vals = []
+
+    for row in RAW:
+
+        if (
+            context is not None
+            and row["context"] != context
+        ):
+            continue
+
+        a = (
+            row["layers"][str(li)]
+            .get(arm, {})
+        )
+
+        if (
+            not a
+            or not a.get("valid", True)
+        ):
+            continue
+
+        v = a.get(
+            key,
+            float("nan")
+        )
+
+        if np.isfinite(v):
+            vals.append(v)
+
+    return np.asarray(
+        vals,
+        dtype=np.float64
+    )
+
+
+# =============================================================================
+# 18. LAYER SUMMARY
+# =============================================================================
+
+print("\n[7/18] Katman bazlı sonuçlar...")
+
+SUMMARY = {}
+
+for li in SOURCE_LAYERS:
+
+    SUMMARY[str(li)] = {}
+
+    for arm in [
+        "FULL",
+        "BACKBONE",
+        "TANGENT"
+    ]:
+
+        R = collect(
+            li,
+            arm,
+            "response_target"
+        )
+
+        RAND = collect(
+            li,
+            arm,
+            "random_target_mean"
+        )
+
+        DELTA = collect(
+            li,
+            arm,
+            "delta_target"
+        )
+
+        MATCH = collect(
+            li,
+            arm,
+            "match_abs_error"
+        )
+
+        SRC = collect(
+            li,
+            arm,
+            "source_realized_cos"
+        )
+
+        REL = collect(
+            li,
+            arm,
+            "realized_relative"
+        )
+
+        SUMMARY[str(li)][arm] = {
+            "response_target":
+                stats(R),
+
+            "random_target":
+                stats(RAND),
+
+            "delta_target":
+                stats(DELTA),
+
+            "match_abs_error":
+                stats(MATCH),
+
+            "source_realized_cos":
+                stats(SRC),
+
+            "realized_relative":
+                stats(REL),
+        }
+
+
+# =============================================================================
+# 19. TABLE
+# =============================================================================
+
+print("\n[8/18] BACKBONE vs TANGENT TRANSPORT")
+print("=" * 160)
+
+print(
+    f"{'STEP':<10}"
+    f"{'FULL':>10}"
+    f"{'F Δrnd':>10}"
+    f"{'BACK':>10}"
+    f"{'B Δrnd':>10}"
+    f"{'TANG':>10}"
+    f"{'T Δrnd':>10}"
+    f"{'Bmatch':>10}"
+    f"{'Tmatch':>10}"
+)
+
+print("-" * 160)
+
+for li in SOURCE_LAYERS:
+
+    Fm = SUMMARY[str(li)]["FULL"]
+    Bm = SUMMARY[str(li)]["BACKBONE"]
+    Tm = SUMMARY[str(li)]["TANGENT"]
+
+    print(
+        f"L{li}->L{li+1:<4}"
+        f"{Fm['response_target']['mean']:>+10.4f}"
+        f"{Fm['delta_target']['mean']:>+10.4f}"
+        f"{Bm['response_target']['mean']:>+10.4f}"
+        f"{Bm['delta_target']['mean']:>+10.4f}"
+        f"{Tm['response_target']['mean']:>+10.4f}"
+        f"{Tm['delta_target']['mean']:>+10.4f}"
+        f"{Bm['match_abs_error']['mean']:>10.4f}"
+        f"{Tm['match_abs_error']['mean']:>10.4f}"
+    )
+
+
+# =============================================================================
+# 20. GLOBAL SUMMARY
+# =============================================================================
+
+print("\n[9/18] Global summary...")
+
+GLOBAL = {}
+
+for arm in [
+    "FULL",
+    "BACKBONE",
+    "TANGENT"
+]:
+
+    all_R = []
+    all_D = []
+    all_M = []
+    all_SRC = []
+    all_REL = []
+
+    layer_D = []
+
+    for li in SOURCE_LAYERS:
+
+        R = collect(
+            li,
+            arm,
+            "response_target"
+        )
+
+        D = collect(
+            li,
+            arm,
+            "delta_target"
+        )
+
+        M = collect(
+            li,
+            arm,
+            "match_abs_error"
+        )
+
+        SRC = collect(
+            li,
+            arm,
+            "source_realized_cos"
+        )
+
+        REL = collect(
+            li,
+            arm,
+            "realized_relative"
+        )
+
+        all_R.extend(
+            R.tolist()
+        )
+
+        all_D.extend(
+            D.tolist()
+        )
+
+        all_M.extend(
+            M.tolist()
+        )
+
+        all_SRC.extend(
+            SRC.tolist()
+        )
+
+        all_REL.extend(
+            REL.tolist()
+        )
+
+        if len(D) > 0:
+            layer_D.append(
+                float(np.mean(D))
+            )
+
+    GLOBAL[arm] = {
+        "response_target":
+            stats(all_R),
+
+        "delta_target":
+            stats(all_D),
+
+        "match_abs_error":
+            stats(all_M),
+
+        "source_realized_cos":
+            stats(all_SRC),
+
+        "realized_relative":
+            stats(all_REL),
+
+        "positive_layer_fraction":
+            float(
+                np.mean(
+                    np.asarray(layer_D) > 0
+                )
+            )
+            if len(layer_D)
+            else float("nan"),
+    }
+
+    g = GLOBAL[arm]
+
+    print(f"\n{arm}")
+
+    print(
+        f"  target response = "
+        f"{g['response_target']['mean']:+.6f} "
+        f"{ci(g['response_target'])}"
+    )
+
+    print(
+        f"  Δ vs matched rnd= "
+        f"{g['delta_target']['mean']:+.6f} "
+        f"{ci(g['delta_target'])}"
+    )
+
+    print(
+        f"  positive layers = "
+        f"{g['positive_layer_fraction']:.3f}"
+    )
+
+    print(
+        f"  realized match  = "
+        f"{g['match_abs_error']['mean']:.6f}"
+    )
+
+    print(
+        f"  source cos      = "
+        f"{g['source_realized_cos']['mean']:+.6f}"
+    )
+
+    print(
+        f"  realized REL    = "
+        f"{g['realized_relative']['mean']:.7f}"
+    )
+
+
+# =============================================================================
+# 21. FULL RESPONSE DECOMPOSITION
+#
+# Full v_l perturbasyonu bir sonraki katmanda daha çok backbone'a mı,
+# tangent'e mi gidiyor?
+# =============================================================================
+
+print("\n[10/18] Full semantic response decomposition...")
+
+FULL_TO_BACK = []
+FULL_TO_TANG = []
+FULL_TO_FULL = []
+
+for row in RAW:
+
+    for li in SOURCE_LAYERS:
+
+        x = (
+            row["layers"][str(li)]
+            ["FULL_DECOMP"]
+        )
+
+        FULL_TO_FULL.append(
+            x["to_next_full"]
+        )
+
+        FULL_TO_BACK.append(
+            x["to_next_backbone"]
+        )
+
+        FULL_TO_TANG.append(
+            x["to_next_tangent"]
+        )
+
+S_FULL = stats(
+    FULL_TO_FULL
+)
+
+S_BACK = stats(
+    FULL_TO_BACK
+)
+
+S_TANG = stats(
+    FULL_TO_TANG
+)
+
+print(
+    f"Full -> next full     = "
+    f"{S_FULL['mean']:+.6f}"
+)
+
+print(
+    f"Full -> next backbone = "
+    f"{S_BACK['mean']:+.6f}"
+)
+
+print(
+    f"Full -> next tangent  = "
+    f"{S_TANG['mean']:+.6f}"
+)
+
+
+# =============================================================================
+# 22. CONTEXT CHECK
+#
+# Descriptive only: groups are not paired.
+# =============================================================================
+
+print("\n[11/18] Context descriptive check...")
+
+CONTEXT_SUMMARY = {}
+
+for arm in [
+    "FULL",
+    "BACKBONE",
+    "TANGENT"
+]:
+
+    differences = []
+
+    for li in SOURCE_LAYERS:
+
+        animal = collect(
+            li,
+            arm,
+            "response_target",
+            "ANIMAL"
+        )
+
+        neutral = collect(
+            li,
+            arm,
+            "response_target",
+            "NEUTRAL"
+        )
+
+        if (
+            len(animal)
+            and len(neutral)
+        ):
+
+            differences.append(
+                float(
+                    np.mean(animal)
+                    - np.mean(neutral)
+                )
+            )
+
+    CONTEXT_SUMMARY[arm] = (
+        stats(differences)
+    )
+
+    print(
+        f"{arm:<10} mean "
+        f"ANIMAL−NEUTRAL across layers = "
+        f"{CONTEXT_SUMMARY[arm]['mean']:+.6f}"
+    )
+
+
+# =============================================================================
+# 23. MATCH QUALITY AUDIT
+# =============================================================================
+
+print("\n[12/18] Realized BF16 match audit...")
+
+print(
+    "Acceptance tolerance =",
+    MATCH_TOL
+)
+
+print(
+    "Match failures:",
+    match_failures
+)
+
+for arm in [
+    "FULL",
+    "BACKBONE",
+    "TANGENT"
+]:
+
+    print(
+        f"{arm:<10} "
+        f"mean |match error|="
+        f"{GLOBAL[arm]['match_abs_error']['mean']:.6f} "
+        f"max="
+        f"{GLOBAL[arm]['match_abs_error']['max']:.6f}"
+    )
+
+
+# =============================================================================
+# 24. DECISION LOGIC
+#
+# Bu otomatik etiket yalnız deney dalını seçer.
+# =============================================================================
+
+print("\n[13/18] DECISION")
+print("=" * 160)
+
+back_energy = float(
+    cumulative[selected_rank-1]
+)
+
+B = GLOBAL["BACKBONE"]
+T = GLOBAL["TANGENT"]
+
+back_supported = (
+    B["delta_target"]["mean"] > 0
+    and B["delta_target"]["ci95"][0] > 0
+    and B["positive_layer_fraction"] >= 0.75
+)
+
+tangent_supported = (
+    T["delta_target"]["mean"] > 0
+    and T["delta_target"]["ci95"][0] > 0
+    and T["positive_layer_fraction"] >= 0.75
+)
+
+match_ok = (
+    B["match_abs_error"]["mean"]
+    <= MATCH_TOL
+    and
+    T["match_abs_error"]["mean"]
+    <= MATCH_TOL
+)
+
+if not match_ok:
+
+    DECISION = (
+        "MATCH_QUALITY_INSUFFICIENT"
+    )
+
+elif (
+    back_supported
+    and tangent_supported
+):
+
+    DECISION = (
+        "BACKBONE_AND_TANGENT_TRANSPORT_SUPPORTED"
+    )
+
+elif (
+    back_supported
+    and not tangent_supported
+):
+
+    DECISION = (
+        "BACKBONE_DOMINANT_TANGENT_CORRECTION_CANDIDATE"
+    )
+
+elif (
+    tangent_supported
+    and not back_supported
+):
+
+    DECISION = (
+        "LAYER_TANGENT_TRANSPORT_DOMINANT"
+    )
+
+else:
+
+    DECISION = (
+        "LOW_RANK_DECOMPOSITION_NOT_SUFFICIENT"
+    )
+
+print(
+    f"Selected rank             : "
+    f"{selected_rank}"
+)
+
+print(
+    f"Explained dictionary energy: "
+    f"{back_energy:.4f}"
+)
+
+print(
+    f"Backbone Δrandom          : "
+    f"{B['delta_target']['mean']:+.6f} "
+    f"{ci(B['delta_target'])}"
+)
+
+print(
+    f"Tangent Δrandom           : "
+    f"{T['delta_target']['mean']:+.6f} "
+    f"{ci(T['delta_target'])}"
+)
+
+print(
+    f"Backbone positive layers  : "
+    f"{B['positive_layer_fraction']:.3f}"
+)
+
+print(
+    f"Tangent positive layers   : "
+    f"{T['positive_layer_fraction']:.3f}"
+)
+
+print(
+    f"Backbone match error      : "
+    f"{B['match_abs_error']['mean']:.6f}"
+)
+
+print(
+    f"Tangent match error       : "
+    f"{T['match_abs_error']['mean']:.6f}"
+)
+
+print()
+print("DECISION:")
+print(DECISION)
+
+
+# =============================================================================
+# 25. NEXT BRANCH
+# =============================================================================
+
+print("\n[14/18] NEXT BRANCH")
+
+if DECISION == "BACKBONE_AND_TANGENT_TRANSPORT_SUPPORTED":
+
+    NEXT_BRANCH = (
+        "DYNAMIC_TANGENT_NAVIGATOR"
+    )
+
+    print("""
+Hem ortak semantic backbone hem de katmana özgü tangent response destekleniyor.
+
+Sonraki test:
+  prompt-state -> tangent correction katsayısı
+
+şeklinde düşük-boyutlu navigator kurmak.
+
+Dense 3584x3584 T_l gerekmez.
+Önce rank-k backbone + tangent residual koordinatları yeterli mi test edilir.
+""")
+
+elif DECISION == "BACKBONE_DOMINANT_TANGENT_CORRECTION_CANDIDATE":
+
+    NEXT_BRANCH = (
+        "LAYERWISE_TANGENT_CORRECTION"
+    )
+
+    print("""
+Semantic backbone doğal olarak taşınıyor fakat tangent transport aynı
+güçte desteklenmiyor.
+
+Sonraki test:
+  v_l backbone doğal akışa bırakılır,
+  yalnız katmana özgü tangent yönüne küçük alpha_l düzeltmesi verilir.
+
+Bu, layer-wise adaptive steering hipotezini doğrudan test eder.
+""")
+
+elif DECISION == "LAYER_TANGENT_TRANSPORT_DOMINANT":
+
+    NEXT_BRANCH = (
+        "TANGENT_FIRST_NAVIGATION"
+    )
+
+    print("""
+Katmana özgü tangent response backbone kontrolünden daha belirgin.
+
+Sonraki test:
+  state-conditioned tangent route seçimi.
+""")
+
+elif DECISION == "MATCH_QUALITY_INSUFFICIENT":
+
+    NEXT_BRANCH = (
+        "REPAIR_REALIZED_MATCHING"
+    )
+
+    print("""
+BF16 realized matching hedef toleransı karşılamadı.
+Navigator veya taşıma operatörüne geçilmez.
+Önce null kontrolü daha sıkı eşleştirilir.
+""")
+
+else:
+
+    NEXT_BRANCH = (
+        "SECANT_LOW_RANK_OPERATOR_ASSAY"
+    )
+
+    print("""
+SVD backbone/tangent ayrımı transport yapısını yeterince açıklamadı.
+
+Sonraki adım:
+  tam 3584x3584 matris yerine ölçülmüş finite-secant çiftlerinden
+  düşük-rank T_l operatörü tahmin etmek.
+""")
+
+
+# =============================================================================
+# 26. INTERPRETATION LOCK
+# =============================================================================
+
+print("\n[15/18] INTERPRETATION LOCK")
+
+LOCK = [
+    "TEST129, Dibekgoz'un 20 katman vektörünü SVD ile ortak düşük-rank subspace ve katman residual'larına ayırır.",
+
+    "SVD bileşenine semantic backbone denmesi operasyonel bir isimdir; tek başına biyolojik veya ontolojik semantic temsil iddiası değildir.",
+
+    "Tangent, v_l'nin seçilen ortak subspace dışında kalan ortogonal residual'ıdır.",
+
+    "Random null yalnız requested açıyla değil, BF16'ya gerçekten yazılmış perturbasyonun source-axis cosine'ına göre kabul edilir.",
+
+    "0.0025 küçük müdahale rejimi korunmuştur; gerçekleşen perturbasyon normu ve yönü doğrudan ölçülmektedir.",
+
+    "Bu finite-perturbation/secant deneyidir; Jacobian veya exact gradient ölçümü değildir.",
+
+    "Full, backbone ve tangent kollarında aynı relative injection bütçesi kullanılır; sonuçlar yönsel transport response olarak yorumlanır.",
+
+    "Backbone transport ile tangent transport birbirinden ayrı ölçülür; biri diğerinin varlığını otomatik olarak kanıtlamaz.",
+
+    "Dense 3584x3584 taşıma matrisi bu testte kurulmaz ve sonuçtan otomatik olarak gerekli kabul edilmez.",
+
+    "TEST129 promptları çalıştırıldıktan sonra system-ID verisidir ve sonraki kör doğrulamada yeniden kullanılmamalıdır.",
+]
+
+for i, x in enumerate(
+    LOCK,
+    1
+):
+
+    print(
+        f"{i:02d}. {x}"
+    )
+
+
+# =============================================================================
+# 27. SAVE JSON
+# =============================================================================
+
+print("\n[16/18] JSON kaydediliyor...")
+
+OUTPUT = {
+    "test": "TEST129",
+    "title":
+        "Semantic Backbone and Layer Tangent Decomposition",
+
+    "model": MODEL_ID,
+
+    "config": {
+        "probe_rel": PROBE_REL,
+        "match_tol": MATCH_TOL,
+        "n_matched": N_MATCHED,
+        "max_match_tries": MAX_MATCH_TRIES,
+        "selected_rank":
+            selected_rank,
+        "target_explained":
+            TARGET_EXPLAINED,
+        "prompts":
+            len(PROMPTS),
+    },
+
+    "fingerprint": {
+        "L10": cos10,
+        "L11": cos11,
+        "status": "PASS",
+    },
+
+    "svd": {
+        "singular_values":
+            [
+                float(x)
+                for x in S
+            ],
+
+        "energy_ratio":
+            [
+                float(x)
+                for x in energy_ratio
+            ],
+
+        "cumulative_energy":
+            [
+                float(x)
+                for x in cumulative
+            ],
+
+        "selected_rank":
+            selected_rank,
+
+        "rank_table":
+            RANK_TABLE,
+    },
+
+    "decomposition":
+        DECOMP,
+
+    "layer_summary":
+        SUMMARY,
+
+    "global_summary":
+        GLOBAL,
+
+    "full_response_decomposition": {
+        "to_full": S_FULL,
+        "to_backbone": S_BACK,
+        "to_tangent": S_TANG,
+    },
+
+    "context_summary":
+        CONTEXT_SUMMARY,
+
+    "match_failures":
+        match_failures,
+
+    "decision":
+        DECISION,
+
+    "next_branch":
+        NEXT_BRANCH,
+
+    "interpretation_lock":
+        LOCK,
+
+    "raw":
+        RAW,
+}
+
+with open(
+    OUT_JSON,
+    "w",
+    encoding="utf-8"
+) as f:
+
+    json.dump(
+        OUTPUT,
+        f,
+        ensure_ascii=False,
+        indent=2,
+        default=str
+    )
+
+print(
+    "Saved:",
+    OUT_JSON
+)
+
+
+# =============================================================================
+# 28. FINAL SUMMARY
+# =============================================================================
+
+print("\n[17/18] FINAL SUMMARY")
+print("=" * 160)
+
+print(
+    "TEST129 — SEMANTIC BACKBONE + LAYER TANGENT"
+)
+
+print("=" * 160)
+
+print(
+    f"Fingerprint           : PASS"
+)
+
+print(
+    f"Selected rank         : {selected_rank}"
+)
+
+print(
+    f"Explained energy      : "
+    f"{back_energy:.4f}"
+)
+
+print(
+    f"Mean backbone fraction: "
+    f"{np.mean([DECOMP[l]['backbone_energy_fraction'] for l in range(20)]):.4f}"
+)
+
+print(
+    f"Mean tangent fraction : "
+    f"{np.mean([DECOMP[l]['tangent_energy_fraction'] for l in range(20)]):.4f}"
+)
+
+print()
+
+for arm in [
+    "FULL",
+    "BACKBONE",
+    "TANGENT"
+]:
+
+    g = GLOBAL[arm]
+
+    print(
+        f"{arm:<10} "
+        f"response={g['response_target']['mean']:+.6f} | "
+        f"Δrandom={g['delta_target']['mean']:+.6f} | "
+        f"positive_layers={g['positive_layer_fraction']:.3f} | "
+        f"match={g['match_abs_error']['mean']:.6f}"
+    )
+
+print()
+
+print(
+    f"FULL -> next backbone = "
+    f"{S_BACK['mean']:+.6f}"
+)
+
+print(
+    f"FULL -> next tangent  = "
+    f"{S_TANG['mean']:+.6f}"
+)
+
+print()
+
+print("DECISION:")
+print(DECISION)
+
+print()
+
+print("NEXT:")
+print(NEXT_BRANCH)
+
+
+# =============================================================================
+# 29. DONE
+# =============================================================================
+
+print("\n[18/18] DONE")
+print("JSON:", OUT_JSON)
+
+gc.collect()
+torch.cuda.empty_cache()
