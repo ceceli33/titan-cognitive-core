@@ -1,0 +1,262 @@
+ 
+========================================================================================================================
+TEST 142 — IN-MODEL ENDOGENOUS RECURRENCE
+REAL QWEN BLOCK CLOSED LOOP + TARGET-BLIND FORMATION
+========================================================================================================================
+
+[1/12] Model yükleniyor...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 75.9kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 810kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 40.5MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 73.2MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 128MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.24MB/s]
+Download complete: : 
+
+ 13.1GB,  187MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  496MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:38<00:00,  6.73s/it]
+Loading weights: 100%
+
+ 339/339 [00:04<00:00, 98.99it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 32.6kB/s]
+Model: Qwen/Qwen2.5-7B-Instruct | device=cuda:0 | 47.2s
+
+[2/12] Fingerprint...
+L10=+0.656545 drift=1.358e-07
+L11=+0.658274 drift=3.526e-07
+Fingerprint: PASS
+
+[3/12] Dibekgöz Ayna hazırlanıyor ve mühürleniyor...
+Dibek Ayna hazır: L10
+>>> SEALED
+
+[4/12] Doğal donör hareketleri...
+TARGET = 12
+ANTI   = 12
+NULL   = 12
+
+[5/12] Endogenous consensus...
+TARGET coherence=+0.1904 | spectral=0.2824
+ANTI   coherence=+0.1907 | spectral=0.2781
+NULL   coherence=+0.3451 | spectral=0.4104
+
+[6/12] Empty seats...
+TARGET rank=12 | z0·cons=-0.00000004
+ANTI   rank=12 | z0·cons=+0.00000001
+NULL   rank=12 | z0·cons=-0.00000001
+
+[7/12] Carrier states hazırlanıyor...
+carrier 00 | tokens=  9 | ||h10_in||=50.2929
+carrier 01 | tokens=  9 | ||h10_in||=50.4796
+carrier 02 | tokens=  9 | ||h10_in||=51.4852
+carrier 03 | tokens=  8 | ||h10_in||=52.8159
+carrier 04 | tokens=  8 | ||h10_in||=54.0553
+carrier 05 | tokens= 10 | ||h10_in||=54.8988
+carrier 06 | tokens= 10 | ||h10_in||=51.2896
+carrier 07 | tokens=  8 | ||h10_in||=50.2423
+
+[8/12] Exact Qwen block contexts...
+context 00 | tokens=  9 | kwargs=['attention_mask', 'position_embeddings', 'position_ids', 'past_key_values', 'use_cache']
+context 01 | tokens=  9 | kwargs=['attention_mask', 'position_embeddings', 'position_ids', 'past_key_values', 'use_cache']
+context 02 | tokens=  9 | kwargs=['attention_mask', 'position_embeddings', 'position_ids', 'past_key_values', 'use_cache']
+context 03 | tokens=  8 | kwargs=['attention_mask', 'position_embeddings', 'position_ids', 'past_key_values', 'use_cache']
+context 04 | tokens=  8 | kwargs=['attention_mask', 'position_embeddings', 'position_ids', 'past_key_values', 'use_cache']
+context 05 | tokens= 10 | kwargs=['attention_mask', 'position_embeddings', 'position_ids', 'past_key_values', 'use_cache']
+context 06 | tokens= 10 | kwargs=['attention_mask', 'position_embeddings', 'position_ids', 'past_key_values', 'use_cache']
+context 07 | tokens=  8 | kwargs=['attention_mask', 'position_embeddings', 'position_ids', 'past_key_values', 'use_cache']
+
+[9/12] REAL TRANSFORMER CLOSED LOOP...
+>>> Dibek remains sealed.
+TARGET complete.
+ANTI complete.
+NULL complete.
+>>> All trajectories frozen.
+
+[10/12] FORMATION FROZEN — AYNA OPEN
+
+REAL-BLOCK FORMATION TRAJECTORY
+========================================================================================================================
+STEP |     TARGET       ANTI       NULL |     T-CONS     A-CONS     N-CONS
+------------------------------------------------------------------------------------------------------------------------
+   0 |  +0.014321  +0.048891  -0.048038 |  -0.000000  +0.000000  -0.000000
+   1 |  +0.006088  +0.034831  -0.045718 |  -0.050206  -0.075312  -0.055592
+   2 |  -0.022432  +0.028143  -0.038150 |  -0.151403  -0.139174  -0.130936
+   3 |  -0.019647  +0.010223  -0.035725 |  -0.120873  -0.189939  -0.168422
+   4 |  -0.020974  +0.009173  -0.029535 |  -0.133080  -0.185935  -0.120832
+   5 |  -0.039059  +0.009320  -0.029634 |  -0.172597  -0.134174  -0.082391
+   6 |  -0.046367  +0.000476  -0.027600 |  -0.211068  -0.146187  -0.159010
+   7 |  -0.057874  -0.007143  -0.023667 |  -0.287978  -0.181576  -0.214794
+   8 |  -0.055414  -0.010186  -0.029986 |  -0.241566  -0.144509  -0.158768
+   9 |  -0.064646  -0.017888  -0.018092 |  -0.290709  -0.220688  -0.207919
+  10 |  -0.089280  -0.013268  -0.010130 |  -0.382015  -0.255117  -0.212727
+  11 |  -0.075427  -0.022037  -0.011829 |  -0.304199  -0.245948  -0.157429
+  12 |  -0.079087  -0.019179  -0.003102 |  -0.340726  -0.226476  -0.123384
+  13 |  -0.082015  -0.020211  -0.006069 |  -0.314335  -0.201859  -0.079360
+  14 |  -0.069982  -0.040323  -0.002638 |  -0.270797  -0.263447  -0.145780
+  15 |  -0.072776  -0.027597  +0.002645 |  -0.315857  -0.257030  -0.194286
+  16 |  -0.079638  -0.036496  -0.002528 |  -0.312595  -0.222719  -0.156009
+  17 |  -0.087446  -0.040180  +0.006480 |  -0.357650  -0.281146  -0.191943
+  18 |  -0.109440  -0.043168  +0.012145 |  -0.442904  -0.340437  -0.206191
+  19 |  -0.098573  -0.060072  +0.010243 |  -0.374127  -0.354019  -0.146058
+  20 |  -0.098657  -0.063833  +0.018490 |  -0.389375  -0.322001  -0.112908
+  21 |  -0.096019  -0.060863  +0.024747 |  -0.343364  -0.286259  -0.114309
+  22 |  -0.080435  -0.076678  +0.019662 |  -0.284921  -0.347181  -0.142557
+  23 |  -0.086879  -0.055636  +0.026297 |  -0.348577  -0.314554  -0.218278
+  24 |  -0.109040  -0.053484  +0.019706 |  -0.421992  -0.243722  -0.176967
+
+SUMMARY
+========================================================================================================================
+ARM             START      FINAL      DELTA      SLOPE      CONSΔ      GAIN      KEEP
+TARGET      +0.014321  -0.109040  -0.123361  -0.004172  -0.421992    1.8976    0.4313
+ANTI        +0.048891  -0.053484  -0.102376  -0.004304  -0.243722    1.7928    0.4419
+NULL        -0.048038  +0.019706  +0.067744  +0.003056  -0.176967    1.7971    0.4366
+
+CRITICAL CONTRASTS
+TARGET Δ = -0.123361
+ANTI Δ   = -0.102376
+NULL Δ   = +0.067744
+TARGET - ANTI = -0.020985
+TARGET - NULL = -0.191105
+
+TARGET REAL-BLOCK TELEMETRY
+========================================================================================================================
+STEP   C       REL     ACTCOS       GAIN        R·D       KEEP       INNOV
+   1   0  0.002571  +0.883803     1.9748  +0.417643     0.3929    0.043251
+   2   1  0.002575  +0.893517     1.8029  +0.487159     0.4672    0.036020
+   3   2  0.002557  +0.903182     1.8415  +0.434949     0.4140    0.028578
+   4   3  0.002520  +0.881720     1.9378  +0.406816     0.3651    0.038881
+   5   4  0.002591  +0.886216     1.6518  +0.492498     0.4488    0.019223
+   6   5  0.002586  +0.899740     1.8384  +0.452566     0.4265    0.020941
+   7   6  0.002627  +0.906434     1.7319  +0.520947     0.4926    0.019958
+   8   7  0.002594  +0.896161     2.0829  +0.415784     0.4201    0.036097
+   9   0  0.002613  +0.891190     2.1857  +0.400479     0.4066    0.064694
+  10   1  0.002631  +0.902959     1.8941  +0.460960     0.4848    0.047406
+  11   2  0.002608  +0.907109     1.9595  +0.395510     0.3942    0.035414
+  12   3  0.002564  +0.889629     2.2010  +0.356556     0.3713    0.067987
+  13   4  0.002598  +0.885911     1.9697  +0.409387     0.3930    0.037831
+  14   5  0.002616  +0.901974     1.8448  +0.433677     0.4163    0.037854
+  15   6  0.002643  +0.907179     1.6763  +0.513573     0.4898    0.020659
+  16   7  0.002600  +0.897929     1.7725  +0.498203     0.4765    0.018083
+  17   0  0.002586  +0.891752     2.2373  +0.382447     0.3999    0.064555
+  18   1  0.002643  +0.902917     1.8307  +0.474090     0.4801    0.042580
+  19   2  0.002610  +0.905938     1.8897  +0.434224     0.4294    0.035206
+  20   3  0.002599  +0.890243     1.8946  +0.449037     0.4223    0.035309
+  21   4  0.002611  +0.885553     2.0015  +0.412462     0.3765    0.037515
+  22   5  0.002585  +0.896477     1.8388  +0.423766     0.4034    0.038893
+  23   6  0.002634  +0.904862     1.7207  +0.521985     0.5021    0.022740
+  24   7  0.002574  +0.894105     1.7637  +0.498633     0.4789    0.021199
+
+[11/12] Random carrier-order control...
+Ordered TARGET Δ = -0.123361
+Random carrier Δ = -0.097197 ± 0.032563
+Ordered percentile = 19.5%
+Ordered Z = -0.8035
+
+DIAGNOSTIC FLAGS
+fingerprint_pass                                : True
+target_growth_positive                          : False
+target_growth_gt_anti                           : False
+target_growth_gt_null                           : False
+target_slope_positive                           : False
+target_internal_consensus_positive              : False
+target_final_positive                           : False
+actuator_direction_preserved                    : False
+real_block_response_nonzero                     : True
+
+[12/12] ==============================================================================================================
+TEST 142 COMPLETE
+========================================================================================================================
+JSON: /content/TEST_142_IN_MODEL_ENDOGENOUS_RECURRENCE.json
+
+PRIMARY READOUT
+TARGET : +0.014321 -> -0.109040 | Δ=-0.123361
+ANTI   : +0.048891 -> -0.053484 | Δ=-0.102376
+NULL   : -0.048038 -> +0.019706 | Δ=+0.067744
+
+CRITICAL CONTRASTS
+TARGET - ANTI = -0.020985
+TARGET - NULL = -0.191105
+
+REAL-BLOCK HEALTH
+TARGET mean actual probe rel = 0.002597
+TARGET mean actuator cosine  = +0.896104
+TARGET mean block gain       = 1.897614
+TARGET mean donor-span keep  = 0.431345
+
+READING LOCK
+
+TEST142 asks a stricter question than TEST141.
+
+TEST141:
+    donor geometry itself updated z.
+
+TEST142:
+    z perturbs a real Qwen block input,
+    the actual transformer response is measured,
+    and only that response can drive the next z.
+
+Therefore:
+
+    z_t
+      ↓
+    Qwen block 10
+      ↓
+    response_t
+      ↓
+    endogenous donor-span filter
+      ↓
+    z_(t+1)
+
+Dibek is not in this loop.
+
+The primary semantic quantity remains:
+
+    Delta_TARGET
+        =
+        cos(z_T, Dibek)
+        -
+        cos(z_0, Dibek)
+
+A useful target-selective result requires:
+
+    Delta_TARGET > 0
+    Delta_TARGET > Delta_ANTI
+    Delta_TARGET > Delta_NULL
+
+But even a clean positive result does NOT mean
+a permanent concept has been created.
+
+The stronger defensible interpretation would be:
+
+    a target-blind controller can use the model's
+    own local transformer response to recursively
+    organize an endogenous latent state toward a
+    separately held-out semantic direction.
+
+That is the claim boundary of TEST142.
+
+DONE.
+
