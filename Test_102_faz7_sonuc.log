@@ -1,0 +1,381 @@
+ 
+====================================================================================================================================================================================
+TEST 134 — MICRO-PROBE RESPONSE NAVIGATION
+AKBASCORE — ACTIVE RADAR: PROBE -> SENSE -> CHOOSE -> ACT
+====================================================================================================================================================================================
+
+[1/26] Model yükleniyor...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 82.3kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 903kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 36.0MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 63.8MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 128MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.02MB/s]
+Download complete: : 
+
+ 13.1GB,  466MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  371MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:39<00:00,  7.04s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 99.44it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 32.1kB/s]
+Model          : Qwen/Qwen2.5-7B-Instruct
+dtype          : torch.bfloat16
+RADAR REL      : 0.0025
+ACT REL        : 0.01
+ACT/RADAR      : 4.0
+Shell          : 5.0
+Candidates     : 16
+TRAIN/DEV      : 24 / 8
+BLIND          : 16
+Load time      : 48.5s
+
+[2/26] Ortam parmak izi...
+L10=+0.656545 drift=1.358e-07
+L11=+0.658274 drift=3.526e-07
+Fingerprint: PASS
+
+[3/26] Dibekgoz dictionary...
+cos(v0,v19)   = +0.060267
+cos(v11,v19)  = +0.402078
+cos(v18,v19)  = +0.841571
+
+[4/26] TEST134 tangent radar atlas oluşturuluyor...
+Atlas: 19 layers × 16 candidate
+
+[5/26] TRAIN + DEV ACTIVE-RADAR system-ID başlıyor...
+  32/32 | 11.6m
+TRAIN+DEV completed in 11.6 min
+
+[6/26] DEV radar scorer regularization seçiliyor...
+L00->L01 λ=100     DEV radar=+0.02268 scalar=+0.01905 oracle=+0.03760 row-r=-0.025 microD-r=-0.127
+L01->L02 λ=10      DEV radar=+0.00578 scalar=-0.00200 oracle=+0.00883 row-r=+0.223 microD-r=-0.013
+L02->L03 λ=0.0001  DEV radar=+0.00806 scalar=-0.00012 oracle=+0.01712 row-r=+0.125 microD-r=+0.258
+L03->L04 λ=100     DEV radar=+0.00072 scalar=-0.00545 oracle=+0.01644 row-r=-0.026 microD-r=-0.051
+L04->L05 λ=0.0001  DEV radar=-0.00351 scalar=-0.00349 oracle=+0.01420 row-r=-0.338 microD-r=-0.279
+L05->L06 λ=10      DEV radar=-0.00084 scalar=+0.00177 oracle=+0.00813 row-r=-0.257 microD-r=+0.089
+L06->L07 λ=100     DEV radar=-0.00150 scalar=+0.00379 oracle=+0.01135 row-r=+0.149 microD-r=-0.154
+L07->L08 λ=0.0001  DEV radar=-0.00183 scalar=+0.00479 oracle=+0.01773 row-r=-0.486 microD-r=-0.116
+L08->L09 λ=0.0001  DEV radar=+0.00195 scalar=+0.00139 oracle=+0.01479 row-r=-0.288 microD-r=-0.127
+L09->L10 λ=100     DEV radar=+0.00190 scalar=+0.00171 oracle=+0.01651 row-r=-0.183 microD-r=+0.105
+L10->L11 λ=0.0001  DEV radar=+0.00138 scalar=-0.00156 oracle=+0.01361 row-r=-0.136 microD-r=-0.153
+L11->L12 λ=100     DEV radar=+0.00081 scalar=+0.00033 oracle=+0.00801 row-r=+0.232 microD-r=+0.037
+L12->L13 λ=100     DEV radar=-0.00528 scalar=-0.00635 oracle=+0.00637 row-r=+0.358 microD-r=+0.232
+L13->L14 λ=0.0001  DEV radar=-0.00087 scalar=-0.00959 oracle=+0.00608 row-r=+0.192 microD-r=+0.134
+L14->L15 λ=10      DEV radar=-0.00478 scalar=-0.00428 oracle=+0.00977 row-r=-0.058 microD-r=-0.016
+L15->L16 λ=10      DEV radar=-0.00636 scalar=-0.00686 oracle=+0.00265 row-r=+0.184 microD-r=-0.078
+L16->L17 λ=100     DEV radar=+0.00092 scalar=+0.00157 oracle=+0.01442 row-r=+0.268 microD-r=+0.085
+L17->L18 λ=0.0001  DEV radar=-0.00528 scalar=-0.00484 oracle=+0.00715 row-r=-0.105 microD-r=+0.049
+L18->L19 λ=100     DEV radar=+0.00631 scalar=+0.00172 oracle=+0.01153 row-r=+0.157 microD-r=+0.158
+
+[7/26] Global fixed correction seçiliyor...
+L00: candidate=04 TRAIN+DEV ACT Δ=+0.00733
+L01: candidate=03 TRAIN+DEV ACT Δ=-0.00125
+L02: candidate=06 TRAIN+DEV ACT Δ=+0.00071
+L03: candidate=09 TRAIN+DEV ACT Δ=+0.00098
+L04: candidate=06 TRAIN+DEV ACT Δ=+0.00806
+L05: candidate=12 TRAIN+DEV ACT Δ=+0.00064
+L06: candidate=14 TRAIN+DEV ACT Δ=+0.00125
+L07: candidate=10 TRAIN+DEV ACT Δ=+0.00492
+L08: candidate=09 TRAIN+DEV ACT Δ=+0.00591
+L09: candidate=15 TRAIN+DEV ACT Δ=+0.00329
+L10: candidate=14 TRAIN+DEV ACT Δ=-0.00056
+L11: candidate=02 TRAIN+DEV ACT Δ=-0.00087
+L12: candidate=02 TRAIN+DEV ACT Δ=-0.00148
+L13: candidate=04 TRAIN+DEV ACT Δ=+0.00012
+L14: candidate=00 TRAIN+DEV ACT Δ=+0.00174
+L15: candidate=12 TRAIN+DEV ACT Δ=+0.00075
+L16: candidate=00 TRAIN+DEV ACT Δ=+0.00135
+L17: candidate=11 TRAIN+DEV ACT Δ=+0.00133
+L18: candidate=02 TRAIN+DEV ACT Δ=+0.00221
+
+[8/26] BLIND ACTIVE-RADAR assay...
+  16/16 | 5.9m
+BLIND completed in 5.9 min
+
+[9/26] Global blind analysis...
+
+[10/26] BLIND ACTIVE-RADAR SUMMARY
+================================================================================================================================================================
+RADAR SENSOR Δ vs FIXED : -0.001810 [-0.004278,+0.000658] | +=0.382
+SCALAR MICRO Δ vs FIXED : -0.001545 [-0.003515,+0.000425] | +=0.382
+GLOBAL Δ vs FIXED       : -0.000942 [-0.002694,+0.000809] | +=0.391
+RANDOM Δ vs FIXED       : -0.001566 [-0.003600,+0.000468] | +=0.405
+ORACLE Δ vs FIXED       : +0.012460 [+0.010593,+0.014327] | +=0.911
+
+RADAR - GLOBAL          : -0.000868 [-0.003175,+0.001440]
+RADAR - RANDOM          : -0.000244 [-0.002407,+0.001920]
+RADAR - SCALAR          : -0.000265 [-0.002109,+0.001579]
+
+Oracle capture ratio    : -0.145
+Predicted ↔ ACT corr    : -0.1148
+Raw microΔ ↔ ACT corr   : -0.0112
+Mean RADAR rank         : 8.438 (random=8.5)
+RADAR Top-4             : 0.263 (random=.250)
+RADAR exact oracle hit  : 0.089 (random=.0625)
+Scalar mean rank        : 8.141
+Scalar Top-4            : 0.286
+
+[11/26] RADAR / ACTUATOR integrity...
+RADAR requested REL = 0.0025000
+RADAR realized REL  = 0.0025619
+RADAR dir cosine    = +0.903045
+
+ACT requested REL   = 0.0100000
+ACT realized REL    = 0.0100866
+ACT dir cosine      = +0.987810
+Realized ACT/RADAR  = 3.937
+
+[12/26] Layer-wise blind navigation...
+==============================================================================================================================================================================================
+STEP            RADAR     SCALAR     GLOBAL     RANDOM     ORACLE       R-G       R-R       R-S     RANK     TOP4
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+L0->L1      -0.00983   -0.00513   -0.00138   -0.00390   +0.02944  -0.00845  -0.00592  -0.00470     8.75    0.250
+L1->L2      -0.00997   -0.00512   -0.01010   -0.00290   +0.00269  +0.00013  -0.00706  -0.00484     8.62    0.312
+L2->L3      +0.00117   -0.00115   +0.00361   -0.00299   +0.01781  -0.00245  +0.00415  +0.00232     7.19    0.250
+L3->L4      +0.00104   -0.00066   -0.00028   +0.00314   +0.01512  +0.00132  -0.00210  +0.00169     7.88    0.375
+L4->L5      +0.00070   +0.00436   +0.00507   +0.00893   +0.02350  -0.00436  -0.00822  -0.00366     9.19    0.125
+L5->L6      -0.00844   -0.00636   -0.00917   -0.00952   +0.00877  +0.00073  +0.00108  -0.00208     9.88    0.125
+L6->L7      +0.00236   -0.00304   -0.00009   -0.00090   +0.01437  +0.00245  +0.00326  +0.00540     6.31    0.438
+L7->L8      -0.00863   -0.00691   -0.00474   -0.00562   +0.00284  -0.00389  -0.00301  -0.00171     9.69    0.188
+L8->L9      +0.00200   +0.00467   -0.00010   -0.00571   +0.02023  +0.00210  +0.00771  -0.00267     6.62    0.375
+L9->L10     +0.00123   +0.00586   -0.00146   +0.00065   +0.01279  +0.00269  +0.00059  -0.00463     8.94    0.250
+L10->L11     +0.00307   -0.00126   +0.00061   -0.00010   +0.00818  +0.00245  +0.00317  +0.00433     5.31    0.625
+L11->L12     -0.00244   -0.00612   -0.00323   +0.00072   +0.01037  +0.00079  -0.00316  +0.00367     9.81    0.188
+L12->L13     +0.00624   +0.00619   +0.01096   +0.00492   +0.02057  -0.00472  +0.00132  +0.00004     8.62    0.312
+L13->L14     -0.00064   -0.00212   +0.00062   -0.00300   +0.00654  -0.00125  +0.00236  +0.00148     6.62    0.438
+L14->L15     -0.00104   -0.00057   -0.00307   -0.00114   +0.01156  +0.00203  +0.00010  -0.00048     9.12    0.125
+L15->L16     -0.00253   -0.00241   +0.00227   -0.00437   +0.00552  -0.00480  +0.00184  -0.00012     9.69    0.250
+L16->L17     -0.00105   -0.00303   -0.00309   -0.00112   +0.00627  +0.00204  +0.00007  +0.00198     9.69    0.062
+L17->L18     -0.00790   -0.00497   -0.00573   -0.00581   +0.00783  -0.00217  -0.00209  -0.00293     9.62    0.062
+L18->L19     +0.00026   -0.00160   +0.00140   -0.00104   +0.01236  -0.00114  +0.00131  +0.00186     8.75    0.250
+
+[13/26] Layer consistency...
+RADAR > GLOBAL layers : 0.526
+RADAR > RANDOM layers : 0.632
+RADAR > SCALAR layers : 0.474
+
+[14/26] Prompt-level blind summary...
+P00 RAD=-0.00184 SC=+0.00060 G=-0.00172 R=+0.00201 O=+0.01182
+P01 RAD=+0.00679 SC=+0.00431 G=-0.00042 R=-0.00327 O=+0.01914
+P02 RAD=-0.00433 SC=-0.00627 G=-0.00379 R=-0.00199 O=+0.01335
+P03 RAD=+0.00192 SC=+0.00156 G=+0.00202 R=+0.00355 O=+0.01159
+P04 RAD=-0.00166 SC=-0.00380 G=-0.00241 R=-0.00332 O=+0.01144
+P05 RAD=+0.00487 SC=+0.00571 G=+0.00120 R=+0.00039 O=+0.01305
+P06 RAD=-0.00063 SC=-0.00218 G=-0.00187 R=-0.00251 O=+0.01431
+P07 RAD=-0.00526 SC=-0.00372 G=-0.00353 R=-0.00058 O=+0.01091
+P08 RAD=-0.00526 SC=-0.00438 G=-0.00205 R=-0.00976 O=+0.00681
+P09 RAD=-0.00714 SC=-0.00152 G=+0.00264 R=-0.00405 O=+0.01905
+P10 RAD=+0.00461 SC=+0.00169 G=+0.00229 R=+0.00223 O=+0.01335
+P11 RAD=+0.00103 SC=+0.00265 G=+0.00424 R=+0.00238 O=+0.01260
+P12 RAD=-0.00624 SC=-0.00519 G=-0.00687 R=-0.00958 O=+0.00619
+P13 RAD=-0.00446 SC=-0.00287 G=-0.00402 R=-0.00035 O=+0.01060
+P14 RAD=-0.00891 SC=-0.00832 G=+0.00147 R=-0.00029 O=+0.01476
+P15 RAD=-0.00245 SC=-0.00298 G=-0.00225 R=+0.00008 O=+0.01039
+
+[15/26] Radar feature diagnostic...
+source_response_cos          |absβ|=0.003541 meanβ=-0.000676
+response_gain_norm           |absβ|=0.003405 meanβ=-0.001598
+response_vnext_projection    |absβ|=0.002753 meanβ=-0.000804
+bias                         |absβ|=0.002198 meanβ=-0.001609
+realized_dir_cos             |absβ|=0.001816 meanβ=+0.000778
+log_response_norm            |absβ|=0.001800 meanβ=+0.000874
+resp_rnext                   |absβ|=0.001405 meanβ=+0.000521
+realized_radar_rel           |absβ|=0.001287 meanβ=-0.000044
+response_rnext_projection    |absβ|=0.001265 meanβ=+0.000210
+resp_vnext                   |absβ|=0.000984 meanβ=+0.000374
+semantic_transfer_delta      |absβ|=0.000846 meanβ=-0.000013
+resp_vcurrent                |absβ|=0.000822 meanβ=+0.000297
+resp_q                       |absβ|=0.000756 meanβ=+0.000006
+q_vnext                      |absβ|=0.000502 meanβ=+0.000325
+resp_u                       |absβ|=0.000445 meanβ=-0.000143
+
+[16/26] Radar selection diversity...
+Mean unique candidates/layer: 8.316
+Mean modal fraction: 0.286
+
+[17/26] DEV -> BLIND generalization...
+Mean DEV radar-selected ACT Δ : +0.001066
+Mean BLIND radar ACT Δ        : -0.001810
+Layer DEV↔BLIND correlation   : -0.3100
+
+[18/26] DECISION
+====================================================================================================================================================================================
+RADAR Δ       = -0.001810 [-0.004278,+0.000658]
+SCALAR Δ      = -0.001545 [-0.003515,+0.000425]
+RADAR-GLOBAL  = -0.000868 [-0.003175,+0.001440]
+RADAR-RANDOM  = -0.000244 [-0.002407,+0.001920]
+RADAR-SCALAR  = -0.000265 [-0.002109,+0.001579]
+ORACLE Δ      = +0.012460 [+0.010593,+0.014327]
+Capture ratio = -0.145
+Micro↔Act r   = -0.0112
+Pred↔Act r    = -0.1148
+R>G layers    = 0.526
+
+DECISION:
+MICRO_PROBE_NAVIGATION_MIXED_OR_NOT_SUPPORTED
+
+[19/26] NEXT BRANCH
+
+Sonuç karışık veya yetersiz.
+
+Yeni karmaşıklık eklenmeden önce layer/prompt yapısı
+ve micro->act transferi ayrıştırılmalıdır.
+
+
+[20/26] INTERPRETATION LOCK
+01. TEST134 aktif radar testidir: candidate micro-probe response'u ölçülür ve daha büyük actuator müdahalesinin başarısını tahmin etmek için kullanılır.
+02. RADAR_REL=0.0025 ve ACT_REL=0.01 farklıdır; sensor target intervention'ın aynısını ölçüp yeniden adlandırmaz.
+03. Her radar probe ayrı forward pass'tir; probe kaynaklı hidden-state değişimi sonraki candidate probe'a veya actuator pass'ına taşınmaz.
+04. BLIND candidate seçimi bütün ACT_REL candidate outcome'ları görülmeden önce dondurulur.
+05. BLIND oracle ACT outcome'ları selection freeze sonrasında hesaplanan üst sınırdır ve navigator tarafından kullanılamaz.
+06. Primary başarı ölçüsü RADAR-FIXED değildir tek başına; RADAR-GLOBAL ve RADAR-RANDOM kontrastları da gereklidir.
+07. GLOBAL kol TRAIN+DEV üzerinde ACT_REL sonucuna göre seçilmiş state-independent correction baseline'dır.
+08. SCALAR kol yalnız micro-probe D_next avantajını kullanır; full radar scorer'ın gerçekten ek bilgi taşıyıp taşımadığını kontrol eder.
+09. Candidate ID scorer feature değildir.
+10. Primary scorer baseline hidden state'in statik cosine feature'larına dayanmaz; gerçek finite micro-response feature'larını kullanır.
+11. Predicted-vs-ACT correlation secondary diagnostiktir; asıl karar frozen selection'ın gerçek blind actuator sonucundan verilir.
+12. MicroΔ-vs-ACT correlation küçük müdahale response'unun daha büyük müdahaleye taşınıp taşınmadığını gösteren önemli transfer diagnosticidir.
+13. Oracle fırsatının varlığı navigator başarısı değildir; maksimum seçimi winner-selection bias içerir.
+14. Bu deney finite perturbation/secant deneyidir; Jacobian, exact derivative, gradient veya ağırlık güncellemesi iddiası taşımaz.
+15. TEST134 tek transition navigasyonudur; başarılı olsa bile multi-layer closed-loop navigation otomatik olarak kanıtlanmış olmaz.
+16. DRA envelope, brake ve gain controller bu testte kullanılmaz.
+17. TEST134 BLIND promptları deneyden sonra exposed/system-ID verisine dönüşür ve sonraki blind testte tekrar kullanılmamalıdır.
+
+[21/26] SCIENTIFIC SUMMARY
+====================================================================================================================================================================================
+RADAR_REL              : 0.0025
+ACT_REL                : 0.01
+ACT/RADAR requested    : 4.00x
+
+RADAR Δ vs FIXED       : -0.001810 [-0.004278,+0.000658]
+SCALAR Δ vs FIXED      : -0.001545 [-0.003515,+0.000425]
+GLOBAL Δ vs FIXED      : -0.000942 [-0.002694,+0.000809]
+RANDOM Δ vs FIXED      : -0.001566 [-0.003600,+0.000468]
+ORACLE Δ vs FIXED      : +0.012460 [+0.010593,+0.014327]
+
+RADAR-GLOBAL           : -0.000868 [-0.003175,+0.001440]
+RADAR-RANDOM           : -0.000244 [-0.002407,+0.001920]
+RADAR-SCALAR           : -0.000265 [-0.002109,+0.001579]
+
+MicroΔ -> ACT corr     : -0.0112
+Scorer -> ACT corr     : -0.1148
+Oracle capture ratio   : -0.145
+Mean radar rank        : 8.438/16
+Radar Top-4            : 0.263
+Exact oracle hit       : 0.089
+
+DECISION:
+MICRO_PROBE_NAVIGATION_MIXED_OR_NOT_SUPPORTED
+
+NEXT:
+REASSESS_ACTIVE_RADAR_HYPOTHESIS
+
+[22/26] JSON hazırlanıyor...
+
+[23/26] JSON kaydediliyor...
+Saved: /content/TEST_134_MICRO_PROBE_RESPONSE_NAVIGATION.json
+
+[24/26] HANDOFF
+
+TEST134'te ilk bakılacak çıktılar:
+
+1. MICROΔ -> ACT CORRELATION
+   0.0025'teki response, 0.01 intervention sonucunu gerçekten taşıyor mu?
+
+2. RADAR Δ vs FIXED
+   Aktif radarın seçtiği candidate historical Dibekgoz pusulasını
+   gerçek ACT dozunda geçiyor mu?
+
+3. RADAR - GLOBAL
+   Aktif ölçüm yapmak, tek sabit correction'dan üstün mü?
+
+4. RADAR - RANDOM
+   Sonuç yalnız candidate seçmiş olmanın sonucu mu?
+
+5. RADAR - SCALAR
+   Vektörel response scorer, yalnız micro D_next'e bakmaktan
+   gerçekten daha fazla bilgi taşıyor mu?
+
+6. ORACLE Δ
+   Daha büyük ACT_REL=.01 rejiminde de local correction opportunity var mı?
+
+7. RANK / TOP-4 / ORACLE HIT
+   Radar candidate sıralamasında gerçek bilgi taşıyor mu?
+
+Başarı halinde ilk kez şu zincir desteklenmiş olur:
+
+    PROBE
+      ->
+    PHYSICAL RESPONSE
+      ->
+    SENSE
+      ->
+    CHOOSE DIRECTION
+      ->
+    STRONGER ACT
+
+Bu henüz multi-layer GPS değildir.
+
+Multi-layer closed-loop test yalnız TEST134 BLIND sonucu
+gerçekten desteklenirse yapılacaktır.
+
+
+[25/26] FINAL COMPACT SUMMARY
+====================================================================================================================================================================================
+TEST134 — MICRO-PROBE RESPONSE NAVIGATION
+====================================================================================================================================================================================
+Fingerprint          : PASS
+Radar REL            : 0.0025
+Act REL              : 0.01
+Requested shell      : 5.0°
+
+RADAR Δ              : -0.001810 [-0.004278,+0.000658]
+SCALAR Δ             : -0.001545 [-0.003515,+0.000425]
+GLOBAL Δ             : -0.000942 [-0.002694,+0.000809]
+RANDOM Δ             : -0.001566 [-0.003600,+0.000468]
+ORACLE Δ             : +0.012460 [+0.010593,+0.014327]
+
+RADAR-GLOBAL         : -0.000868 [-0.003175,+0.001440]
+RADAR-RANDOM         : -0.000244 [-0.002407,+0.001920]
+RADAR-SCALAR         : -0.000265 [-0.002109,+0.001579]
+
+MicroΔ↔ACT r         : -0.0112
+Pred↔ACT r           : -0.1148
+Capture ratio        : -0.145
+Mean radar rank      : 8.438/16
+Radar Top-4          : 0.263
+Radar>Global layers  : 0.526
+
+DECISION:
+MICRO_PROBE_NAVIGATION_MIXED_OR_NOT_SUPPORTED
+
+NEXT:
+REASSESS_ACTIVE_RADAR_HYPOTHESIS
+
+[26/26] DONE
+JSON: /content/TEST_134_MICRO_PROBE_RESPONSE_NAVIGATION.json
+
