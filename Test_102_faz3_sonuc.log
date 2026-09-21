@@ -1,0 +1,238 @@
+ 
+================================================================================================================================================================
+TEST 129 — SEMANTIC BACKBONE + LAYER TANGENT DECOMPOSITION
+================================================================================================================================================================
+
+[1/18] Model yükleniyor...
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 76.7kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 970kB/s]
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 84.4MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 70.6MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 128MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.33MB/s]
+Download complete: : 
+
+ 13.1GB,  737MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  429MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:40<00:00,  6.75s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 99.94it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 24.0kB/s]
+Model      : Qwen/Qwen2.5-7B-Instruct
+dtype      : torch.bfloat16
+Probe REL  : 0.0025
+Match tol  : 0.002
+Matched rnd: 4
+Prompts    : 40
+Load time  : 53.3s
+
+[2/18] Ortam parmak izi...
+L10 +0.656545 drift=1.358e-07
+L11 +0.658274 drift=3.526e-07
+Fingerprint: PASS
+
+[3/18] Dibekgoz sözlüğü çıkarılıyor...
+V shape: (20, 3584)
+cos(v0,v19) = +0.060267
+cos(v11,v19)= +0.402078
+
+[4/18] SVD semantic backbone analizi...
+
+Singular spectrum:
+PC01 singular=2.909160 energy=0.4232 cum=0.4232
+PC02 singular=1.968443 energy=0.1937 cum=0.6169
+PC03 singular=1.402758 energy=0.0984 cum=0.7153
+PC04 singular=1.048296 energy=0.0549 cum=0.7702
+PC05 singular=0.938793 energy=0.0441 cum=0.8143
+PC06 singular=0.790195 energy=0.0312 cum=0.8455
+PC07 singular=0.728708 energy=0.0266 cum=0.8721
+PC08 singular=0.621977 energy=0.0193 cum=0.8914
+PC09 singular=0.608061 energy=0.0185 cum=0.9099
+PC10 singular=0.525358 energy=0.0138 cum=0.9237
+PC11 singular=0.488359 energy=0.0119 cum=0.9356
+PC12 singular=0.469459 energy=0.0110 cum=0.9466
+PC13 singular=0.454568 energy=0.0103 cum=0.9570
+PC14 singular=0.410203 energy=0.0084 cum=0.9654
+PC15 singular=0.394165 energy=0.0078 cum=0.9732
+PC16 singular=0.368594 energy=0.0068 cum=0.9800
+PC17 singular=0.341387 energy=0.0058 cum=0.9858
+PC18 singular=0.327466 energy=0.0054 cum=0.9911
+PC19 singular=0.322190 energy=0.0052 cum=0.9963
+PC20 singular=0.270941 energy=0.0037 cum=1.0000
+Rank 01 -> 42.32%
+Rank 02 -> 61.69%
+Rank 03 -> 71.53%
+Rank 05 -> 81.43%
+Rank 08 -> 89.14%
+Rank 10 -> 92.37%
+
+SELECTED BACKBONE RANK = 5
+Explained energy       = 0.8143
+
+[5/18] Katman vektörleri backbone+tangent ayrılıyor...
+Mean backbone energy fraction = 0.814299
+Mean tangent energy fraction  = 0.185701
+Max reconstruction error cos  = 0.999999821
+
+[6/18] Transport deneyi başlıyor...
+Arms: FULL / BACKBONE / TANGENT
+Random controls are accepted only after realized BF16 matching.
+  40/40 | elapsed=12.1 min
+Experiment completed in 12.1 min
+
+[7/18] Katman bazlı sonuçlar...
+
+[8/18] BACKBONE vs TANGENT TRANSPORT
+================================================================================================================================================================
+STEP            FULL    F Δrnd      BACK    B Δrnd      TANG    T Δrnd    Bmatch    Tmatch
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+L0->L1      +0.3078   +0.0123   +0.3963   -0.0049   -0.2403   -0.0016    0.0007    0.0009
+L1->L2      +0.4019   +0.0084   +0.4745   +0.0007   +0.0394   +0.0015    0.0006    0.0005
+L2->L3      +0.3865   -0.0005   +0.4350   +0.0022   +0.0534   +0.0008    0.0009    0.0007
+L3->L4      +0.3782   -0.0000   +0.4161   -0.0015   +0.0758   -0.0001    0.0007    0.0008
+L4->L5      +0.3643   +0.0020   +0.4159   +0.0009   +0.0138   +0.0002    0.0008    0.0009
+L5->L6      +0.2813   +0.0015   +0.3442   -0.0021   -0.0142   +0.0030    0.0008    0.0009
+L6->L7      +0.2057   -0.0009   +0.2569   +0.0009   -0.0223   +0.0005    0.0007    0.0008
+L7->L8      +0.3098   +0.0005   +0.3755   +0.0040   -0.0033   +0.0008    0.0005    0.0009
+L8->L9      +0.3054   +0.0002   +0.3846   -0.0003   -0.0558   -0.0038    0.0007    0.0009
+L9->L10     +0.3311   -0.0044   +0.3849   -0.0013   +0.0760   -0.0003    0.0005    0.0009
+L10->L11     +0.4032   +0.0037   +0.4410   -0.0034   +0.0846   -0.0016    0.0007    0.0009
+L11->L12     +0.4089   -0.0005   +0.4460   -0.0079   +0.0596   +0.0003    0.0007    0.0008
+L12->L13     +0.3874   -0.0031   +0.4623   +0.0037   +0.0037   -0.0015    0.0007    0.0009
+L13->L14     +0.4237   +0.0016   +0.4679   -0.0046   +0.0664   -0.0013    0.0008    0.0009
+L14->L15     +0.4449   +0.0047   +0.4872   +0.0026   +0.1502   +0.0002    0.0007    0.0009
+L15->L16     +0.4805   -0.0031   +0.5253   -0.0030   +0.1957   -0.0020    0.0006    0.0008
+L16->L17     +0.4562   +0.0004   +0.4905   -0.0041   +0.1381   +0.0004    0.0007    0.0008
+L17->L18     +0.4095   +0.0074   +0.4514   -0.0067   -0.0341   -0.0008    0.0008    0.0009
+L18->L19     +0.3963   -0.0062   +0.4417   -0.0038   +0.0998   +0.0002    0.0007    0.0009
+
+[9/18] Global summary...
+
+FULL
+  target response = +0.372760 [+0.36719,+0.37833]
+  Δ vs matched rnd= +0.001268 [-0.00008,+0.00262]
+  positive layers = 0.579
+  realized match  = 0.000702
+  source cos      = +0.877246
+  realized REL    = 0.0025750
+
+BACKBONE
+  target response = +0.426176 [+0.42055,+0.43181]
+  Δ vs matched rnd= -0.001517 [-0.00290,-0.00013]
+  positive layers = 0.368
+  realized match  = 0.000696
+  source cos      = +0.875111
+  realized REL    = 0.0025803
+
+TANGENT
+  target response = +0.036133 [+0.02933,+0.04293]
+  Δ vs matched rnd= -0.000275 [-0.00115,+0.00060]
+  positive layers = 0.526
+  realized match  = 0.000840
+  source cos      = +0.901647
+  realized REL    = 0.0025665
+
+[10/18] Full semantic response decomposition...
+Full -> next full     = +0.372760
+Full -> next backbone = +0.390422
+Full -> next tangent  = +0.045519
+
+[11/18] Context descriptive check...
+FULL       mean ANIMAL−NEUTRAL across layers = +0.000969
+BACKBONE   mean ANIMAL−NEUTRAL across layers = -0.002675
+TANGENT    mean ANIMAL−NEUTRAL across layers = +0.002645
+
+[12/18] Realized BF16 match audit...
+Acceptance tolerance = 0.002
+Match failures: {'FULL': 0, 'BACKBONE': 0, 'TANGENT': 0}
+FULL       mean |match error|=0.000702 max=0.001825
+BACKBONE   mean |match error|=0.000696 max=0.001835
+TANGENT    mean |match error|=0.000840 max=0.001915
+
+[13/18] DECISION
+================================================================================================================================================================
+Selected rank             : 5
+Explained dictionary energy: 0.8143
+Backbone Δrandom          : -0.001517 [-0.00290,-0.00013]
+Tangent Δrandom           : -0.000275 [-0.00115,+0.00060]
+Backbone positive layers  : 0.368
+Tangent positive layers   : 0.526
+Backbone match error      : 0.000696
+Tangent match error       : 0.000840
+
+DECISION:
+LOW_RANK_DECOMPOSITION_NOT_SUFFICIENT
+
+[14/18] NEXT BRANCH
+
+SVD backbone/tangent ayrımı transport yapısını yeterince açıklamadı.
+
+Sonraki adım:
+  tam 3584x3584 matris yerine ölçülmüş finite-secant çiftlerinden
+  düşük-rank T_l operatörü tahmin etmek.
+
+
+[15/18] INTERPRETATION LOCK
+01. TEST129, Dibekgoz'un 20 katman vektörünü SVD ile ortak düşük-rank subspace ve katman residual'larına ayırır.
+02. SVD bileşenine semantic backbone denmesi operasyonel bir isimdir; tek başına biyolojik veya ontolojik semantic temsil iddiası değildir.
+03. Tangent, v_l'nin seçilen ortak subspace dışında kalan ortogonal residual'ıdır.
+04. Random null yalnız requested açıyla değil, BF16'ya gerçekten yazılmış perturbasyonun source-axis cosine'ına göre kabul edilir.
+05. 0.0025 küçük müdahale rejimi korunmuştur; gerçekleşen perturbasyon normu ve yönü doğrudan ölçülmektedir.
+06. Bu finite-perturbation/secant deneyidir; Jacobian veya exact gradient ölçümü değildir.
+07. Full, backbone ve tangent kollarında aynı relative injection bütçesi kullanılır; sonuçlar yönsel transport response olarak yorumlanır.
+08. Backbone transport ile tangent transport birbirinden ayrı ölçülür; biri diğerinin varlığını otomatik olarak kanıtlamaz.
+09. Dense 3584x3584 taşıma matrisi bu testte kurulmaz ve sonuçtan otomatik olarak gerekli kabul edilmez.
+10. TEST129 promptları çalıştırıldıktan sonra system-ID verisidir ve sonraki kör doğrulamada yeniden kullanılmamalıdır.
+
+[16/18] JSON kaydediliyor...
+Saved: /content/TEST_129_BACKBONE_TANGENT.json
+
+[17/18] FINAL SUMMARY
+================================================================================================================================================================
+TEST129 — SEMANTIC BACKBONE + LAYER TANGENT
+================================================================================================================================================================
+Fingerprint           : PASS
+Selected rank         : 5
+Explained energy      : 0.8143
+Mean backbone fraction: 0.8143
+Mean tangent fraction : 0.1857
+
+FULL       response=+0.372760 | Δrandom=+0.001268 | positive_layers=0.579 | match=0.000702
+BACKBONE   response=+0.426176 | Δrandom=-0.001517 | positive_layers=0.368 | match=0.000696
+TANGENT    response=+0.036133 | Δrandom=-0.000275 | positive_layers=0.526 | match=0.000840
+
+FULL -> next backbone = +0.390422
+FULL -> next tangent  = +0.045519
+
+DECISION:
+LOW_RANK_DECOMPOSITION_NOT_SUFFICIENT
+
+NEXT:
+SECANT_LOW_RANK_OPERATOR_ASSAY
+
+[18/18] DONE
+JSON: /content/TEST_129_BACKBONE_TANGENT.json
+
