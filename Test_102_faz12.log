@@ -1,0 +1,1310 @@
+# =============================================================================
+# TEST 138 v2 — FROZEN +3 BLIND REPLICATION + CAPACITY MAP
+# AKBASCORE — FP32 PRETERMINAL RADAR -> BF16 L19
+# Qwen2.5-7B-Instruct · BF16 · A100 · TEK HÜCRE
+#
+# =============================================================================
+# v1'DEKİ HATALAR VE DÜZELTMELER
+# =============================================================================
+#
+# [H1] KRİTİK — BATCH-ŞEKLİ NUMERİK SAPMASI
+#   v1'de baseline B=1 ile, FIXED B=1 ile, SEM/RND/NULL ise B=16 batch ile
+#   hesaplanıyordu. delta = capture - baseline. BF16 GEMM farklı batch
+#   boyutunda farklı kernel/yuvarlama seçebildiği için, hiç pertürbe
+#   edilmemiş bir satır bile baseline'dan farklı çıkabilir. Bu fark FIXED
+#   (B=1) ile SEM/NULL (B=16) arasında SİSTEMATİK bir sapma yaratıyor ve
+#   ölçülmeye çalışılan etki (~0.003) bu sapmayla aynı büyüklükte.
+#   DÜZELTME: tek bir batch: [baseline(ölçek=0), FIXED, 16 SEM, 16 RND,
+#   16 NULL] = 50 satır, aynı forward. Delta = satır_i − satır_0 (aynı
+#   batch içindeki baseline). v1 yönteminin yaratacağı sapma ayrıca ÖLÇÜLÜP
+#   raporlanır (bölüm [9]).
+#
+# [H2] VERİMLİLİK / KARARLILIK — BLOK KOPYALAMA
+#   v1 her prompt × her katman için decoder bloğunu deepcopy ediyordu
+#   (~24×4×5 = 480 kopya, her biri ~1 GB FP32). v2: KATMAN-DIŞ döngü.
+#   Bir kaynak için önce 24 promptun tamamı yakalanır, sonra her katman
+#   bloğu BİR KEZ FP32'ye kopyalanır ve 24 promptun tüm dalları geçirilir.
+#   Toplam ~43 kopya.
+#
+# [H3] DAL BATCH'LEME
+#   33 yön × (+/−) = 66 dal tek batch'te geçirilir. İlk çağrıda batch ile
+#   tek-satır çıktısı karşılaştırılır; fark >1e-4 ise otomatik olarak
+#   satır-satır moda düşülür (güvenlik kilidi).
+#
+# =============================================================================
+# EKLENEN ÖLÇÜMLER (kapasite + geliştirme olanakları)
+# =============================================================================
+#
+# [E1] KAPASİTE HARİTASI
+#   FIXED D19 (taşıma), P19 (fiziksel etki), fırsat (oracle−null),
+#   fırsatın FIXED taşımasına oranı (headroom %), radarın fırsatı
+#   yakalama oranı (capture). "Sistem şu an ne kadar taşıyor, üstünde ne
+#   kadar alan var, radar bunun ne kadarını alıyor?"
+#
+# [E2] FP32 → L19 KOLU
+#   Radar her kaynaktan doğrudan L19'a kadar FP32'de koşar. Bu kolun rho'su
+#   ~1 ise kalan açık MESAFE; ~0.5'te kalıyorsa açık BF16 aktüatör /
+#   doz-doğrusalsızlığı. Birincil karara girmez; teşhistir.
+#
+# [E3] MERCEK KOLU
+#   Dev aktivasyon boyutlarının (ayrı kalibrasyon promptundan) radar
+#   yanıtlarındaki ve L19 farklarındaki ENERJİ PAYI ölçülür. Mercekli
+#   sensörle seçim yapılıp UNMASKED L19 sonucu değerlendirilir. Birincil
+#   uç nokta değişmez.
+#
+# [E4] v1 SAPMA ÖLÇÜMÜ
+#   Batch baseline ile tek-geçiş baseline arasındaki L19 farkı ve v1
+#   yönteminin D19'a getireceği mutlak sapma raporlanır.
+#
+# =============================================================================
+# DEĞİŞMEYENLER (v1 kilitleri)
+# =============================================================================
+#   PRIMARY = +3, TEST137 sonrası önceden dondurulmuş
+#   Primary çıkarım yalnız source+horizon < 19
+#   Karar kriterleri v1 ile birebir aynı
+#   Prompt-cluster bootstrap
+#   Parmak izi, Dibekgoz, semantik aile, atlas, null: v1 ile birebir aynı
+#   DRA / fren / kontrolcü / üretim YOK
+#   Jacobian, gradyan, semantik nedensellik iddiası YOK
+#
+# NOT: Bu 24 prompt v1 için yazılmıştı. v1 BF16 sonuç aşamasına HİÇ
+# ulaşmadıysa kör sayılırlar. Ulaştıysa PROMPTS listesini değiştir.
+# =============================================================================
+
+import gc
+import json
+import math
+import random
+import time
+import copy
+import warnings
+
+import numpy as np
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+warnings.filterwarnings("ignore")
+
+
+# =============================================================================
+# 0. CONFIG
+# =============================================================================
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+SEED = 13803
+
+MODEL_LAYERS = 28
+VECTOR_LAYERS = 20
+HIDDEN = 3584
+TERMINAL = 19
+
+SOURCE_LAYERS = [3, 6, 10, 14]
+FROZEN_PRIMARY_HORIZON = 3
+SECONDARY_HORIZONS = [2, 5]
+PROBE_OFFSETS = [FROZEN_PRIMARY_HORIZON] + SECONDARY_HORIZONS
+
+RADAR_REL = 0.0025
+ACT_REL = 0.04
+SHELL_DEG = 5.0
+
+N_SEMANTIC = 16
+N_RANDOM = 16
+N_NULL = 16
+NULL_JITTER_REL = 2.5e-4
+
+MERCEK_K = 20
+
+EXPECTED_COS10 = 0.656545
+EXPECTED_COS11 = 0.658274
+FINGERPRINT_TOL = 5e-6
+IDENTITY_TOL = 0.99999
+BATCH_CHECK_TOL = 1e-4
+
+EPS = 1e-12
+N_BOOT = 10000
+
+OUT_JSON = "/content/TEST_138_V2_FROZEN_HORIZON_CAPACITY.json"
+
+
+# =============================================================================
+# 1. KİLİTLİ METİNLER (v1 ile birebir)
+# =============================================================================
+
+ABOVE = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+BELOW = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+NEUTRAL = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+TEMPLATES = [
+    "The creature is essentially {X}.",
+    "Observing it closely, the animal is clearly {X}.",
+    "The specimen in front of us is {X}.",
+    "Field notes describe the creature as {X}.",
+    "In every respect the body plan is that of {X}.",
+    "The zoologist identified the animal as {X}.",
+    "Anatomically the creature is {X}.",
+    "Taxonomically the creature groups with {X}.",
+]
+POS_DIBEK = "a tailless bipedal ape"
+NEG_DIBEK = "a tailed quadrupedal mammal"
+NEG_VARIANTS = [
+    "a long-tailed quadrupedal mammal",
+    "a tailed four-legged mammal",
+    "a quadrupedal mammal with a tail",
+    "a four-legged tailed animal",
+    "a tailed terrestrial quadruped",
+    "a quadrupedal creature with a long tail",
+    "a four-legged mammalian animal with a tail",
+    "a tailed mammal walking on four limbs",
+]
+assert len(set(NEG_VARIANTS)) == 8 and NEG_DIBEK not in NEG_VARIANTS
+
+# Mercek kalibrasyonu — deney promptlarından BAĞIMSIZ
+MERCEK_CALIB = [
+    "Describe what you see.",
+    "Write a short paragraph about the weather.",
+    "Explain how a bicycle works.",
+]
+
+PROMPTS = [
+    "Field observers recorded an unfamiliar forest animal moving cautiously between exposed tree roots after sunrise.",
+    "A motion-triggered camera captured an unidentified creature examining loose soil beside a fallen branch.",
+    "Researchers watched a rarely documented animal pause near a shallow pool before continuing through dense vegetation.",
+    "A biological survey photographed an unusual creature reaching toward vegetation along the edge of a rocky clearing.",
+    "Wildlife specialists observed an unknown animal adjust its posture while navigating a steep patch of forest ground.",
+    "A remote monitoring station recorded a strange creature carrying natural material toward a sheltered area.",
+    "Naturalists documented an elusive animal turning toward a noise before moving behind several large stones.",
+    "A research team observed an uncatalogued creature investigating fruit scattered beneath a mature tree.",
+    "Field biologists recorded a poorly understood animal resting briefly beside a stream before climbing the bank.",
+    "A conservation camera captured an unusual creature moving across uneven ground near a cluster of shrubs.",
+    "Researchers documented an unidentified animal manipulating vegetation while searching around the base of a tree.",
+    "A zoological expedition observed a rare creature crossing a narrow open area between two sections of woodland.",
+    "Technicians recorded voltage measurements from several control modules during a scheduled equipment inspection.",
+    "A maintenance crew measured the alignment of metal supports before replacing damaged exterior panels.",
+    "Laboratory staff logged pressure values from multiple instruments during a routine calibration procedure.",
+    "Warehouse workers counted packaged components before transferring them between two inventory sections.",
+    "Engineers documented temperature readings from several machines operating under a standardized workload.",
+    "Surveyors placed reference markers along a prepared surface before beginning the next measurement sequence.",
+    "Operators inspected fastening points on an industrial platform during the morning maintenance period.",
+    "Archive employees catalogued sealed document containers before moving them to another storage room.",
+    "A construction team checked distances between structural anchors before installing the remaining sections.",
+    "Facility staff recorded water levels in multiple reservoirs during a routine systems inspection.",
+    "Technicians examined cable connections inside several equipment cabinets before restoring normal operation.",
+    "Quality-control workers measured component dimensions before approving the next manufacturing batch.",
+]
+N_PROMPTS = len(PROMPTS)
+assert N_PROMPTS == 24 and len(set(PROMPTS)) == 24
+ANIMAL_IDX = list(range(0, 12))
+NEUTRAL_IDX = list(range(12, 24))
+
+
+# =============================================================================
+# 2. TEKRARLANABİLİRLİK
+# =============================================================================
+
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+torch.cuda.manual_seed_all(SEED)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+torch.backends.cuda.matmul.allow_tf32 = False
+torch.backends.cudnn.allow_tf32 = False
+
+
+# =============================================================================
+# 3. YARDIMCILAR
+# =============================================================================
+
+def unit(v):
+    v = v.float()
+    n = torch.linalg.vector_norm(v)
+    if float(n.item()) <= EPS:
+        raise RuntimeError("Sıfır vektör.")
+    return v / n
+
+
+def cos(a, b):
+    a = a.float().reshape(-1); b = b.float().reshape(-1)
+    na = torch.linalg.vector_norm(a); nb = torch.linalg.vector_norm(b)
+    if float(na.item()) <= EPS or float(nb.item()) <= EPS:
+        return float("nan")
+    return float((torch.dot(a, b) / (na * nb)).item())
+
+
+def angle(a, b):
+    c = cos(a, b)
+    return float("nan") if not np.isfinite(c) else float(np.degrees(np.arccos(np.clip(c, -1, 1))))
+
+
+def pearson(a, b):
+    a = np.asarray(a, dtype=np.float64); b = np.asarray(b, dtype=np.float64)
+    m = np.isfinite(a) & np.isfinite(b)
+    a = a[m]; b = b[m]
+    if len(a) < 3 or np.std(a) <= EPS or np.std(b) <= EPS:
+        return float("nan")
+    return float(np.corrcoef(a, b)[0, 1])
+
+
+def rankdata(x):
+    x = np.asarray(x, dtype=np.float64)
+    r = np.empty(len(x), dtype=np.float64)
+    r[np.argsort(x, kind="mergesort")] = np.arange(len(x), dtype=np.float64)
+    return r
+
+
+def spearman(a, b):
+    a = np.asarray(a, dtype=np.float64); b = np.asarray(b, dtype=np.float64)
+    m = np.isfinite(a) & np.isfinite(b)
+    return float("nan") if int(m.sum()) < 3 else pearson(rankdata(a[m]), rankdata(b[m]))
+
+
+def mean_or_nan(x):
+    x = np.asarray(x, dtype=np.float64)
+    x = x[np.isfinite(x)]
+    return float(np.mean(x)) if len(x) else float("nan")
+
+
+def cluster_bootstrap(values, seed, n_boot=N_BOOT):
+    x = np.asarray(values, dtype=np.float64)
+    x = x[np.isfinite(x)]
+    if len(x) == 0:
+        return {"mean": float("nan"), "ci95": [float("nan")] * 2,
+                "positive_fraction": float("nan"), "n": 0}
+    rng = np.random.default_rng(seed)
+    idx = rng.integers(0, len(x), size=(n_boot, len(x)))
+    boot = x[idx].mean(axis=1)
+    return {"mean": float(np.mean(x)),
+            "ci95": [float(np.quantile(boot, 0.025)), float(np.quantile(boot, 0.975))],
+            "positive_fraction": float(np.mean(x > 0)), "n": int(len(x))}
+
+
+def fmt_ci(s, d=6):
+    return f"[{s['ci95'][0]:+.{d}f},{s['ci95'][1]:+.{d}f}]"
+
+
+def pair_angle_mean(vs):
+    return mean_or_nan([angle(vs[i], vs[j]) for i in range(len(vs)) for j in range(i + 1, len(vs))])
+
+
+def clone_nested(x):
+    if torch.is_tensor(x):
+        return x.detach().clone()
+    if isinstance(x, tuple):
+        return tuple(clone_nested(v) for v in x)
+    if isinstance(x, list):
+        return [clone_nested(v) for v in x]
+    if isinstance(x, dict):
+        return {k: clone_nested(v) for k, v in x.items()}
+    return x
+
+
+def fp32_nested(x):
+    if torch.is_tensor(x):
+        return x.float() if x.is_floating_point() else x
+    if isinstance(x, tuple):
+        return tuple(fp32_nested(v) for v in x)
+    if isinstance(x, list):
+        return [fp32_nested(v) for v in x]
+    if isinstance(x, dict):
+        return {k: fp32_nested(v) for k, v in x.items()}
+    return x
+
+
+def locate_hidden(args, kwargs):
+    if len(args) > 0 and torch.is_tensor(args[0]) and args[0].ndim == 3:
+        return "args", 0, args[0]
+    if "hidden_states" in kwargs and torch.is_tensor(kwargs["hidden_states"]):
+        return "kwargs", "hidden_states", kwargs["hidden_states"]
+    raise RuntimeError("hidden_states bulunamadı.")
+
+
+def set_hidden(args, kwargs, hidden):
+    args = list(args); kwargs = dict(kwargs)
+    where, key, _ = locate_hidden(args, kwargs)
+    if where == "args":
+        args[key] = hidden
+    else:
+        kwargs[key] = hidden
+    return tuple(args), kwargs
+
+
+def valid_probe_offsets(src):
+    return [k for k in PROBE_OFFSETS if src + k <= TERMINAL]
+
+
+def preterminal(src, k):
+    return src + k < TERMINAL
+
+
+# =============================================================================
+# 4. MODEL
+# =============================================================================
+
+print("=" * 170)
+print("TEST 138 v2 — FROZEN +3 BLIND REPLICATION + CAPACITY MAP")
+print("AKBASCORE — FP32 PRETERMINAL RADAR -> BF16 L19 (batch-consistent)")
+print("=" * 170)
+
+if not torch.cuda.is_available():
+    raise RuntimeError("CUDA GPU gerekli.")
+
+print("\n[1/24] Model yükleniyor...")
+t0 = time.time()
+tokenizer = AutoTokenizer.from_pretrained(MODEL_ID, trust_remote_code=True)
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+tokenizer.padding_side = "right"
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID, dtype=torch.bfloat16, device_map="auto", trust_remote_code=True,
+    low_cpu_mem_usage=True, attn_implementation="sdpa")
+model.eval()
+for p in model.parameters():
+    p.requires_grad_(False)
+device = next(model.parameters()).device
+assert len(model.model.layers) == MODEL_LAYERS and model.config.hidden_size == HIDDEN
+print(f"Model {MODEL_ID} | {time.time()-t0:.0f}s")
+print(f"Kaynaklar {SOURCE_LAYERS} | PRIMARY +{FROZEN_PRIMARY_HORIZON} | "
+      f"SECONDARY {SECONDARY_HORIZONS} | RADAR {RADAR_REL} | ACT {ACT_REL}")
+
+
+# =============================================================================
+# 5. ÇIKARIM + SÖZLÜK
+# =============================================================================
+
+@torch.inference_mode()
+def extract_hidden(texts):
+    enc = tokenizer(texts, padding=True, truncation=True, max_length=128, return_tensors="pt")
+    ids = enc["input_ids"].to(device); mask = enc["attention_mask"].to(device)
+    lengths = mask.sum(dim=1).long()
+    cap = [None] * VECTOR_LAYERS
+    hs = []
+
+    def mk(li):
+        def h(m, i, o):
+            cap[li] = (o[0] if isinstance(o, tuple) else o).detach()
+        return h
+
+    try:
+        for li in range(VECTOR_LAYERS):
+            hs.append(model.model.layers[li].register_forward_hook(mk(li)))
+        model(input_ids=ids, attention_mask=mask, use_cache=False)
+    finally:
+        for h in hs:
+            h.remove()
+    B = ids.shape[0]
+    out = torch.empty(B, VECTOR_LAYERS, HIDDEN, dtype=torch.float32)
+    for li in range(VECTOR_LAYERS):
+        h = cap[li].float()
+        rows = torch.arange(B, device=h.device)
+        out[:, li] = h[rows, (lengths - 1).to(h.device)].cpu()
+    return out
+
+
+def build_dictionary(pos, neg):
+    xp = extract_hidden(pos); xn = extract_hidden(neg)
+    d = {li: unit(xp[:, li].mean(0) - xn[:, li].mean(0)) for li in range(VECTOR_LAYERS)}
+    del xp, xn
+    gc.collect()
+    return d
+
+
+# =============================================================================
+# 6. PARMAK İZİ
+# =============================================================================
+
+print("\n[2/24] Parmak izi...")
+xa = extract_hidden(ABOVE); xb = extract_hidden(BELOW); xn = extract_hidden(NEUTRAL)
+cos10 = cos(unit(xa[:, 10].mean(0) - xn[:, 10].mean(0)), unit(xb[:, 10].mean(0) - xn[:, 10].mean(0)))
+cos11 = cos(unit(xa[:, 11].mean(0) - xn[:, 11].mean(0)), unit(xb[:, 11].mean(0) - xn[:, 11].mean(0)))
+d10 = abs(cos10 - EXPECTED_COS10); d11 = abs(cos11 - EXPECTED_COS11)
+print(f"L10={cos10:+.6f} drift={d10:.3e} | L11={cos11:+.6f} drift={d11:.3e}")
+if d10 > FINGERPRINT_TOL or d11 > FINGERPRINT_TOL:
+    raise RuntimeError("FINGERPRINT FAILED.")
+print("Fingerprint: PASS")
+del xa, xb, xn
+gc.collect(); torch.cuda.empty_cache()
+
+
+# =============================================================================
+# 7. DİBEKGOZ + SEMANTİK AİLE
+# =============================================================================
+
+print("\n[3/24] Dibekgoz + semantik aile...")
+POS = [t.format(X=POS_DIBEK) for t in TEMPLATES]
+NEG = [t.format(X=NEG_DIBEK) for t in TEMPLATES]
+DIBEK = build_dictionary(POS, NEG)
+DIBEK_FP = {"v0_v19": cos(DIBEK[0], DIBEK[19]), "v11_v19": cos(DIBEK[11], DIBEK[19]),
+            "v18_v19": cos(DIBEK[18], DIBEK[19])}
+print(f"cos(v0,v19)={DIBEK_FP['v0_v19']:+.6f} cos(v11,v19)={DIBEK_FP['v11_v19']:+.6f} "
+      f"cos(v18,v19)={DIBEK_FP['v18_v19']:+.6f}")
+
+SEM_DICTS, SEM_LABELS = [], []
+for omit in range(8):
+    SEM_DICTS.append(build_dictionary([POS[i] for i in range(8) if i != omit],
+                                      [NEG[i] for i in range(8) if i != omit]))
+    SEM_LABELS.append(f"LOO_{omit}")
+for vi, ph in enumerate(NEG_VARIANTS):
+    SEM_DICTS.append(build_dictionary(POS, [t.format(X=ph) for t in TEMPLATES]))
+    SEM_LABELS.append(f"NEGVAR_{vi}")
+assert len(SEM_DICTS) == N_SEMANTIC
+print(f"  {N_SEMANTIC} semantik sözlük hazır")
+
+
+# =============================================================================
+# 8. MERCEK KALİBRASYONU (deney promptlarından bağımsız)
+# =============================================================================
+
+print("\n[4/24] Mercek kalibrasyonu...")
+_cap = {}
+
+
+def _mkr(li):
+    def h(m, i, o):
+        x = (o[0] if isinstance(o, tuple) else o).detach().float()
+        _cap[li] = _cap.get(li, 0) + x[0].pow(2).sum(0).cpu()
+    return h
+
+
+_hs = [model.model.layers[li].register_forward_hook(_mkr(li)) for li in range(VECTOR_LAYERS)]
+with torch.inference_mode():
+    for p in MERCEK_CALIB:
+        model(**{k: v.to(device) for k, v in tokenizer(p, return_tensors="pt").items()}, use_cache=False)
+for h in _hs:
+    h.remove()
+energy = sum(_cap[li] for li in range(VECTOR_LAYERS))
+DEV_IDX = torch.argsort(energy, descending=True)[:MERCEK_K]
+MASK = torch.ones(HIDDEN)
+MASK[DEV_IDX] = 0.0
+del _cap
+print(f"  dev boyutlar (ilk 5): {DEV_IDX[:5].tolist()}")
+
+
+def cos_m(a, b):
+    return cos(a.float().reshape(-1) * MASK, b.float().reshape(-1) * MASK)
+
+
+def dev_energy_frac(a):
+    a = a.float().reshape(-1)
+    tot = float(a.pow(2).sum())
+    return float("nan") if tot <= EPS else float(a[DEV_IDX].pow(2).sum()) / tot
+
+
+# =============================================================================
+# 9. ATLASLAR (v1 ile birebir)
+# =============================================================================
+
+print("\n[5/24] Atlaslar...")
+theta = math.radians(SHELL_DEG)
+SEM_ATLAS, RND_ATLAS = {}, {}
+for li in SOURCE_LAYERS:
+    v = unit(DIBEK[li])
+    rows = []
+    for cid in range(N_SEMANTIC):
+        w = unit(SEM_DICTS[cid][li])
+        rc = cos(w, v)
+        if rc > IDENTITY_TOL:
+            raise RuntimeError(f"L{li} aday {cid} kimlik çöküşü.")
+        t = w - torch.dot(w, v) * v
+        if float(torch.linalg.vector_norm(t)) <= 1e-8:
+            raise RuntimeError(f"L{li} aday {cid} teğet çöküşü.")
+        q = unit(math.cos(theta) * v + math.sin(theta) * unit(t))
+        rows.append({"id": cid, "label": SEM_LABELS[cid], "q": q, "raw_cos": rc,
+                     "natural_angle": angle(w, v)})
+    SEM_ATLAS[li] = rows
+    rr = []
+    for cid in range(N_RANDOM):
+        g = torch.Generator(device="cpu"); g.manual_seed(SEED + 1_000_000 + li * 1000 + cid)
+        z = torch.randn(HIDDEN, generator=g, dtype=torch.float32)
+        z = unit(z - torch.dot(z, v) * v)
+        rr.append({"id": cid, "q": unit(math.cos(theta) * v + math.sin(theta) * z)})
+    RND_ATLAS[li] = rr
+    nat = [r["natural_angle"] for r in rows]
+    print(f"  L{li:02d}: doğal semantik açı [{min(nat):.1f}°, {max(nat):.1f}°] ort {np.mean(nat):.1f}°")
+
+
+def make_null_dirs(li, pi):
+    v = unit(DIBEK[li])
+    out = []
+    for nid in range(N_NULL):
+        g = torch.Generator(device="cpu"); g.manual_seed(SEED + 7_000_000 + 100_000 * pi + 1000 * li + nid)
+        z = torch.randn(HIDDEN, generator=g, dtype=torch.float32)
+        z = unit(z - torch.dot(z, v) * v)
+        out.append(unit(v + NULL_JITTER_REL * z))
+    return out
+
+
+# =============================================================================
+# 10. YAKALAMA: baseline çıktıları + her replay katmanının gerçek çağrısı
+# =============================================================================
+
+@torch.inference_mode()
+def capture_prompt(prompt, src):
+    offs = valid_probe_offsets(src)
+    out_layers = sorted(set([src, TERMINAL] + [src + k for k in offs]))
+    replay = list(range(src + 1, TERMINAL + 1))
+    outputs, calls, hs = {}, {}, []
+
+    def mko(lid):
+        def h(m, a, o):
+            outputs[lid] = (o[0] if isinstance(o, tuple) else o)[0, -1].detach().float().cpu().clone()
+        return h
+
+    def mkp(lid):
+        def h(m, a, kw):
+            calls[lid] = {"args": clone_nested(a), "kwargs": clone_nested(kw)}
+        return h
+
+    try:
+        for lid in out_layers:
+            hs.append(model.model.layers[lid].register_forward_hook(mko(lid)))
+        for lid in replay:
+            hs.append(model.model.layers[lid].register_forward_pre_hook(mkp(lid), with_kwargs=True))
+        model(**{k: v.to(device) for k, v in tokenizer(prompt, return_tensors="pt").items()}, use_cache=False)
+    finally:
+        for h in hs:
+            h.remove()
+    for lid in out_layers:
+        if lid not in outputs:
+            raise RuntimeError(f"L{lid} çıktı yakalanamadı.")
+    for lid in replay:
+        if lid not in calls:
+            raise RuntimeError(f"L{lid} çağrı metadata yakalanamadı.")
+    return outputs, calls
+
+
+# =============================================================================
+# 11. FP32 BLOK ÇAĞRISI (batch + güvenlik kilidi)
+# =============================================================================
+
+BATCH_MODE = {"mode": None, "check_diff": None}
+
+
+@torch.inference_mode()
+def _block_call(block, meta, X):
+    args = fp32_nested(meta["args"]); kwargs = fp32_nested(meta["kwargs"])
+    args, kwargs = set_hidden(args, kwargs, X)
+    if "use_cache" in kwargs:
+        kwargs["use_cache"] = False
+    out = block(*args, **kwargs)
+    if isinstance(out, tuple):
+        out = out[0]
+    elif hasattr(out, "last_hidden_state"):
+        out = out.last_hidden_state
+    return out.float()
+
+
+@torch.inference_mode()
+def run_block(block, meta, X):
+    if BATCH_MODE["mode"] is None:
+        try:
+            yb = _block_call(block, meta, X)
+            y1 = _block_call(block, meta, X[0:1])
+            diff = float(torch.linalg.vector_norm(yb[0] - y1[0]) /
+                         (torch.linalg.vector_norm(y1[0]) + EPS))
+            BATCH_MODE["check_diff"] = diff
+            BATCH_MODE["mode"] = "batch" if diff < BATCH_CHECK_TOL else "row"
+        except Exception as e:
+            BATCH_MODE["mode"] = "row"
+            BATCH_MODE["check_diff"] = f"batch hata: {type(e).__name__}"
+        print(f"    [FP32 dal modu: {BATCH_MODE['mode']} | kontrol farkı {BATCH_MODE['check_diff']}]")
+        if BATCH_MODE["mode"] == "batch":
+            return yb
+    if BATCH_MODE["mode"] == "batch":
+        return _block_call(block, meta, X)
+    return torch.cat([_block_call(block, meta, X[i:i + 1]) for i in range(X.shape[0])], dim=0)
+
+
+# =============================================================================
+# 12. BF16 TEK-BATCH AKTÜATÖR  [H1 düzeltmesi]
+#   satır 0 = baseline (ölçek 0), satır i = rel * ‖h‖ * ölçek_i * q_i
+#   delta = satır_i − satır_0 (AYNI batch)
+# =============================================================================
+
+@torch.inference_mode()
+def act_batch(prompt, src, Q, scales, rel, layers):
+    B = Q.shape[0]
+    Qd = Q.to(device=device, dtype=torch.float32)
+    Sd = scales.to(device=device, dtype=torch.float32).unsqueeze(1)
+    caps, rec, hs = {}, {}, []
+
+    def src_hook(m, a, o):
+        h = o[0] if isinstance(o, tuple) else o
+        hn = h.clone()
+        before = h[:, -1, :].float()
+        n0 = torch.linalg.vector_norm(before[0])
+        hn[:, -1, :] = (before + rel * n0 * Sd * Qd).to(h.dtype)
+        rec["dx"] = (hn[:, -1, :].float() - before).detach().cpu()
+        rec["src_norm"] = float(n0)
+        return ((hn,) + tuple(o[1:])) if isinstance(o, tuple) else hn
+
+    def mkt(lid):
+        def h(m, a, o):
+            caps[lid] = (o[0] if isinstance(o, tuple) else o)[:, -1, :].detach().float().cpu()
+        return h
+
+    try:
+        hs.append(model.model.layers[src].register_forward_hook(src_hook))
+        for lid in layers:
+            if lid != src:
+                hs.append(model.model.layers[lid].register_forward_hook(mkt(lid)))
+        enc = tokenizer(prompt, return_tensors="pt")
+        be = {k: v.repeat(B, *([1] * (v.ndim - 1))).to(device) for k, v in enc.items()}
+        model(**be, use_cache=False)
+    finally:
+        for h in hs:
+            h.remove()
+    return rec, caps
+
+
+# =============================================================================
+# 13. DEĞERLENDİRME (tek ofset)
+# =============================================================================
+
+def eval_offset(sc, sc_m, rsc, sem_delta, rnd_delta, oracle_id):
+    order = np.argsort(-sc, kind="mergesort")
+    top1 = int(order[0])
+    Q4, Q3, Q2, Q1 = order[0:4], order[4:8], order[8:12], order[12:16]
+    rtop1 = int(np.argsort(-rsc, kind="mergesort")[0])
+    t_order = np.argsort(-sem_delta, kind="mergesort")
+    rank = int(np.where(t_order == top1)[0][0]) + 1
+    q = [float(np.mean(sem_delta[g])) for g in (Q1, Q2, Q3, Q4)]
+    m_order = np.argsort(-sc_m, kind="mergesort")
+    mtop1 = int(m_order[0])
+    return {
+        "top1_id": top1, "top1_label": SEM_LABELS[top1],
+        "top1_delta": float(sem_delta[top1]),
+        "random_top1_delta": float(rnd_delta[rtop1]),
+        "top1_minus_random": float(sem_delta[top1] - rnd_delta[rtop1]),
+        "top2_mean_delta": float(np.mean(sem_delta[order[:2]])),
+        "top4_mean_delta": float(np.mean(sem_delta[order[:4]])),
+        "bottom4_mean_delta": float(np.mean(sem_delta[order[-4:]])),
+        "top4_minus_bottom4": float(np.mean(sem_delta[order[:4]]) - np.mean(sem_delta[order[-4:]])),
+        "Q1_mean_delta": q[0], "Q2_mean_delta": q[1], "Q3_mean_delta": q[2], "Q4_mean_delta": q[3],
+        "Q4_minus_Q1": q[3] - q[0],
+        "quartile_trend": pearson([1, 2, 3, 4], q),
+        "sem_terminal_spearman": spearman(sc, sem_delta),
+        "sem_terminal_pearson": pearson(sc, sem_delta),
+        "rnd_terminal_spearman": spearman(rsc, rnd_delta),
+        "terminal_rank_of_radar_top1": rank,
+        "radar_top1_is_terminal_top4": int(rank <= 4),
+        "radar_top1_is_terminal_oracle": int(top1 == oracle_id),
+        # mercekli sensör, UNMASKED sonuç
+        "rho_masked_sensor": spearman(sc_m, sem_delta),
+        "top1_delta_masked_sensor": float(sem_delta[mtop1]),
+        "Q4_minus_Q1_masked_sensor": float(np.mean(sem_delta[m_order[0:4]]) - np.mean(sem_delta[m_order[12:16]])),
+    }
+
+
+# =============================================================================
+# 14. ANA DENEY — kaynak başına KATMAN-DIŞ döngü
+# =============================================================================
+
+print("\n[6/24] Ana deney...")
+RESULTS = []
+t_main = time.time()
+
+for src in SOURCE_LAYERS:
+    offs = valid_probe_offsets(src)
+    t19 = TERMINAL - src
+    rec_offs = sorted(set(offs + [t19]))
+    print(f"\n  KAYNAK L{src} | ufuklar {offs} | FP32→L19 ofseti +{t19}")
+
+    # ---- A. 24 promptu yakala ----
+    CAP = [capture_prompt(p, src) for p in PROMPTS]
+
+    # ---- B. radar dallarını kur ----
+    Qr = torch.stack([unit(DIBEK[src])] + [c["q"] for c in SEM_ATLAS[src]] +
+                     [c["q"] for c in RND_ATLAS[src]]).to(device)
+    ND = Qr.shape[0]
+    assert ND == 1 + N_SEMANTIC + N_RANDOM
+    STATES, EPSN = [], []
+    for pi in range(N_PROMPTS):
+        meta = CAP[pi][1][src + 1]
+        _, _, h = locate_hidden(meta["args"], meta["kwargs"])
+        h0 = h.detach().float()
+        eps = RADAR_REL * float(torch.linalg.vector_norm(h0[0, -1]))
+        X = h0.repeat(2 * ND, 1, 1)
+        X[:ND, -1] += eps * Qr
+        X[ND:, -1] -= eps * Qr
+        STATES.append(X); EPSN.append(eps)
+
+    RADAR = [dict() for _ in range(N_PROMPTS)]
+
+    # ---- C. katman-dış FP32 replay ----
+    for lid in range(src + 1, TERMINAL + 1):
+        blk = copy.deepcopy(model.model.layers[lid]).to(device=device, dtype=torch.float32).eval()
+        for p in blk.parameters():
+            p.requires_grad_(False)
+        off = lid - src
+        for pi in range(N_PROMPTS):
+            STATES[pi] = run_block(blk, CAP[pi][1][lid], STATES[pi])
+            if off in rec_offs:
+                resp = ((STATES[pi][:ND, -1] - STATES[pi][ND:, -1]) / 2.0).detach().float().cpu()
+                v = DIBEK[lid]
+                RADAR[pi][off] = {
+                    "D": np.array([cos(resp[i], v) for i in range(ND)]),
+                    "Dm": np.array([cos_m(resp[i], v) for i in range(ND)]),
+                    "E": np.array([dev_energy_frac(resp[i]) for i in range(ND)]),
+                    "gain": np.array([float(torch.linalg.vector_norm(resp[i])) / (EPSN[pi] + EPS)
+                                      for i in range(ND)]),
+                }
+        del blk
+        gc.collect(); torch.cuda.empty_cache()
+        print(f"    L{lid} tamam | {(time.time()-t_main)/60:.1f}m", end="\r")
+    print()
+    del STATES
+    gc.collect(); torch.cuda.empty_cache()
+
+    # ================= SEÇİM DONDURULDU (tüm radar, hiçbir BF16 sonuç yok) =================
+    FROZEN = []
+    for pi in range(N_PROMPTS):
+        FROZEN.append({off: {"sem": RADAR[pi][off]["D"][1:1 + N_SEMANTIC].copy(),
+                             "sem_m": RADAR[pi][off]["Dm"][1:1 + N_SEMANTIC].copy(),
+                             "rnd": RADAR[pi][off]["D"][1 + N_SEMANTIC:].copy()}
+                       for off in rec_offs})
+
+    # ---- D. BF16 sonuçları: TEK batch ----
+    act_layers = sorted(set([src, TERMINAL] + [src + k for k in offs]))
+    rows = []
+    for pi, prompt in enumerate(PROMPTS):
+        baseline_single = CAP[pi][0]
+        null_dirs = make_null_dirs(src, pi)
+        v_src = unit(DIBEK[src])
+        Q = torch.stack([v_src, v_src] + [c["q"] for c in SEM_ATLAS[src]] +
+                        [c["q"] for c in RND_ATLAS[src]] + null_dirs)
+        scales = torch.ones(Q.shape[0]); scales[0] = 0.0
+        rec, caps = act_batch(prompt, src, Q, scales, ACT_REL, act_layers)
+
+        # satır düzeni: 0 base | 1 fixed | 2:18 sem | 18:34 rnd | 34:50 null
+        I_F, I_S, I_R, I_N = 1, slice(2, 18), slice(18, 34), slice(34, 50)
+        c19 = caps[TERMINAL]
+        d19 = c19 - c19[0:1]
+        v19 = DIBEK[TERMINAL]
+        D19 = np.array([cos(d19[i], v19) for i in range(Q.shape[0])])
+        D19m = np.array([cos_m(d19[i], v19) for i in range(Q.shape[0])])
+        E19 = np.array([dev_energy_frac(d19[i]) for i in range(1, Q.shape[0])])
+
+        fixed_D19 = float(D19[I_F])
+        sem_delta = D19[I_S] - fixed_D19
+        rnd_delta = D19[I_R] - fixed_D19
+        nul_delta = D19[I_N] - fixed_D19
+        sem_oracle = int(np.argmax(D19[I_S]))
+
+        # ---- [E4] v1 yönteminin sapması ----
+        base_batch = c19[0]
+        base_single = baseline_single[TERMINAL]
+        art = float(torch.linalg.vector_norm(base_batch - base_single))
+        sig = float(np.median([float(torch.linalg.vector_norm(d19[i])) for i in range(2, 18)]))
+        D19_legacy = np.array([cos(c19[i] - base_single, v19) for i in range(Q.shape[0])])
+        legacy_bias = float(np.mean(np.abs(D19_legacy[1:] - D19[1:])))
+
+        # ---- bütünlük ----
+        dx = rec["dx"]
+        integ = {
+            "fixed_realized_rel": float(torch.linalg.vector_norm(dx[I_F])) / (rec["src_norm"] + EPS),
+            "fixed_dir_cos": cos(dx[I_F], Q[I_F]),
+            "sem_angle_err": mean_or_nan([angle(dx[i], Q[i]) for i in range(2, 18)]),
+            "sem_realized_pair_angle": pair_angle_mean([dx[i] for i in range(2, 18)]),
+            "requested_sem_pair_angle": pair_angle_mean([Q[i] for i in range(2, 18)]),
+            "null_realized_angle_vs_fixed": mean_or_nan([angle(dx[i], dx[I_F]) for i in range(34, 50)]),
+            "baseline_row_zero_dx": float(torch.linalg.vector_norm(dx[0])),
+        }
+
+        # ---- kapasite ----
+        cap_row = {
+            "fixed_D19": fixed_D19,
+            "fixed_D19_masked": float(D19m[I_F]),
+            "fixed_P19": float(torch.linalg.vector_norm(d19[I_F]) / (torch.linalg.vector_norm(base_batch) + EPS)),
+            "sem_oracle_delta": float(np.max(sem_delta)),
+            "null_oracle_delta": float(np.max(nul_delta)),
+            "oracle_minus_null": float(np.max(D19[I_S]) - np.max(D19[I_N])),
+            "sem_oracle_label": SEM_LABELS[sem_oracle],
+            "delta19_dev_energy": float(np.mean(E19)),
+            "batch_artifact_norm": art,
+            "sem_delta_norm_median": sig,
+            "artifact_over_signal": art / (sig + EPS),
+            "legacy_v1_D19_bias": legacy_bias,
+        }
+
+        # ---- ofset değerlendirmesi ----
+        hz = {}
+        for off in rec_offs:
+            F_ = FROZEN[pi][off]
+            ev = eval_offset(F_["sem"], F_["sem_m"], F_["rnd"], sem_delta, rnd_delta, sem_oracle)
+            ev["radar_dev_energy"] = float(np.mean(RADAR[pi][off]["E"][1:1 + N_SEMANTIC]))
+            ev["radar_gain_mean"] = float(np.mean(RADAR[pi][off]["gain"][1:1 + N_SEMANTIC]))
+            ev["is_t19"] = bool(off == t19)
+            ev["preterminal"] = bool(preterminal(src, off))
+            hz[off] = ev
+
+        rows.append({"prompt_index": pi, "integrity": integ, "capacity": cap_row, "horizon_eval": hz})
+        del caps, rec
+        if (pi + 1) % 6 == 0:
+            gc.collect(); torch.cuda.empty_cache()
+
+    RESULTS.append({"source": src, "offsets": offs, "t19": t19, "rows": rows})
+    del CAP, RADAR, FROZEN
+    gc.collect(); torch.cuda.empty_cache()
+    print(f"  L{src} bitti | {(time.time()-t_main)/60:.1f}m")
+
+print(f"\nAna deney: {(time.time()-t_main)/60:.1f} dk")
+
+
+# =============================================================================
+# 15. TOPLAYICI
+# =============================================================================
+
+def prompt_values(off, metric, mode="preterminal", subset=None, section="horizon_eval"):
+    pp = {i: [] for i in range(N_PROMPTS)}
+    for L in RESULTS:
+        src = L["source"]
+        if section == "horizon_eval":
+            if off == "T19":
+                o = L["t19"]
+            else:
+                if off not in L["offsets"]:
+                    continue
+                o = off
+                if mode == "preterminal" and not preterminal(src, o):
+                    continue
+        for r in L["rows"]:
+            pi = r["prompt_index"]
+            if subset is not None and pi not in subset:
+                continue
+            val = r["horizon_eval"][o][metric] if section == "horizon_eval" else r[section][metric]
+            if np.isfinite(val):
+                pp[pi].append(float(val))
+    return [float(np.mean(pp[i])) for i in range(N_PROMPTS) if pp[i]]
+
+
+def boot(off, metric, seed, **kw):
+    return cluster_bootstrap(prompt_values(off, metric, **kw), seed)
+
+
+# =============================================================================
+# 16. BÜTÜNLÜK + [E4] v1 SAPMA
+# =============================================================================
+
+print("\n[7/24] BF16 gerçekleşme bütünlüğü")
+print("=" * 150)
+print(f"{'KAYNAK':<8}{'REAL REL':>10}{'İST ÇİFT':>11}{'GERÇ ÇİFT':>12}{'YÖN HATA':>11}"
+      f"{'FIX COS':>11}{'NULL AÇI':>11}{'base dx':>10}")
+INTEGRITY = {}
+for L in RESULTS:
+    it = {k: mean_or_nan([r["integrity"][k] for r in L["rows"]]) for k in L["rows"][0]["integrity"]}
+    INTEGRITY[str(L["source"])] = it
+    print(f"L{L['source']:<7}{it['fixed_realized_rel']:>10.4f}{it['requested_sem_pair_angle']:>10.3f}°"
+          f"{it['sem_realized_pair_angle']:>11.3f}°{it['sem_angle_err']:>10.3f}°"
+          f"{it['fixed_dir_cos']:>+11.5f}{it['null_realized_angle_vs_fixed']:>10.3f}°"
+          f"{it['baseline_row_zero_dx']:>10.2e}")
+
+print("\n[8/24] FP32 dal modu:", BATCH_MODE)
+
+print("\n[9/24] [E4] v1 yönteminin batch-numerik sapması (tek-geçiş baseline kullanılsaydı)")
+BATCH_DIAG = {}
+for L in RESULTS:
+    a = mean_or_nan([r["capacity"]["artifact_over_signal"] for r in L["rows"]])
+    b = mean_or_nan([r["capacity"]["legacy_v1_D19_bias"] for r in L["rows"]])
+    BATCH_DIAG[str(L["source"])] = {"artifact_over_signal": a, "legacy_D19_bias": b}
+    print(f"  L{L['source']:<3} baseline sapması / sinyal = {a:.4f} | v1'in D19'a getireceği mutlak sapma = {b:.6f}")
+print("  (Bu sapma fırsatla (~0.003) karşılaştırılabilir büyüklükteyse v1 sonuçları geçersiz olurdu.)")
+
+
+# =============================================================================
+# 17. [E1] KAPASİTE HARİTASI
+# =============================================================================
+
+print("\n[10/24] [E1] KAPASİTE HARİTASI")
+print("=" * 150)
+CAPACITY = {}
+for ki, (key, lab, d) in enumerate([("fixed_D19", "FIXED D19 (taşıma)", 5),
+                    ("fixed_P19", "FIXED P19 (fiziksel etki)", 5),
+                    ("oracle_minus_null", "Fırsat (oracle−null)", 6),
+                    ("sem_oracle_delta", "Semantik oracle Δ", 6),
+                    ("null_oracle_delta", "Null oracle Δ", 6),
+                    ("delta19_dev_energy", "L19 farkında dev-boyut enerjisi", 4)]):
+    B = cluster_bootstrap(prompt_values(None, key, section="capacity"), SEED + 200_000 + ki)
+    CAPACITY[key] = B
+    print(f"  {lab:<34}: {B['mean']:+.{d}f} {fmt_ci(B, d)}")
+
+print("\n  Kaynak bazında:")
+print(f"  {'KAYNAK':<8}{'FIXED D19':>11}{'P19':>10}{'fırsat':>11}{'headroom %':>12}")
+CAP_BY_SRC = {}
+for L in RESULTS:
+    fd = mean_or_nan([r["capacity"]["fixed_D19"] for r in L["rows"]])
+    fp = mean_or_nan([r["capacity"]["fixed_P19"] for r in L["rows"]])
+    op = mean_or_nan([r["capacity"]["oracle_minus_null"] for r in L["rows"]])
+    hr = 100 * op / fd if abs(fd) > EPS else float("nan")
+    CAP_BY_SRC[str(L["source"])] = {"fixed_D19": fd, "fixed_P19": fp, "opportunity": op, "headroom_pct": hr}
+    print(f"  L{L['source']:<7}{fd:>+11.5f}{fp:>10.5f}{op:>+11.6f}{hr:>11.2f}%")
+HEADROOM_PCT = 100 * CAPACITY["oracle_minus_null"]["mean"] / CAPACITY["fixed_D19"]["mean"]
+print(f"\n  Genel headroom: fırsat, FIXED taşımasının %{HEADROOM_PCT:.2f}'i")
+
+
+# =============================================================================
+# 18. DONDURULMUŞ UFUK KALİBRASYONU
+# =============================================================================
+
+METRICS = ["top1_delta", "random_top1_delta", "top1_minus_random", "top2_mean_delta",
+           "top4_mean_delta", "bottom4_mean_delta", "top4_minus_bottom4",
+           "Q1_mean_delta", "Q2_mean_delta", "Q3_mean_delta", "Q4_mean_delta",
+           "Q4_minus_Q1", "quartile_trend", "sem_terminal_spearman", "sem_terminal_pearson",
+           "rnd_terminal_spearman", "terminal_rank_of_radar_top1", "radar_top1_is_terminal_top4",
+           "radar_top1_is_terminal_oracle", "rho_masked_sensor", "top1_delta_masked_sensor",
+           "Q4_minus_Q1_masked_sensor", "radar_dev_energy", "radar_gain_mean"]
+
+print("\n[11/24] DONDURULMUŞ PRETERMINAL UFUK KALİBRASYONU")
+HB = {}
+for hz in PROBE_OFFSETS:
+    HB[str(hz)] = {}
+    tag = "PRIMARY FROZEN" if hz == FROZEN_PRIMARY_HORIZON else "SECONDARY"
+    print("\n" + "=" * 150)
+    print(f"UFUK +{hz} — {tag}")
+    print("=" * 150)
+    for mi, m in enumerate(METRICS):
+        pv = prompt_values(hz, m, mode="preterminal")
+        if not pv:
+            continue
+        B = cluster_bootstrap(pv, SEED + 100_000 + hz * 1000 + mi)
+        HB[str(hz)][m] = {"bootstrap": B, "prompt_values": pv}
+        d = 4 if m in ("quartile_trend", "sem_terminal_spearman", "sem_terminal_pearson",
+                       "rnd_terminal_spearman", "rho_masked_sensor", "radar_dev_energy") else 6
+        print(f"  {m:<32}: {B['mean']:+.{d}f} {fmt_ci(B, d)}")
+
+
+# =============================================================================
+# 19. PRIMARY +3 KARARI (v1 kriterleri birebir)
+# =============================================================================
+
+print("\n[12/24] PRIMARY +3 KARARI")
+print("=" * 170)
+P = HB[str(FROZEN_PRIMARY_HORIZON)]
+for k in ["sem_terminal_spearman", "Q4_minus_Q1", "top1_delta", "top1_minus_random"]:
+    if k not in P:
+        raise RuntimeError(f"Primary metrik eksik: {k}")
+B_RHO = P["sem_terminal_spearman"]["bootstrap"]
+B_Q = P["Q4_minus_Q1"]["bootstrap"]
+B_T1 = P["top1_delta"]["bootstrap"]
+B_T1R = P["top1_minus_random"]["bootstrap"]
+
+RANK_OK = B_RHO["ci95"][0] > 0
+CALIB_OK = RANK_OK and B_Q["ci95"][0] > 0
+TOP1_OK = B_T1["ci95"][0] > 0 and B_T1R["ci95"][0] > 0
+
+if CALIB_OK and TOP1_OK:
+    DECISION = "FROZEN_PLUS3_RANK_AND_TOP1_PROSPECTIVE_SIGNAL_REPLICATED"
+    NEXT = "FREEZE_PLUS3_AND_TEST_MINIMAL_READOUT_CONTROLLER_ON_NEW_PROMPTS"
+elif CALIB_OK:
+    DECISION = "FROZEN_PLUS3_CALIBRATED_RANK_SIGNAL_REPLICATED_BUT_TOP1_READOUT_LIMITED"
+    NEXT = "DO_NOT_CHAIN_YET__TEST_TOP_GROUP_READOUT_WITHOUT_CHANGING_SENSOR"
+elif RANK_OK:
+    DECISION = "FROZEN_PLUS3_RANK_SIGNAL_REPLICATED_WITHOUT_BROAD_CALIBRATION"
+    NEXT = "DO_NOT_CHAIN__REASSESS_RANK_CALIBRATION_STRUCTURE"
+else:
+    DECISION = "FROZEN_PLUS3_RANK_SIGNAL_FAILED_BLIND_REPLICATION"
+    NEXT = "PIVOT_AWAY_FROM_PLUS3_DIRECTION_RADAR"
+
+print(f"rho          : {B_RHO['mean']:+.4f} {fmt_ci(B_RHO, 4)}")
+print(f"Q4-Q1        : {B_Q['mean']:+.6f} {fmt_ci(B_Q)}")
+print(f"TOP1 Δ       : {B_T1['mean']:+.6f} {fmt_ci(B_T1)}")
+print(f"TOP1-RANDOM  : {B_T1R['mean']:+.6f} {fmt_ci(B_T1R)}")
+print(f"\nRank {RANK_OK} | Calibrated {CALIB_OK} | Top1 {TOP1_OK}")
+print(f"DECISION : {DECISION}")
+print(f"NEXT     : {NEXT}")
+
+
+# =============================================================================
+# 20. İKİNCİL UFUKLAR
+# =============================================================================
+
+print("\n[13/24] İKİNCİL UFUKLAR (destekleyici, multiplicity düzeltmesiz)")
+SECONDARY = {}
+for hz in SECONDARY_HORIZONS:
+    h = HB[str(hz)]
+    if "sem_terminal_spearman" not in h or "Q4_minus_Q1" not in h:
+        continue
+    br, bq = h["sem_terminal_spearman"]["bootstrap"], h["Q4_minus_Q1"]["bootstrap"]
+    SECONDARY[str(hz)] = {"rho": br, "Q4_minus_Q1": bq,
+                          "rank": br["ci95"][0] > 0, "calibrated": br["ci95"][0] > 0 and bq["ci95"][0] > 0}
+    print(f"  +{hz}: rho={br['mean']:+.4f} {fmt_ci(br, 4)} | Q4-Q1={bq['mean']:+.6f} {fmt_ci(bq)}")
+
+
+# =============================================================================
+# 21. [E2] FP32 → L19 KOLU
+# =============================================================================
+
+print("\n[14/24] [E2] FP32 → L19 KOLU (radar terminale kadar FP32)")
+print("  Soru: kalan açık MESAFE mi, BF16 AKTÜATÖR mü?")
+T19 = {}
+for mi, m in enumerate(["sem_terminal_spearman", "Q4_minus_Q1", "top1_delta",
+                        "top1_minus_random", "rho_masked_sensor"]):
+    B = cluster_bootstrap(prompt_values("T19", m, mode="all"), SEED + 300_000 + mi)
+    T19[m] = B
+    d = 4 if "spearman" in m or "rho" in m else 6
+    print(f"  {m:<28}: {B['mean']:+.{d}f} {fmt_ci(B, d)}")
+print("\n  Kaynak bazında FP32→L19 rho:")
+for L in RESULTS:
+    r = mean_or_nan([row["horizon_eval"][L["t19"]]["sem_terminal_spearman"] for row in L["rows"]])
+    print(f"    L{L['source']:<3} (+{L['t19']:>2}) rho = {r:+.4f}")
+t19rho = T19["sem_terminal_spearman"]["mean"]
+if t19rho > 0.8:
+    T19_VERDICT = "DISTANCE_LIMITED: FP32→L19 neredeyse tam öngörüyor; açık ufuk mesafesinden."
+elif t19rho > 0.4:
+    T19_VERDICT = "ACTUATOR_LIMITED: FP32 terminale ulaşsa bile BF16/doz farkı sıralamayı bozuyor."
+else:
+    T19_VERDICT = "WEAK: terminale kadar FP32 radar bile zayıf; yön sinyali küçük."
+print(f"\n  -> {T19_VERDICT}")
+
+
+# =============================================================================
+# 22. [E3] MERCEK KOLU
+# =============================================================================
+
+print("\n[15/24] [E3] MERCEK KOLU")
+p3 = HB[str(FROZEN_PRIMARY_HORIZON)]
+e_r = p3["radar_dev_energy"]["bootstrap"]["mean"]
+e_t = CAPACITY["delta19_dev_energy"]["mean"]
+rho_u = p3["sem_terminal_spearman"]["bootstrap"]
+rho_m = p3["rho_masked_sensor"]["bootstrap"]
+print(f"  Radar yanıtında dev-boyut enerjisi (+3): %{100*e_r:.2f}")
+print(f"  L19 farkında dev-boyut enerjisi       : %{100*e_t:.2f}")
+print(f"  rho merceksiz  : {rho_u['mean']:+.4f} {fmt_ci(rho_u, 4)}")
+print(f"  rho mercekli   : {rho_m['mean']:+.4f} {fmt_ci(rho_m, 4)}")
+MERCEK_VERDICT = ("MERCEK_ANLAMLI" if max(e_r, e_t) > 0.30 else
+                  "MERCEK_SINIRDA" if max(e_r, e_t) > 0.05 else "MERCEK_GEREKSIZ")
+print(f"  -> {MERCEK_VERDICT} (eşikler: >%30 anlamlı, <%5 gereksiz)")
+
+
+# =============================================================================
+# 23. KAYNAK × UFUK HARİTASI
+# =============================================================================
+
+print("\n[16/24] KAYNAK × UFUK HARİTASI")
+print(f"{'KAYNAK':<8}{'OFSET':>7}{'TİP':>10}{'rho':>9}{'rho_m':>9}{'TOP1 Δ':>11}{'Q4-Q1':>11}{'rank':>7}")
+SRC_MAP = {}
+for L in RESULTS:
+    src = L["source"]
+    SRC_MAP[str(src)] = {}
+    for off in sorted(L["rows"][0]["horizon_eval"].keys()):
+        hs = [r["horizon_eval"][off] for r in L["rows"]]
+        typ = "T19" if off == L["t19"] else ("PRETERM" if preterminal(src, off) else "TERM")
+        it = {k: mean_or_nan([h[k] for h in hs]) for k in
+              ["sem_terminal_spearman", "rho_masked_sensor", "top1_delta", "Q4_minus_Q1",
+               "terminal_rank_of_radar_top1"]}
+        SRC_MAP[str(src)][str(off)] = dict(it, type=typ)
+        print(f"L{src:<7}{'+'+str(off):>7}{typ:>10}{it['sem_terminal_spearman']:>+9.4f}"
+              f"{it['rho_masked_sensor']:>+9.4f}{it['top1_delta']:>+11.6f}{it['Q4_minus_Q1']:>+11.6f}"
+              f"{it['terminal_rank_of_radar_top1']:>7.2f}")
+
+
+# =============================================================================
+# 24. [E1] RADAR YAKALAMA ORANI
+# =============================================================================
+
+print("\n[17/24] Radarın fırsatı yakalama oranı (+3)")
+opp = CAPACITY["oracle_minus_null"]["mean"]
+t1 = B_T1["mean"]; t4 = P["top4_mean_delta"]["bootstrap"]["mean"]
+CAPTURE = {"top1_over_opportunity": t1 / opp if abs(opp) > EPS else float("nan"),
+           "top4_over_opportunity": t4 / opp if abs(opp) > EPS else float("nan")}
+print(f"  TOP1 Δ / fırsat = {CAPTURE['top1_over_opportunity']:+.3f}")
+print(f"  TOP4 Δ / fırsat = {CAPTURE['top4_over_opportunity']:+.3f}")
+print("  (1.0 = radar tüm fırsatı alıyor, 0 = hiç almıyor. Betimleyici.)")
+
+
+# =============================================================================
+# 25. ALT GRUPLAR
+# =============================================================================
+
+print("\n[18/24] Alt gruplar (betimleyici)")
+SUBGROUPS = {}
+for hz in PROBE_OFFSETS:
+    SUBGROUPS[str(hz)] = {}
+    for m in ["sem_terminal_spearman", "Q4_minus_Q1", "top1_delta"]:
+        a = mean_or_nan(prompt_values(hz, m, subset=ANIMAL_IDX))
+        n = mean_or_nan(prompt_values(hz, m, subset=NEUTRAL_IDX))
+        SUBGROUPS[str(hz)][m] = {"animal": a, "neutral": n}
+    s = SUBGROUPS[str(hz)]
+    print(f"  +{hz}: hayvan rho={s['sem_terminal_spearman']['animal']:+.4f} "
+          f"nötr rho={s['sem_terminal_spearman']['neutral']:+.4f} | "
+          f"hayvan Q4-Q1={s['Q4_minus_Q1']['animal']:+.6f} nötr Q4-Q1={s['Q4_minus_Q1']['neutral']:+.6f}")
+
+
+# =============================================================================
+# 26. SEÇİM ÇEŞİTLİLİĞİ
+# =============================================================================
+
+print("\n[19/24] Seçim çeşitliliği")
+DIVERSITY = {}
+for L in RESULTS:
+    DIVERSITY[str(L["source"])] = {}
+    for off in sorted(L["rows"][0]["horizon_eval"].keys()):
+        c = np.zeros(N_SEMANTIC, dtype=int)
+        for r in L["rows"]:
+            c[r["horizon_eval"][off]["top1_id"]] += 1
+        m = int(np.argmax(c))
+        DIVERSITY[str(L["source"])][str(off)] = {"counts": c.tolist(), "unique": int((c > 0).sum()),
+                                                  "modal": SEM_LABELS[m], "modal_frac": float(c.max() / N_PROMPTS)}
+        print(f"  L{L['source']} +{off}: benzersiz {int((c > 0).sum())}/16 | modal {SEM_LABELS[m]} "
+              f"({c.max()/N_PROMPTS:.2f})")
+
+
+# =============================================================================
+# 27. YORUM KİLİDİ
+# =============================================================================
+
+print("\n[20/24] YORUM KİLİDİ")
+LOCK = [
+    "Primary +3, TEST137 sonrası ve bu koşudan önce dondurulmuştur; karar kriterleri v1 ile aynıdır.",
+    "BF16 sonuçları tek batch içinde, aynı batch'teki pertürbe edilmemiş satıra göre hesaplanır (v1 batch-şekli sapması giderildi).",
+    "Tüm radar sıralamaları ve gruplar, hiçbir BF16 sonuç hesaplanmadan önce dondurulur.",
+    "Primary çıkarım yalnız source+horizon<19 satırlarını kullanır; CI prompt-cluster bootstrap'tır.",
+    "FP32→L19 kolu terminale dokunan bir teşhistir; primary karara girmez.",
+    "Mercek yalnız ölçümde uygulanır; enjeksiyon tam uzaydadır; mercekli sensör unmasked L19 sonucu ile değerlendirilir.",
+    "Mercek maskesi deney promptlarından bağımsız kalibrasyon promptlarıyla belirlenir.",
+    "Kapasite ve yakalama oranları betimleyicidir; production kontrolcü iddiası değildir.",
+    "Radar central finite-secant'tır; Jacobian, gradyan veya semantik nedensellik iddiası yoktur.",
+    "DRA zarfı, fren, kontrolcü, üretim ve çok katmanlı zincir kapalıdır.",
+    "Bu 24 prompt koşudan sonra EXPOSED sayılır.",
+]
+for i, s in enumerate(LOCK, 1):
+    print(f"{i:02d}. {s}")
+
+
+# =============================================================================
+# 28. JSON
+# =============================================================================
+
+print("\n[21/24] JSON...")
+
+
+def json_safe(o):
+    if isinstance(o, np.integer):
+        return int(o)
+    if isinstance(o, np.floating):
+        return float(o)
+    if isinstance(o, np.bool_):
+        return bool(o)
+    if isinstance(o, np.ndarray):
+        return o.tolist()
+    if torch.is_tensor(o):
+        return {"shape": list(o.shape)}
+    if isinstance(o, dict):
+        return {str(k): json_safe(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)):
+        return [json_safe(v) for v in o]
+    return o
+
+
+OUTPUT = {
+    "test": "TEST138_v2",
+    "model": MODEL_ID,
+    "config": {"seed": SEED, "sources": SOURCE_LAYERS, "primary": FROZEN_PRIMARY_HORIZON,
+               "secondary": SECONDARY_HORIZONS, "radar_rel": RADAR_REL, "act_rel": ACT_REL,
+               "shell_deg": SHELL_DEG, "n_sem": N_SEMANTIC, "n_rnd": N_RANDOM, "n_null": N_NULL,
+               "null_jitter_rel": NULL_JITTER_REL, "mercek_k": MERCEK_K,
+               "mercek_calib": MERCEK_CALIB, "dev_idx": DEV_IDX.tolist()},
+    "fingerprint": {"L10": cos10, "L11": cos11, "status": "PASS"},
+    "dibek_fp": DIBEK_FP,
+    "batch_mode": BATCH_MODE,
+    "integrity": INTEGRITY,
+    "batch_diag_v1_bias": BATCH_DIAG,
+    "capacity": CAPACITY, "capacity_by_source": CAP_BY_SRC, "headroom_pct": HEADROOM_PCT,
+    "capture": CAPTURE,
+    "horizon_bootstrap": HB,
+    "primary": {"rank": RANK_OK, "calibrated": CALIB_OK, "top1": TOP1_OK,
+                "decision": DECISION, "next": NEXT},
+    "secondary": SECONDARY,
+    "fp32_to_L19": T19, "fp32_to_L19_verdict": T19_VERDICT,
+    "mercek_verdict": MERCEK_VERDICT,
+    "source_map": SRC_MAP, "subgroups": SUBGROUPS, "diversity": DIVERSITY,
+    "lock": LOCK, "prompts": PROMPTS, "results": RESULTS,
+}
+with open(OUT_JSON, "w", encoding="utf-8") as f:
+    json.dump(json_safe(OUTPUT), f, ensure_ascii=False, indent=2)
+print("Kaydedildi:", OUT_JSON)
+
+
+# =============================================================================
+# 29. KOMPAKT RAPOR
+# =============================================================================
+
+print("\n[22/24] KOMPAKT RAPOR")
+print("=" * 170)
+print("TEST 138 v2 — FROZEN +3 + KAPASİTE HARİTASI")
+print("=" * 170)
+print(f"FP32 dal modu        : {BATCH_MODE['mode']} (kontrol {BATCH_MODE['check_diff']})")
+print(f"v1 sapması (ort.)    : D19 mutlak {mean_or_nan([v['legacy_D19_bias'] for v in BATCH_DIAG.values()]):.6f}")
+print()
+print("KAPASİTE")
+print(f"  FIXED D19          : {CAPACITY['fixed_D19']['mean']:+.5f} {fmt_ci(CAPACITY['fixed_D19'],5)}")
+print(f"  Fırsat (orc−null)  : {CAPACITY['oracle_minus_null']['mean']:+.6f} {fmt_ci(CAPACITY['oracle_minus_null'])}")
+print(f"  Headroom           : %{HEADROOM_PCT:.2f}")
+print(f"  TOP1 yakalama      : {CAPTURE['top1_over_opportunity']:+.3f}")
+print()
+print("PRIMARY +3")
+print(f"  rho                : {B_RHO['mean']:+.4f} {fmt_ci(B_RHO,4)}")
+print(f"  Q4-Q1              : {B_Q['mean']:+.6f} {fmt_ci(B_Q)}")
+print(f"  TOP1 Δ             : {B_T1['mean']:+.6f} {fmt_ci(B_T1)}")
+print(f"  TOP1-RANDOM        : {B_T1R['mean']:+.6f} {fmt_ci(B_T1R)}")
+print(f"  DECISION           : {DECISION}")
+print()
+print("TEŞHİSLER")
+print(f"  FP32→L19 rho       : {t19rho:+.4f} -> {T19_VERDICT.split(':')[0]}")
+print(f"  Mercek             : {MERCEK_VERDICT} (radar %{100*e_r:.1f}, L19 %{100*e_t:.1f})")
+print(f"\nNEXT : {NEXT}")
+print(f"JSON : {OUT_JSON}")
+
+
+# =============================================================================
+# 30. OKUMA SIRASI
+# =============================================================================
+
+print("\n[23/24] OKUMA SIRASI")
+print("""
+1. [9] v1 sapması: v1 yöntemi D19'a ne kadar yanlılık katardı? Fırsatla
+   (~0.003) aynı büyüklükteyse, v1 ve önceki batch'li testlerin küçük
+   farkları yeniden okunmalı.
+
+2. [10] KAPASİTE: FIXED ne kadar taşıyor, üstünde ne kadar fırsat var
+   (headroom %)? Headroom küçükse (<%2) yön radarının ödülü küçüktür;
+   geliştirme için yön değil doz/kazanç tarafı daha verimlidir.
+
+3. [12] PRIMARY +3 karar (v1 kriterleri).
+
+4. [14] FP32→L19: kalan açık mesafeden mi aktüatörden mi?
+   - DISTANCE_LIMITED -> radarı daha uzağa taşımak işe yarar
+   - ACTUATOR_LIMITED -> radar değil, BF16 aktüatör/doz tarafı geliştirilmeli
+
+5. [15] MERCEK: dev boyut enerjisi anlamlı mı, mercek rho'yu artırıyor mu?
+
+6. [17] Yakalama: radar fırsatın ne kadarını alıyor?
+""")
+gc.collect(); torch.cuda.empty_cache()
+print("[24/24] DONE.")
