@@ -1,0 +1,5027 @@
+# =============================================================================
+# TEST 137 v2 — FP32 MULTI-HORIZON RADAR -> BF16 TERMINAL TRANSPORT
+# AKBASCORE — PRETERMINAL HORIZON MAPPING / SYSTEM IDENTIFICATION
+#
+# TEK HÜCRE · TAM COLAB SÜRÜMÜ
+#
+# -----------------------------------------------------------------------------
+# BU SÜRÜMDEKİ ANA DÜZELTMELER
+# -----------------------------------------------------------------------------
+#
+# 1) TEST137 çalışan altyapısı korunmuştur.
+#
+# 2) FP32 replay sırasında artık yalnız L+1'in args/kwargs'ı bütün katmanlarda
+#    kullanılmaz.
+#
+#    Her downstream decoder katmanının:
+#
+#       L+1
+#       L+2
+#       ...
+#       L+5
+#
+#    kendi gerçek forward-pre-hook çağrı metadata'sı baseline sırasında
+#    ayrı ayrı yakalanır.
+#
+# 3) Aynı anda 5 FP32 decoder bloğu GPU'ya kopyalanmaz.
+#
+#    Yalnız BİR FP32 BLOCK:
+#
+#       copy
+#       bütün candidate +/- branch'lerini geçir
+#       sil
+#
+#    sonra bir sonraki block.
+#
+# 4) FP32 radar bütün:
+#
+#       FIXED
+#       16 SEMANTIC
+#       16 RANDOM
+#
+#    branch'lerini aynı yürüyüş içinde taşır.
+#
+# 5) BF16 ACT candidate'ları tek tek full-model forward yapmak yerine
+#    candidate family batch olarak çalıştırılır:
+#
+#       FIXED       = B1
+#       SEMANTIC    = B16
+#       RANDOM      = B16
+#       NULL        = B16
+#
+#    Böylece full-model forward sayısı ciddi biçimde azaltılır.
+#
+# 6) Anti-leakage korunur:
+#
+#       FP32 radar
+#       -> selection freeze
+#       -> BF16 outcomes
+#
+# 7) L14 +5 = L19 doğrudan terminal-touching probe'dur.
+#
+#    Bu sonuç raporlanır fakat PRIMARY PRETERMINAL horizon inference'a
+#    dahil edilmez.
+#
+#    Primary:
+#
+#       source != L18
+#       VE
+#       source + probe_offset < 19
+#
+#    Böylece probe terminal bloğa ulaşmadan terminal sıralamasını
+#    öngörebiliyor mu sorusu temiz kalır.
+#
+# 8) L18 -> L19 de calibration/local endpoint olarak raporlanır fakat
+#    primary terminal inference dışında tutulur.
+#
+# 9) Central finite-secant:
+#
+#       [F(h + eps*q) - F(h - eps*q)] / 2
+#
+#    exact Jacobian / gradient değildir.
+#
+# =============================================================================
+
+
+import gc
+import json
+import math
+import random
+import time
+import copy
+import warnings
+
+import numpy as np
+import torch
+
+from transformers import (
+    AutoTokenizer,
+    AutoModelForCausalLM,
+)
+
+warnings.filterwarnings("ignore")
+
+
+# =============================================================================
+# 0. CONFIG
+# =============================================================================
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 13703
+
+MODEL_LAYERS = 28
+VECTOR_LAYERS = 20
+HIDDEN = 3584
+
+SOURCE_LAYERS = [
+    3,
+    6,
+    10,
+    14,
+    18,
+]
+
+PROBE_OFFSETS = [
+    1,
+    2,
+    3,
+    5,
+]
+
+RADAR_REL = 0.0025
+
+ACT_DOSES = [
+    0.01,
+    0.04,
+]
+
+ACT_PRIMARY = 0.04
+
+SHELL_DEG = 5.0
+
+N_SEMANTIC = 16
+N_RANDOM = 16
+N_NULL = 16
+
+NULL_JITTER_REL = 2.5e-4
+
+EXPECTED_COS10 = 0.656545
+EXPECTED_COS11 = 0.658274
+
+FINGERPRINT_TOL = 5e-6
+IDENTITY_TOL = 0.99999
+
+EPS = 1e-12
+
+N_BOOT = 10000
+
+OUT_JSON = (
+    "/content/"
+    "TEST_137_V2_FP32_MULTI_HORIZON_RADAR.json"
+)
+
+
+# =============================================================================
+# 1. LOCKED FINGERPRINT
+# =============================================================================
+
+ABOVE = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+BELOW = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+NEUTRAL = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 2. DIBEKGOZ — ÇALIŞAN TEST137 KİLİDİ
+# =============================================================================
+
+TEMPLATES = [
+    "The creature is essentially {X}.",
+    "Observing it closely, the animal is clearly {X}.",
+    "The specimen in front of us is {X}.",
+    "Field notes describe the creature as {X}.",
+    "In every respect the body plan is that of {X}.",
+    "The zoologist identified the animal as {X}.",
+    "Anatomically the creature is {X}.",
+    "Taxonomically the creature groups with {X}.",
+]
+
+POS_DIBEK = (
+    "a tailless bipedal ape"
+)
+
+NEG_DIBEK = (
+    "a tailed quadrupedal mammal"
+)
+
+NEG_VARIANTS = [
+    "a long-tailed quadrupedal mammal",
+    "a tailed four-legged mammal",
+    "a quadrupedal mammal with a tail",
+    "a four-legged tailed animal",
+    "a tailed terrestrial quadruped",
+    "a quadrupedal creature with a long tail",
+    "a four-legged mammalian animal with a tail",
+    "a tailed mammal walking on four limbs",
+]
+
+assert len(NEG_VARIANTS) == 8
+assert len(set(NEG_VARIANTS)) == 8
+assert NEG_DIBEK not in NEG_VARIANTS
+
+
+# =============================================================================
+# 3. TEST137 FRESH PROMPTS
+# =============================================================================
+
+PROMPTS = [
+    "Wildlife researchers watched an unfamiliar animal pause beside fallen timber before examining the bark.",
+    "A remote camera recorded a rare creature balancing on uneven stones near a forest stream.",
+    "Biologists documented how an unidentified animal manipulated dry leaves while searching beneath them.",
+    "A field team observed a little-known creature changing posture before climbing onto a low boulder.",
+    "Researchers photographed an unusual animal carrying plant material across a narrow clearing.",
+    "A zoological survey described a strange creature reaching toward fruit hanging from a flexible branch.",
+    "Naturalists recorded an unknown animal sitting briefly beside a tree before moving through dense vegetation.",
+    "A tracking team observed an uncatalogued creature crossing exposed roots after heavy rain.",
+    "Scientists measured the proportions of a newly documented animal resting near a rocky slope.",
+    "A conservation camera captured an elusive creature turning its upper body toward a sudden sound.",
+
+    "Maintenance staff recorded pressure readings from several pipes during a routine inspection.",
+    "A construction crew measured the spacing between support columns before installing new panels.",
+    "Technicians inspected electrical connectors inside a cabinet during scheduled maintenance.",
+    "Warehouse employees counted sealed containers before transferring them to another storage area.",
+    "A laboratory assistant logged temperature readings while preparing equipment for calibration.",
+    "Survey workers placed reference markers along the edge of a recently graded road.",
+    "A harbor crew checked fastening points on a loading platform before the morning shift.",
+    "Engineers compared vibration measurements from several motors operating under equal load.",
+    "Archive staff catalogued a collection of folders before moving them into climate-controlled storage.",
+    "Operators documented water levels in several tanks during an overnight systems check.",
+]
+
+N_PROMPTS = len(PROMPTS)
+
+assert N_PROMPTS == 20
+
+
+# =============================================================================
+# 4. REPRODUCIBILITY
+# =============================================================================
+
+random.seed(SEED)
+np.random.seed(SEED)
+
+torch.manual_seed(SEED)
+
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
+
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+
+# =============================================================================
+# 5. MATH
+# =============================================================================
+
+def unit(v):
+
+    v = v.float()
+
+    n = torch.linalg.vector_norm(v)
+
+    if float(n.item()) <= EPS:
+        raise RuntimeError(
+            "Sıfır vektör normalize edilmeye çalışıldı."
+        )
+
+    return v / n
+
+
+def cos(a, b):
+
+    a = a.float().reshape(-1)
+    b = b.float().reshape(-1)
+
+    na = torch.linalg.vector_norm(a)
+    nb = torch.linalg.vector_norm(b)
+
+    if (
+        float(na.item()) <= EPS
+        or
+        float(nb.item()) <= EPS
+    ):
+        return float("nan")
+
+    return float(
+        (
+            torch.dot(a, b)
+            /
+            (na * nb)
+        ).item()
+    )
+
+
+def angle(a, b):
+
+    c = cos(a, b)
+
+    if not np.isfinite(c):
+        return float("nan")
+
+    return float(
+        np.degrees(
+            np.arccos(
+                np.clip(
+                    c,
+                    -1.0,
+                    1.0,
+                )
+            )
+        )
+    )
+
+
+def pearson(a, b):
+
+    a = np.asarray(
+        a,
+        dtype=np.float64,
+    )
+
+    b = np.asarray(
+        b,
+        dtype=np.float64,
+    )
+
+    m = (
+        np.isfinite(a)
+        &
+        np.isfinite(b)
+    )
+
+    a = a[m]
+    b = b[m]
+
+    if len(a) < 3:
+        return float("nan")
+
+    if (
+        np.std(a) <= EPS
+        or
+        np.std(b) <= EPS
+    ):
+        return float("nan")
+
+    return float(
+        np.corrcoef(
+            a,
+            b,
+        )[0, 1]
+    )
+
+
+def rankdata(x):
+
+    x = np.asarray(
+        x,
+        dtype=np.float64,
+    )
+
+    order = np.argsort(
+        x,
+        kind="mergesort",
+    )
+
+    ranks = np.empty(
+        len(x),
+        dtype=np.float64,
+    )
+
+    ranks[order] = np.arange(
+        len(x),
+        dtype=np.float64,
+    )
+
+    return ranks
+
+
+def spearman(a, b):
+
+    a = np.asarray(
+        a,
+        dtype=np.float64,
+    )
+
+    b = np.asarray(
+        b,
+        dtype=np.float64,
+    )
+
+    m = (
+        np.isfinite(a)
+        &
+        np.isfinite(b)
+    )
+
+    if int(m.sum()) < 3:
+        return float("nan")
+
+    return pearson(
+        rankdata(a[m]),
+        rankdata(b[m]),
+    )
+
+
+def mean_or_nan(x):
+
+    x = np.asarray(
+        x,
+        dtype=np.float64,
+    )
+
+    x = x[
+        np.isfinite(x)
+    ]
+
+    if len(x) == 0:
+        return float("nan")
+
+    return float(
+        np.mean(x)
+    )
+
+
+def cluster_bootstrap(
+    values,
+    seed,
+    n_boot=N_BOOT,
+):
+
+    x = np.asarray(
+        values,
+        dtype=np.float64,
+    )
+
+    x = x[
+        np.isfinite(x)
+    ]
+
+    if len(x) == 0:
+
+        return {
+            "mean": float("nan"),
+            "ci95": [
+                float("nan"),
+                float("nan"),
+            ],
+            "positive_fraction":
+                float("nan"),
+            "n": 0,
+        }
+
+    rng = np.random.default_rng(
+        seed
+    )
+
+    boot = np.empty(
+        n_boot,
+        dtype=np.float64,
+    )
+
+    for bi in range(n_boot):
+
+        idx = rng.integers(
+            0,
+            len(x),
+            len(x),
+        )
+
+        boot[bi] = np.mean(
+            x[idx]
+        )
+
+    return {
+        "mean":
+            float(np.mean(x)),
+
+        "ci95": [
+            float(
+                np.quantile(
+                    boot,
+                    0.025,
+                )
+            ),
+            float(
+                np.quantile(
+                    boot,
+                    0.975,
+                )
+            ),
+        ],
+
+        "positive_fraction":
+            float(
+                np.mean(x > 0)
+            ),
+
+        "n":
+            int(len(x)),
+    }
+
+
+def fmt_ci(s):
+
+    return (
+        f"[{s['ci95'][0]:+.6f},"
+        f"{s['ci95'][1]:+.6f}]"
+    )
+
+
+def pair_angle_mean(vectors):
+
+    vals = []
+
+    for i in range(
+        len(vectors)
+    ):
+
+        for j in range(
+            i + 1,
+            len(vectors)
+        ):
+
+            vals.append(
+                angle(
+                    vectors[i],
+                    vectors[j],
+                )
+            )
+
+    return mean_or_nan(vals)
+
+
+# =============================================================================
+# 6. START
+# =============================================================================
+
+print("=" * 190)
+
+print(
+    "TEST 137 v2 — FP32 MULTI-HORIZON RADAR "
+    "-> BF16 TERMINAL TRANSPORT"
+)
+
+print(
+    "AKBASCORE — PRETERMINAL HORIZON MAPPING "
+    "/ SYSTEM IDENTIFICATION"
+)
+
+print("=" * 190)
+
+
+if not torch.cuda.is_available():
+    raise RuntimeError(
+        "CUDA GPU gerekli."
+    )
+
+
+# =============================================================================
+# 7. MODEL
+# =============================================================================
+
+print(
+    "\n[1/24] Model yükleniyor..."
+)
+
+t_load = time.time()
+
+
+tokenizer = (
+    AutoTokenizer.from_pretrained(
+        MODEL_ID,
+        trust_remote_code=True,
+    )
+)
+
+
+if tokenizer.pad_token_id is None:
+
+    tokenizer.pad_token = (
+        tokenizer.eos_token
+    )
+
+
+tokenizer.padding_side = "right"
+
+
+model = (
+    AutoModelForCausalLM
+    .from_pretrained(
+        MODEL_ID,
+        torch_dtype=torch.bfloat16,
+        device_map="auto",
+        trust_remote_code=True,
+        low_cpu_mem_usage=True,
+        attn_implementation="sdpa",
+    )
+)
+
+
+model.eval()
+
+
+for p in model.parameters():
+    p.requires_grad_(False)
+
+
+device = next(
+    model.parameters()
+).device
+
+
+assert (
+    len(model.model.layers)
+    ==
+    MODEL_LAYERS
+)
+
+assert (
+    model.config.hidden_size
+    ==
+    HIDDEN
+)
+
+
+print(
+    f"Model              : {MODEL_ID}"
+)
+
+print(
+    "dtype              : torch.bfloat16"
+)
+
+print(
+    f"Sources            : {SOURCE_LAYERS}"
+)
+
+print(
+    f"Probe offsets      : {PROBE_OFFSETS}"
+)
+
+print(
+    f"RADAR_REL          : {RADAR_REL}"
+)
+
+print(
+    f"ACT doses          : {ACT_DOSES}"
+)
+
+print(
+    f"ACT PRIMARY        : {ACT_PRIMARY}"
+)
+
+print(
+    f"Shell              : {SHELL_DEG}°"
+)
+
+print(
+    f"Prompts            : {N_PROMPTS}"
+)
+
+print(
+    f"Load time          : "
+    f"{time.time()-t_load:.1f}s"
+)
+
+
+# =============================================================================
+# 8. HIDDEN EXTRACTION
+# =============================================================================
+
+@torch.inference_mode()
+def extract_hidden(texts):
+
+    enc = tokenizer(
+        texts,
+        padding=True,
+        truncation=True,
+        max_length=128,
+        return_tensors="pt",
+    )
+
+    ids = (
+        enc["input_ids"]
+        .to(device)
+    )
+
+    mask = (
+        enc["attention_mask"]
+        .to(device)
+    )
+
+    lengths = (
+        mask.sum(dim=1)
+        .long()
+    )
+
+    captured = (
+        [None]
+        *
+        VECTOR_LAYERS
+    )
+
+    handles = []
+
+
+    def make_hook(li):
+
+        def hook(
+            module,
+            inputs,
+            output,
+        ):
+
+            h = (
+                output[0]
+                if isinstance(
+                    output,
+                    tuple,
+                )
+                else output
+            )
+
+            captured[li] = (
+                h.detach()
+            )
+
+        return hook
+
+
+    try:
+
+        for li in range(
+            VECTOR_LAYERS
+        ):
+
+            handles.append(
+                model.model.layers[li]
+                .register_forward_hook(
+                    make_hook(li)
+                )
+            )
+
+
+        model(
+            input_ids=ids,
+            attention_mask=mask,
+            use_cache=False,
+        )
+
+
+    finally:
+
+        for hd in handles:
+            hd.remove()
+
+
+    B = ids.shape[0]
+
+    out = torch.empty(
+        B,
+        VECTOR_LAYERS,
+        HIDDEN,
+        dtype=torch.float32,
+    )
+
+    rows = torch.arange(
+        B,
+        device=device,
+    )
+
+
+    for li in range(
+        VECTOR_LAYERS
+    ):
+
+        h = (
+            captured[li]
+            .float()
+        )
+
+        out[:, li, :] = (
+            h[
+                rows,
+                (
+                    lengths - 1
+                ).to(h.device),
+            ]
+            .detach()
+            .cpu()
+        )
+
+
+    del captured
+
+    return out
+
+
+def build_dictionary(
+    positive,
+    negative,
+):
+
+    xp = extract_hidden(
+        positive
+    )
+
+    xn = extract_hidden(
+        negative
+    )
+
+    d = {}
+
+
+    for li in range(
+        VECTOR_LAYERS
+    ):
+
+        d[li] = unit(
+            xp[:, li].mean(0)
+            -
+            xn[:, li].mean(0)
+        )
+
+
+    del xp
+    del xn
+
+    gc.collect()
+
+    return d
+
+
+# =============================================================================
+# 9. FINGERPRINT
+# =============================================================================
+
+print(
+    "\n[2/24] Ortam fingerprint..."
+)
+
+
+xa = extract_hidden(ABOVE)
+xb = extract_hidden(BELOW)
+xn = extract_hidden(NEUTRAL)
+
+
+A10 = unit(
+    xa[:, 10].mean(0)
+    -
+    xn[:, 10].mean(0)
+)
+
+B10 = unit(
+    xb[:, 10].mean(0)
+    -
+    xn[:, 10].mean(0)
+)
+
+A11 = unit(
+    xa[:, 11].mean(0)
+    -
+    xn[:, 11].mean(0)
+)
+
+B11 = unit(
+    xb[:, 11].mean(0)
+    -
+    xn[:, 11].mean(0)
+)
+
+
+cos10 = cos(
+    A10,
+    B10,
+)
+
+cos11 = cos(
+    A11,
+    B11,
+)
+
+
+drift10 = abs(
+    cos10
+    -
+    EXPECTED_COS10
+)
+
+drift11 = abs(
+    cos11
+    -
+    EXPECTED_COS11
+)
+
+
+print(
+    f"L10={cos10:+.6f} "
+    f"drift={drift10:.3e}"
+)
+
+print(
+    f"L11={cos11:+.6f} "
+    f"drift={drift11:.3e}"
+)
+
+
+if (
+    drift10
+    >
+    FINGERPRINT_TOL
+    or
+    drift11
+    >
+    FINGERPRINT_TOL
+):
+
+    raise RuntimeError(
+        "Fingerprint FAILED."
+    )
+
+
+print(
+    "Fingerprint: PASS"
+)
+
+
+del xa, xb, xn
+del A10, B10
+del A11, B11
+
+gc.collect()
+torch.cuda.empty_cache()
+
+
+# =============================================================================
+# 10. HISTORICAL DIBEKGOZ
+# =============================================================================
+
+print(
+    "\n[3/24] Historical Dibekgoz..."
+)
+
+
+POS = [
+    t.format(
+        X=POS_DIBEK
+    )
+    for t in TEMPLATES
+]
+
+NEG = [
+    t.format(
+        X=NEG_DIBEK
+    )
+    for t in TEMPLATES
+]
+
+
+DIBEK = build_dictionary(
+    POS,
+    NEG,
+)
+
+
+print(
+    f"cos(v0,v19)  = "
+    f"{cos(DIBEK[0],DIBEK[19]):+.6f}"
+)
+
+print(
+    f"cos(v11,v19) = "
+    f"{cos(DIBEK[11],DIBEK[19]):+.6f}"
+)
+
+print(
+    f"cos(v18,v19) = "
+    f"{cos(DIBEK[18],DIBEK[19]):+.6f}"
+)
+
+
+# =============================================================================
+# 11. SEMANTIC FAMILY
+# =============================================================================
+
+print(
+    "\n[4/24] Semantic family..."
+)
+
+
+SEM_DICTS = []
+SEM_LABELS = []
+
+
+for omit in range(8):
+
+    pp = [
+        POS[i]
+        for i in range(8)
+        if i != omit
+    ]
+
+    nn = [
+        NEG[i]
+        for i in range(8)
+        if i != omit
+    ]
+
+    SEM_DICTS.append(
+        build_dictionary(
+            pp,
+            nn,
+        )
+    )
+
+    SEM_LABELS.append(
+        f"LOO_{omit}"
+    )
+
+    print(
+        f"  LOO_{omit}"
+    )
+
+
+for vi, phrase in enumerate(
+    NEG_VARIANTS
+):
+
+    nn = [
+        t.format(X=phrase)
+        for t in TEMPLATES
+    ]
+
+    SEM_DICTS.append(
+        build_dictionary(
+            POS,
+            nn,
+        )
+    )
+
+    SEM_LABELS.append(
+        f"NEGVAR_{vi}"
+    )
+
+    print(
+        f"  NEGVAR_{vi}"
+    )
+
+
+assert (
+    len(SEM_DICTS)
+    ==
+    N_SEMANTIC
+)
+
+
+# =============================================================================
+# 12. EQUAL-ANGLE SEMANTIC ATLAS
+# =============================================================================
+
+print(
+    "\n[5/24] Equal-angle semantic atlas..."
+)
+
+
+theta = math.radians(
+    SHELL_DEG
+)
+
+
+SEM_ATLAS = {}
+SEM_NATURAL_ANGLES = {}
+
+
+for li in SOURCE_LAYERS:
+
+    v = unit(
+        DIBEK[li]
+    )
+
+    rows = []
+    nat = []
+
+
+    for cid in range(
+        N_SEMANTIC
+    ):
+
+        w = unit(
+            SEM_DICTS[cid][li]
+        )
+
+        raw_cos = cos(
+            w,
+            v,
+        )
+
+
+        if raw_cos > IDENTITY_TOL:
+
+            raise RuntimeError(
+                f"L{li} candidate "
+                f"{cid} identity collapse."
+            )
+
+
+        tangent = (
+            w
+            -
+            torch.dot(
+                w,
+                v,
+            ) * v
+        )
+
+
+        if float(
+            torch.linalg.vector_norm(
+                tangent
+            ).item()
+        ) <= 1e-8:
+
+            raise RuntimeError(
+                f"L{li} candidate "
+                f"{cid} tangent collapse."
+            )
+
+
+        tangent = unit(
+            tangent
+        )
+
+
+        q = unit(
+            math.cos(theta) * v
+            +
+            math.sin(theta) * tangent
+        )
+
+
+        na = angle(
+            w,
+            v,
+        )
+
+
+        rows.append({
+            "id": cid,
+            "label":
+                SEM_LABELS[cid],
+            "q": q,
+            "raw_cos":
+                raw_cos,
+            "natural_angle":
+                na,
+            "requested_angle":
+                angle(q, v),
+        })
+
+
+        nat.append(
+            na
+        )
+
+
+    SEM_ATLAS[li] = rows
+    SEM_NATURAL_ANGLES[li] = nat
+
+
+    print(
+        f"  L{li:02d}: "
+        f"requested="
+        f"{np.mean([x['requested_angle'] for x in rows]):.4f}° | "
+        f"natural=["
+        f"{min(nat):.2f}°, "
+        f"{max(nat):.2f}°] "
+        f"mean={np.mean(nat):.2f}°"
+    )
+
+
+# =============================================================================
+# 13. RANDOM SHELL
+# =============================================================================
+
+print(
+    "\n[6/24] Random shell..."
+)
+
+
+RND_ATLAS = {}
+
+
+for li in SOURCE_LAYERS:
+
+    v = unit(
+        DIBEK[li]
+    )
+
+    rows = []
+
+
+    for cid in range(
+        N_RANDOM
+    ):
+
+        g = torch.Generator(
+            device="cpu"
+        )
+
+        g.manual_seed(
+            SEED
+            +
+            1_000_000
+            +
+            li * 1000
+            +
+            cid
+        )
+
+
+        z = torch.randn(
+            HIDDEN,
+            generator=g,
+            dtype=torch.float32,
+        )
+
+
+        z = (
+            z
+            -
+            torch.dot(z, v) * v
+        )
+
+
+        z = unit(z)
+
+
+        q = unit(
+            math.cos(theta) * v
+            +
+            math.sin(theta) * z
+        )
+
+
+        rows.append({
+            "id": cid,
+            "q": q,
+        })
+
+
+    RND_ATLAS[li] = rows
+
+
+# =============================================================================
+# 14. NULL
+# =============================================================================
+
+def make_null_dirs(
+    li,
+    pi,
+):
+
+    v = unit(
+        DIBEK[li]
+    )
+
+    out = []
+
+
+    for nid in range(
+        N_NULL
+    ):
+
+        g = torch.Generator(
+            device="cpu"
+        )
+
+        g.manual_seed(
+            SEED
+            +
+            7_000_000
+            +
+            100_000 * pi
+            +
+            1000 * li
+            +
+            nid
+        )
+
+
+        z = torch.randn(
+            HIDDEN,
+            generator=g,
+            dtype=torch.float32,
+        )
+
+
+        z = (
+            z
+            -
+            torch.dot(z, v) * v
+        )
+
+
+        z = unit(z)
+
+
+        out.append(
+            unit(
+                v
+                +
+                NULL_JITTER_REL * z
+            )
+        )
+
+
+    return out
+
+
+# =============================================================================
+# 15. HORIZON HELPERS
+# =============================================================================
+
+def valid_probe_offsets(
+    source_li
+):
+
+    return [
+        k
+        for k in PROBE_OFFSETS
+        if source_li + k <= 19
+    ]
+
+
+def preterminal_probe(
+    source_li,
+    k,
+):
+
+    # L18 excluded from primary terminal inference.
+    #
+    # source+k == 19 is terminal-touching.
+    # Report edilir ama predictive/preterminal primary'e girmez.
+
+    return (
+        source_li != 18
+        and
+        source_li + k < 19
+    )
+
+
+def act_horizons(
+    source_li
+):
+
+    hs = {
+        source_li,
+        19,
+    }
+
+
+    for k in valid_probe_offsets(
+        source_li
+    ):
+
+        hs.add(
+            source_li + k
+        )
+
+
+    return sorted(hs)
+
+
+# =============================================================================
+# 16. NESTED CLONE / FP32
+# =============================================================================
+
+def clone_nested(x):
+
+    if torch.is_tensor(x):
+
+        return (
+            x.detach()
+            .clone()
+        )
+
+
+    if isinstance(x, tuple):
+
+        return tuple(
+            clone_nested(v)
+            for v in x
+        )
+
+
+    if isinstance(x, list):
+
+        return [
+            clone_nested(v)
+            for v in x
+        ]
+
+
+    if isinstance(x, dict):
+
+        return {
+            k: clone_nested(v)
+            for k, v in x.items()
+        }
+
+
+    return x
+
+
+def fp32_nested(x):
+
+    if torch.is_tensor(x):
+
+        if x.is_floating_point():
+            return x.float()
+
+        return x
+
+
+    if isinstance(x, tuple):
+
+        return tuple(
+            fp32_nested(v)
+            for v in x
+        )
+
+
+    if isinstance(x, list):
+
+        return [
+            fp32_nested(v)
+            for v in x
+        ]
+
+
+    if isinstance(x, dict):
+
+        return {
+            k: fp32_nested(v)
+            for k, v in x.items()
+        }
+
+
+    return x
+
+
+def locate_hidden(
+    args,
+    kwargs,
+):
+
+    if (
+        len(args) > 0
+        and
+        torch.is_tensor(args[0])
+        and
+        args[0].ndim == 3
+    ):
+
+        return (
+            "args",
+            0,
+            args[0],
+        )
+
+
+    if (
+        "hidden_states" in kwargs
+        and
+        torch.is_tensor(
+            kwargs["hidden_states"]
+        )
+    ):
+
+        return (
+            "kwargs",
+            "hidden_states",
+            kwargs["hidden_states"],
+        )
+
+
+    raise RuntimeError(
+        "hidden_states bulunamadı."
+    )
+
+
+def set_hidden(
+    args,
+    kwargs,
+    hidden,
+):
+
+    args = list(args)
+    kwargs = dict(kwargs)
+
+
+    where, key, _ = locate_hidden(
+        args,
+        kwargs,
+    )
+
+
+    if where == "args":
+
+        args[key] = hidden
+
+    else:
+
+        kwargs[key] = hidden
+
+
+    return (
+        tuple(args),
+        kwargs,
+    )
+
+
+# =============================================================================
+# 17. BASELINE + PER-LAYER CALL METADATA
+# =============================================================================
+
+@torch.inference_mode()
+def baseline_and_calls(
+    prompt,
+    source_li,
+):
+
+    offsets = valid_probe_offsets(
+        source_li
+    )
+
+    max_offset = max(
+        offsets
+    )
+
+
+    needed_outputs = sorted(
+        set(
+            [source_li, 19]
+            +
+            [
+                source_li + k
+                for k in offsets
+            ]
+        )
+    )
+
+
+    replay_layers = [
+        source_li + offset
+        for offset in range(
+            1,
+            max_offset + 1,
+        )
+    ]
+
+
+    outputs = {}
+    calls = {}
+
+    handles = []
+
+
+    def make_output_hook(
+        lid
+    ):
+
+        def hook(
+            module,
+            args,
+            out,
+        ):
+
+            h = (
+                out[0]
+                if isinstance(
+                    out,
+                    tuple,
+                )
+                else out
+            )
+
+
+            outputs[lid] = (
+                h[0, -1]
+                .detach()
+                .float()
+                .cpu()
+                .clone()
+            )
+
+        return hook
+
+
+    def make_pre_hook(
+        lid
+    ):
+
+        def hook(
+            module,
+            args,
+            kwargs,
+        ):
+
+            calls[lid] = {
+                "args":
+                    clone_nested(
+                        args
+                    ),
+
+                "kwargs":
+                    clone_nested(
+                        kwargs
+                    ),
+            }
+
+        return hook
+
+
+    try:
+
+        for lid in needed_outputs:
+
+            handles.append(
+                model.model.layers[lid]
+                .register_forward_hook(
+                    make_output_hook(
+                        lid
+                    )
+                )
+            )
+
+
+        for lid in replay_layers:
+
+            handles.append(
+                model.model.layers[lid]
+                .register_forward_pre_hook(
+                    make_pre_hook(
+                        lid
+                    ),
+                    with_kwargs=True,
+                )
+            )
+
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt",
+        )
+
+
+        enc = {
+            k: v.to(device)
+            for k, v in enc.items()
+        }
+
+
+        model(
+            **enc,
+            use_cache=False,
+        )
+
+
+    finally:
+
+        for hd in handles:
+            hd.remove()
+
+
+    for lid in replay_layers:
+
+        if lid not in calls:
+
+            raise RuntimeError(
+                f"L{lid} forward metadata "
+                "yakalanamadı."
+            )
+
+
+    return (
+        outputs,
+        calls,
+    )
+
+
+# =============================================================================
+# 18. SINGLE FP32 BLOCK CALL
+# =============================================================================
+
+@torch.inference_mode()
+def run_fp32_block(
+    block,
+    call_meta,
+    hidden,
+):
+
+    args = fp32_nested(
+        call_meta["args"]
+    )
+
+    kwargs = fp32_nested(
+        call_meta["kwargs"]
+    )
+
+
+    args, kwargs = set_hidden(
+        args,
+        kwargs,
+        hidden,
+    )
+
+
+    if "use_cache" in kwargs:
+        kwargs["use_cache"] = False
+
+
+    out = block(
+        *args,
+        **kwargs,
+    )
+
+
+    if isinstance(
+        out,
+        tuple,
+    ):
+
+        h = out[0]
+
+    elif hasattr(
+        out,
+        "last_hidden_state",
+    ):
+
+        h = (
+            out.last_hidden_state
+        )
+
+    else:
+
+        h = out
+
+
+    return h.float()
+
+
+# =============================================================================
+# 19. MULTI-CANDIDATE FP32 HORIZON RADAR
+#
+# Tek seferde:
+#
+# FIXED + 16 SEM + 16 RANDOM = 33 directions
+#
+# Her direction için:
+#
+# +eps
+# -eps
+#
+# branch tutulur.
+#
+# Her decoder katmanı yalnız bir kez FP32'ye kopyalanır.
+# =============================================================================
+
+@torch.inference_mode()
+def fp32_horizon_radar_all(
+    source_li,
+    calls,
+    directions,
+):
+
+    offsets = valid_probe_offsets(
+        source_li
+    )
+
+    max_offset = max(
+        offsets
+    )
+
+
+    first_li = (
+        source_li + 1
+    )
+
+
+    base_args = (
+        calls[first_li]["args"]
+    )
+
+    base_kwargs = (
+        calls[first_li]["kwargs"]
+    )
+
+
+    _, _, h_orig = locate_hidden(
+        base_args,
+        base_kwargs,
+    )
+
+
+    h0 = (
+        h_orig
+        .detach()
+        .float()
+        .clone()
+    )
+
+
+    source_norm = float(
+        torch.linalg.vector_norm(
+            h0[0, -1]
+        ).item()
+    )
+
+
+    eps_norm = (
+        RADAR_REL
+        *
+        source_norm
+    )
+
+
+    # -------------------------------------------------------------
+    # Initialize +/- branches
+    # -------------------------------------------------------------
+
+    branches = []
+
+
+    for direction in directions:
+
+        q = unit(
+            direction
+        ).to(
+            device=h0.device,
+            dtype=torch.float32,
+        )
+
+
+        hp = h0.clone()
+        hm = h0.clone()
+
+
+        hp[0, -1] += (
+            eps_norm * q
+        )
+
+        hm[0, -1] -= (
+            eps_norm * q
+        )
+
+
+        branches.append({
+            "hp": hp,
+            "hm": hm,
+        })
+
+
+    results = {
+        k: {
+            "D": [],
+            "gain": [],
+        }
+        for k in offsets
+    }
+
+
+    # -------------------------------------------------------------
+    # Walk one FP32 block at a time
+    # -------------------------------------------------------------
+
+    for offset in range(
+        1,
+        max_offset + 1,
+    ):
+
+        lid = (
+            source_li
+            +
+            offset
+        )
+
+
+        block_device = (
+            next(
+                model.model.layers[lid]
+                .parameters()
+            ).device
+        )
+
+
+        block = (
+            copy.deepcopy(
+                model.model.layers[lid]
+            )
+            .to(
+                device=block_device,
+                dtype=torch.float32,
+            )
+            .eval()
+        )
+
+
+        for p in block.parameters():
+            p.requires_grad_(False)
+
+
+        call_meta = calls[lid]
+
+
+        for branch in branches:
+
+            hp = (
+                branch["hp"]
+                .to(block_device)
+            )
+
+            hm = (
+                branch["hm"]
+                .to(block_device)
+            )
+
+
+            branch["hp"] = (
+                run_fp32_block(
+                    block,
+                    call_meta,
+                    hp,
+                )
+            )
+
+
+            branch["hm"] = (
+                run_fp32_block(
+                    block,
+                    call_meta,
+                    hm,
+                )
+            )
+
+
+        # ---------------------------------------------------------
+        # Requested horizon reached
+        # ---------------------------------------------------------
+
+        if offset in offsets:
+
+            target_v = (
+                DIBEK[lid]
+            )
+
+
+            for branch in branches:
+
+                response = (
+                    (
+                        branch["hp"][0, -1]
+                        -
+                        branch["hm"][0, -1]
+                    )
+                    /
+                    2.0
+                )
+
+
+                response_cpu = (
+                    response
+                    .detach()
+                    .float()
+                    .cpu()
+                )
+
+
+                results[offset][
+                    "D"
+                ].append(
+                    cos(
+                        response_cpu,
+                        target_v,
+                    )
+                )
+
+
+                results[offset][
+                    "gain"
+                ].append(
+                    float(
+                        torch.linalg.vector_norm(
+                            response_cpu
+                        ).item()
+                    )
+                    /
+                    (
+                        eps_norm
+                        +
+                        EPS
+                    )
+                )
+
+
+        # ---------------------------------------------------------
+        # Delete current FP32 block BEFORE next one
+        # ---------------------------------------------------------
+
+        del block
+
+        gc.collect()
+        torch.cuda.empty_cache()
+
+
+    return {
+        "eps_norm":
+            eps_norm,
+
+        "results":
+            results,
+    }
+
+
+# =============================================================================
+# 20. BF16 BATCH ACTUATOR
+# =============================================================================
+
+@torch.inference_mode()
+def full_act_batch(
+    prompt,
+    source_li,
+    directions,
+    baseline,
+    rel,
+):
+
+    B = len(
+        directions
+    )
+
+
+    if B == 0:
+        raise RuntimeError(
+            "Empty direction batch."
+        )
+
+
+    horizons = act_horizons(
+        source_li
+    )
+
+
+    q_cpu = torch.stack(
+        [
+            unit(d)
+            for d in directions
+        ],
+        dim=0,
+    )
+
+
+    q = q_cpu.to(
+        device=device,
+        dtype=torch.float32,
+    )
+
+
+    src_norm = float(
+        torch.linalg.vector_norm(
+            baseline[source_li]
+        ).item()
+    )
+
+
+    req_norm = (
+        rel
+        *
+        src_norm
+    )
+
+
+    captures = {}
+    realized = {}
+
+    handles = []
+
+
+    def source_hook(
+        module,
+        args,
+        out,
+    ):
+
+        h = (
+            out[0]
+            if isinstance(
+                out,
+                tuple,
+            )
+            else out
+        )
+
+
+        hnew = h.clone()
+
+
+        before = (
+            h[:, -1, :]
+            .float()
+        )
+
+
+        q_local = q.to(
+            before.device
+        )
+
+
+        after = (
+            before
+            +
+            req_norm
+            *
+            q_local
+        )
+
+
+        hnew[:, -1, :] = (
+            after.to(
+                dtype=h.dtype
+            )
+        )
+
+
+        realized["dx"] = (
+            hnew[:, -1, :]
+            .float()
+            -
+            before
+        ).detach().cpu()
+
+
+        if isinstance(
+            out,
+            tuple,
+        ):
+
+            return (
+                (hnew,)
+                +
+                out[1:]
+            )
+
+
+        return hnew
+
+
+    def make_target_hook(
+        lid
+    ):
+
+        def hook(
+            module,
+            args,
+            out,
+        ):
+
+            h = (
+                out[0]
+                if isinstance(
+                    out,
+                    tuple,
+                )
+                else out
+            )
+
+
+            captures[lid] = (
+                h[:, -1, :]
+                .detach()
+                .float()
+                .cpu()
+            )
+
+        return hook
+
+
+    try:
+
+        handles.append(
+            model.model.layers[
+                source_li
+            ]
+            .register_forward_hook(
+                source_hook
+            )
+        )
+
+
+        for lid in horizons:
+
+            if lid == source_li:
+                continue
+
+            handles.append(
+                model.model.layers[lid]
+                .register_forward_hook(
+                    make_target_hook(
+                        lid
+                    )
+                )
+            )
+
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt",
+        )
+
+
+        batch_enc = {}
+
+
+        for k, v in enc.items():
+
+            reps = [
+                B
+            ] + [
+                1
+                for _ in range(
+                    v.ndim - 1
+                )
+            ]
+
+            batch_enc[k] = (
+                v.repeat(
+                    *reps
+                )
+                .to(device)
+            )
+
+
+        model(
+            **batch_enc,
+            use_cache=False,
+        )
+
+
+    finally:
+
+        for hd in handles:
+            hd.remove()
+
+
+    if "dx" not in realized:
+
+        raise RuntimeError(
+            "BF16 realization "
+            "yakalanamadı."
+        )
+
+
+    dx = realized["dx"]
+
+
+    realized_rel = []
+    dir_cos = []
+    angle_err = []
+
+
+    for i in range(B):
+
+        realized_rel.append(
+            float(
+                torch.linalg.vector_norm(
+                    dx[i]
+                ).item()
+            )
+            /
+            (
+                src_norm
+                +
+                EPS
+            )
+        )
+
+
+        dir_cos.append(
+            cos(
+                dx[i],
+                q_cpu[i],
+            )
+        )
+
+
+        angle_err.append(
+            angle(
+                dx[i],
+                q_cpu[i],
+            )
+        )
+
+
+    D = {}
+
+
+    for lid in horizons:
+
+        if lid == source_li:
+
+            # At source layer the intervention itself is dx.
+            delta = dx
+
+        else:
+
+            if lid not in captures:
+
+                raise RuntimeError(
+                    f"L{lid} capture missing."
+                )
+
+            delta = (
+                captures[lid]
+                -
+                baseline[lid]
+                .unsqueeze(0)
+            )
+
+
+        D[lid] = [
+            cos(
+                delta[i],
+                DIBEK[lid],
+            )
+            for i in range(B)
+        ]
+
+
+    return {
+        "dx":
+            dx,
+
+        "realized_rel":
+            realized_rel,
+
+        "dir_cos":
+            dir_cos,
+
+        "angle_err":
+            angle_err,
+
+        "D":
+            D,
+    }
+
+
+# =============================================================================
+# 21. MAIN LOOP
+# =============================================================================
+
+print(
+    "\n[7/24] Main assay..."
+)
+
+
+RESULTS = []
+
+t_main = time.time()
+
+
+for source_li in SOURCE_LAYERS:
+
+    offsets = valid_probe_offsets(
+        source_li
+    )
+
+
+    print()
+    print(
+        "=" * 100
+    )
+
+    print(
+        f"SOURCE L{source_li}"
+    )
+
+    print(
+        f"Probe horizons: {offsets}"
+    )
+
+
+    requested_sem_pair = (
+        pair_angle_mean(
+            [
+                x["q"]
+                for x in
+                SEM_ATLAS[source_li]
+            ]
+        )
+    )
+
+
+    layer_rows = []
+
+
+    for pi, prompt in enumerate(
+        PROMPTS
+    ):
+
+        # =====================================================================
+        # A. BASELINE + REAL PER-LAYER CALL METADATA
+        # =====================================================================
+
+        baseline, calls = (
+            baseline_and_calls(
+                prompt,
+                source_li,
+            )
+        )
+
+
+        # =====================================================================
+        # B. BUILD RADAR DIRECTION LIST
+        #
+        # index:
+        #   0       fixed
+        #   1:17    semantic
+        #   17:33   random
+        # =====================================================================
+
+        radar_dirs = [
+            DIBEK[source_li]
+        ]
+
+
+        radar_dirs.extend(
+            [
+                x["q"]
+                for x in
+                SEM_ATLAS[source_li]
+            ]
+        )
+
+
+        radar_dirs.extend(
+            [
+                x["q"]
+                for x in
+                RND_ATLAS[source_li]
+            ]
+        )
+
+
+        assert (
+            len(radar_dirs)
+            ==
+            1
+            +
+            N_SEMANTIC
+            +
+            N_RANDOM
+        )
+
+
+        # =====================================================================
+        # C. FP32 MULTI-HORIZON RADAR
+        # =====================================================================
+
+        radar = (
+            fp32_horizon_radar_all(
+                source_li,
+                calls,
+                radar_dirs,
+            )
+        )
+
+
+        sem_radar = {}
+        rnd_radar = {}
+        sem_gain = {}
+        fixed_radar = {}
+
+
+        for k in offsets:
+
+            Dvals = np.asarray(
+                radar["results"][k]["D"],
+                dtype=np.float64,
+            )
+
+            Gvals = np.asarray(
+                radar["results"][k]["gain"],
+                dtype=np.float64,
+            )
+
+
+            fixed_radar[k] = float(
+                Dvals[0]
+            )
+
+
+            sem_radar[k] = (
+                Dvals[
+                    1:
+                    1 + N_SEMANTIC
+                ]
+            )
+
+
+            rnd_radar[k] = (
+                Dvals[
+                    1 + N_SEMANTIC:
+                    1 + N_SEMANTIC + N_RANDOM
+                ]
+            )
+
+
+            sem_gain[k] = (
+                Gvals[
+                    1:
+                    1 + N_SEMANTIC
+                ]
+            )
+
+
+        # =====================================================================
+        # D. FREEZE SELECTIONS BEFORE BF16 OUTCOME
+        # =====================================================================
+
+        sem_selected = {
+            k:
+                int(
+                    np.argmax(
+                        sem_radar[k]
+                    )
+                )
+            for k in offsets
+        }
+
+
+        rnd_selected = {
+            k:
+                int(
+                    np.argmax(
+                        rnd_radar[k]
+                    )
+                )
+            for k in offsets
+        }
+
+
+        null_pick = (
+            random.Random(
+                SEED
+                +
+                5_000_000
+                +
+                1000 * source_li
+                +
+                pi
+            )
+            .randrange(
+                N_NULL
+            )
+        )
+
+
+        null_dirs = (
+            make_null_dirs(
+                source_li,
+                pi,
+            )
+        )
+
+
+        # Radar selection frozen.
+        # Only now calculate BF16 outcomes.
+
+        del calls
+        del radar_dirs
+
+
+        # =====================================================================
+        # E. BF16 FULL MODEL — BATCHED
+        # =====================================================================
+
+        per_dose = {}
+
+
+        sem_dirs = [
+            x["q"]
+            for x in
+            SEM_ATLAS[source_li]
+        ]
+
+
+        rnd_dirs = [
+            x["q"]
+            for x in
+            RND_ATLAS[source_li]
+        ]
+
+
+        for rel in ACT_DOSES:
+
+            fixed_a = (
+                full_act_batch(
+                    prompt,
+                    source_li,
+                    [
+                        DIBEK[
+                            source_li
+                        ]
+                    ],
+                    baseline,
+                    rel,
+                )
+            )
+
+
+            sem_a = (
+                full_act_batch(
+                    prompt,
+                    source_li,
+                    sem_dirs,
+                    baseline,
+                    rel,
+                )
+            )
+
+
+            rnd_a = (
+                full_act_batch(
+                    prompt,
+                    source_li,
+                    rnd_dirs,
+                    baseline,
+                    rel,
+                )
+            )
+
+
+            nul_a = (
+                full_act_batch(
+                    prompt,
+                    source_li,
+                    null_dirs,
+                    baseline,
+                    rel,
+                )
+            )
+
+
+            # =================================================================
+            # REALIZATION INTEGRITY
+            # =================================================================
+
+            fixed_dx = (
+                fixed_a["dx"][0]
+            )
+
+
+            integrity = {
+
+                "fixed_rel":
+                    float(
+                        fixed_a[
+                            "realized_rel"
+                        ][0]
+                    ),
+
+                "fixed_dir_cos":
+                    float(
+                        fixed_a[
+                            "dir_cos"
+                        ][0]
+                    ),
+
+                "sem_dir_cos":
+                    mean_or_nan(
+                        sem_a[
+                            "dir_cos"
+                        ]
+                    ),
+
+                "sem_angle_err":
+                    mean_or_nan(
+                        sem_a[
+                            "angle_err"
+                        ]
+                    ),
+
+                "sem_realized_pair_angle":
+                    pair_angle_mean(
+                        [
+                            sem_a["dx"][i]
+                            for i in range(
+                                N_SEMANTIC
+                            )
+                        ]
+                    ),
+
+                "null_realized_angle_vs_fixed":
+                    mean_or_nan(
+                        [
+                            angle(
+                                nul_a["dx"][i],
+                                fixed_dx,
+                            )
+                            for i in range(
+                                N_NULL
+                            )
+                        ]
+                    ),
+            }
+
+
+            # =================================================================
+            # TERMINAL GROUND TRUTH
+            # =================================================================
+
+            fixed_D19 = float(
+                fixed_a[
+                    "D"
+                ][19][0]
+            )
+
+
+            sem_D19 = np.asarray(
+                sem_a["D"][19],
+                dtype=np.float64,
+            )
+
+
+            rnd_D19 = np.asarray(
+                rnd_a["D"][19],
+                dtype=np.float64,
+            )
+
+
+            null_D19 = np.asarray(
+                nul_a["D"][19],
+                dtype=np.float64,
+            )
+
+
+            sem_oracle_id = int(
+                np.argmax(
+                    sem_D19
+                )
+            )
+
+
+            rnd_oracle_id = int(
+                np.argmax(
+                    rnd_D19
+                )
+            )
+
+
+            null_oracle_id = int(
+                np.argmax(
+                    null_D19
+                )
+            )
+
+
+            # =================================================================
+            # HORIZON EVALUATION
+            # =================================================================
+
+            horizon_eval = {}
+
+
+            for k in offsets:
+
+                sem_sel = (
+                    sem_selected[k]
+                )
+
+                rnd_sel = (
+                    rnd_selected[k]
+                )
+
+
+                order = np.argsort(
+                    -sem_D19
+                )
+
+
+                terminal_rank = (
+                    int(
+                        np.where(
+                            order
+                            ==
+                            sem_sel
+                        )[0][0]
+                    )
+                    +
+                    1
+                )
+
+
+                probe_layer = (
+                    source_li
+                    +
+                    k
+                )
+
+
+                horizon_eval[k] = {
+
+                    "probe_layer":
+                        probe_layer,
+
+                    "preterminal_primary":
+                        bool(
+                            preterminal_probe(
+                                source_li,
+                                k,
+                            )
+                        ),
+
+                    "terminal_touching":
+                        bool(
+                            probe_layer
+                            ==
+                            19
+                        ),
+
+                    "sem_selected_id":
+                        sem_sel,
+
+                    "sem_selected_label":
+                        SEM_LABELS[
+                            sem_sel
+                        ],
+
+                    "rnd_selected_id":
+                        rnd_sel,
+
+                    "sem_sel_delta":
+                        float(
+                            sem_D19[
+                                sem_sel
+                            ]
+                            -
+                            fixed_D19
+                        ),
+
+                    "rnd_sel_delta":
+                        float(
+                            rnd_D19[
+                                rnd_sel
+                            ]
+                            -
+                            fixed_D19
+                        ),
+
+                    "sem_minus_rnd":
+                        float(
+                            sem_D19[
+                                sem_sel
+                            ]
+                            -
+                            rnd_D19[
+                                rnd_sel
+                            ]
+                        ),
+
+                    "sem_terminal_rank":
+                        terminal_rank,
+
+                    "sem_top4":
+                        int(
+                            terminal_rank
+                            <=
+                            4
+                        ),
+
+                    "sem_oracle_hit":
+                        int(
+                            sem_sel
+                            ==
+                            sem_oracle_id
+                        ),
+
+                    "sem_terminal_pearson":
+                        pearson(
+                            sem_radar[k],
+                            sem_D19,
+                        ),
+
+                    "sem_terminal_spearman":
+                        spearman(
+                            sem_radar[k],
+                            sem_D19,
+                        ),
+
+                    "rnd_terminal_spearman":
+                        spearman(
+                            rnd_radar[k],
+                            rnd_D19,
+                        ),
+
+                    "local_selected_score":
+                        float(
+                            sem_radar[k][
+                                sem_sel
+                            ]
+                        ),
+                }
+
+
+            terminal = {
+
+                "fixed_D19":
+                    fixed_D19,
+
+                "sem_oracle_delta":
+                    float(
+                        sem_D19.max()
+                        -
+                        fixed_D19
+                    ),
+
+                "rnd_oracle_delta":
+                    float(
+                        rnd_D19.max()
+                        -
+                        fixed_D19
+                    ),
+
+                "null_oracle_delta":
+                    float(
+                        null_D19.max()
+                        -
+                        fixed_D19
+                    ),
+
+                "null_pick_delta":
+                    float(
+                        null_D19[
+                            null_pick
+                        ]
+                        -
+                        fixed_D19
+                    ),
+
+                "semantic_oracle_id":
+                    sem_oracle_id,
+
+                "semantic_oracle_label":
+                    SEM_LABELS[
+                        sem_oracle_id
+                    ],
+
+                "random_oracle_id":
+                    rnd_oracle_id,
+
+                "null_oracle_id":
+                    null_oracle_id,
+
+                "oracle_minus_null":
+                    float(
+                        sem_D19.max()
+                        -
+                        null_D19.max()
+                    ),
+            }
+
+
+            per_dose[
+                str(rel)
+            ] = {
+
+                "integrity":
+                    integrity,
+
+                "terminal":
+                    terminal,
+
+                "horizon_eval":
+                    horizon_eval,
+            }
+
+
+            del fixed_a
+            del sem_a
+            del rnd_a
+            del nul_a
+
+
+        # =====================================================================
+        # F. SAVE ROW
+        # =====================================================================
+
+        row = {
+
+            "prompt_index":
+                pi,
+
+            "source_layer":
+                source_li,
+
+            "valid_probe_offsets":
+                offsets,
+
+            "requested_sem_pair_angle":
+                requested_sem_pair,
+
+            "fixed_radar": {
+                str(k):
+                    float(
+                        fixed_radar[k]
+                    )
+                for k in offsets
+            },
+
+            "sem_radar": {
+                str(k):
+                    sem_radar[k]
+                    .tolist()
+                for k in offsets
+            },
+
+            "rnd_radar": {
+                str(k):
+                    rnd_radar[k]
+                    .tolist()
+                for k in offsets
+            },
+
+            "sem_gain": {
+                str(k):
+                    sem_gain[k]
+                    .tolist()
+                for k in offsets
+            },
+
+            "sem_selected": {
+                str(k):
+                    int(
+                        sem_selected[k]
+                    )
+                for k in offsets
+            },
+
+            "rnd_selected": {
+                str(k):
+                    int(
+                        rnd_selected[k]
+                    )
+                for k in offsets
+            },
+
+            "doses":
+                per_dose,
+        }
+
+
+        layer_rows.append(
+            row
+        )
+
+
+        del baseline
+        del radar
+        del null_dirs
+
+        gc.collect()
+        torch.cuda.empty_cache()
+
+
+        print(
+            f"    prompt "
+            f"{pi+1:02d}/"
+            f"{N_PROMPTS} | "
+            f"{(time.time()-t_main)/60:.1f}m",
+            end="\r",
+        )
+
+
+    print()
+
+
+    RESULTS.append({
+
+        "source_layer":
+            source_li,
+
+        "probe_offsets":
+            offsets,
+
+        "requested_sem_pair_angle":
+            requested_sem_pair,
+
+        "rows":
+            layer_rows,
+    })
+
+
+    gc.collect()
+    torch.cuda.empty_cache()
+
+
+print(
+    f"\nMain assay tamamlandı: "
+    f"{(time.time()-t_main)/60:.1f} dk"
+)
+
+
+# =============================================================================
+# 22. REALIZATION INTEGRITY
+# =============================================================================
+
+print(
+    "\n[8/24] BF16 REALIZATION INTEGRITY"
+)
+
+print("=" * 145)
+
+print(
+    f"{'SOURCE':<8}"
+    f"{'DOSE':>8}"
+    f"{'REQ PAIR':>13}"
+    f"{'REAL PAIR':>14}"
+    f"{'DIR ERR':>12}"
+    f"{'FIX COS':>12}"
+    f"{'NULL ANG':>12}"
+)
+
+print("-" * 145)
+
+
+INTEGRITY = {}
+
+
+for layer in RESULTS:
+
+    li = layer[
+        "source_layer"
+    ]
+
+
+    for rel in ACT_DOSES:
+
+        vals = [
+            r[
+                "doses"
+            ][str(rel)][
+                "integrity"
+            ]
+            for r in
+            layer["rows"]
+        ]
+
+
+        item = {
+            k:
+                mean_or_nan(
+                    [
+                        x[k]
+                        for x in vals
+                    ]
+                )
+            for k in
+            vals[0]
+        }
+
+
+        item[
+            "requested_sem_pair_angle"
+        ] = (
+            layer[
+                "requested_sem_pair_angle"
+            ]
+        )
+
+
+        INTEGRITY[
+            f"L{li}_{rel}"
+        ] = item
+
+
+        print(
+            f"L{li:<7}"
+            f"{rel:>8.2f}"
+            f"{layer['requested_sem_pair_angle']:>12.3f}°"
+            f"{item['sem_realized_pair_angle']:>13.3f}°"
+            f"{item['sem_angle_err']:>11.3f}°"
+            f"{item['fixed_dir_cos']:>+12.5f}"
+            f"{item['null_realized_angle_vs_fixed']:>11.3f}°"
+        )
+
+
+# =============================================================================
+# 23. COLLECTORS
+# =============================================================================
+
+def collect_horizon_rows(
+    rel,
+    k,
+    mode="preterminal",
+):
+
+    out = []
+
+
+    for layer in RESULTS:
+
+        li = layer[
+            "source_layer"
+        ]
+
+
+        if (
+            k
+            not in
+            layer["probe_offsets"]
+        ):
+            continue
+
+
+        if mode == "preterminal":
+
+            if not preterminal_probe(
+                li,
+                k,
+            ):
+                continue
+
+
+        elif mode == "long_all":
+
+            if li == 18:
+                continue
+
+
+        elif mode == "all":
+
+            pass
+
+
+        else:
+
+            raise ValueError(
+                f"Unknown mode: {mode}"
+            )
+
+
+        for row in layer[
+            "rows"
+        ]:
+
+            out.append(
+                row[
+                    "doses"
+                ][str(rel)][
+                    "horizon_eval"
+                ][k]
+            )
+
+
+    return out
+
+
+# =============================================================================
+# 24. RAW HORIZON SUMMARY
+# =============================================================================
+
+print(
+    "\n[9/24] FP32 HORIZON -> BF16 L19"
+)
+
+
+HORIZON_SUMMARY = {}
+
+
+for rel in ACT_DOSES:
+
+    print(
+        "\n"
+        +
+        "=" * 175
+    )
+
+    print(
+        f"ACT DOSE {rel}"
+        +
+        (
+            " <- PRIMARY"
+            if rel
+            ==
+            ACT_PRIMARY
+            else ""
+        )
+    )
+
+
+    print(
+        f"{'PROBE':<10}"
+        f"{'SEM SEL':>12}"
+        f"{'RND SEL':>12}"
+        f"{'SEM-RND':>12}"
+        f"{'rho':>10}"
+        f"{'pearson':>11}"
+        f"{'rank':>9}"
+        f"{'top4':>9}"
+        f"{'hit':>9}"
+        f"{'N':>7}"
+    )
+
+    print(
+        "-" * 175
+    )
+
+
+    HORIZON_SUMMARY[
+        str(rel)
+    ] = {}
+
+
+    for k in PROBE_OFFSETS:
+
+        rows = (
+            collect_horizon_rows(
+                rel,
+                k,
+                mode="preterminal",
+            )
+        )
+
+
+        if len(rows) == 0:
+            continue
+
+
+        s = {
+
+            "sem_sel":
+                mean_or_nan(
+                    [
+                        x[
+                            "sem_sel_delta"
+                        ]
+                        for x in rows
+                    ]
+                ),
+
+            "rnd_sel":
+                mean_or_nan(
+                    [
+                        x[
+                            "rnd_sel_delta"
+                        ]
+                        for x in rows
+                    ]
+                ),
+
+            "sem_minus_rnd":
+                mean_or_nan(
+                    [
+                        x[
+                            "sem_minus_rnd"
+                        ]
+                        for x in rows
+                    ]
+                ),
+
+            "rho":
+                mean_or_nan(
+                    [
+                        x[
+                            "sem_terminal_spearman"
+                        ]
+                        for x in rows
+                    ]
+                ),
+
+            "pearson":
+                mean_or_nan(
+                    [
+                        x[
+                            "sem_terminal_pearson"
+                        ]
+                        for x in rows
+                    ]
+                ),
+
+            "rank":
+                mean_or_nan(
+                    [
+                        x[
+                            "sem_terminal_rank"
+                        ]
+                        for x in rows
+                    ]
+                ),
+
+            "top4":
+                mean_or_nan(
+                    [
+                        x[
+                            "sem_top4"
+                        ]
+                        for x in rows
+                    ]
+                ),
+
+            "hit":
+                mean_or_nan(
+                    [
+                        x[
+                            "sem_oracle_hit"
+                        ]
+                        for x in rows
+                    ]
+                ),
+
+            "n":
+                len(rows),
+        }
+
+
+        HORIZON_SUMMARY[
+            str(rel)
+        ][str(k)] = s
+
+
+        print(
+            f"+{k:<9}"
+            f"{s['sem_sel']:>+12.6f}"
+            f"{s['rnd_sel']:>+12.6f}"
+            f"{s['sem_minus_rnd']:>+12.6f}"
+            f"{s['rho']:>+10.4f}"
+            f"{s['pearson']:>+11.4f}"
+            f"{s['rank']:>9.2f}"
+            f"{s['top4']:>9.3f}"
+            f"{s['hit']:>9.3f}"
+            f"{s['n']:>7}"
+        )
+
+
+# =============================================================================
+# 25. PROMPT CLUSTER BOOTSTRAP — PRIMARY PRETERMINAL
+# =============================================================================
+
+print(
+    "\n[10/24] PRIMARY PRETERMINAL "
+    "PROMPT-CLUSTER BOOTSTRAP"
+)
+
+
+PRIMARY_HORIZON = {}
+
+
+for rel in ACT_DOSES:
+
+    PRIMARY_HORIZON[
+        str(rel)
+    ] = {}
+
+
+    print()
+    print(
+        "-" * 150
+    )
+
+    print(
+        f"ACT DOSE {rel}"
+        +
+        (
+            " <- PRIMARY"
+            if rel
+            ==
+            ACT_PRIMARY
+            else ""
+        )
+    )
+
+
+    for k in PROBE_OFFSETS:
+
+        pp_sem = {
+            i: []
+            for i in range(
+                N_PROMPTS
+            )
+        }
+
+        pp_rnd = {
+            i: []
+            for i in range(
+                N_PROMPTS
+            )
+        }
+
+        pp_diff = {
+            i: []
+            for i in range(
+                N_PROMPTS
+            )
+        }
+
+        pp_rho = {
+            i: []
+            for i in range(
+                N_PROMPTS
+            )
+        }
+
+
+        for layer in RESULTS:
+
+            li = layer[
+                "source_layer"
+            ]
+
+
+            if not preterminal_probe(
+                li,
+                k,
+            ):
+                continue
+
+
+            if (
+                k
+                not in
+                layer["probe_offsets"]
+            ):
+                continue
+
+
+            for row in layer[
+                "rows"
+            ]:
+
+                pi = row[
+                    "prompt_index"
+                ]
+
+
+                h = (
+                    row[
+                        "doses"
+                    ][str(rel)][
+                        "horizon_eval"
+                    ][k]
+                )
+
+
+                pp_sem[pi].append(
+                    h[
+                        "sem_sel_delta"
+                    ]
+                )
+
+                pp_rnd[pi].append(
+                    h[
+                        "rnd_sel_delta"
+                    ]
+                )
+
+                pp_diff[pi].append(
+                    h[
+                        "sem_minus_rnd"
+                    ]
+                )
+
+                pp_rho[pi].append(
+                    h[
+                        "sem_terminal_spearman"
+                    ]
+                )
+
+
+        def prompt_means(d):
+
+            vals = []
+
+            for i in range(
+                N_PROMPTS
+            ):
+
+                if len(d[i]) > 0:
+
+                    vals.append(
+                        float(
+                            np.mean(
+                                d[i]
+                            )
+                        )
+                    )
+
+            return vals
+
+
+        sem_pm = prompt_means(
+            pp_sem
+        )
+
+        rnd_pm = prompt_means(
+            pp_rnd
+        )
+
+        diff_pm = prompt_means(
+            pp_diff
+        )
+
+        rho_pm = prompt_means(
+            pp_rho
+        )
+
+
+        if len(
+            sem_pm
+        ) == 0:
+            continue
+
+
+        seed_base = (
+            137_000
+            +
+            int(
+                rel * 1000
+            )
+            +
+            k * 100
+        )
+
+
+        B_sem = (
+            cluster_bootstrap(
+                sem_pm,
+                seed_base + 1,
+            )
+        )
+
+        B_rnd = (
+            cluster_bootstrap(
+                rnd_pm,
+                seed_base + 2,
+            )
+        )
+
+        B_diff = (
+            cluster_bootstrap(
+                diff_pm,
+                seed_base + 3,
+            )
+        )
+
+        B_rho = (
+            cluster_bootstrap(
+                rho_pm,
+                seed_base + 4,
+            )
+        )
+
+
+        PRIMARY_HORIZON[
+            str(rel)
+        ][str(k)] = {
+
+            "sem":
+                B_sem,
+
+            "rnd":
+                B_rnd,
+
+            "sem_minus_rnd":
+                B_diff,
+
+            "rho":
+                B_rho,
+
+            "prompt_sem":
+                sem_pm,
+
+            "prompt_rnd":
+                rnd_pm,
+
+            "prompt_diff":
+                diff_pm,
+
+            "prompt_rho":
+                rho_pm,
+        }
+
+
+        print()
+        print(
+            f"  FP32 PROBE +{k}"
+        )
+
+        print(
+            f"    SEM Δ       : "
+            f"{B_sem['mean']:+.6f} "
+            f"{fmt_ci(B_sem)}"
+        )
+
+        print(
+            f"    RANDOM Δ    : "
+            f"{B_rnd['mean']:+.6f} "
+            f"{fmt_ci(B_rnd)}"
+        )
+
+        print(
+            f"    SEM-RANDOM  : "
+            f"{B_diff['mean']:+.6f} "
+            f"{fmt_ci(B_diff)}"
+        )
+
+        print(
+            f"    terminal rho: "
+            f"{B_rho['mean']:+.4f} "
+            f"{fmt_ci(B_rho)}"
+        )
+
+
+# =============================================================================
+# 26. OPPORTUNITY
+# =============================================================================
+
+print(
+    "\n[11/24] OPPORTUNITY FLOOR"
+)
+
+
+OPPORTUNITY = {}
+
+
+for rel in ACT_DOSES:
+
+    pp = {
+        i: []
+        for i in range(
+            N_PROMPTS
+        )
+    }
+
+
+    for layer in RESULTS:
+
+        li = layer[
+            "source_layer"
+        ]
+
+
+        if li == 18:
+            continue
+
+
+        for row in layer[
+            "rows"
+        ]:
+
+            pi = row[
+                "prompt_index"
+            ]
+
+
+            t = (
+                row[
+                    "doses"
+                ][str(rel)][
+                    "terminal"
+                ]
+            )
+
+
+            pp[pi].append(
+                t[
+                    "oracle_minus_null"
+                ]
+            )
+
+
+    pm = [
+        float(
+            np.mean(
+                pp[i]
+            )
+        )
+        for i in range(
+            N_PROMPTS
+        )
+        if len(
+            pp[i]
+        ) > 0
+    ]
+
+
+    B = cluster_bootstrap(
+        pm,
+        137_800
+        +
+        int(
+            rel * 1000
+        ),
+    )
+
+
+    OPPORTUNITY[
+        str(rel)
+    ] = B
+
+
+    print(
+        f"dose {rel}: "
+        f"SEM oracle - NULL oracle "
+        f"= {B['mean']:+.6f} "
+        f"{fmt_ci(B)}"
+    )
+
+
+# =============================================================================
+# 27. SOURCE × HORIZON
+# =============================================================================
+
+print(
+    "\n[12/24] SOURCE × HORIZON MAP "
+    "(PRIMARY ACT)"
+)
+
+print("=" * 185)
+
+print(
+    f"{'SOURCE':<9}"
+    f"{'PROBE':>8}"
+    f"{'TYPE':>15}"
+    f"{'SEM Δ':>12}"
+    f"{'RND Δ':>12}"
+    f"{'SEM-RND':>12}"
+    f"{'rho':>10}"
+    f"{'rank':>9}"
+    f"{'top4':>9}"
+)
+
+print("-" * 185)
+
+
+SOURCE_HORIZON = {}
+
+
+for layer in RESULTS:
+
+    li = layer[
+        "source_layer"
+    ]
+
+
+    SOURCE_HORIZON[
+        str(li)
+    ] = {}
+
+
+    for k in layer[
+        "probe_offsets"
+    ]:
+
+        hs = [
+            r[
+                "doses"
+            ][str(ACT_PRIMARY)][
+                "horizon_eval"
+            ][k]
+            for r in
+            layer["rows"]
+        ]
+
+
+        probe_layer = (
+            li + k
+        )
+
+
+        if li == 18:
+
+            typ = "LOCAL-END"
+
+        elif probe_layer == 19:
+
+            typ = "TERMINAL"
+
+        else:
+
+            typ = "PRETERM"
+
+
+        s = {
+
+            "type":
+                typ,
+
+            "probe_layer":
+                probe_layer,
+
+            "sem":
+                mean_or_nan(
+                    [
+                        h[
+                            "sem_sel_delta"
+                        ]
+                        for h in hs
+                    ]
+                ),
+
+            "rnd":
+                mean_or_nan(
+                    [
+                        h[
+                            "rnd_sel_delta"
+                        ]
+                        for h in hs
+                    ]
+                ),
+
+            "diff":
+                mean_or_nan(
+                    [
+                        h[
+                            "sem_minus_rnd"
+                        ]
+                        for h in hs
+                    ]
+                ),
+
+            "rho":
+                mean_or_nan(
+                    [
+                        h[
+                            "sem_terminal_spearman"
+                        ]
+                        for h in hs
+                    ]
+                ),
+
+            "rank":
+                mean_or_nan(
+                    [
+                        h[
+                            "sem_terminal_rank"
+                        ]
+                        for h in hs
+                    ]
+                ),
+
+            "top4":
+                mean_or_nan(
+                    [
+                        h[
+                            "sem_top4"
+                        ]
+                        for h in hs
+                    ]
+                ),
+
+            "hit":
+                mean_or_nan(
+                    [
+                        h[
+                            "sem_oracle_hit"
+                        ]
+                        for h in hs
+                    ]
+                ),
+        }
+
+
+        SOURCE_HORIZON[
+            str(li)
+        ][str(k)] = s
+
+
+        print(
+            f"L{li:<8}"
+            f"+{k:>7}"
+            f"{typ:>15}"
+            f"{s['sem']:>+12.6f}"
+            f"{s['rnd']:>+12.6f}"
+            f"{s['diff']:>+12.6f}"
+            f"{s['rho']:>+10.4f}"
+            f"{s['rank']:>9.2f}"
+            f"{s['top4']:>9.3f}"
+        )
+
+
+# =============================================================================
+# 28. HORIZON CURVE
+# =============================================================================
+
+print(
+    "\n[13/24] PRETERMINAL HORIZON INFORMATION CURVE"
+)
+
+print("=" * 125)
+
+print(
+    f"{'PROBE':<10}"
+    f"{'rho mean':>14}"
+    f"{'rho CI low':>15}"
+    f"{'rho CI high':>16}"
+    f"{'SEM Δ':>14}"
+    f"{'SEM-RND':>14}"
+)
+
+print("-" * 125)
+
+
+P_H = (
+    PRIMARY_HORIZON[
+        str(ACT_PRIMARY)
+    ]
+)
+
+
+for k in PROBE_OFFSETS:
+
+    if str(k) not in P_H:
+        continue
+
+
+    h = P_H[
+        str(k)
+    ]
+
+
+    print(
+        f"+{k:<9}"
+        f"{h['rho']['mean']:>+14.4f}"
+        f"{h['rho']['ci95'][0]:>+15.4f}"
+        f"{h['rho']['ci95'][1]:>+16.4f}"
+        f"{h['sem']['mean']:>+14.6f}"
+        f"{h['sem_minus_rnd']['mean']:>+14.6f}"
+    )
+
+
+# =============================================================================
+# 29. DESCRIPTIVE MAXIMA
+# =============================================================================
+
+valid_horizons = [
+    k
+    for k in PROBE_OFFSETS
+    if str(k) in P_H
+]
+
+
+if len(
+    valid_horizons
+) == 0:
+
+    raise RuntimeError(
+        "Primary preterminal horizon bulunamadı."
+    )
+
+
+best_rho_horizon = max(
+    valid_horizons,
+    key=lambda k:
+        P_H[str(k)][
+            "rho"
+        ]["mean"],
+)
+
+
+best_sem_horizon = max(
+    valid_horizons,
+    key=lambda k:
+        P_H[str(k)][
+            "sem"
+        ]["mean"],
+)
+
+
+print(
+    "\n[14/24] DESCRIPTIVE MAXIMA"
+)
+
+print(
+    "Best rho horizon : "
+    f"+{best_rho_horizon}"
+)
+
+print(
+    "Best SEM horizon : "
+    f"+{best_sem_horizon}"
+)
+
+print(
+    "NOT: post-hoc diagnostic; "
+    "production hyperparameter değildir."
+)
+
+
+# =============================================================================
+# 30. FORMAL DECISION
+# =============================================================================
+
+print(
+    "\n[15/24] FORMAL DECISION"
+)
+
+print("=" * 190)
+
+
+SUPPORTED_HORIZONS = []
+RANK_ONLY_HORIZONS = []
+
+
+for k in valid_horizons:
+
+    h = P_H[
+        str(k)
+    ]
+
+
+    nav_positive = (
+        h[
+            "sem"
+        ]["ci95"][0]
+        >
+        0
+    )
+
+
+    beats_random = (
+        h[
+            "sem_minus_rnd"
+        ]["ci95"][0]
+        >
+        0
+    )
+
+
+    rho_mean = (
+        h[
+            "rho"
+        ]["mean"]
+    )
+
+
+    rho_positive = (
+        np.isfinite(
+            rho_mean
+        )
+        and
+        rho_mean > 0.10
+    )
+
+
+    if (
+        nav_positive
+        and
+        beats_random
+        and
+        rho_positive
+    ):
+
+        SUPPORTED_HORIZONS.append(
+            k
+        )
+
+
+    elif rho_positive:
+
+        RANK_ONLY_HORIZONS.append(
+            k
+        )
+
+
+if len(
+    SUPPORTED_HORIZONS
+) > 0:
+
+    earliest_supported = min(
+        SUPPORTED_HORIZONS
+    )
+
+    DECISION = (
+        "PRETERMINAL_HORIZON_AWARE_"
+        "RADAR_SIGNAL_SUPPORTED"
+    )
+
+    NEXT_BRANCH = (
+        "FREEZE_EARLIEST_SUPPORTED_HORIZON_"
+        "AND_RUN_FRESH_BLIND_REPLICATION"
+    )
+
+
+elif len(
+    RANK_ONLY_HORIZONS
+) > 0:
+
+    earliest_supported = None
+
+    DECISION = (
+        "PRETERMINAL_RANK_INFORMATION_"
+        "WITHOUT_PROSPECTIVE_GAIN"
+    )
+
+    NEXT_BRANCH = (
+        "DO_NOT_CHAIN_YET__"
+        "REPLICATE_HORIZON_RANK_STRUCTURE"
+    )
+
+
+else:
+
+    earliest_supported = None
+
+    DECISION = (
+        "NO_ROBUST_PRETERMINAL_"
+        "HORIZON_SIGNAL"
+    )
+
+    NEXT_BRANCH = (
+        "PIVOT_AWAY_FROM_DIRECTION_RADAR_"
+        "TOWARD_GAIN_DOSE_RADAR"
+    )
+
+
+print(
+    f"Supported horizons : "
+    f"{SUPPORTED_HORIZONS}"
+)
+
+print(
+    f"Rank-only horizons : "
+    f"{RANK_ONLY_HORIZONS}"
+)
+
+print(
+    f"DECISION           : "
+    f"{DECISION}"
+)
+
+print(
+    f"NEXT               : "
+    f"{NEXT_BRANCH}"
+)
+
+
+# =============================================================================
+# 31. TERMINAL-TOUCHING CALIBRATION
+# =============================================================================
+
+print(
+    "\n[16/24] TERMINAL-TOUCHING / LOCAL-END CALIBRATION"
+)
+
+print(
+    "Bu satırlar PRIMARY predictive-horizon kararına dahil değildir."
+)
+
+
+TERMINAL_CALIBRATION = []
+
+
+for layer in RESULTS:
+
+    li = layer[
+        "source_layer"
+    ]
+
+
+    for k in layer[
+        "probe_offsets"
+    ]:
+
+        probe_layer = (
+            li + k
+        )
+
+
+        if not (
+            probe_layer == 19
+        ):
+            continue
+
+
+        hs = [
+            row[
+                "doses"
+            ][str(ACT_PRIMARY)][
+                "horizon_eval"
+            ][k]
+            for row in
+            layer["rows"]
+        ]
+
+
+        item = {
+            "source":
+                li,
+
+            "offset":
+                k,
+
+            "rho":
+                mean_or_nan(
+                    [
+                        x[
+                            "sem_terminal_spearman"
+                        ]
+                        for x in hs
+                    ]
+                ),
+
+            "sem_delta":
+                mean_or_nan(
+                    [
+                        x[
+                            "sem_sel_delta"
+                        ]
+                        for x in hs
+                    ]
+                ),
+
+            "rank":
+                mean_or_nan(
+                    [
+                        x[
+                            "sem_terminal_rank"
+                        ]
+                        for x in hs
+                    ]
+                ),
+        }
+
+
+        TERMINAL_CALIBRATION.append(
+            item
+        )
+
+
+        print(
+            f"L{li} +{k} -> L19 | "
+            f"rho={item['rho']:+.4f} | "
+            f"SEM Δ={item['sem_delta']:+.6f} | "
+            f"rank={item['rank']:.2f}"
+        )
+
+
+# =============================================================================
+# 32. OPPORTUNITY CONTEXT
+# =============================================================================
+
+opp = (
+    OPPORTUNITY[
+        str(ACT_PRIMARY)
+    ]
+)
+
+
+print(
+    "\n[17/24] OPPORTUNITY CONTEXT"
+)
+
+print(
+    "SEM oracle - NULL oracle: "
+    f"{opp['mean']:+.6f} "
+    f"{fmt_ci(opp)}"
+)
+
+
+# =============================================================================
+# 33. DIVERSITY
+# =============================================================================
+
+print(
+    "\n[18/24] SELECTION DIVERSITY"
+)
+
+
+DIVERSITY = {}
+
+
+for layer in RESULTS:
+
+    li = layer[
+        "source_layer"
+    ]
+
+
+    DIVERSITY[
+        str(li)
+    ] = {}
+
+
+    print(
+        f"\nSOURCE L{li}"
+    )
+
+
+    for k in layer[
+        "probe_offsets"
+    ]:
+
+        counts = np.zeros(
+            N_SEMANTIC,
+            dtype=np.int64,
+        )
+
+
+        for row in layer[
+            "rows"
+        ]:
+
+            sid = int(
+                row[
+                    "sem_selected"
+                ][str(k)]
+            )
+
+            counts[sid] += 1
+
+
+        modal = int(
+            np.argmax(
+                counts
+            )
+        )
+
+
+        item = {
+
+            "counts":
+                counts.tolist(),
+
+            "unique":
+                int(
+                    (
+                        counts > 0
+                    ).sum()
+                ),
+
+            "modal_fraction":
+                float(
+                    counts.max()
+                    /
+                    N_PROMPTS
+                ),
+
+            "modal_label":
+                SEM_LABELS[
+                    modal
+                ],
+        }
+
+
+        DIVERSITY[
+            str(li)
+        ][str(k)] = item
+
+
+        print(
+            f"  +{k}: "
+            f"unique="
+            f"{item['unique']}/16 | "
+            f"modal="
+            f"{item['modal_fraction']:.2f} | "
+            f"{item['modal_label']}"
+        )
+
+
+# =============================================================================
+# 34. INTERPRETATION LOCK
+# =============================================================================
+
+print(
+    "\n[19/24] INTERPRETATION LOCK"
+)
+
+
+LOCK = [
+
+    "TEST137 v2 bir system-identification assay'idir; production controller değildir.",
+
+    "FP32 radar central finite-secant response ölçer; exact Jacobian veya gradient değildir.",
+
+    "Her decoder katmanı baseline sırasında yakalanmış kendi gerçek forward metadata'sı ile replay edilir.",
+
+    "Full hidden sequence FP32 bloklardan geçirilir; yalnız son gerçek token perturb edilir.",
+
+    "Her FP32 decoder block tek başına kopyalanır, bütün candidate branch'leri geçirilir ve block silinir.",
+
+    "Radar candidate selection BF16 terminal outcomes hesaplanmadan önce dondurulur.",
+
+    "Primary ACT dose 0.04'tür; 0.01 secondary continuity dose'dur.",
+
+    "Primary horizon inference PRETERMINAL'dir: source L18 dışlanır ve source+probe_offset=19 terminal-touching durumlar primary karardan dışlanır.",
+
+    "L14+5 ve L18+1 gibi L19'a doğrudan ulaşan probe'lar calibration olarak raporlanır.",
+
+    "Oracle navigator değildir; yalnız sampled downstream opportunity diagnostic'idir.",
+
+    "Prompt×source bağımsız kabul edilmez; CI prompt-cluster bootstrap ile hesaplanır.",
+
+    "Terminal rho tek başına steering başarısı değildir; prospective selected Δ ve matched-random karşılaştırması ayrıca geçmelidir.",
+
+    "Post-hoc best horizon production hyperparameter değildir.",
+
+    "DRA envelope, old cosine brake, controller, Mercek, generation ve multi-layer steering chain kapalıdır.",
+
+    "Semantic oracle-null residual semantic causality kanıtı değildir.",
+
+    "Bu promptlar koşudan sonra EXPOSED sayılır.",
+]
+
+
+for i, item in enumerate(
+    LOCK,
+    1,
+):
+
+    print(
+        f"{i:02d}. {item}"
+    )
+
+
+# =============================================================================
+# 35. JSON SAFE
+# =============================================================================
+
+def json_safe(o):
+
+    if isinstance(
+        o,
+        np.integer,
+    ):
+        return int(o)
+
+
+    if isinstance(
+        o,
+        np.floating,
+    ):
+        return float(o)
+
+
+    if isinstance(
+        o,
+        np.ndarray,
+    ):
+        return o.tolist()
+
+
+    if torch.is_tensor(o):
+
+        return {
+            "shape":
+                list(o.shape),
+
+            "dtype":
+                str(o.dtype),
+        }
+
+
+    if isinstance(
+        o,
+        dict,
+    ):
+
+        return {
+            str(k):
+                json_safe(v)
+            for k, v in
+            o.items()
+        }
+
+
+    if isinstance(
+        o,
+        (list, tuple),
+    ):
+
+        return [
+            json_safe(v)
+            for v in o
+        ]
+
+
+    return o
+
+
+# =============================================================================
+# 36. ATLAS META
+# =============================================================================
+
+ATLAS_META = {}
+
+
+for li in SOURCE_LAYERS:
+
+    ATLAS_META[
+        str(li)
+    ] = []
+
+
+    for x in SEM_ATLAS[
+        li
+    ]:
+
+        ATLAS_META[
+            str(li)
+        ].append({
+
+            "id":
+                x["id"],
+
+            "label":
+                x["label"],
+
+            "raw_cos":
+                x["raw_cos"],
+
+            "natural_angle":
+                x["natural_angle"],
+
+            "requested_angle":
+                x["requested_angle"],
+        })
+
+
+# =============================================================================
+# 37. JSON OUTPUT
+# =============================================================================
+
+print(
+    "\n[20/24] JSON..."
+)
+
+
+OUTPUT = {
+
+    "test":
+        "TEST137_v2",
+
+    "title":
+        (
+            "FP32 Multi-Horizon Radar -> "
+            "BF16 Terminal Transport "
+            "Preterminal Horizon Mapping"
+        ),
+
+    "model":
+        MODEL_ID,
+
+    "config": {
+
+        "source_layers":
+            SOURCE_LAYERS,
+
+        "probe_offsets":
+            PROBE_OFFSETS,
+
+        "radar_rel":
+            RADAR_REL,
+
+        "act_doses":
+            ACT_DOSES,
+
+        "act_primary":
+            ACT_PRIMARY,
+
+        "shell_deg":
+            SHELL_DEG,
+
+        "n_semantic":
+            N_SEMANTIC,
+
+        "n_random":
+            N_RANDOM,
+
+        "n_null":
+            N_NULL,
+
+        "null_jitter_rel":
+            NULL_JITTER_REL,
+
+        "n_prompts":
+            N_PROMPTS,
+
+        "seed":
+            SEED,
+
+        "primary_rule":
+            (
+                "source != 18 AND "
+                "source + probe_offset < 19"
+            ),
+    },
+
+    "fingerprint": {
+
+        "L10":
+            cos10,
+
+        "L11":
+            cos11,
+
+        "status":
+            "PASS",
+    },
+
+    "dibek_fingerprint": {
+
+        "v0_v19":
+            cos(
+                DIBEK[0],
+                DIBEK[19],
+            ),
+
+        "v11_v19":
+            cos(
+                DIBEK[11],
+                DIBEK[19],
+            ),
+
+        "v18_v19":
+            cos(
+                DIBEK[18],
+                DIBEK[19],
+            ),
+    },
+
+    "semantic_labels":
+        SEM_LABELS,
+
+    "neg_variants":
+        NEG_VARIANTS,
+
+    "semantic_atlas":
+        ATLAS_META,
+
+    "integrity":
+        INTEGRITY,
+
+    "horizon_summary":
+        HORIZON_SUMMARY,
+
+    "primary_preterminal_horizon":
+        PRIMARY_HORIZON,
+
+    "opportunity":
+        OPPORTUNITY,
+
+    "source_horizon":
+        SOURCE_HORIZON,
+
+    "terminal_touching_calibration":
+        TERMINAL_CALIBRATION,
+
+    "best_rho_horizon_descriptive":
+        best_rho_horizon,
+
+    "best_sem_horizon_descriptive":
+        best_sem_horizon,
+
+    "supported_horizons":
+        SUPPORTED_HORIZONS,
+
+    "rank_only_horizons":
+        RANK_ONLY_HORIZONS,
+
+    "earliest_supported_horizon":
+        earliest_supported,
+
+    "decision":
+        DECISION,
+
+    "next":
+        NEXT_BRANCH,
+
+    "selection_diversity":
+        DIVERSITY,
+
+    "interpretation_lock":
+        LOCK,
+
+    "prompts":
+        PROMPTS,
+
+    "results":
+        RESULTS,
+}
+
+
+with open(
+    OUT_JSON,
+    "w",
+    encoding="utf-8",
+) as f:
+
+    json.dump(
+        json_safe(
+            OUTPUT
+        ),
+        f,
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+print(
+    "Kaydedildi:",
+    OUT_JSON,
+)
+
+
+try:
+
+    from google.colab import (
+        files as _cf
+    )
+
+    _cf.download(
+        OUT_JSON
+    )
+
+except Exception:
+
+    pass
+
+
+# =============================================================================
+# 38. COMPACT SUMMARY
+# =============================================================================
+
+print(
+    "\n[21/24] COMPACT PRIMARY SUMMARY"
+)
+
+print("=" * 190)
+
+print(
+    "TEST137 v2 — PRETERMINAL "
+    "FP32 RADAR -> BF16 L19"
+)
+
+print("=" * 190)
+
+print(
+    "Fingerprint : PASS"
+)
+
+print(
+    f"Primary ACT : "
+    f"{ACT_PRIMARY}"
+)
+
+print(
+    f"Opportunity : "
+    f"{opp['mean']:+.6f} "
+    f"{fmt_ci(opp)}"
+)
+
+print()
+
+
+for k in valid_horizons:
+
+    h = P_H[
+        str(k)
+    ]
+
+
+    print(
+        f"PROBE +{k}"
+    )
+
+    print(
+        f"  SEM Δ   : "
+        f"{h['sem']['mean']:+.6f} "
+        f"{fmt_ci(h['sem'])}"
+    )
+
+    print(
+        f"  SEM-RND : "
+        f"{h['sem_minus_rnd']['mean']:+.6f} "
+        f"{fmt_ci(h['sem_minus_rnd'])}"
+    )
+
+    print(
+        f"  rho     : "
+        f"{h['rho']['mean']:+.4f} "
+        f"{fmt_ci(h['rho'])}"
+    )
+
+
+print()
+
+print(
+    "Best rho horizon "
+    "(descriptive): "
+    f"+{best_rho_horizon}"
+)
+
+print(
+    f"Supported horizons : "
+    f"{SUPPORTED_HORIZONS}"
+)
+
+print(
+    f"Rank-only horizons : "
+    f"{RANK_ONLY_HORIZONS}"
+)
+
+print()
+
+print(
+    f"DECISION : {DECISION}"
+)
+
+print(
+    f"NEXT     : {NEXT_BRANCH}"
+)
+
+print(
+    f"JSON     : {OUT_JSON}"
+)
+
+
+# =============================================================================
+# 39. CLAIM BOUNDARY
+# =============================================================================
+
+print(
+    "\n[22/24] CLAIM BOUNDARY"
+)
+
+print(
+r"""
+TEST137 v2'nin asıl sorusu:
+
+"Terminal bloğa ulaşmadan önce FP32 central finite-secant probe,
+BF16 L19 candidate ordering hakkında kullanılabilir bilgi taşımaya
+hangi probe horizonunda başlıyor?"
+
+PRIMARY sonuçlar yalnız PRETERMINAL probe'lardan gelir.
+
+Örneğin:
+
+    L14 +5 -> L19
+
+çok yararlı bir calibration olabilir; fakat probe zaten terminal
+katmana ulaştığı için "uzaktan terminal prediction" kanıtı olarak
+primary analize sokulmaz.
+
+Pozitif sonuçta dahi:
+
+    autonomous GPS
+    semantic causality
+    manifold navigation
+    exact Jacobian
+    exact gradient
+    production controller
+
+iddiası yapılmaz.
+
+Pozitif bir PRETERMINAL horizon bulunursa doğru sonraki adım:
+
+    horizon'u freeze et
+    yeni prompt seti oluştur
+    tek prospective blind replication yap
+
+olacaktır.
+"""
+)
+
+
+# =============================================================================
+# 40. CLEANUP
+# =============================================================================
+
+print(
+    "\n[23/24] GPU cleanup..."
+)
+
+gc.collect()
+torch.cuda.empty_cache()
+
+print(
+    "[24/24] DONE."
+)
