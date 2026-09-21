@@ -1,0 +1,1169 @@
+# =============================================================================
+# TEST 136 v3 — FP32 SEMANTIC NEIGHBORHOOD RADAR -> DOWNSTREAM TRANSPORT
+# AKBASCORE — TEK HÜCRE, TAM SÜRÜM
+#
+# v2 -> v3 DEĞİŞİKLİKLERİ
+# -----------------------
+# 1) HATA DÜZELTMESİ
+#    NEG_VARIANTS[0] tarihsel NEG_DIBEK ile birebir aynıydı
+#    ("a tailed quadrupedal mammal"). O aday v'nin kendisi çıktığı için
+#    teğet çöktü (L3 candidate 8). Değiştirildi + assert eklendi.
+#
+# 2) KİMLİK KORUMASI
+#    Atlas kurulurken raw_cos > 0.99999 olan aday açık mesajla durdurulur.
+#    Ayrıca her katmanda semantik adayların doğal açı aralığı basılır.
+#
+# 3) BF16 JITTER-NULL KOLU  (TEST 135'ten taşındı)
+#    TEST 135: BF16 candidate oracle +0.0112, jitter-null oracle +0.0080.
+#    Yani BF16 "fırsatının" büyük kısmı nicemleme hassasiyetiydi.
+#    v3'te her prompt/katman için FIXED + ULP-altı teğet sarsıntılı 16 null
+#    yön ACT'lenir. Semantik oracle ancak bu tabanı aşarsa gerçektir.
+#
+# 4) ÇİFT ACT DOZU: 0.01 ve 0.04
+#    TEST 135: ACT_REL=0.01'de gerçekleşen yön hatası ~8.5°, aday çiftleri
+#    arası istenen açı ~7°. Aktüatör adayları ayırt edemiyordu.
+#    0.04'te gerçekleşme hatası ~4 kat küçülür. PRIMARY = 0.04.
+#    0.01 TEST 134/135 sürekliliği için SECONDARY olarak raporlanır.
+#
+# 5) GERÇEKLEŞME GEOMETRİSİ DENETİMİ
+#    Semantik adayların istenen çift açıları ile BF16'da GERÇEKLEŞEN çift
+#    açıları her dozda karşılaştırılır. Aktüatörün adayları gerçekten ayrı
+#    tutup tutmadığı doğrudan görülür.
+#
+# 6) torch_dtype -> dtype (deprecation uyarısı giderildi)
+#
+# DEĞİŞMEYENLER
+# -------------
+# * FP32 central finite-secant radar (TEST 135'te doğrulandı)
+# * Seçim, downstream sonuçlardan ÖNCE dondurulur
+# * Oracle yalnız seçimden SONRA hesaplanır
+# * Birincil uç nokta: L19_LONG (kaynak L18 hariç), prompt-cluster bootstrap
+# * DRA / fren / kontrolcü / mercek / üretim YOK
+# * Jacobian, gradyan, ağırlık güncellemesi iddiası YOK
+#
+# NOT (TEST 135 yorumu): FP32'de micro↔ACT r=+1.000 çıkması tek bloğun bu
+# ölçeklerde doğrusal davranmasının sonucudur; radarın downstream'i
+# öngördüğünün kanıtı değildir. O soruyu bu test cevaplar.
+# =============================================================================
+
+import gc
+import json
+import math
+import random
+import time
+import copy
+import warnings
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+warnings.filterwarnings("ignore")
+
+
+# =============================================================================
+# 0. CONFIG
+# =============================================================================
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+SEED = 13603
+
+MODEL_LAYERS = 28
+VECTOR_LAYERS = 20
+HIDDEN = 3584
+
+SOURCE_LAYERS = [3, 6, 10, 14, 18]
+
+RADAR_REL = 0.0025
+ACT_DOSES = [0.01, 0.04]
+ACT_PRIMARY = 0.04
+
+SHELL_DEG = 5.0
+N_SEMANTIC = 16
+N_RANDOM = 16
+N_NULL = 16
+NULL_JITTER_REL = 2.5e-4          # TEST 135 ile aynı
+
+EXPECTED_COS10 = 0.656545
+EXPECTED_COS11 = 0.658274
+FINGERPRINT_TOL = 5e-6
+IDENTITY_TOL = 0.99999
+
+EPS = 1e-12
+N_BOOT = 10000
+
+OUT_JSON = "/content/TEST_136_V3_FP32_SEMANTIC_RADAR.json"
+
+
+# =============================================================================
+# 1. KİLİTLİ PARMAK İZİ
+# =============================================================================
+
+ABOVE = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+BELOW = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+NEUTRAL = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 2. DİBEKGOZ + SEMANTİK VARYANTLAR
+# =============================================================================
+
+TEMPLATES = [
+    "The creature is essentially {X}.",
+    "Observing it closely, the animal is clearly {X}.",
+    "The specimen in front of us is {X}.",
+    "Field notes describe the creature as {X}.",
+    "In every respect the body plan is that of {X}.",
+    "The zoologist identified the animal as {X}.",
+    "Anatomically the creature is {X}.",
+    "Taxonomically the creature groups with {X}.",
+]
+
+POS_DIBEK = "a tailless bipedal ape"
+NEG_DIBEK = "a tailed quadrupedal mammal"
+
+# v3 DÜZELTME: ilk eleman eskiden NEG_DIBEK'in birebir kopyasıydı.
+NEG_VARIANTS = [
+    "a long-tailed quadrupedal mammal",
+    "a tailed four-legged mammal",
+    "a quadrupedal mammal with a tail",
+    "a four-legged tailed animal",
+    "a tailed terrestrial quadruped",
+    "a quadrupedal creature with a long tail",
+    "a four-legged mammalian animal with a tail",
+    "a tailed mammal walking on four limbs",
+]
+assert NEG_DIBEK not in NEG_VARIANTS, "Varyantlar tarihsel negatifi içeremez."
+assert len(set(NEG_VARIANTS)) == len(NEG_VARIANTS), "Varyant listesinde kopya var."
+
+
+# =============================================================================
+# 3. TAZE TEST 136 v3 PROMPTLARI
+#    (TEST 132–136 v2 promptları yeniden kullanılmaz)
+# =============================================================================
+
+PROMPTS = [
+    "Naturalists noted how a previously unrecorded animal steadied itself before reaching into a hollow log.",
+    "A camera trap caught an unfamiliar creature pausing on a riverbank while holding something in its forelimbs.",
+    "Field biologists sketched the stance of a rare animal as it inspected seeds scattered on the ground.",
+    "Researchers tracked how an undescribed species shifted its balance while stepping over tangled roots.",
+    "A survey team measured the limb lengths of an unusual animal found near a mountain spring.",
+    "An observer described a strange creature turning to look behind it while standing on a rock ledge.",
+    "Zoologists compared how a newly found animal carried food across a patch of open ground.",
+    "A research note recorded an unknown creature adjusting its grip on a vine before moving on.",
+    "Scientists described how an uncatalogued animal lowered its body while drinking at a pool.",
+    "A documentary crew filmed an elusive creature crossing a gravel bar at dawn.",
+    "Engineers logged current draw from a set of pumps during a scheduled flow test.",
+    "Technicians replaced worn gaskets on a valve assembly after an inspection.",
+    "A mapping crew recorded coordinates for markers along a new drainage channel.",
+    "Laboratory staff calibrated a balance before weighing a batch of mineral samples.",
+    "Inspectors checked weld seams on a steel frame installed in a warehouse.",
+    "A records office scanned several ledgers before returning them to the archive.",
+    "A weather buoy transmitted wave height readings throughout the night.",
+    "Surveyors measured clearance beneath a pedestrian overpass after resurfacing work.",
+    "Operators reviewed alarm logs from a control room over the previous week.",
+    "A ferry crew recorded engine temperatures while crossing a busy strait.",
+]
+N_PROMPTS = len(PROMPTS)
+assert N_PROMPTS == 20
+
+
+# =============================================================================
+# 4. TEKRARLANABİLİRLİK
+# =============================================================================
+
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+torch.cuda.manual_seed_all(SEED)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+
+# =============================================================================
+# 5. YARDIMCILAR
+# =============================================================================
+
+def unit(v):
+    v = v.float()
+    n = torch.linalg.vector_norm(v)
+    if float(n.item()) <= EPS:
+        raise RuntimeError("Sıfır vektör.")
+    return v / n
+
+
+def cos(a, b):
+    a = a.float(); b = b.float()
+    na = torch.linalg.vector_norm(a); nb = torch.linalg.vector_norm(b)
+    if float(na.item()) <= EPS or float(nb.item()) <= EPS:
+        return float("nan")
+    return float((torch.dot(a, b) / (na * nb)).item())
+
+
+def angle(a, b):
+    c = cos(a, b)
+    if not np.isfinite(c):
+        return float("nan")
+    return float(np.degrees(np.arccos(np.clip(c, -1.0, 1.0))))
+
+
+def pearson(a, b):
+    a = np.asarray(a, dtype=np.float64); b = np.asarray(b, dtype=np.float64)
+    m = np.isfinite(a) & np.isfinite(b)
+    a = a[m]; b = b[m]
+    if len(a) < 3 or np.std(a) <= EPS or np.std(b) <= EPS:
+        return float("nan")
+    return float(np.corrcoef(a, b)[0, 1])
+
+
+def rankdata(x):
+    x = np.asarray(x, dtype=np.float64)
+    r = np.empty(len(x), dtype=np.float64)
+    r[np.argsort(x)] = np.arange(len(x), dtype=np.float64)
+    return r
+
+
+def spearman(a, b):
+    a = np.asarray(a, dtype=np.float64); b = np.asarray(b, dtype=np.float64)
+    m = np.isfinite(a) & np.isfinite(b)
+    if m.sum() < 3:
+        return float("nan")
+    return pearson(rankdata(a[m]), rankdata(b[m]))
+
+
+def mean_or_nan(x):
+    x = np.asarray(x, dtype=np.float64)
+    x = x[np.isfinite(x)]
+    return float(np.mean(x)) if len(x) else float("nan")
+
+
+def cluster_bootstrap(values, seed, n_boot=N_BOOT):
+    x = np.asarray(values, dtype=np.float64)
+    x = x[np.isfinite(x)]
+    if len(x) == 0:
+        return {"mean": float("nan"), "ci95": [float("nan")] * 2,
+                "positive_fraction": float("nan"), "n": 0}
+    rng = np.random.default_rng(seed)
+    boot = np.array([np.mean(x[rng.integers(0, len(x), len(x))])
+                     for _ in range(n_boot)])
+    return {"mean": float(np.mean(x)),
+            "ci95": [float(np.quantile(boot, 0.025)),
+                     float(np.quantile(boot, 0.975))],
+            "positive_fraction": float(np.mean(x > 0)),
+            "n": int(len(x))}
+
+
+def fmt_ci(s):
+    return f"[{s['ci95'][0]:+.6f},{s['ci95'][1]:+.6f}]"
+
+
+# =============================================================================
+# 6. MODEL
+# =============================================================================
+
+print("=" * 180)
+print("TEST 136 v3 — FP32 SEMANTIC NEIGHBORHOOD RADAR -> DOWNSTREAM TRANSPORT")
+print("AKBASCORE — CLEAN LOCAL SENSE / DISTANT VALIDATION / BF16 FLOOR-CONTROLLED")
+print("=" * 180)
+
+if not torch.cuda.is_available():
+    raise RuntimeError("CUDA GPU gerekli.")
+
+print("\n[1/24] Model yükleniyor...")
+t0 = time.time()
+
+tokenizer = AutoTokenizer.from_pretrained(MODEL_ID, trust_remote_code=True)
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+tokenizer.padding_side = "right"
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True,
+    low_cpu_mem_usage=True,
+    attn_implementation="sdpa",
+)
+model.eval()
+for p in model.parameters():
+    p.requires_grad_(False)
+
+device = next(model.parameters()).device
+assert len(model.model.layers) == MODEL_LAYERS
+assert model.config.hidden_size == HIDDEN
+
+print(f"Model        : {MODEL_ID}")
+print(f"Kaynaklar    : {SOURCE_LAYERS}")
+print(f"RADAR_REL    : {RADAR_REL}")
+print(f"ACT dozları  : {ACT_DOSES}  (PRIMARY {ACT_PRIMARY})")
+print(f"Kabuk        : {SHELL_DEG}°")
+print(f"Adaylar      : {N_SEMANTIC} semantik + {N_RANDOM} rastgele + {N_NULL} null")
+print(f"Promptlar    : {N_PROMPTS}")
+print(f"Yükleme      : {time.time()-t0:.1f}s")
+
+
+# =============================================================================
+# 7. SON-TOKEN ÇIKARIMI VE SÖZLÜK
+# =============================================================================
+
+@torch.inference_mode()
+def extract_hidden(texts):
+    enc = tokenizer(texts, padding=True, truncation=True,
+                    max_length=128, return_tensors="pt")
+    ids = enc["input_ids"].to(device)
+    mask = enc["attention_mask"].to(device)
+    lengths = mask.sum(dim=1).long()
+    captured = [None] * VECTOR_LAYERS
+    handles = []
+
+    def make_hook(li):
+        def hook(module, inputs, output):
+            h = output[0] if isinstance(output, tuple) else output
+            captured[li] = h.detach()
+        return hook
+
+    try:
+        for li in range(VECTOR_LAYERS):
+            handles.append(model.model.layers[li].register_forward_hook(make_hook(li)))
+        model(input_ids=ids, attention_mask=mask, use_cache=False)
+    finally:
+        for h in handles:
+            h.remove()
+
+    B = ids.shape[0]
+    out = torch.empty(B, VECTOR_LAYERS, HIDDEN, dtype=torch.float32)
+    for li in range(VECTOR_LAYERS):
+        h = captured[li].float()
+        rows = torch.arange(B, device=h.device)
+        out[:, li, :] = h[rows, (lengths - 1).to(h.device)].cpu()
+    del captured
+    return out
+
+
+def build_dictionary(positive, negative):
+    xp = extract_hidden(positive)
+    xn = extract_hidden(negative)
+    d = {li: unit(xp[:, li].mean(0) - xn[:, li].mean(0)) for li in range(VECTOR_LAYERS)}
+    del xp, xn
+    gc.collect()
+    return d
+
+
+# =============================================================================
+# 8. PARMAK İZİ
+# =============================================================================
+
+print("\n[2/24] Ortam parmak izi...")
+xa = extract_hidden(ABOVE); xb = extract_hidden(BELOW); xn = extract_hidden(NEUTRAL)
+cos10 = cos(unit(xa[:, 10].mean(0) - xn[:, 10].mean(0)),
+            unit(xb[:, 10].mean(0) - xn[:, 10].mean(0)))
+cos11 = cos(unit(xa[:, 11].mean(0) - xn[:, 11].mean(0)),
+            unit(xb[:, 11].mean(0) - xn[:, 11].mean(0)))
+drift10 = abs(cos10 - EXPECTED_COS10); drift11 = abs(cos11 - EXPECTED_COS11)
+print(f"L10={cos10:+.6f} drift={drift10:.3e}")
+print(f"L11={cos11:+.6f} drift={drift11:.3e}")
+if drift10 > FINGERPRINT_TOL or drift11 > FINGERPRINT_TOL:
+    raise RuntimeError("Fingerprint FAILED.")
+print("Fingerprint: PASS")
+del xa, xb, xn
+gc.collect(); torch.cuda.empty_cache()
+
+
+# =============================================================================
+# 9. TARİHSEL DİBEKGOZ
+# =============================================================================
+
+print("\n[3/24] Dibekgoz sözlüğü...")
+POS = [t.format(X=POS_DIBEK) for t in TEMPLATES]
+NEG = [t.format(X=NEG_DIBEK) for t in TEMPLATES]
+DIBEK = build_dictionary(POS, NEG)
+print(f"cos(v0,v19)  = {cos(DIBEK[0], DIBEK[19]):+.6f}")
+print(f"cos(v11,v19) = {cos(DIBEK[11], DIBEK[19]):+.6f}")
+print(f"cos(v18,v19) = {cos(DIBEK[18], DIBEK[19]):+.6f}")
+
+
+# =============================================================================
+# 10. 16 MODEL-TÜREVLİ SEMANTİK SÖZLÜK
+# =============================================================================
+
+print("\n[4/24] Semantik aday sözlükleri...")
+SEM_DICTS, SEM_LABELS = [], []
+
+for omit in range(8):
+    pp = [POS[i] for i in range(8) if i != omit]
+    nn = [NEG[i] for i in range(8) if i != omit]
+    SEM_DICTS.append(build_dictionary(pp, nn))
+    SEM_LABELS.append(f"LOO_{omit}")
+    print(f"  {len(SEM_DICTS):02d}/16 LOO_{omit}")
+
+for vi, phrase in enumerate(NEG_VARIANTS):
+    nn = [t.format(X=phrase) for t in TEMPLATES]
+    SEM_DICTS.append(build_dictionary(POS, nn))
+    SEM_LABELS.append(f"NEGVAR_{vi}")
+    print(f"  {len(SEM_DICTS):02d}/16 NEGVAR_{vi}  ({phrase})")
+
+assert len(SEM_DICTS) == N_SEMANTIC
+
+
+# =============================================================================
+# 11. EŞİT AÇILI SEMANTİK ATLAS  (kimlik korumalı)
+# =============================================================================
+
+print("\n[5/24] Eşit açılı semantik atlas...")
+theta = math.radians(SHELL_DEG)
+SEM_ATLAS = {}
+SEM_NATURAL_ANGLES = {}
+
+for li in SOURCE_LAYERS:
+    v = unit(DIBEK[li])
+    rows = []
+    nat = []
+    for cid in range(N_SEMANTIC):
+        w = unit(SEM_DICTS[cid][li])
+        raw_cos = cos(w, v)
+
+        if raw_cos > IDENTITY_TOL:
+            raise RuntimeError(
+                f"L{li} aday {cid} ({SEM_LABELS[cid]}) tarihsel v ile özdeş "
+                f"(cos={raw_cos:+.6f}). Varyant listesini kontrol et.")
+
+        tangent = w - torch.dot(w, v) * v
+        tn = float(torch.linalg.vector_norm(tangent).item())
+        if tn <= 1e-8:
+            raise RuntimeError(f"Çöken teğet L{li} aday {cid} ({SEM_LABELS[cid]})")
+        tangent = unit(tangent)
+        q = unit(math.cos(theta) * v + math.sin(theta) * tangent)
+        nat.append(angle(w, v))
+        rows.append({"id": cid, "label": SEM_LABELS[cid], "q": q,
+                     "raw_cos": raw_cos, "natural_angle": nat[-1],
+                     "requested_angle": angle(q, v)})
+    SEM_ATLAS[li] = rows
+    SEM_NATURAL_ANGLES[li] = nat
+    print(f"  L{li:02d}: istenen açı={np.mean([r['requested_angle'] for r in rows]):.4f}° | "
+          f"doğal semantik açı aralığı=[{min(nat):.2f}°, {max(nat):.2f}°] "
+          f"ort {np.mean(nat):.2f}°")
+
+
+# =============================================================================
+# 12. EŞLEŞTİRİLMİŞ KABUKTA RASTGELE ATLAS
+# =============================================================================
+
+print("\n[6/24] Eşleştirilmiş kabukta rastgele atlas...")
+RND_ATLAS = {}
+for li in SOURCE_LAYERS:
+    v = unit(DIBEK[li])
+    rows = []
+    for cid in range(N_RANDOM):
+        g = torch.Generator(device="cpu")
+        g.manual_seed(SEED + 1_000_000 + li * 1000 + cid)
+        z = torch.randn(HIDDEN, generator=g, dtype=torch.float32)
+        z = unit(z - torch.dot(z, v) * v)
+        rows.append({"id": cid, "q": unit(math.cos(theta) * v + math.sin(theta) * z)})
+    RND_ATLAS[li] = rows
+print(f"  {len(SOURCE_LAYERS)} katman × {N_RANDOM} rastgele aday")
+
+
+# =============================================================================
+# 13. JITTER-NULL YÖNLERİ  (TEST 135 tarifi)
+# =============================================================================
+
+def make_null_dirs(li, pi):
+    v = unit(DIBEK[li])
+    out = []
+    for nid in range(N_NULL):
+        g = torch.Generator(device="cpu")
+        g.manual_seed(SEED + 7_000_000 + 100_000 * pi + 1000 * li + nid)
+        z = torch.randn(HIDDEN, generator=g, dtype=torch.float32)
+        z = unit(z - torch.dot(z, v) * v)
+        out.append(unit(v + NULL_JITTER_REL * z))
+    return out
+
+
+# =============================================================================
+# 14. UFUKLAR
+# =============================================================================
+
+def get_horizons(li):
+    hs = {li + 1, 19}
+    if li + 3 <= 19:
+        hs.add(li + 3)
+    if li + 5 <= 19:
+        hs.add(li + 5)
+    return sorted(hs)
+
+
+# =============================================================================
+# 15. TEK BASELINE: çıktılar + L+1 çağrı bağlamı
+# =============================================================================
+
+@torch.inference_mode()
+def baseline_and_target_call(prompt, source_li):
+    target_li = source_li + 1
+    needed = sorted(set([source_li] + get_horizons(source_li)))
+    outputs, target_call, handles = {}, {}, []
+
+    def make_output_hook(layer_id):
+        def hook(module, args, out):
+            h = out[0] if isinstance(out, tuple) else out
+            outputs[layer_id] = h[0, -1].detach().float().cpu().clone()
+        return hook
+
+    def target_pre_hook(module, args, kwargs):
+        target_call["args"] = tuple(
+            x.detach().clone() if torch.is_tensor(x) else x for x in args)
+        kw = {}
+        for k, val in kwargs.items():
+            if torch.is_tensor(val):
+                kw[k] = val.detach().clone()
+            elif isinstance(val, tuple):
+                kw[k] = tuple(i.detach().clone() if torch.is_tensor(i) else i for i in val)
+            else:
+                kw[k] = val
+        target_call["kwargs"] = kw
+
+    try:
+        for lid in needed:
+            handles.append(model.model.layers[lid].register_forward_hook(make_output_hook(lid)))
+        handles.append(model.model.layers[target_li].register_forward_pre_hook(
+            target_pre_hook, with_kwargs=True))
+        enc = {k: v.to(device) for k, v in tokenizer(prompt, return_tensors="pt").items()}
+        model(**enc, use_cache=False)
+    finally:
+        for h in handles:
+            h.remove()
+
+    if "args" not in target_call:
+        raise RuntimeError(f"L{target_li} girdisi yakalanamadı.")
+    return outputs, target_call
+
+
+# =============================================================================
+# 16. FP32 YEREL BLOK
+# =============================================================================
+
+def fp32_nested(x):
+    if torch.is_tensor(x):
+        return x.float() if x.is_floating_point() else x
+    if isinstance(x, tuple):
+        return tuple(fp32_nested(v) for v in x)
+    if isinstance(x, list):
+        return [fp32_nested(v) for v in x]
+    if isinstance(x, dict):
+        return {k: fp32_nested(v) for k, v in x.items()}
+    return x
+
+
+def locate_hidden(args, kwargs):
+    if len(args) > 0 and torch.is_tensor(args[0]) and args[0].ndim == 3:
+        return "args", 0, args[0]
+    if "hidden_states" in kwargs:
+        return "kwargs", "hidden_states", kwargs["hidden_states"]
+    raise RuntimeError("hidden_states bulunamadı.")
+
+
+def set_hidden(args, kwargs, hidden):
+    args = list(args); kwargs = dict(kwargs)
+    where, key, _ = locate_hidden(args, kwargs)
+    if where == "args":
+        args[key] = hidden
+    else:
+        kwargs[key] = hidden
+    return tuple(args), kwargs
+
+
+@torch.inference_mode()
+def fp32_block_forward(block, target_call, hidden):
+    args = fp32_nested(target_call["args"])
+    kwargs = fp32_nested(target_call["kwargs"])
+    args, kwargs = set_hidden(args, kwargs, hidden)
+    if "use_cache" in kwargs:
+        kwargs["use_cache"] = False
+    out = block(*args, **kwargs)
+    if isinstance(out, tuple):
+        h = out[0]
+    elif hasattr(out, "last_hidden_state"):
+        h = out.last_hidden_state
+    else:
+        h = out
+    return h.float()
+
+
+@torch.inference_mode()
+def fp32_radar(block, target_call, direction):
+    _, _, h_orig = locate_hidden(target_call["args"], target_call["kwargs"])
+    h0 = h_orig.detach().float().clone()
+    q = unit(direction).to(device=h0.device, dtype=torch.float32)
+    eps_norm = RADAR_REL * float(torch.linalg.vector_norm(h0[0, -1]).item())
+    hp = h0.clone(); hm = h0.clone()
+    hp[0, -1] += eps_norm * q
+    hm[0, -1] -= eps_norm * q
+    yp = fp32_block_forward(block, target_call, hp)
+    ym = fp32_block_forward(block, target_call, hm)
+    resp = ((yp[0, -1] - ym[0, -1]) / 2.0).detach().float().cpu()
+    rn = float(torch.linalg.vector_norm(resp).item())
+    return {"response": resp, "gain": rn / (eps_norm + EPS)}
+
+
+# =============================================================================
+# 17. BF16 TAM MODEL AKTÜATÖRÜ (doz parametreli)
+# =============================================================================
+
+@torch.inference_mode()
+def full_act(prompt, source_li, direction, baseline, rel):
+    horizons = get_horizons(source_li)
+    q_cpu = unit(direction)
+    q = q_cpu.to(device=device, dtype=torch.float32)
+    src_norm = float(torch.linalg.vector_norm(baseline[source_li]).item())
+    req_norm = rel * src_norm
+    captures, realized, handles = {}, {}, []
+
+    def source_hook(module, args, out):
+        h = out[0] if isinstance(out, tuple) else out
+        hnew = h.clone()
+        before = h[0, -1].float()
+        hnew[0, -1] = (before + req_norm * q).to(dtype=h.dtype)
+        realized["dx"] = (hnew[0, -1].float() - before).detach().cpu()
+        return ((hnew,) + out[1:]) if isinstance(out, tuple) else hnew
+
+    def make_target_hook(lid):
+        def hook(module, args, out):
+            h = out[0] if isinstance(out, tuple) else out
+            captures[lid] = h[0, -1].detach().float().cpu()
+        return hook
+
+    try:
+        handles.append(model.model.layers[source_li].register_forward_hook(source_hook))
+        for lid in horizons:
+            handles.append(model.model.layers[lid].register_forward_hook(make_target_hook(lid)))
+        enc = {k: v.to(device) for k, v in tokenizer(prompt, return_tensors="pt").items()}
+        model(**enc, use_cache=False)
+    finally:
+        for hd in handles:
+            hd.remove()
+
+    dx = realized["dx"]
+    res = {"dx": dx,
+           "realized_rel": float(torch.linalg.vector_norm(dx).item()) / (src_norm + EPS),
+           "dir_cos": cos(dx, q_cpu),
+           "angle_err": angle(dx, q_cpu),
+           "D": {}}
+    for lid in horizons:
+        res["D"][lid] = cos(captures[lid] - baseline[lid], DIBEK[lid])
+    return res
+
+
+def pair_angle_mean(vectors):
+    a = []
+    for i in range(len(vectors)):
+        for j in range(i + 1, len(vectors)):
+            a.append(angle(vectors[i], vectors[j]))
+    return float(np.mean(a))
+
+
+# =============================================================================
+# 18. ANA DENEY
+# =============================================================================
+
+print("\n[7/24] FP32 radar -> BF16 downstream assay (iki doz + jitter-null)...")
+RESULTS = []
+t_main = time.time()
+
+for source_li in SOURCE_LAYERS:
+    target_li = source_li + 1
+    horizons = get_horizons(source_li)
+    print(f"\n  L{source_li}->L{target_li}: FP32 blok kopyalanıyor... ufuklar {horizons}")
+
+    block_fp32 = copy.deepcopy(model.model.layers[target_li]).to(
+        device=device, dtype=torch.float32).eval()
+    for p in block_fp32.parameters():
+        p.requires_grad_(False)
+
+    requested_sem_pair = pair_angle_mean([c["q"] for c in SEM_ATLAS[source_li]])
+    layer_rows = []
+
+    for pi, prompt in enumerate(PROMPTS):
+
+        baseline, target_call = baseline_and_target_call(prompt, source_li)
+
+        # ---------------- FP32 RADAR (yerel) ----------------
+        fixed_r = fp32_radar(block_fp32, target_call, DIBEK[source_li])
+        fixed_local = cos(fixed_r["response"], DIBEK[target_li])
+
+        sem_local, sem_gain = [], []
+        for c in SEM_ATLAS[source_li]:
+            r = fp32_radar(block_fp32, target_call, c["q"])
+            sem_local.append(cos(r["response"], DIBEK[target_li]))
+            sem_gain.append(r["gain"])
+
+        rnd_local = []
+        for c in RND_ATLAS[source_li]:
+            r = fp32_radar(block_fp32, target_call, c["q"])
+            rnd_local.append(cos(r["response"], DIBEK[target_li]))
+
+        sem_local = np.asarray(sem_local); rnd_local = np.asarray(rnd_local)
+
+        # ================= SEÇİM DONDURULDU =================
+        sem_sel = int(np.argmax(sem_local))
+        rnd_sel = int(np.argmax(rnd_local))
+        null_pick = random.Random(SEED + 5_000_000 + 1000 * source_li + pi).randrange(N_NULL)
+        del target_call
+
+        null_dirs = make_null_dirs(source_li, pi)
+
+        # ---------------- BF16 ACT, her doz ----------------
+        per_dose = {}
+        for rel in ACT_DOSES:
+            fixed_a = full_act(prompt, source_li, DIBEK[source_li], baseline, rel)
+            sem_a = [full_act(prompt, source_li, c["q"], baseline, rel) for c in SEM_ATLAS[source_li]]
+            rnd_a = [full_act(prompt, source_li, c["q"], baseline, rel) for c in RND_ATLAS[source_li]]
+            nul_a = [full_act(prompt, source_li, d, baseline, rel) for d in null_dirs]
+
+            integ = {
+                "fixed_rel": fixed_a["realized_rel"],
+                "fixed_dir_cos": fixed_a["dir_cos"],
+                "sem_dir_cos": mean_or_nan([x["dir_cos"] for x in sem_a]),
+                "sem_angle_err": mean_or_nan([x["angle_err"] for x in sem_a]),
+                "rnd_dir_cos": mean_or_nan([x["dir_cos"] for x in rnd_a]),
+                "sem_realized_pair_angle": pair_angle_mean([x["dx"] for x in sem_a]),
+                "null_realized_angle_vs_fixed": mean_or_nan(
+                    [angle(x["dx"], fixed_a["dx"]) for x in nul_a]),
+            }
+
+            hz = {}
+            for h in horizons:
+                fD = fixed_a["D"][h]
+                sv = np.asarray([x["D"][h] for x in sem_a])
+                rv = np.asarray([x["D"][h] for x in rnd_a])
+                nv = np.asarray([x["D"][h] for x in nul_a])
+                order = np.argsort(-sv)
+                sem_rank = int(np.where(order == sem_sel)[0][0]) + 1
+                hz[h] = {
+                    "fixed_D": fD,
+                    "sem_sel_delta": float(sv[sem_sel] - fD),
+                    "sem_oracle_delta": float(sv.max() - fD),
+                    "rnd_sel_delta": float(rv[rnd_sel] - fD),
+                    "rnd_oracle_delta": float(rv.max() - fD),
+                    "null_oracle_delta": float(nv.max() - fD),
+                    "null_pick_delta": float(nv[null_pick] - fD),
+                    "sem_rank": sem_rank,
+                    "sem_top4": int(sem_rank <= 4),
+                    "sem_hit": int(sem_sel == int(np.argmax(sv))),
+                    "sem_rho": spearman(sem_local, sv),
+                    "rnd_rho": spearman(rnd_local, rv),
+                }
+            per_dose[str(rel)] = {"integrity": integ, "horizons": hz}
+
+            del fixed_a, sem_a, rnd_a, nul_a
+
+        layer_rows.append({
+            "prompt_index": pi,
+            "sem_selected_id": sem_sel,
+            "sem_selected_label": SEM_LABELS[sem_sel],
+            "rnd_selected_id": rnd_sel,
+            "fixed_local_D": fixed_local,
+            "sem_local": sem_local.tolist(),
+            "sem_gain": sem_gain,
+            "rnd_local": rnd_local.tolist(),
+            "doses": per_dose,
+        })
+
+        del baseline
+        if (pi + 1) % 4 == 0:
+            gc.collect(); torch.cuda.empty_cache()
+        print(f"    prompt {pi+1:02d}/{N_PROMPTS} | {(time.time()-t_main)/60:.1f}m", end="\r")
+
+    print()
+    RESULTS.append({"source_layer": source_li, "target_layer": target_li,
+                    "requested_sem_pair_angle": requested_sem_pair,
+                    "rows": layer_rows})
+    del block_fp32
+    gc.collect(); torch.cuda.empty_cache()
+
+print(f"\nAna deney tamam: {(time.time()-t_main)/60:.1f} dk")
+
+
+# =============================================================================
+# 19. GERÇEKLEŞME GEOMETRİSİ DENETİMİ
+# =============================================================================
+
+print("\n[8/24] BF16 gerçekleşme geometrisi (aktüatör adayları ayırt edebiliyor mu?)")
+print("=" * 150)
+print(f"{'KAYNAK':<8}{'DOZ':>7}{'istenen çift':>15}{'gerçekleşen çift':>19}"
+      f"{'yön hatası':>13}{'fixed cos':>12}{'null açısı':>13}")
+print("-" * 150)
+INTEGRITY = {}
+for layer in RESULTS:
+    li = layer["source_layer"]
+    for rel in ACT_DOSES:
+        rows = [r["doses"][str(rel)]["integrity"] for r in layer["rows"]]
+        item = {k: mean_or_nan([x[k] for x in rows]) for k in rows[0]}
+        item["requested_sem_pair_angle"] = layer["requested_sem_pair_angle"]
+        INTEGRITY[f"L{li}_{rel}"] = item
+        print(f"L{li:<7}{rel:>7.2f}{layer['requested_sem_pair_angle']:>14.3f}°"
+              f"{item['sem_realized_pair_angle']:>18.3f}°{item['sem_angle_err']:>12.3f}°"
+              f"{item['fixed_dir_cos']:>+12.5f}{item['null_realized_angle_vs_fixed']:>12.4f}°")
+
+for rel in ACT_DOSES:
+    err = mean_or_nan([INTEGRITY[f"L{l}_{rel}"]["sem_angle_err"] for l in SOURCE_LAYERS])
+    req = mean_or_nan([INTEGRITY[f"L{l}_{rel}"]["requested_sem_pair_angle"] for l in SOURCE_LAYERS])
+    print(f"\n  doz {rel}: ortalama yön hatası {err:.3f}° | istenen aday çift açısı {req:.3f}° -> "
+          + ("✅ aktüatör adayları ayırt edebiliyor" if err < req * 0.5
+             else "⚠️ gerçekleşme hatası aday ayrımına yakın/büyük"))
+
+
+# =============================================================================
+# 20. UFUK ÖZETİ (her doz)
+# =============================================================================
+
+def collect(rel, bucket):
+    out = []
+    for layer in RESULTS:
+        li = layer["source_layer"]
+        for row in layer["rows"]:
+            hz = row["doses"][str(rel)]["horizons"]
+            if bucket == "NEXT":
+                h = li + 1
+            elif bucket == "PLUS3":
+                h = li + 3 if li + 3 <= 19 else None
+            elif bucket == "PLUS5":
+                h = li + 5 if li + 5 <= 19 else None
+            elif bucket == "L19_ALL":
+                h = 19
+            elif bucket == "L19_LONG":
+                h = 19 if li < 18 else None
+            if h is not None:
+                out.append(hz[h])
+    return out
+
+
+print("\n[9/24] Ufuk özeti")
+HORIZON_SUMMARY = {}
+for rel in ACT_DOSES:
+    print("=" * 170)
+    print(f"DOZ {rel}" + ("   <- PRIMARY" if rel == ACT_PRIMARY else "   (secondary)"))
+    print(f"{'UFUK':<10}{'SEM SEL':>11}{'SEM ORC':>11}{'RND SEL':>11}{'NULL ORC':>11}"
+          f"{'ORC-NULL':>11}{'SEM rho':>10}{'RND rho':>10}{'RANK':>8}{'TOP4':>8}")
+    print("-" * 170)
+    HORIZON_SUMMARY[str(rel)] = {}
+    for b in ["NEXT", "PLUS3", "PLUS5", "L19_ALL", "L19_LONG"]:
+        rows = collect(rel, b)
+        s = {
+            "sem_sel": mean_or_nan([x["sem_sel_delta"] for x in rows]),
+            "sem_oracle": mean_or_nan([x["sem_oracle_delta"] for x in rows]),
+            "rnd_sel": mean_or_nan([x["rnd_sel_delta"] for x in rows]),
+            "null_oracle": mean_or_nan([x["null_oracle_delta"] for x in rows]),
+            "sem_rho": mean_or_nan([x["sem_rho"] for x in rows]),
+            "rnd_rho": mean_or_nan([x["rnd_rho"] for x in rows]),
+            "rank": mean_or_nan([x["sem_rank"] for x in rows]),
+            "top4": mean_or_nan([x["sem_top4"] for x in rows]),
+            "hit": mean_or_nan([x["sem_hit"] for x in rows]),
+        }
+        s["oracle_minus_null"] = s["sem_oracle"] - s["null_oracle"]
+        HORIZON_SUMMARY[str(rel)][b] = s
+        print(f"{b:<10}{s['sem_sel']:>+11.5f}{s['sem_oracle']:>+11.5f}{s['rnd_sel']:>+11.5f}"
+              f"{s['null_oracle']:>+11.5f}{s['oracle_minus_null']:>+11.5f}"
+              f"{s['sem_rho']:>+10.4f}{s['rnd_rho']:>+10.4f}{s['rank']:>8.2f}{s['top4']:>8.3f}")
+
+
+# =============================================================================
+# 21. BİRİNCİL: PROMPT-CLUSTER L19_LONG (her doz)
+# =============================================================================
+
+print("\n[10/24] Prompt-cluster L19_LONG analizi")
+PRIMARY = {}
+for rel in ACT_DOSES:
+    pp = {k: {i: [] for i in range(N_PROMPTS)}
+          for k in ["sem", "oracle", "rnd", "null_oracle", "null_pick",
+                    "sem_minus_rnd", "oracle_minus_null", "sem_minus_nullpick"]}
+    for layer in RESULTS:
+        if layer["source_layer"] == 18:
+            continue
+        for row in layer["rows"]:
+            pi = row["prompt_index"]
+            h = row["doses"][str(rel)]["horizons"][19]
+            pp["sem"][pi].append(h["sem_sel_delta"])
+            pp["oracle"][pi].append(h["sem_oracle_delta"])
+            pp["rnd"][pi].append(h["rnd_sel_delta"])
+            pp["null_oracle"][pi].append(h["null_oracle_delta"])
+            pp["null_pick"][pi].append(h["null_pick_delta"])
+            pp["sem_minus_rnd"][pi].append(h["sem_sel_delta"] - h["rnd_sel_delta"])
+            pp["oracle_minus_null"][pi].append(h["sem_oracle_delta"] - h["null_oracle_delta"])
+            pp["sem_minus_nullpick"][pi].append(h["sem_sel_delta"] - h["null_pick_delta"])
+
+    def pm(d):
+        return [float(np.mean(d[i])) for i in range(N_PROMPTS) if d[i]]
+
+    base_seed = 136300 + int(rel * 1000)
+    B = {k: cluster_bootstrap(pm(pp[k]), base_seed + j) for j, k in enumerate(pp)}
+    B["rho"] = HORIZON_SUMMARY[str(rel)]["L19_LONG"]["sem_rho"]
+    B["prompt_means"] = {k: pm(pp[k]) for k in pp}
+    PRIMARY[str(rel)] = B
+
+    print("-" * 120)
+    print(f"DOZ {rel}" + ("   <- PRIMARY" if rel == ACT_PRIMARY else ""))
+    print(f"  SEM radar Δ vs FIXED      : {B['sem']['mean']:+.6f} {fmt_ci(B['sem'])}")
+    print(f"  SEM oracle Δ              : {B['oracle']['mean']:+.6f} {fmt_ci(B['oracle'])}")
+    print(f"  RANDOM radar Δ            : {B['rnd']['mean']:+.6f} {fmt_ci(B['rnd'])}")
+    print(f"  NULL oracle Δ (BF16 taban): {B['null_oracle']['mean']:+.6f} {fmt_ci(B['null_oracle'])}")
+    print(f"  SEM − RANDOM              : {B['sem_minus_rnd']['mean']:+.6f} {fmt_ci(B['sem_minus_rnd'])}")
+    print(f"  SEM oracle − NULL oracle  : {B['oracle_minus_null']['mean']:+.6f} {fmt_ci(B['oracle_minus_null'])}")
+    print(f"  SEM − NULL pick           : {B['sem_minus_nullpick']['mean']:+.6f} {fmt_ci(B['sem_minus_nullpick'])}")
+    print(f"  Yerel radar -> L19 rho    : {B['rho']:+.4f}")
+
+
+# =============================================================================
+# 22. KATMAN BAZINDA L19 (primary doz)
+# =============================================================================
+
+print("\n[11/24] Katman bazında L19 (primary doz)")
+print("=" * 140)
+print(f"{'KAYNAK':<9}{'SEM SEL':>11}{'ORACLE':>11}{'NULL ORC':>11}{'RND SEL':>11}"
+      f"{'rho':>9}{'rank':>8}{'top4':>8}")
+print("-" * 140)
+LAYER_SUMMARY = {}
+for layer in RESULTS:
+    li = layer["source_layer"]
+    hs = [r["doses"][str(ACT_PRIMARY)]["horizons"][19] for r in layer["rows"]]
+    s = {"sem": mean_or_nan([h["sem_sel_delta"] for h in hs]),
+         "oracle": mean_or_nan([h["sem_oracle_delta"] for h in hs]),
+         "null_oracle": mean_or_nan([h["null_oracle_delta"] for h in hs]),
+         "rnd": mean_or_nan([h["rnd_sel_delta"] for h in hs]),
+         "rho": mean_or_nan([h["sem_rho"] for h in hs]),
+         "rank": mean_or_nan([h["sem_rank"] for h in hs]),
+         "top4": mean_or_nan([h["sem_top4"] for h in hs])}
+    LAYER_SUMMARY[str(li)] = s
+    print(f"L{li:<8}{s['sem']:>+11.5f}{s['oracle']:>+11.5f}{s['null_oracle']:>+11.5f}"
+          f"{s['rnd']:>+11.5f}{s['rho']:>+9.4f}{s['rank']:>8.2f}{s['top4']:>8.3f}")
+
+
+# =============================================================================
+# 23. SEÇİM ÇEŞİTLİLİĞİ
+# =============================================================================
+
+print("\n[12/24] Semantik seçim çeşitliliği")
+DIVERSITY = {}
+for layer in RESULTS:
+    li = layer["source_layer"]
+    counts = np.zeros(N_SEMANTIC, dtype=np.int64)
+    for r in layer["rows"]:
+        counts[r["sem_selected_id"]] += 1
+    w = int(np.argmax(counts))
+    DIVERSITY[str(li)] = {"counts": counts.tolist(), "unique": int((counts > 0).sum()),
+                          "modal_fraction": float(counts.max() / N_PROMPTS),
+                          "modal_label": SEM_LABELS[w]}
+    print(f"  L{li:02d}: benzersiz={DIVERSITY[str(li)]['unique']}/16 | "
+          f"modal={DIVERSITY[str(li)]['modal_fraction']:.2f} | kazanan={SEM_LABELS[w]}")
+
+
+# =============================================================================
+# 24. KARAR
+# =============================================================================
+
+print("\n[13/24] KARAR (PRIMARY doz = %s)" % ACT_PRIMARY)
+print("=" * 180)
+P = PRIMARY[str(ACT_PRIMARY)]
+
+nav_ok      = P["sem"]["ci95"][0] > 0
+beats_rnd   = P["sem_minus_rnd"]["ci95"][0] > 0
+above_floor = P["oracle_minus_null"]["ci95"][0] > 0
+rho_ok      = np.isfinite(P["rho"]) and P["rho"] > 0.10
+
+if nav_ok and beats_rnd and rho_ok:
+    DECISION = "FP32_SEMANTIC_RADAR_DOWNSTREAM_NAVIGATION_SUPPORTED"
+    NEXT_BRANCH = "TEST137_FROZEN_ROUTE_REPLICATION"
+elif above_floor and not nav_ok:
+    DECISION = "OPPORTUNITY_ABOVE_BF16_FLOOR_BUT_LOCAL_RADAR_NOT_NAVIGATING"
+    NEXT_BRANCH = "REASSESS_SENSOR_HORIZON_BEFORE_CHAINING"
+elif not above_floor:
+    DECISION = "NO_DIRECTIONAL_OPPORTUNITY_ABOVE_BF16_FLOOR"
+    NEXT_BRANCH = "PIVOT_TO_GAIN_DOSE_RADAR"
+else:
+    DECISION = "MIXED_OR_INCONCLUSIVE"
+    NEXT_BRANCH = "INSPECT_LAYER_AND_HORIZON_STRUCTURE"
+
+print(f"SEM radar Δ           : {P['sem']['mean']:+.6f} {fmt_ci(P['sem'])}")
+print(f"SEM − RANDOM          : {P['sem_minus_rnd']['mean']:+.6f} {fmt_ci(P['sem_minus_rnd'])}")
+print(f"SEM oracle − NULL     : {P['oracle_minus_null']['mean']:+.6f} {fmt_ci(P['oracle_minus_null'])}")
+print(f"Radar -> L19 rho      : {P['rho']:+.4f}")
+print(f"\nDECISION: {DECISION}")
+print(f"NEXT    : {NEXT_BRANCH}")
+
+S = PRIMARY[str(ACT_DOSES[0])]
+print(f"\n(secondary doz {ACT_DOSES[0]}: SEM Δ {S['sem']['mean']:+.6f} {fmt_ci(S['sem'])} | "
+      f"oracle−null {S['oracle_minus_null']['mean']:+.6f} {fmt_ci(S['oracle_minus_null'])})")
+
+
+# =============================================================================
+# 25. YORUM KİLİDİ
+# =============================================================================
+
+print("\n[14/24] YORUM KİLİDİ")
+LOCK = [
+    "Aday seçimi downstream ACT sonuçlarından önce dondurulur; oracle yalnız sonra hesaplanır.",
+    "Radar tek bir FP32 kopya bloğunda central finite-secant yanıtıdır; tam model BF16 kalır.",
+    "FP32 yerel micro↔ACT r≈1 tek bloğun bu ölçeklerde doğrusallığıdır; downstream öngörü kanıtı değildir.",
+    "Jitter-null, FIXED çevresindeki ULP-altı yön değişimlerinin BF16 downstream sonucunu ne kadar oynattığını ölçer; semantik oracle bu tabanı aşmadıkça gerçek fırsat sayılmaz.",
+    "ACT 0.04 birincildir çünkü 0.01'de BF16 gerçekleşme hatası aday ayrımıyla aynı büyüklükteydi (TEST 135).",
+    "Birincil uç nokta L19_LONG'dur; L18 kaynağı yerel olduğu için hariçtir. Belirsizlik prompt-cluster bootstrap ile hesaplanır.",
+    "Semantik adaylar da rastgele adaylar da aynı 5° kabuğa yerleştirilir.",
+    "DRA zarfı, fren, kontrolcü, mercek, üretim ve çok katmanlı zincir kapalıdır.",
+    "Jacobian, gradyan, manifold, anlamsal nedensellik veya ağırlık güncellemesi iddiası yoktur.",
+    "Olumlu sonuç bile yalnız tek kaynaklı ileriye dönük yerel-algı -> downstream-seçim mekanizmasını gösterir; tam GPS değildir.",
+    "TEST 136 v3 promptları bu koşudan sonra açığa çıkmıştır; kör doğrulamada tekrar kullanılmaz.",
+]
+for i, s in enumerate(LOCK, 1):
+    print(f"{i:02d}. {s}")
+
+
+# =============================================================================
+# 26. PROMPT BAZINDA (primary)
+# =============================================================================
+
+print("\n[15/24] Prompt bazında L19_LONG (primary doz)")
+pmv = P["prompt_means"]
+for i in range(len(pmv["sem"])):
+    print(f"P{i:02d} SEM={pmv['sem'][i]:+.5f} RND={pmv['rnd'][i]:+.5f} "
+          f"ORC={pmv['oracle'][i]:+.5f} NULL={pmv['null_oracle'][i]:+.5f} "
+          f"ORC−NULL={pmv['oracle_minus_null'][i]:+.5f}")
+
+
+# =============================================================================
+# 27. JSON
+# =============================================================================
+
+print("\n[16/24] JSON kaydediliyor...")
+
+def json_safe(o):
+    if isinstance(o, (np.integer,)):
+        return int(o)
+    if isinstance(o, (np.floating,)):
+        return float(o)
+    if isinstance(o, np.ndarray):
+        return o.tolist()
+    if torch.is_tensor(o):
+        return {"shape": list(o.shape)}
+    if isinstance(o, dict):
+        return {str(k): json_safe(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)):
+        return [json_safe(v) for v in o]
+    return o
+
+ATLAS_META = {str(li): [{"id": x["id"], "label": x["label"], "raw_cos": x["raw_cos"],
+                         "natural_angle": x["natural_angle"],
+                         "requested_angle": x["requested_angle"]}
+                        for x in SEM_ATLAS[li]] for li in SOURCE_LAYERS}
+
+OUTPUT = {
+    "test": "TEST136_v3",
+    "title": "FP32 Semantic Neighborhood Radar -> Downstream Transport (BF16 floor-controlled)",
+    "model": MODEL_ID,
+    "config": {"source_layers": SOURCE_LAYERS, "radar_rel": RADAR_REL,
+               "act_doses": ACT_DOSES, "act_primary": ACT_PRIMARY,
+               "shell_deg": SHELL_DEG, "n_semantic": N_SEMANTIC, "n_random": N_RANDOM,
+               "n_null": N_NULL, "null_jitter_rel": NULL_JITTER_REL,
+               "n_prompts": N_PROMPTS, "seed": SEED},
+    "fingerprint": {"L10": cos10, "L11": cos11, "status": "PASS"},
+    "neg_variants": NEG_VARIANTS,
+    "semantic_labels": SEM_LABELS,
+    "semantic_atlas": ATLAS_META,
+    "integrity": INTEGRITY,
+    "horizon_summary": HORIZON_SUMMARY,
+    "primary": PRIMARY,
+    "layer_summary_primary": LAYER_SUMMARY,
+    "selection_diversity": DIVERSITY,
+    "decision": DECISION,
+    "next": NEXT_BRANCH,
+    "interpretation_lock": LOCK,
+    "prompts": PROMPTS,
+    "results": RESULTS,
+}
+with open(OUT_JSON, "w", encoding="utf-8") as f:
+    json.dump(json_safe(OUTPUT), f, ensure_ascii=False, indent=2)
+print("Kaydedildi:", OUT_JSON)
+try:
+    from google.colab import files as _cf
+    _cf.download(OUT_JSON)
+except Exception:
+    pass
+
+
+# =============================================================================
+# 28. OKUMA SIRASI
+# =============================================================================
+
+print("\n[17/24] OKUMA SIRASI")
+print("""
+1. [8/24] GERÇEKLEŞME GEOMETRİSİ
+   Doz 0.04'te yön hatası, istenen aday çift açısının yarısından küçük mü?
+   Değilse aktüatör hâlâ adayları ayırt edemiyor; sonuçları buna göre oku.
+
+2. SEM oracle − NULL oracle  (primary)
+   Semantik ailede BF16 tabanını aşan GERÇEK bir downstream fırsat var mı?
+   CI 0'ı içeriyorsa: yön navigasyonu için fırsat yok -> gain/doz radarı.
+
+3. SEM radar Δ ve SEM − RANDOM  (primary)
+   Fırsat varsa: FP32 yerel radar onu ileriye dönük seçebiliyor mu?
+
+4. Radar -> L19 rho
+   Yerel sıralama terminal sıralamayı taşıyor mu?
+
+5. Doz 0.01 vs 0.04 karşılaştırması
+   0.01'de null, oracle'ın büyük kısmını açıklıyor ama 0.04'te açıklamıyorsa,
+   TEST 132–134'ün "fırsatı" ölçüm artefaktıydı ve gerçek sinyal ancak
+   yeterli dozda görünür hâle geliyor demektir.
+""")
+
+
+# =============================================================================
+# 29. KOMPAKT ÖZET
+# =============================================================================
+
+print("\n[18/24] KOMPAKT ÖZET")
+print("=" * 180)
+print("TEST 136 v3 — FP32 SEMANTIC RADAR -> DOWNSTREAM (BF16 floor-controlled)")
+print("=" * 180)
+print(f"Fingerprint : PASS")
+for rel in ACT_DOSES:
+    B = PRIMARY[str(rel)]
+    tag = "PRIMARY" if rel == ACT_PRIMARY else "secondary"
+    print(f"\n[{tag}] doz {rel}")
+    print(f"  SEM Δ          : {B['sem']['mean']:+.6f} {fmt_ci(B['sem'])}")
+    print(f"  SEM − RND      : {B['sem_minus_rnd']['mean']:+.6f} {fmt_ci(B['sem_minus_rnd'])}")
+    print(f"  ORACLE − NULL  : {B['oracle_minus_null']['mean']:+.6f} {fmt_ci(B['oracle_minus_null'])}")
+    print(f"  rho            : {B['rho']:+.4f}")
+print(f"\nDECISION : {DECISION}")
+print(f"NEXT     : {NEXT_BRANCH}")
+print(f"JSON     : {OUT_JSON}")
+
+gc.collect()
+torch.cuda.empty_cache()
+print("\nDONE.")
