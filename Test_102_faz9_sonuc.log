@@ -1,0 +1,284 @@
+ 
+====================================================================================================================================================================================
+TEST 136 v3 — FP32 SEMANTIC NEIGHBORHOOD RADAR -> DOWNSTREAM TRANSPORT
+AKBASCORE — CLEAN LOCAL SENSE / DISTANT VALIDATION / BF16 FLOOR-CONTROLLED
+====================================================================================================================================================================================
+
+[1/24] Model yükleniyor...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 81.9kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 829kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 82.7MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 74.0MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 129MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.20MB/s]
+Download complete: : 
+
+ 13.1GB,  216MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  336MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:41<00:00,  7.63s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 100.47it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 23.6kB/s]
+Model        : Qwen/Qwen2.5-7B-Instruct
+Kaynaklar    : [3, 6, 10, 14, 18]
+RADAR_REL    : 0.0025
+ACT dozları  : [0.01, 0.04]  (PRIMARY 0.04)
+Kabuk        : 5.0°
+Adaylar      : 16 semantik + 16 rastgele + 16 null
+Promptlar    : 20
+Yükleme      : 54.2s
+
+[2/24] Ortam parmak izi...
+L10=+0.656545 drift=1.358e-07
+L11=+0.658274 drift=3.526e-07
+Fingerprint: PASS
+
+[3/24] Dibekgoz sözlüğü...
+cos(v0,v19)  = +0.060267
+cos(v11,v19) = +0.402078
+cos(v18,v19) = +0.841571
+
+[4/24] Semantik aday sözlükleri...
+  01/16 LOO_0
+  02/16 LOO_1
+  03/16 LOO_2
+  04/16 LOO_3
+  05/16 LOO_4
+  06/16 LOO_5
+  07/16 LOO_6
+  08/16 LOO_7
+  09/16 NEGVAR_0  (a long-tailed quadrupedal mammal)
+  10/16 NEGVAR_1  (a tailed four-legged mammal)
+  11/16 NEGVAR_2  (a quadrupedal mammal with a tail)
+  12/16 NEGVAR_3  (a four-legged tailed animal)
+  13/16 NEGVAR_4  (a tailed terrestrial quadruped)
+  14/16 NEGVAR_5  (a quadrupedal creature with a long tail)
+  15/16 NEGVAR_6  (a four-legged mammalian animal with a tail)
+  16/16 NEGVAR_7  (a tailed mammal walking on four limbs)
+
+[5/24] Eşit açılı semantik atlas...
+  L03: istenen açı=5.0000° | doğal semantik açı aralığı=[1.89°, 58.99°] ort 23.86°
+  L06: istenen açı=4.9999° | doğal semantik açı aralığı=[3.51°, 66.35°] ort 25.75°
+  L10: istenen açı=5.0000° | doğal semantik açı aralığı=[5.59°, 63.11°] ort 26.23°
+  L14: istenen açı=5.0000° | doğal semantik açı aralığı=[6.57°, 65.52°] ort 25.42°
+  L18: istenen açı=4.9999° | doğal semantik açı aralığı=[7.12°, 62.69°] ort 26.33°
+
+[6/24] Eşleştirilmiş kabukta rastgele atlas...
+  5 katman × 16 rastgele aday
+
+[7/24] FP32 radar -> BF16 downstream assay (iki doz + jitter-null)...
+
+  L3->L4: FP32 blok kopyalanıyor... ufuklar [4, 6, 8, 19]
+    prompt 20/20 | 1.1m
+
+  L6->L7: FP32 blok kopyalanıyor... ufuklar [7, 9, 11, 19]
+    prompt 20/20 | 2.1m
+
+  L10->L11: FP32 blok kopyalanıyor... ufuklar [11, 13, 15, 19]
+    prompt 20/20 | 3.2m
+
+  L14->L15: FP32 blok kopyalanıyor... ufuklar [15, 17, 19]
+    prompt 20/20 | 4.3m
+
+  L18->L19: FP32 blok kopyalanıyor... ufuklar [19]
+    prompt 20/20 | 5.3m
+
+Ana deney tamam: 5.3 dk
+
+[8/24] BF16 gerçekleşme geometrisi (aktüatör adayları ayırt edebiliyor mu?)
+======================================================================================================================================================
+KAYNAK      DOZ   istenen çift   gerçekleşen çift   yön hatası   fixed cos   null açısı
+------------------------------------------------------------------------------------------------------------------------------------------------------
+L3         0.01         6.783°             9.931°       9.407°    +0.98621      0.2936°
+L3         0.04         6.783°             7.328°       2.249°    +0.99925      0.2146°
+L6         0.01         6.794°             9.907°       9.939°    +0.98480      0.3526°
+L6         0.04         6.794°             7.356°       2.168°    +0.99923      0.1822°
+L10        0.01         6.847°            10.178°       7.709°    +0.99090      0.3467°
+L10        0.04         6.847°             7.430°       2.296°    +0.99922      0.2018°
+L14        0.01         6.847°            10.607°       8.036°    +0.99031      0.3294°
+L14        0.04         6.847°             7.468°       2.296°    +0.99916      0.1974°
+L18        0.01         6.845°             9.998°       6.812°    +0.99301      0.3192°
+L18        0.04         6.845°             7.213°       2.100°    +0.99939      0.1844°
+
+  doz 0.01: ortalama yön hatası 8.381° | istenen aday çift açısı 6.823° -> ⚠️ gerçekleşme hatası aday ayrımına yakın/büyük
+
+  doz 0.04: ortalama yön hatası 2.222° | istenen aday çift açısı 6.823° -> ✅ aktüatör adayları ayırt edebiliyor
+
+[9/24] Ufuk özeti
+==========================================================================================================================================================================
+DOZ 0.01   (secondary)
+UFUK          SEM SEL    SEM ORC    RND SEL   NULL ORC   ORC-NULL   SEM rho   RND rho    RANK    TOP4
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+NEXT         +0.00014   +0.01322   -0.00051   +0.00683   +0.00639   +0.2164   +0.1946    6.42   0.420
+PLUS3        +0.00182   +0.02968   -0.00177   +0.02605   +0.00363   +0.0581   -0.0043    7.89   0.287
+PLUS5        +0.00104   +0.03065   -0.00004   +0.02966   +0.00099   +0.0150   -0.0279    8.57   0.287
+L19_ALL      +0.00078   +0.03548   -0.00240   +0.03215   +0.00333   +0.0314   +0.0159    8.08   0.220
+L19_LONG     +0.00121   +0.04132   -0.00183   +0.03856   +0.00277   -0.0203   -0.0197    8.30   0.212
+==========================================================================================================================================================================
+DOZ 0.04   <- PRIMARY
+UFUK          SEM SEL    SEM ORC    RND SEL   NULL ORC   ORC-NULL   SEM rho   RND rho    RANK    TOP4
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+NEXT         +0.00214   +0.00378   +0.00072   +0.00198   +0.00179   +0.6122   +0.5400    3.09   0.780
+PLUS3        -0.00025   +0.00923   +0.00027   +0.00688   +0.00235   +0.2329   +0.1211    6.56   0.412
+PLUS5        +0.00062   +0.01148   -0.00063   +0.01038   +0.00110   +0.1608   +0.0500    7.16   0.375
+L19_ALL      -0.00295   +0.01665   +0.00019   +0.01440   +0.00225   +0.1655   +0.1527    7.65   0.330
+L19_LONG     -0.00338   +0.02072   +0.00061   +0.01775   +0.00297   +0.0621   +0.0381    8.68   0.237
+
+[10/24] Prompt-cluster L19_LONG analizi
+------------------------------------------------------------------------------------------------------------------------
+DOZ 0.01
+  SEM radar Δ vs FIXED      : +0.001212 [-0.005993,+0.008325]
+  SEM oracle Δ              : +0.041324 [+0.035092,+0.047689]
+  RANDOM radar Δ            : -0.001828 [-0.008591,+0.004818]
+  NULL oracle Δ (BF16 taban): +0.038558 [+0.032026,+0.045311]
+  SEM − RANDOM              : +0.003040 [-0.004807,+0.010371]
+  SEM oracle − NULL oracle  : +0.002766 [-0.001103,+0.006645]
+  SEM − NULL pick           : -0.002400 [-0.008956,+0.003850]
+  Yerel radar -> L19 rho    : -0.0203
+------------------------------------------------------------------------------------------------------------------------
+DOZ 0.04   <- PRIMARY
+  SEM radar Δ vs FIXED      : -0.003383 [-0.007201,+0.000249]
+  SEM oracle Δ              : +0.020717 [+0.017672,+0.023825]
+  RANDOM radar Δ            : +0.000607 [-0.002266,+0.003507]
+  NULL oracle Δ (BF16 taban): +0.017745 [+0.014664,+0.020938]
+  SEM − RANDOM              : -0.003990 [-0.008022,-0.000275]
+  SEM oracle − NULL oracle  : +0.002972 [+0.000946,+0.004982]
+  SEM − NULL pick           : -0.000785 [-0.006825,+0.004546]
+  Yerel radar -> L19 rho    : +0.0621
+
+[11/24] Katman bazında L19 (primary doz)
+============================================================================================================================================
+KAYNAK       SEM SEL     ORACLE   NULL ORC    RND SEL      rho    rank    top4
+--------------------------------------------------------------------------------------------------------------------------------------------
+L3          -0.00904   +0.03829   +0.03662   +0.01019  -0.0001   10.30   0.150
+L6          -0.00261   +0.02139   +0.01735   -0.00407  +0.0003    8.70   0.200
+L10         -0.00229   +0.01562   +0.01089   -0.00237  +0.0168    9.30   0.200
+L14         +0.00040   +0.00757   +0.00612   -0.00132  +0.2316    6.40   0.400
+L18         -0.00120   +0.00039   +0.00104   -0.00145  +0.5788    3.55   0.700
+
+[12/24] Semantik seçim çeşitliliği
+  L03: benzersiz=4/16 | modal=0.45 | kazanan=NEGVAR_1
+  L06: benzersiz=5/16 | modal=0.40 | kazanan=NEGVAR_4
+  L10: benzersiz=7/16 | modal=0.35 | kazanan=LOO_6
+  L14: benzersiz=2/16 | modal=0.85 | kazanan=LOO_7
+  L18: benzersiz=8/16 | modal=0.35 | kazanan=NEGVAR_4
+
+[13/24] KARAR (PRIMARY doz = 0.04)
+====================================================================================================================================================================================
+SEM radar Δ           : -0.003383 [-0.007201,+0.000249]
+SEM − RANDOM          : -0.003990 [-0.008022,-0.000275]
+SEM oracle − NULL     : +0.002972 [+0.000946,+0.004982]
+Radar -> L19 rho      : +0.0621
+
+DECISION: OPPORTUNITY_ABOVE_BF16_FLOOR_BUT_LOCAL_RADAR_NOT_NAVIGATING
+NEXT    : REASSESS_SENSOR_HORIZON_BEFORE_CHAINING
+
+(secondary doz 0.01: SEM Δ +0.001212 [-0.005993,+0.008325] | oracle−null +0.002766 [-0.001103,+0.006645])
+
+[14/24] YORUM KİLİDİ
+01. Aday seçimi downstream ACT sonuçlarından önce dondurulur; oracle yalnız sonra hesaplanır.
+02. Radar tek bir FP32 kopya bloğunda central finite-secant yanıtıdır; tam model BF16 kalır.
+03. FP32 yerel micro↔ACT r≈1 tek bloğun bu ölçeklerde doğrusallığıdır; downstream öngörü kanıtı değildir.
+04. Jitter-null, FIXED çevresindeki ULP-altı yön değişimlerinin BF16 downstream sonucunu ne kadar oynattığını ölçer; semantik oracle bu tabanı aşmadıkça gerçek fırsat sayılmaz.
+05. ACT 0.04 birincildir çünkü 0.01'de BF16 gerçekleşme hatası aday ayrımıyla aynı büyüklükteydi (TEST 135).
+06. Birincil uç nokta L19_LONG'dur; L18 kaynağı yerel olduğu için hariçtir. Belirsizlik prompt-cluster bootstrap ile hesaplanır.
+07. Semantik adaylar da rastgele adaylar da aynı 5° kabuğa yerleştirilir.
+08. DRA zarfı, fren, kontrolcü, mercek, üretim ve çok katmanlı zincir kapalıdır.
+09. Jacobian, gradyan, manifold, anlamsal nedensellik veya ağırlık güncellemesi iddiası yoktur.
+10. Olumlu sonuç bile yalnız tek kaynaklı ileriye dönük yerel-algı -> downstream-seçim mekanizmasını gösterir; tam GPS değildir.
+11. TEST 136 v3 promptları bu koşudan sonra açığa çıkmıştır; kör doğrulamada tekrar kullanılmaz.
+
+[15/24] Prompt bazında L19_LONG (primary doz)
+P00 SEM=-0.01737 RND=-0.00978 ORC=+0.00723 NULL=+0.00444 ORC−NULL=+0.00279
+P01 SEM=-0.01754 RND=-0.00228 ORC=+0.02231 NULL=+0.01535 ORC−NULL=+0.00696
+P02 SEM=+0.00219 RND=+0.00008 ORC=+0.02880 NULL=+0.02921 ORC−NULL=-0.00041
+P03 SEM=-0.00241 RND=-0.00665 ORC=+0.01934 NULL=+0.01568 ORC−NULL=+0.00366
+P04 SEM=-0.00513 RND=-0.00610 ORC=+0.01116 NULL=+0.01614 ORC−NULL=-0.00498
+P05 SEM=-0.01349 RND=+0.01031 ORC=+0.03355 NULL=+0.03227 ORC−NULL=+0.00128
+P06 SEM=+0.00915 RND=+0.00914 ORC=+0.02350 NULL=+0.02422 ORC−NULL=-0.00072
+P07 SEM=-0.01347 RND=+0.00636 ORC=+0.02777 NULL=+0.02925 ORC−NULL=-0.00148
+P08 SEM=-0.00385 RND=+0.00668 ORC=+0.02065 NULL=+0.01425 ORC−NULL=+0.00639
+P09 SEM=-0.00993 RND=+0.00628 ORC=+0.02993 NULL=+0.01908 ORC−NULL=+0.01085
+P10 SEM=-0.00304 RND=-0.00575 ORC=+0.02984 NULL=+0.01818 ORC−NULL=+0.01166
+P11 SEM=-0.01230 RND=-0.00730 ORC=+0.01938 NULL=+0.01159 ORC−NULL=+0.00779
+P12 SEM=+0.00242 RND=-0.00402 ORC=+0.01283 NULL=+0.00840 ORC−NULL=+0.00443
+P13 SEM=+0.00433 RND=+0.00119 ORC=+0.01842 NULL=+0.01786 ORC−NULL=+0.00056
+P14 SEM=+0.01137 RND=+0.01423 ORC=+0.02799 NULL=+0.02363 ORC−NULL=+0.00436
+P15 SEM=+0.00399 RND=-0.00407 ORC=+0.01191 NULL=+0.01069 ORC−NULL=+0.00121
+P16 SEM=-0.01051 RND=-0.00553 ORC=+0.01611 NULL=+0.00857 ORC−NULL=+0.00753
+P17 SEM=+0.00147 RND=+0.00484 ORC=+0.01883 NULL=+0.02354 ORC−NULL=-0.00471
+P18 SEM=+0.00482 RND=-0.00130 ORC=+0.01844 NULL=+0.01477 ORC−NULL=+0.00367
+P19 SEM=+0.00162 RND=+0.00579 ORC=+0.01637 NULL=+0.01779 ORC−NULL=-0.00141
+
+[16/24] JSON kaydediliyor...
+Kaydedildi: /content/TEST_136_V3_FP32_SEMANTIC_RADAR.json
+
+[17/24] OKUMA SIRASI
+
+1. [8/24] GERÇEKLEŞME GEOMETRİSİ
+   Doz 0.04'te yön hatası, istenen aday çift açısının yarısından küçük mü?
+   Değilse aktüatör hâlâ adayları ayırt edemiyor; sonuçları buna göre oku.
+
+2. SEM oracle − NULL oracle  (primary)
+   Semantik ailede BF16 tabanını aşan GERÇEK bir downstream fırsat var mı?
+   CI 0'ı içeriyorsa: yön navigasyonu için fırsat yok -> gain/doz radarı.
+
+3. SEM radar Δ ve SEM − RANDOM  (primary)
+   Fırsat varsa: FP32 yerel radar onu ileriye dönük seçebiliyor mu?
+
+4. Radar -> L19 rho
+   Yerel sıralama terminal sıralamayı taşıyor mu?
+
+5. Doz 0.01 vs 0.04 karşılaştırması
+   0.01'de null, oracle'ın büyük kısmını açıklıyor ama 0.04'te açıklamıyorsa,
+   TEST 132–134'ün "fırsatı" ölçüm artefaktıydı ve gerçek sinyal ancak
+   yeterli dozda görünür hâle geliyor demektir.
+
+
+[18/24] KOMPAKT ÖZET
+====================================================================================================================================================================================
+TEST 136 v3 — FP32 SEMANTIC RADAR -> DOWNSTREAM (BF16 floor-controlled)
+====================================================================================================================================================================================
+Fingerprint : PASS
+
+[secondary] doz 0.01
+  SEM Δ          : +0.001212 [-0.005993,+0.008325]
+  SEM − RND      : +0.003040 [-0.004807,+0.010371]
+  ORACLE − NULL  : +0.002766 [-0.001103,+0.006645]
+  rho            : -0.0203
+
+[PRIMARY] doz 0.04
+  SEM Δ          : -0.003383 [-0.007201,+0.000249]
+  SEM − RND      : -0.003990 [-0.008022,-0.000275]
+  ORACLE − NULL  : +0.002972 [+0.000946,+0.004982]
+  rho            : +0.0621
+
+DECISION : OPPORTUNITY_ABOVE_BF16_FLOOR_BUT_LOCAL_RADAR_NOT_NAVIGATING
+NEXT     : REASSESS_SENSOR_HORIZON_BEFORE_CHAINING
+JSON     : /content/TEST_136_V3_FP32_SEMANTIC_RADAR.json
+
+DONE.
+
