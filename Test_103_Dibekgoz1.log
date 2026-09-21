@@ -1,0 +1,2134 @@
+# =============================================================================
+# TEST 140 — IN-SITU LATENT BIRTH: FIRST SPARK ASSAY
+# AKBASCORE
+#
+# Qwen2.5-7B-Instruct · BF16 · A100 · TEK HÜCRE
+#
+# =============================================================================
+#
+# ANA SORU
+# -----------------------------------------------------------------------------
+# Dibekgöz hedef vektörünün sayıları sentezleyiciye HİÇ verilmeden,
+# yalnız modelin kendi doğal aktivasyon hareketlerinden Dibekgöz'e özgü
+# bir latent yön ortaya çıkıyor mu?
+#
+#
+# ÖNEMLİ:
+# -----------------------------------------------------------------------------
+# Bu test "yeni kalıcı kavram yarattık" iddiası yapmaz.
+#
+# Test edilen daha küçük hipotez:
+#
+#   Doğru doğal donör ailelerinin model-içi aktivasyon değişimleri,
+#   hedef sentetik kavramın kör tutulan Pusulasına doğru ortak ve
+#   tekrarlanabilir bir latent hareket içeriyor mu?
+#
+#
+# KÖR KİLİT
+# -----------------------------------------------------------------------------
+# v_DIBEK:
+#
+#       synthesis_loop içinde KULLANILMAZ.
+#
+# Pusula yalnız sentez tamamlandıktan sonra açılır.
+#
+#
+# ÜÇ KOL
+# -----------------------------------------------------------------------------
+#
+# TARGET DONORS
+#   tailless
+#   bipedal
+#   ape/primate
+#
+# ANTI DONORS
+#   tailed
+#   quadrupedal
+#   non-primate mammal
+#
+# NULL DONORS
+#   unrelated physical/visual properties
+#
+#
+# DİNAMİK
+# -----------------------------------------------------------------------------
+#
+# Her aile için eşleşmiş doğal context çiftleri:
+#
+#       context_before -> context_after
+#
+# modelden:
+#
+#       Δ_i = h_after - h_before
+#
+# çıkarılır.
+#
+# Bunların ortak düşük-rank hareket yapısı bulunur.
+#
+# Hiçbir aşamada:
+#
+#       z += alpha * v_DIBEK
+#
+# yapılmaz.
+#
+#
+# İKİ AYRI "KIVILCIM" ÜRETİYORUZ
+# -----------------------------------------------------------------------------
+#
+# 1) MEAN-FLOW SPARK
+#
+#       z_flow = mean(normalized donor movements)
+#
+# Bu en basit endogenous ortak hareket testidir.
+#
+#
+# 2) CONSENSUS SPARK
+#
+# Donör hareketlerinin Gram matrisinden en güçlü ortak mod çıkarılır.
+#
+#       D = [δ1 ... δN]
+#       G = D D^T
+#
+# dominant eigenvector katsayılarıyla:
+#
+#       z_consensus = Σ c_i δ_i
+#
+# İşaret, yalnız DONÖRLERİN kendi ortalama hareketiyle belirlenir.
+# Dibekgöz Pusulası işaret seçiminde bile kullanılmaz.
+#
+#
+# "BOŞ KOLTUK"
+# -----------------------------------------------------------------------------
+# Bu ilk testte fiziksel/persistent slot yaratmıyoruz.
+#
+# z0 = 0
+#
+# yalnız "henüz hedef yön taşımayan akümülatör" anlamında kullanılır.
+# Sıfır vektörün transformer manifoldunda özel bir boş koordinat olduğu
+# iddia edilmez.
+#
+#
+# AYNA / BLIND EVALUATION
+# -----------------------------------------------------------------------------
+# Sentez TAMAMLANDIKTAN SONRA Dibekgöz Pusulası açılır:
+#
+#       cos(z_target, v_DIBEK)
+#       cos(z_anti,   v_DIBEK)
+#       cos(z_null,   v_DIBEK)
+#
+# Ayrıca POS/NEG centroid ayrımı:
+#
+#       projection(POS) - projection(NEG)
+#
+# ölçülür.
+#
+#
+# KATMAN
+# -----------------------------------------------------------------------------
+# İlk doğrulama yalnız L10.
+#
+# Eğer kıvılcım varsa sonraki test:
+#   L3/L6/L14 replication
+#   held-out donor families
+#   context generalization
+#   gerçek latent seat / recurrent local birth loop
+#
+# =============================================================================
+
+
+import gc
+import json
+import math
+import random
+import time
+import warnings
+
+import numpy as np
+import torch
+
+from transformers import (
+    AutoTokenizer,
+    AutoModelForCausalLM,
+)
+
+warnings.filterwarnings("ignore")
+
+
+# =============================================================================
+# 0. CONFIG
+# =============================================================================
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 14001
+
+LAYER = 10
+VECTOR_LAYERS = 20
+
+HIDDEN = 3584
+
+EPS = 1e-12
+
+EXPECTED_COS10 = 0.656545
+EXPECTED_COS11 = 0.658274
+
+FINGERPRINT_TOL = 5e-6
+
+OUT_JSON = "/content/TEST_140_FIRST_SPARK.json"
+
+
+# =============================================================================
+# 1. REPRODUCIBILITY
+# =============================================================================
+
+random.seed(SEED)
+np.random.seed(SEED)
+
+torch.manual_seed(SEED)
+torch.cuda.manual_seed_all(SEED)
+
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+torch.backends.cuda.matmul.allow_tf32 = False
+torch.backends.cudnn.allow_tf32 = False
+
+
+# =============================================================================
+# 2. BASIC MATH
+# =============================================================================
+
+def unit(x):
+
+    x = x.float().reshape(-1)
+
+    n = torch.linalg.vector_norm(x)
+
+    if float(n.item()) <= EPS:
+        raise RuntimeError("unit(): zero vector")
+
+    return x / n
+
+
+def cosine(a, b):
+
+    a = a.float().reshape(-1)
+    b = b.float().reshape(-1)
+
+    na = torch.linalg.vector_norm(a)
+    nb = torch.linalg.vector_norm(b)
+
+    if (
+        float(na.item()) <= EPS
+        or
+        float(nb.item()) <= EPS
+    ):
+        return float("nan")
+
+    return float(
+        (
+            torch.dot(a, b)
+            /
+            (na * nb)
+        ).item()
+    )
+
+
+def mean_or_nan(xs):
+
+    xs = np.asarray(
+        xs,
+        dtype=np.float64,
+    )
+
+    xs = xs[
+        np.isfinite(xs)
+    ]
+
+    if len(xs) == 0:
+        return float("nan")
+
+    return float(
+        np.mean(xs)
+    )
+
+
+def json_safe(x):
+
+    if torch.is_tensor(x):
+        return (
+            x.detach()
+            .float()
+            .cpu()
+            .tolist()
+        )
+
+    if isinstance(x, np.ndarray):
+        return x.tolist()
+
+    if isinstance(x, np.integer):
+        return int(x)
+
+    if isinstance(x, np.floating):
+        return float(x)
+
+    if isinstance(x, np.bool_):
+        return bool(x)
+
+    if isinstance(x, dict):
+        return {
+            str(k): json_safe(v)
+            for k, v in x.items()
+        }
+
+    if isinstance(x, (list, tuple)):
+        return [
+            json_safe(v)
+            for v in x
+        ]
+
+    return x
+
+
+# =============================================================================
+# 3. LOCKED FINGERPRINT DICTIONARY
+# =============================================================================
+
+ABOVE = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+BELOW = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+NEUTRAL = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 4. LOCKED DIBEKGÖZ PUSULA
+#
+# !!! SYNTHESIS CODE MUST NOT READ THIS VECTOR !!!
+# =============================================================================
+
+TEMPLATES = [
+    "The creature is essentially {X}.",
+    "Observing it closely, the animal is clearly {X}.",
+    "The specimen in front of us is {X}.",
+    "Field notes describe the creature as {X}.",
+    "In every respect the body plan is that of {X}.",
+    "The zoologist identified the animal as {X}.",
+    "Anatomically the creature is {X}.",
+    "Taxonomically the creature groups with {X}.",
+]
+
+POS_DIBEK = "a tailless bipedal ape"
+NEG_DIBEK = "a tailed quadrupedal mammal"
+
+POS = [
+    t.format(X=POS_DIBEK)
+    for t in TEMPLATES
+]
+
+NEG = [
+    t.format(X=NEG_DIBEK)
+    for t in TEMPLATES
+]
+
+
+# =============================================================================
+# 5. DONOR SEQUENCES
+# =============================================================================
+#
+# Burada kritik nokta:
+#
+# Aynı temel context'ten bir özellik doğal dil yoluyla ortaya çıkıyor.
+#
+# BEFORE -> AFTER
+#
+# Fark:
+#
+#       h(AFTER) - h(BEFORE)
+#
+# modelin o özelliğe verdiği doğal aktivasyon hareketidir.
+#
+# Dibekgöz contrastive vector burada YOK.
+# =============================================================================
+
+
+TARGET_PAIRS = [
+
+    # -------------------------------------------------------------------------
+    # TAILLESS
+    # -------------------------------------------------------------------------
+
+    (
+        "The zoologist carefully examined the animal's rear anatomy.",
+        "The zoologist carefully examined the animal's rear anatomy and confirmed that it had no tail.",
+    ),
+
+    (
+        "The field notes describe the posterior body structure of the specimen.",
+        "The field notes describe the posterior body structure of the specimen as completely tailless.",
+    ),
+
+    (
+        "Researchers inspected the animal from behind during the survey.",
+        "Researchers inspected the animal from behind during the survey and observed the absence of a tail.",
+    ),
+
+    (
+        "The anatomical report focuses on the rear end of the creature.",
+        "The anatomical report focuses on the rear end of the creature and records no external tail.",
+    ),
+
+
+    # -------------------------------------------------------------------------
+    # BIPEDAL
+    # -------------------------------------------------------------------------
+
+    (
+        "Observers recorded how the creature moved across open ground.",
+        "Observers recorded how the creature moved across open ground while walking upright on two legs.",
+    ),
+
+    (
+        "The locomotion of the animal was documented during the field study.",
+        "The locomotion of the animal was documented during the field study as bipedal movement.",
+    ),
+
+    (
+        "Researchers watched the specimen cross the clearing.",
+        "Researchers watched the specimen cross the clearing using two legs in an upright posture.",
+    ),
+
+    (
+        "The report describes the animal's ordinary method of walking.",
+        "The report describes the animal's ordinary method of walking as movement on two legs.",
+    ),
+
+
+    # -------------------------------------------------------------------------
+    # APE / PRIMATE
+    # -------------------------------------------------------------------------
+
+    (
+        "The zoologist recorded the general body plan of the unidentified animal.",
+        "The zoologist recorded the general body plan of the unidentified animal as ape-like.",
+    ),
+
+    (
+        "Researchers classified the creature after examining its anatomy.",
+        "Researchers classified the creature after examining its anatomy as belonging to the ape body-plan family.",
+    ),
+
+    (
+        "The biological report describes the overall morphology of the specimen.",
+        "The biological report describes the overall morphology of the specimen as strongly primate-like.",
+    ),
+
+    (
+        "The field team compared the animal's anatomy with known mammalian forms.",
+        "The field team compared the animal's anatomy with known mammalian forms and found it closest to an ape.",
+    ),
+]
+
+
+# =============================================================================
+# 6. ANTI-DONOR SEQUENCES
+# =============================================================================
+
+ANTI_PAIRS = [
+
+    # TAIL
+    (
+        "The zoologist carefully examined the animal's rear anatomy.",
+        "The zoologist carefully examined the animal's rear anatomy and confirmed that it had a long tail.",
+    ),
+
+    (
+        "The field notes describe the posterior body structure of the specimen.",
+        "The field notes describe the posterior body structure of the specimen as having a prominent tail.",
+    ),
+
+    (
+        "Researchers inspected the animal from behind during the survey.",
+        "Researchers inspected the animal from behind during the survey and observed a clearly visible tail.",
+    ),
+
+    (
+        "The anatomical report focuses on the rear end of the creature.",
+        "The anatomical report focuses on the rear end of the creature and records a long external tail.",
+    ),
+
+
+    # QUADRUPEDAL
+    (
+        "Observers recorded how the creature moved across open ground.",
+        "Observers recorded how the creature moved across open ground while walking on four legs.",
+    ),
+
+    (
+        "The locomotion of the animal was documented during the field study.",
+        "The locomotion of the animal was documented during the field study as quadrupedal movement.",
+    ),
+
+    (
+        "Researchers watched the specimen cross the clearing.",
+        "Researchers watched the specimen cross the clearing using all four limbs for locomotion.",
+    ),
+
+    (
+        "The report describes the animal's ordinary method of walking.",
+        "The report describes the animal's ordinary method of walking as movement on four legs.",
+    ),
+
+
+    # NON-PRIMATE MAMMAL
+    (
+        "The zoologist recorded the general body plan of the unidentified animal.",
+        "The zoologist recorded the general body plan of the unidentified animal as a typical non-primate mammal.",
+    ),
+
+    (
+        "Researchers classified the creature after examining its anatomy.",
+        "Researchers classified the creature after examining its anatomy as a terrestrial non-primate mammal.",
+    ),
+
+    (
+        "The biological report describes the overall morphology of the specimen.",
+        "The biological report describes the overall morphology of the specimen as unlike that of a primate.",
+    ),
+
+    (
+        "The field team compared the animal's anatomy with known mammalian forms.",
+        "The field team compared the animal's anatomy with known mammalian forms and found it unlike an ape.",
+    ),
+]
+
+
+# =============================================================================
+# 7. NULL DONOR SEQUENCES
+#
+# Aynı genel dil yapısı, hedef morfolojiden bağımsız özellikler.
+# =============================================================================
+
+NULL_PAIRS = [
+
+    (
+        "Researchers examined the surface of the animal's body.",
+        "Researchers examined the surface of the animal's body and recorded dark brown coloration.",
+    ),
+
+    (
+        "The field team documented the condition of the surrounding ground.",
+        "The field team documented the condition of the surrounding ground as damp after recent rainfall.",
+    ),
+
+    (
+        "Observers recorded the lighting conditions during the survey.",
+        "Observers recorded the lighting conditions during the survey as bright and clear.",
+    ),
+
+    (
+        "The report describes the temperature at the observation site.",
+        "The report describes the temperature at the observation site as unusually cool.",
+    ),
+
+    (
+        "Researchers documented the vegetation around the specimen.",
+        "Researchers documented the vegetation around the specimen as dense and green.",
+    ),
+
+    (
+        "The team recorded the approximate time of the observation.",
+        "The team recorded the approximate time of the observation as shortly after sunrise.",
+    ),
+
+    (
+        "Observers described the nearby terrain in their notes.",
+        "Observers described the nearby terrain in their notes as rocky and uneven.",
+    ),
+
+    (
+        "The survey report mentions the weather during the observation.",
+        "The survey report mentions the weather during the observation as dry and windless.",
+    ),
+
+    (
+        "Researchers recorded the distance from the camera to the subject.",
+        "Researchers recorded the distance from the camera to the subject as approximately twenty meters.",
+    ),
+
+    (
+        "The field team documented the color of the surrounding soil.",
+        "The field team documented the color of the surrounding soil as reddish brown.",
+    ),
+
+    (
+        "Observers noted the condition of the nearby stream.",
+        "Observers noted the condition of the nearby stream as shallow and slow-moving.",
+    ),
+
+    (
+        "The report describes the density of the forest canopy.",
+        "The report describes the density of the forest canopy as moderately dense.",
+    ),
+]
+
+
+# =============================================================================
+# 8. MODEL
+# =============================================================================
+
+print("=" * 120)
+print("TEST 140 — IN-SITU LATENT BIRTH: FIRST SPARK ASSAY")
+print("TARGET VECTOR BLINDED DURING SYNTHESIS")
+print("=" * 120)
+
+if not torch.cuda.is_available():
+    raise RuntimeError("CUDA GPU gerekli.")
+
+print("\n[1/9] Model yükleniyor...")
+
+t0 = time.time()
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_ID,
+    trust_remote_code=True,
+)
+
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+tokenizer.padding_side = "right"
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True,
+    low_cpu_mem_usage=True,
+    attn_implementation="sdpa",
+)
+
+model.eval()
+
+for p in model.parameters():
+    p.requires_grad_(False)
+
+device = next(
+    model.parameters()
+).device
+
+print(
+    f"Model: {MODEL_ID} | "
+    f"device={device} | "
+    f"{time.time()-t0:.1f}s"
+)
+
+
+# =============================================================================
+# 9. HIDDEN EXTRACTION
+# =============================================================================
+
+@torch.inference_mode()
+def extract_hidden(texts):
+
+    enc = tokenizer(
+        texts,
+        padding=True,
+        truncation=True,
+        max_length=128,
+        return_tensors="pt",
+    )
+
+    ids = enc["input_ids"].to(device)
+    mask = enc["attention_mask"].to(device)
+
+    lengths = mask.sum(
+        dim=1
+    ).long()
+
+    captures = [
+        None
+        for _ in range(VECTOR_LAYERS)
+    ]
+
+    hooks = []
+
+    def make_hook(li):
+
+        def hook(
+            module,
+            inp,
+            out,
+        ):
+
+            h = (
+                out[0]
+                if isinstance(out, tuple)
+                else out
+            )
+
+            captures[li] = (
+                h.detach()
+            )
+
+        return hook
+
+    try:
+
+        for li in range(
+            VECTOR_LAYERS
+        ):
+
+            hooks.append(
+                model.model.layers[li]
+                .register_forward_hook(
+                    make_hook(li)
+                )
+            )
+
+        model(
+            input_ids=ids,
+            attention_mask=mask,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in hooks:
+            h.remove()
+
+    B = ids.shape[0]
+
+    output = torch.empty(
+        B,
+        VECTOR_LAYERS,
+        HIDDEN,
+        dtype=torch.float32,
+    )
+
+    rows = torch.arange(
+        B,
+        device=device,
+    )
+
+    for li in range(
+        VECTOR_LAYERS
+    ):
+
+        h = captures[li].float()
+
+        output[:, li] = (
+            h[
+                rows,
+                (
+                    lengths - 1
+                ).to(h.device),
+            ]
+            .cpu()
+        )
+
+    return output
+
+
+# =============================================================================
+# 10. FINGERPRINT
+# =============================================================================
+
+print("\n[2/9] Fingerprint...")
+
+xa = extract_hidden(ABOVE)
+xb = extract_hidden(BELOW)
+xn = extract_hidden(NEUTRAL)
+
+a10 = unit(
+    xa[:, 10].mean(0)
+    -
+    xn[:, 10].mean(0)
+)
+
+b10 = unit(
+    xb[:, 10].mean(0)
+    -
+    xn[:, 10].mean(0)
+)
+
+a11 = unit(
+    xa[:, 11].mean(0)
+    -
+    xn[:, 11].mean(0)
+)
+
+b11 = unit(
+    xb[:, 11].mean(0)
+    -
+    xn[:, 11].mean(0)
+)
+
+cos10 = cosine(
+    a10,
+    b10,
+)
+
+cos11 = cosine(
+    a11,
+    b11,
+)
+
+drift10 = abs(
+    cos10 - EXPECTED_COS10
+)
+
+drift11 = abs(
+    cos11 - EXPECTED_COS11
+)
+
+print(
+    f"L10={cos10:+.6f} "
+    f"drift={drift10:.3e}"
+)
+
+print(
+    f"L11={cos11:+.6f} "
+    f"drift={drift11:.3e}"
+)
+
+if (
+    drift10 > FINGERPRINT_TOL
+    or
+    drift11 > FINGERPRINT_TOL
+):
+    raise RuntimeError(
+        "FINGERPRINT FAILED"
+    )
+
+print("Fingerprint: PASS")
+
+del xa, xb, xn
+del a10, b10, a11, b11
+
+gc.collect()
+torch.cuda.empty_cache()
+
+
+# =============================================================================
+# 11. PUSULA — CREATE BUT SEAL
+# =============================================================================
+
+print(
+    "\n[3/9] Dibekgöz Pusulası oluşturuluyor ve MÜHÜRLENİYOR..."
+)
+
+pos_hidden = extract_hidden(
+    POS
+)
+
+neg_hidden = extract_hidden(
+    NEG
+)
+
+# -------------------------------------------------------------------------
+# Pusula oluşturuluyor.
+#
+# Bundan sonra SYNTHESIS bölümü bitene kadar bu değişken kullanılmayacak.
+# -------------------------------------------------------------------------
+
+SEALED_DIBEK_COMPASS = unit(
+    pos_hidden[:, LAYER].mean(0)
+    -
+    neg_hidden[:, LAYER].mean(0)
+)
+
+# Ayna değerlendirmesi için POS / NEG doğal aktivasyonları saklanıyor.
+# Synthesis bunları da kullanmayacak.
+
+SEALED_POS = (
+    pos_hidden[:, LAYER]
+    .clone()
+)
+
+SEALED_NEG = (
+    neg_hidden[:, LAYER]
+    .clone()
+)
+
+print(
+    f"Pusula hazır: L{LAYER}"
+)
+
+print(
+    ">>> PUSULA SEALED"
+)
+
+print(
+    ">>> SENTEZ DÖNGÜSÜNE HEDEF VEKTÖR GİRMEYECEK"
+)
+
+del pos_hidden
+del neg_hidden
+
+gc.collect()
+torch.cuda.empty_cache()
+
+
+# =============================================================================
+# 12. NATURAL DONOR MOVEMENTS
+# =============================================================================
+
+def extract_pair_movements(
+    pairs,
+):
+
+    before_texts = [
+        p[0]
+        for p in pairs
+    ]
+
+    after_texts = [
+        p[1]
+        for p in pairs
+    ]
+
+    before = extract_hidden(
+        before_texts
+    )[:, LAYER]
+
+    after = extract_hidden(
+        after_texts
+    )[:, LAYER]
+
+    raw_delta = (
+        after - before
+    )
+
+    normalized = []
+
+    norms = []
+
+    for d in raw_delta:
+
+        n = float(
+            torch.linalg.vector_norm(
+                d
+            )
+        )
+
+        norms.append(n)
+
+        normalized.append(
+            unit(d)
+        )
+
+    normalized = torch.stack(
+        normalized,
+        dim=0,
+    )
+
+    return {
+        "before": before,
+        "after": after,
+        "delta": raw_delta,
+        "direction": normalized,
+        "norms": norms,
+    }
+
+
+print(
+    "\n[4/9] Modelin doğal donör hareketleri çıkarılıyor..."
+)
+
+TARGET = extract_pair_movements(
+    TARGET_PAIRS
+)
+
+ANTI = extract_pair_movements(
+    ANTI_PAIRS
+)
+
+NULL = extract_pair_movements(
+    NULL_PAIRS
+)
+
+print(
+    f"TARGET movements : {len(TARGET_PAIRS)}"
+)
+
+print(
+    f"ANTI movements   : {len(ANTI_PAIRS)}"
+)
+
+print(
+    f"NULL movements   : {len(NULL_PAIRS)}"
+)
+
+
+# =============================================================================
+# 13. SYNTHESIS ENGINE
+#
+# !!! SEALED_DIBEK_COMPASS BU FONKSİYONDA YOK !!!
+#
+# Bu fonksiyon yalnız modelden çıkarılmış doğal movement matrix görür.
+# =============================================================================
+
+def synthesize_spark(
+    movement_directions,
+):
+
+    D = (
+        movement_directions
+        .float()
+        .clone()
+    )
+
+    N = D.shape[0]
+
+    # -------------------------------------------------------------------------
+    # 1. MEAN FLOW
+    # -------------------------------------------------------------------------
+
+    mean_raw = D.mean(
+        dim=0
+    )
+
+    mean_strength = float(
+        torch.linalg.vector_norm(
+            mean_raw
+        )
+    )
+
+    if mean_strength <= EPS:
+
+        raise RuntimeError(
+            "Mean flow collapsed."
+        )
+
+    z_mean = unit(
+        mean_raw
+    )
+
+
+    # -------------------------------------------------------------------------
+    # 2. DONOR COHERENCE
+    #
+    # Gram matrix:
+    #
+    #       G_ij = cos(delta_i, delta_j)
+    #
+    # çünkü D satırları unit.
+    # -------------------------------------------------------------------------
+
+    G = D @ D.T
+
+    offdiag = []
+
+    for i in range(N):
+        for j in range(
+            i + 1,
+            N
+        ):
+            offdiag.append(
+                float(
+                    G[i, j].item()
+                )
+            )
+
+    coherence = mean_or_nan(
+        offdiag
+    )
+
+
+    # -------------------------------------------------------------------------
+    # 3. CONSENSUS MODE
+    #
+    # G symmetric PSD.
+    #
+    # En büyük eigenmode donor hareketlerinin ortak koordinasyon modudur.
+    # -------------------------------------------------------------------------
+
+    evals, evecs = torch.linalg.eigh(
+        G
+    )
+
+    idx = int(
+        torch.argmax(
+            evals
+        ).item()
+    )
+
+    lambda1 = float(
+        evals[idx].item()
+    )
+
+    coeff = (
+        evecs[:, idx]
+        .float()
+    )
+
+    # -------------------------------------------------------------------------
+    # Eigenvector sign arbitrary.
+    #
+    # İşaret seçimi SADECE donor mean-flow ile yapılır.
+    # Hedef Pusula burada kullanılmaz.
+    # -------------------------------------------------------------------------
+
+    candidate = (
+        coeff[:, None]
+        * D
+    ).sum(
+        dim=0
+    )
+
+    if float(
+        torch.dot(
+            candidate,
+            mean_raw
+        ).item()
+    ) < 0:
+
+        coeff = -coeff
+        candidate = -candidate
+
+    z_consensus = unit(
+        candidate
+    )
+
+
+    # -------------------------------------------------------------------------
+    # 4. SPECTRAL CONCENTRATION
+    # -------------------------------------------------------------------------
+
+    positive_evals = torch.clamp(
+        evals,
+        min=0.0,
+    )
+
+    spectral_fraction = (
+        lambda1
+        /
+        (
+            float(
+                positive_evals.sum().item()
+            )
+            + EPS
+        )
+    )
+
+
+    # -------------------------------------------------------------------------
+    # 5. SUPPORT
+    #
+    # Her donor movement spark yönünü destekliyor mu?
+    # -------------------------------------------------------------------------
+
+    support = (
+        D @ z_consensus
+    )
+
+    positive_support = float(
+        (
+            support > 0
+        )
+        .float()
+        .mean()
+        .item()
+    )
+
+
+    return {
+        "z_mean":
+            z_mean,
+
+        "z_consensus":
+            z_consensus,
+
+        "mean_strength":
+            mean_strength,
+
+        "coherence":
+            coherence,
+
+        "lambda1":
+            lambda1,
+
+        "spectral_fraction":
+            spectral_fraction,
+
+        "support":
+            support,
+
+        "positive_support":
+            positive_support,
+
+        "coeff":
+            coeff,
+
+        "gram":
+            G,
+    }
+
+
+# =============================================================================
+# 14. BLIND SYNTHESIS
+# =============================================================================
+
+print(
+    "\n[5/9] BLIND SYNTHESIS başlıyor..."
+)
+
+print(
+    "Pusula hâlâ mühürlü."
+)
+
+TARGET_SPARK = synthesize_spark(
+    TARGET["direction"]
+)
+
+ANTI_SPARK = synthesize_spark(
+    ANTI["direction"]
+)
+
+NULL_SPARK = synthesize_spark(
+    NULL["direction"]
+)
+
+print("\nSynthesis tamamlandı.")
+
+print(
+    f"TARGET coherence="
+    f"{TARGET_SPARK['coherence']:+.4f} | "
+    f"spectral="
+    f"{TARGET_SPARK['spectral_fraction']:.4f} | "
+    f"support="
+    f"{TARGET_SPARK['positive_support']:.3f}"
+)
+
+print(
+    f"ANTI   coherence="
+    f"{ANTI_SPARK['coherence']:+.4f} | "
+    f"spectral="
+    f"{ANTI_SPARK['spectral_fraction']:.4f} | "
+    f"support="
+    f"{ANTI_SPARK['positive_support']:.3f}"
+)
+
+print(
+    f"NULL   coherence="
+    f"{NULL_SPARK['coherence']:+.4f} | "
+    f"spectral="
+    f"{NULL_SPARK['spectral_fraction']:.4f} | "
+    f"support="
+    f"{NULL_SPARK['positive_support']:.3f}"
+)
+
+print(
+    "\n>>> BLIND SYNTHESIS COMPLETE"
+)
+
+print(
+    ">>> DIBEKGÖZ COMPASS HAS NOT BEEN USED"
+)
+
+
+# =============================================================================
+# 15. SHUFFLE / RANDOM-COMBINATION CONTROL
+#
+# TARGET movementlerin koordinasyonunun özel olup olmadığını görmek için
+# TARGET + ANTI + NULL havuzundan aynı sayıda movement çekiyoruz.
+#
+# Pusula yine kullanılmıyor.
+# =============================================================================
+
+print(
+    "\n[6/9] Random donor controls..."
+)
+
+ALL_DIRECTIONS = torch.cat(
+    [
+        TARGET["direction"],
+        ANTI["direction"],
+        NULL["direction"],
+    ],
+    dim=0,
+)
+
+N_TARGET = (
+    TARGET["direction"]
+    .shape[0]
+)
+
+N_RANDOM = 128
+
+generator = torch.Generator(
+    device="cpu"
+)
+
+generator.manual_seed(
+    SEED + 777
+)
+
+RANDOM_SPARKS = []
+
+for ri in range(N_RANDOM):
+
+    perm = torch.randperm(
+        ALL_DIRECTIONS.shape[0],
+        generator=generator,
+    )
+
+    sample = (
+        ALL_DIRECTIONS[
+            perm[:N_TARGET]
+        ]
+    )
+
+    s = synthesize_spark(
+        sample
+    )
+
+    RANDOM_SPARKS.append(
+        {
+            "z_mean":
+                s["z_mean"],
+
+            "z_consensus":
+                s["z_consensus"],
+
+            "coherence":
+                s["coherence"],
+
+            "spectral_fraction":
+                s["spectral_fraction"],
+
+            "positive_support":
+                s["positive_support"],
+        }
+    )
+
+print(
+    f"{N_RANDOM} random donor-set hazır."
+)
+
+
+# =============================================================================
+# 16. UNSEAL PUSULA
+# =============================================================================
+
+print(
+    "\n[7/9] ================================================"
+)
+
+print(
+    "SYNTHESIS BİTTİ — PUSULA ŞİMDİ AÇILIYOR"
+)
+
+print(
+    "===================================================="
+)
+
+DIBEK = (
+    SEALED_DIBEK_COMPASS
+    .clone()
+)
+
+POS_H = (
+    SEALED_POS
+    .clone()
+)
+
+NEG_H = (
+    SEALED_NEG
+    .clone()
+)
+
+
+# =============================================================================
+# 17. AYNA
+# =============================================================================
+
+def mirror_evaluate(
+    z,
+):
+
+    z = unit(z)
+
+    compass_cos = cosine(
+        z,
+        DIBEK
+    )
+
+    pos_proj = (
+        POS_H @ z
+    )
+
+    neg_proj = (
+        NEG_H @ z
+    )
+
+    pos_mean = float(
+        pos_proj.mean().item()
+    )
+
+    neg_mean = float(
+        neg_proj.mean().item()
+    )
+
+    separation = (
+        pos_mean
+        -
+        neg_mean
+    )
+
+    # Normalize separation by pooled activation projection SD.
+    both = torch.cat(
+        [
+            pos_proj,
+            neg_proj,
+        ]
+    )
+
+    sd = float(
+        both.std(
+            unbiased=True
+        ).item()
+    )
+
+    standardized = (
+        separation
+        /
+        (
+            sd + EPS
+        )
+    )
+
+    return {
+        "compass_cos":
+            compass_cos,
+
+        "pos_projection":
+            pos_mean,
+
+        "neg_projection":
+            neg_mean,
+
+        "pos_minus_neg":
+            separation,
+
+        "standardized_separation":
+            standardized,
+    }
+
+
+EVAL = {}
+
+for name, spark in [
+    (
+        "TARGET_MEAN",
+        TARGET_SPARK["z_mean"],
+    ),
+    (
+        "TARGET_CONSENSUS",
+        TARGET_SPARK["z_consensus"],
+    ),
+    (
+        "ANTI_MEAN",
+        ANTI_SPARK["z_mean"],
+    ),
+    (
+        "ANTI_CONSENSUS",
+        ANTI_SPARK["z_consensus"],
+    ),
+    (
+        "NULL_MEAN",
+        NULL_SPARK["z_mean"],
+    ),
+    (
+        "NULL_CONSENSUS",
+        NULL_SPARK["z_consensus"],
+    ),
+]:
+
+    EVAL[name] = mirror_evaluate(
+        spark
+    )
+
+
+# =============================================================================
+# 18. RANDOM CONTROL DISTRIBUTION
+# =============================================================================
+
+random_mean_cos = []
+random_consensus_cos = []
+
+random_mean_sep = []
+random_consensus_sep = []
+
+for s in RANDOM_SPARKS:
+
+    em = mirror_evaluate(
+        s["z_mean"]
+    )
+
+    ec = mirror_evaluate(
+        s["z_consensus"]
+    )
+
+    random_mean_cos.append(
+        em["compass_cos"]
+    )
+
+    random_consensus_cos.append(
+        ec["compass_cos"]
+    )
+
+    random_mean_sep.append(
+        em["pos_minus_neg"]
+    )
+
+    random_consensus_sep.append(
+        ec["pos_minus_neg"]
+    )
+
+
+def empirical_percentile(
+    value,
+    distribution,
+):
+
+    arr = np.asarray(
+        distribution,
+        dtype=np.float64,
+    )
+
+    return float(
+        np.mean(
+            arr <= value
+        )
+    )
+
+
+target_mean_pct = empirical_percentile(
+    EVAL[
+        "TARGET_MEAN"
+    ][
+        "compass_cos"
+    ],
+    random_mean_cos,
+)
+
+target_consensus_pct = empirical_percentile(
+    EVAL[
+        "TARGET_CONSENSUS"
+    ][
+        "compass_cos"
+    ],
+    random_consensus_cos,
+)
+
+
+# =============================================================================
+# 19. REPORT
+# =============================================================================
+
+print(
+    "\n[8/9] FIRST-SPARK RESULTS"
+)
+
+print(
+    "=" * 120
+)
+
+print(
+    f"{'SPARK':<22}"
+    f"{'cos(Dibek)':>14}"
+    f"{'POS-NEG':>14}"
+    f"{'StdSep':>12}"
+)
+
+print(
+    "-" * 120
+)
+
+for name in [
+    "TARGET_MEAN",
+    "TARGET_CONSENSUS",
+    "ANTI_MEAN",
+    "ANTI_CONSENSUS",
+    "NULL_MEAN",
+    "NULL_CONSENSUS",
+]:
+
+    e = EVAL[name]
+
+    print(
+        f"{name:<22}"
+        f"{e['compass_cos']:>+14.6f}"
+        f"{e['pos_minus_neg']:>+14.6f}"
+        f"{e['standardized_separation']:>+12.4f}"
+    )
+
+
+print(
+    "\nRANDOM CONTROL"
+)
+
+print(
+    f"Mean spark compass:"
+    f" mean={np.mean(random_mean_cos):+.6f}"
+    f" sd={np.std(random_mean_cos, ddof=1):.6f}"
+)
+
+print(
+    f"Consensus compass:"
+    f" mean={np.mean(random_consensus_cos):+.6f}"
+    f" sd={np.std(random_consensus_cos, ddof=1):.6f}"
+)
+
+print(
+    "\nTARGET empirical percentile:"
+)
+
+print(
+    f"  mean-flow  : "
+    f"{100*target_mean_pct:.1f}%"
+)
+
+print(
+    f"  consensus  : "
+    f"{100*target_consensus_pct:.1f}%"
+)
+
+
+# =============================================================================
+# 20. INTERNAL CONTRASTS
+# =============================================================================
+
+target_c = EVAL[
+    "TARGET_CONSENSUS"
+][
+    "compass_cos"
+]
+
+anti_c = EVAL[
+    "ANTI_CONSENSUS"
+][
+    "compass_cos"
+]
+
+null_c = EVAL[
+    "NULL_CONSENSUS"
+][
+    "compass_cos"
+]
+
+target_vs_anti = (
+    target_c - anti_c
+)
+
+target_vs_null = (
+    target_c - null_c
+)
+
+
+print(
+    "\nKÖR KONTRASTLAR"
+)
+
+print(
+    f"TARGET - ANTI : "
+    f"{target_vs_anti:+.6f}"
+)
+
+print(
+    f"TARGET - NULL : "
+    f"{target_vs_null:+.6f}"
+)
+
+
+# =============================================================================
+# 21. LEAVE-ONE-OUT STABILITY
+#
+# TARGET kıvılcım tek bir donor pair tarafından mı sürükleniyor?
+#
+# Burada da Pusula yalnız evaluation için kullanılıyor.
+# =============================================================================
+
+loo_cos = []
+
+D_target = TARGET[
+    "direction"
+]
+
+for leave in range(
+    D_target.shape[0]
+):
+
+    keep = torch.cat(
+        [
+            D_target[:leave],
+            D_target[leave+1:],
+        ],
+        dim=0,
+    )
+
+    spark = synthesize_spark(
+        keep
+    )
+
+    e = mirror_evaluate(
+        spark["z_consensus"]
+    )
+
+    loo_cos.append(
+        e["compass_cos"]
+    )
+
+
+print(
+    "\nTARGET leave-one-out:"
+)
+
+print(
+    f"  mean cos = "
+    f"{np.mean(loo_cos):+.6f}"
+)
+
+print(
+    f"  min  cos = "
+    f"{np.min(loo_cos):+.6f}"
+)
+
+print(
+    f"  max  cos = "
+    f"{np.max(loo_cos):+.6f}"
+)
+
+print(
+    f"  sd       = "
+    f"{np.std(loo_cos, ddof=1):.6f}"
+)
+
+
+# =============================================================================
+# 22. DECISION FLAGS
+#
+# Bunlar bilimsel "kanıt" değil.
+# Sadece çıktıyı hızlı okumak için preregistered-style diagnostics.
+# =============================================================================
+
+random_consensus_mean = float(
+    np.mean(
+        random_consensus_cos
+    )
+)
+
+random_consensus_sd = float(
+    np.std(
+        random_consensus_cos,
+        ddof=1,
+    )
+)
+
+random_z = (
+    target_c
+    -
+    random_consensus_mean
+) / (
+    random_consensus_sd
+    + EPS
+)
+
+flags = {
+
+    "target_positive":
+        bool(
+            target_c > 0
+        ),
+
+    "target_gt_anti":
+        bool(
+            target_c > anti_c
+        ),
+
+    "target_gt_null":
+        bool(
+            target_c > null_c
+        ),
+
+    "target_random_percentile_ge_95":
+        bool(
+            target_consensus_pct >= 0.95
+        ),
+
+    "target_random_z_ge_2":
+        bool(
+            random_z >= 2.0
+        ),
+
+    "loo_all_positive":
+        bool(
+            np.min(
+                loo_cos
+            ) > 0
+        ),
+}
+
+
+print(
+    "\n[9/9] DIAGNOSTIC FLAGS"
+)
+
+for k, v in flags.items():
+
+    print(
+        f"{k:<36}: {v}"
+    )
+
+print(
+    f"{'target_random_z':<36}: "
+    f"{random_z:+.4f}"
+)
+
+
+# =============================================================================
+# 23. SAVE
+# =============================================================================
+
+OUTPUT = {
+
+    "test":
+        "TEST140_IN_SITU_LATENT_BIRTH_FIRST_SPARK",
+
+    "model":
+        MODEL_ID,
+
+    "layer":
+        LAYER,
+
+    "seed":
+        SEED,
+
+    "fingerprint": {
+        "L10":
+            cos10,
+
+        "L11":
+            cos11,
+
+        "status":
+            "PASS",
+    },
+
+    "blind_protocol": {
+        "target_compass_used_during_synthesis":
+            False,
+
+        "target_pos_neg_states_used_during_synthesis":
+            False,
+
+        "synthesis_input":
+            "natural model activation movements only",
+
+        "claim_scope":
+            "precursor assay; not persistent concept creation",
+    },
+
+    "synthesis": {
+
+        "target": {
+            "coherence":
+                TARGET_SPARK[
+                    "coherence"
+                ],
+
+            "spectral_fraction":
+                TARGET_SPARK[
+                    "spectral_fraction"
+                ],
+
+            "positive_support":
+                TARGET_SPARK[
+                    "positive_support"
+                ],
+
+            "mean_strength":
+                TARGET_SPARK[
+                    "mean_strength"
+                ],
+        },
+
+        "anti": {
+            "coherence":
+                ANTI_SPARK[
+                    "coherence"
+                ],
+
+            "spectral_fraction":
+                ANTI_SPARK[
+                    "spectral_fraction"
+                ],
+
+            "positive_support":
+                ANTI_SPARK[
+                    "positive_support"
+                ],
+
+            "mean_strength":
+                ANTI_SPARK[
+                    "mean_strength"
+                ],
+        },
+
+        "null": {
+            "coherence":
+                NULL_SPARK[
+                    "coherence"
+                ],
+
+            "spectral_fraction":
+                NULL_SPARK[
+                    "spectral_fraction"
+                ],
+
+            "positive_support":
+                NULL_SPARK[
+                    "positive_support"
+                ],
+
+            "mean_strength":
+                NULL_SPARK[
+                    "mean_strength"
+                ],
+        },
+    },
+
+    "mirror_evaluation":
+        EVAL,
+
+    "contrasts": {
+        "target_minus_anti":
+            target_vs_anti,
+
+        "target_minus_null":
+            target_vs_null,
+
+        "target_random_percentile":
+            target_consensus_pct,
+
+        "target_random_z":
+            random_z,
+    },
+
+    "leave_one_out": {
+        "values":
+            loo_cos,
+
+        "mean":
+            float(
+                np.mean(
+                    loo_cos
+                )
+            ),
+
+        "min":
+            float(
+                np.min(
+                    loo_cos
+                )
+            ),
+
+        "max":
+            float(
+                np.max(
+                    loo_cos
+                )
+            ),
+
+        "sd":
+            float(
+                np.std(
+                    loo_cos,
+                    ddof=1,
+                )
+            ),
+    },
+
+    "random_controls": {
+        "n":
+            N_RANDOM,
+
+        "mean_flow_compass":
+            random_mean_cos,
+
+        "consensus_compass":
+            random_consensus_cos,
+
+        "mean_flow_separation":
+            random_mean_sep,
+
+        "consensus_separation":
+            random_consensus_sep,
+    },
+
+    "flags":
+        flags,
+
+    "interpretation_lock": [
+
+        "The Dibekgoz compass is computed before synthesis but is sealed and never supplied to the synthesis algorithm.",
+
+        "The synthesis algorithm receives only hidden-state movements produced naturally by the model from paired donor contexts.",
+
+        "A positive target-compass cosine alone is not evidence of latent concept birth.",
+
+        "Target must be interpreted relative to anti, null, random-combination, and leave-one-out controls.",
+
+        "The zero accumulator is an operational initialization and is not claimed to be an empty physical coordinate in transformer representation space.",
+
+        "Consensus synthesis is a data-derived combination of endogenous activation movements; it is not yet a recurrent in-model training process.",
+
+        "This experiment tests whether an endogenous target-specific latent direction exists before attempting to construct a persistent or recurrent latent seat.",
+    ],
+}
+
+
+with open(
+    OUT_JSON,
+    "w",
+    encoding="utf-8",
+) as f:
+
+    json.dump(
+        json_safe(
+            OUTPUT
+        ),
+        f,
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+print(
+    "\n" +
+    "=" * 120
+)
+
+print(
+    "TEST 140 COMPLETE"
+)
+
+print(
+    "=" * 120
+)
+
+print(
+    f"JSON: {OUT_JSON}"
+)
+
+print(
+    "\nEN ÖNEMLİ SATIRLAR:"
+)
+
+print(
+    f"TARGET consensus Dibek = "
+    f"{target_c:+.6f}"
+)
+
+print(
+    f"ANTI   consensus Dibek = "
+    f"{anti_c:+.6f}"
+)
+
+print(
+    f"NULL   consensus Dibek = "
+    f"{null_c:+.6f}"
+)
+
+print(
+    f"TARGET - ANTI          = "
+    f"{target_vs_anti:+.6f}"
+)
+
+print(
+    f"TARGET - NULL          = "
+    f"{target_vs_null:+.6f}"
+)
+
+print(
+    f"Random percentile      = "
+    f"{100*target_consensus_pct:.1f}%"
+)
+
+print(
+    f"Random Z               = "
+    f"{random_z:+.4f}"
+)
+
+print(
+    "\nKIVILCIM OKUMA KURALI:"
+)
+
+print(
+    """
+1. TARGET'ın pozitif olması tek başına yeterli değil.
+
+2. TARGET > ANTI ve TARGET > NULL görmek istiyoruz.
+
+3. TARGET'ın random donor kombinasyonlarının üst kuyruğunda
+   bulunmasını istiyoruz.
+
+4. Leave-one-out sonucu çökmemeli.
+   Tek bir cümlenin sonucu sürüklemesini istemiyoruz.
+
+5. TARGET başarılı fakat ANTI da aynı yönde başarılıysa,
+   morfolojik/genel hayvan sinyali ile Dibekgöz sinyalini
+   ayıramamışız demektir.
+
+6. Bunlar geçerse henüz "yeni kavram doğdu" demeyeceğiz.
+
+   O zaman TEST 141'de gerçek soruya geçeceğiz:
+
+       Pusula + Radar + Ayna
+              ↓
+       endogenous local seat
+              ↓
+       z(0) -> z(1) -> ... -> z(T)
+
+   ve oluşmakta olan latent durumu her çevrimde tekrar modelin
+   doğal aktivasyon şebekesine sokacağız.
+
+TEST 140 yalnız şunu arıyor:
+
+       "Bu doğumu besleyebilecek endogenous kıvılcım gerçekten var mı?"
+"""
+)
+
+gc.collect()
+torch.cuda.empty_cache()
+
+print("DONE.")
