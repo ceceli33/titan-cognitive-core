@@ -1,0 +1,250 @@
+ 
+======================================================================================================================================================
+TEST 124 — AKBASCORE DRA 3.0 × DİBEKGOZ BİRİKİMLERİ
+LOCAL TRANSPORT CARTOGRAPHY — DIBEKGOZ EDITION
+======================================================================================================================================================
+
+[1/20] Model yükleniyor...
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 78.1kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 952kB/s]
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 82.2MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 54.3MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 113MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 1.99MB/s]
+Download complete: : 
+
+ 13.1GB,  894MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  448MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:41<00:00,  7.22s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 91.64it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 24.3kB/s]
+Model hazır (55 sn) | cuda:0 | torch.bfloat16
+Kaynak L11 | prob L12 | hedefler [12, 13, 15, 19, 27]
+Bölüm A ivme 0.1 | Bölüm B ivme 0.15 | prompt 40 (20 ZOO + 20 NÖTR)
+
+[2/20] Ortam parmak izi (TEST 123 kilitli A/B vektörleri)...
+L10 cos(A,B) = +0.656545  (drift 1.358e-07)
+L11 cos(A,B) = +0.658274  (drift 3.526e-07)
+Ortam parmak izi: PASS
+
+[3/20] Dibekgoz kontrastif vektörleri (Aşama 12 tarifi)...
+Normlar: min=1.000000 max=1.000000
+cos(DIBEK_N3, FIL)      ort = +0.1806   [Aşama 12: +0.1672]
+cos(DIBEK_N1, FIL)      ort = +0.5154   [Aşama 12: +0.4958]
+cos(DIBEK_N3, DIBEK_N1) ort = +0.3734
+Katmanlar arası DIBEK_N3: cos(L0,L11)=+0.0606 cos(L11,L19)=+0.4021 cos(L0,L19)=+0.0603
+
+[4/20] Test 94 sentetik vektörü (birebir tarif, seed=42)...
+İlk 5 eleman: [0.0239496753, -0.0085962186, -0.0100072958, -0.0013966677, 0.0229042246]
+Parmak izi hatası: 0.000e+00
+Sentetik parmak izi: PASS
+cos(SYNTH_T94, DIBEK_N3[L]) ort = -0.01491  (rastgele beklenti ±0.0167)
+
+[5/20] BÖLÜM A — taşıma haritası başlıyor (40 prompt × 24 prob + 7 kol)...
+  40/40  (44 sn)
+  Bölüm A tamam (44 sn)
+
+[6/20] Aktüatör eşitliği...
+  DIBEK_FIXED          rel enjeksiyon = 0.024597708
+  DIBEK_SELECTED       rel enjeksiyon = 0.024597710
+  DIBEK_CLOUD_RANDOM   rel enjeksiyon = 0.024597710
+  DIBEK_N1_GENERIC     rel enjeksiyon = 0.024597706
+  SYNTH_T94            rel enjeksiyon = 0.024597711
+  FIL_CONTROL          rel enjeksiyon = 0.024597707
+  GLOBAL_RANDOM        rel enjeksiyon = 0.024597710
+  Kollar arası en büyük fark = 5.635e-09  PASS
+
+[7/20] TAŞIMA TABLOSU — D_dibek (tüm 40 prompt)
+======================================================================================================================================================
+KOL                            L12         L13         L15         L19         P19
+------------------------------------------------------------------------------------------------------------------------------------------------------
+DIBEK_FIXED               +0.73996    +0.55790    +0.39473    +0.20982     0.01940
+DIBEK_SELECTED            +0.72915    +0.54978    +0.38839    +0.20404     0.01956
+DIBEK_CLOUD_RANDOM        +0.68570    +0.51828    +0.36830    +0.19768     0.01929
+DIBEK_N1_GENERIC          +0.26418    +0.20714    +0.14842    +0.09166     0.02022
+SYNTH_T94                 -0.03159    -0.02585    -0.01965    -0.01480     0.01823
+FIL_CONTROL               +0.16739    +0.14243    +0.10399    +0.05063     0.01874
+GLOBAL_RANDOM             -0.00220    -0.00317    -0.00665    -0.00486     0.01802
+
+[8/20] TAŞIMA TABLOSU — D_self (kendi yönünü koruma)
+======================================================================================================================================================
+KOL                            L12         L13         L15         L19         L27
+------------------------------------------------------------------------------------------------------------------------------------------------------
+DIBEK_FIXED               +0.73996    +0.55790    +0.39473    +0.20982    +0.04411
+DIBEK_SELECTED            +0.72915    +0.54978    +0.38839    +0.20404    +0.04210
+DIBEK_CLOUD_RANDOM        +0.68570    +0.51828    +0.36830    +0.19768    +0.04470
+DIBEK_N1_GENERIC          +0.76520    +0.61350    +0.44780    +0.23036    +0.04458
+SYNTH_T94                 +0.71790    +0.54492    +0.35391    +0.17798    +0.02588
+FIL_CONTROL               +0.73109    +0.56479    +0.37877    +0.19691    +0.02932
+GLOBAL_RANDOM             +0.72921    +0.55619    +0.36085    +0.18452    +0.02091
+  (SYNTH_T94, GLOBAL_RANDOM ve tüm kollarda L27: referans = enjekte edilen ham yön)
+
+[9/20] SORU 1 — Dibekgoz vektörü L11'den L19'a taşınıyor mu?
+  DIBEK_FIXED  D19 = +0.20982
+  GLOBAL_RANDOM D19 = -0.00486
+  Fark = +0.21468 [+0.1974,+0.2320] | pozitif oran 1.000
+  ✅ DİBEKGOZ TAŞINIYOR
+
+[10/20] SORU 2 — Sentetik vektör (Test 94) ne yapıyor?
+  (a) Dibekgoz yönüne izdüşüm:  SYNTH−GLOBAL D19_dibek = -0.00994 [-0.0194,-0.0005]
+  (b) Kendi yönünü koruma:      SYNTH D19_self = +0.17798 | GLOBAL D19_self = +0.18452
+                                fark = -0.00654 [-0.0134,+0.0004]
+      L27'de:                   fark = +0.00497 [-0.0020,+0.0119]
+  -> belirsiz
+
+[11/20] SORU 3 — Prob ile rota seçimi (TEST 123 sorusu, Dibekgoz tohumuyla)
+  SELECTED − FIXED  ΔD19 = -0.00578 [-0.0112,-0.0003]
+  SELECTED − CLOUD  ΔD19 = +0.00636 [-0.0005,+0.0132]
+  corr(prob ΔT, terminal ΔD19) = +0.6880   [TEST 123: +0.5318]
+  Seçilen açılar: {'5': 21, '10': 11, '15': 7, '20': 1, '30': 0, '45': 0}
+  -> TRANSPORT_CARTOGRAPHY_INCONCLUSIVE
+
+[12/20] SORU 4 — Eşleştirilmiş negatif (N3) genel negatiften (N1) iyi mi?
+  N3 kendi v19'una taşıma D19_self = +0.20982
+  N1 kendi v19'una taşıma D19_self = +0.23036
+  N1'in N3-Dibekgoz yönüne izdüşümü D19_dibek = +0.09166
+  N3 − N1 (D19_dibek) = +0.11816 [+0.1077,+0.1286]
+  (Aşama 12 metin düzeyinde: N3 NET +5.8, N1 NET −0.8)
+
+[13/20] SORU 5 — Bağlam bağımlılığı gizli durumda da var mı?
+  DIBEK_FIXED      D_dibek  ZOO=+0.21328  NÖTR=+0.20635  fark=+0.00693
+  FIL_CONTROL      D_self   ZOO=+0.19422  NÖTR=+0.19961  fark=-0.00539
+  SYNTH_T94        D_self   ZOO=+0.17432  NÖTR=+0.18163  fark=-0.00731
+  GLOBAL_RANDOM    D_dibek  ZOO=-0.00114  NÖTR=-0.00858  fark=+0.00744
+  (Aşama 14 metin düzeyinde: fil ZOO 8.2 / NÖTR 1.5, dibek +5.8 / +0.0)
+  Not: gizli-durum taşıması bağlamdan bağımsız çıkarsa, Aşama 14'ün bağlam
+  bağımlılığı TAŞIMADA değil, METNE DÖNÜŞÜMDE oluşuyor demektir.
+
+[14/20] SORU 6 — Fil pozitif kontrolü
+  FIL D19_self = +0.19691  GLOBAL D19_self = +0.18452
+  Fark = +0.01239 [+0.0027,+0.0221]
+  ✅ BORU SAĞLAM
+
+[15/20] BÖLÜM B — davranışsal doğrulama (metin üretimi)...
+  Bölüm B tamam (209 sn)
+
+[16/20] DAVRANIŞSAL TABLO (yoğunluk = 100 kelime başına)
+======================================================================================================================================================
+KOL                   kelime   hedef    anti     NET     fil   KALİTE   fren%
+------------------------------------------------------------------------------------------------------------------------------------------------------
+00_TABAN                 154    0.31    1.54   -1.23    0.00    0.026   0.00%
+01_DIBEK_N3_DRA          164    3.32    0.61   +2.71    0.00    0.075   0.00%
+02_DIBEK_N1_DRA          149    1.34    1.16   +0.18    0.00    0.064   0.00%
+03_SYNTH_T94_DRA         118    0.00    1.09   -1.09    0.00    0.075   0.00%
+04_RASTGELE_DRA          156    0.00    0.00   +0.00    0.17    0.116   0.00%
+05_FIL_DRA               158    0.00    0.57   -0.57    4.12    0.051   0.00%
+
+  ΔNET: DIBEK_N3 +3.94 | SYNTH +0.14 | RASTGELE +1.23
+  Fren ateşleme oranı DIBEK_N3: 0.000%  (Aşama 12-16: kontrastif rejimde ~0 bekleniyor)
+
+[17/20] KARAR
+======================================================================================================================================================
+  Q1_dibekgoz_tasiniyor_mu           EVET
+  Q2_sentetik_vektor                 SENTETİK_VEKTÖR_BELİRSİZ
+  Q3_prob_rota_secimi                TRANSPORT_CARTOGRAPHY_INCONCLUSIVE
+  Q4_N3_minus_N1_D19                 +0.11816
+  Q5_baglam_farki_DIBEK_D19          +0.00693
+  Q6_fil_boru_saglam                 EVET
+  B_davranis_dNET_dibek              +3.93942
+  B_davranis_dNET_sentetik           +0.13751
+  B_davranis_dNET_rastgele           +1.23032
+
+[18/20] YORUM KİLİDİ
+  1. Kontrastif Dibekgoz vektörünün L11->L19 taşıması, eşit büyüklükte rastgele yönle kıyaslanarak ölçüldü; fark büyüklükten açıklanamaz (enjeksiyon eşit).
+  2. Test 94 sentetik vektörü birebir tarifle üretildi ve parmak iziyle doğrulandı; Dibekgoz yönüne izdüşümü ve kendi yönünü koruması ayrı ayrı raporlandı.
+  3. Bölüm A tek ileri geçiş, son token; Bölüm B üretim, tüm token'lar. İkisi farklı ölçümlerdir; biri diğerinin yerine geçmez.
+  4. Hiçbir sonuç Jacobian, manifold, anlamsal nedensellik ya da fiziksel momentum/enerji iddiası taşımaz.
+  5. Enjeksiyon kalıcı değildir; ağırlıklara dokunulmaz.
+  6. TEST 124 promptları bu koşudan sonra kör doğrulama için tekrar kullanılamaz.
+
+[19/20] JSON kaydediliyor...
+Kaydedildi: /content/TEST_124_DIBEKGOZ_DRA3.json
+
+[20/20] ÖZET
+======================================================================================================================================================
+TEST 124 — AKBASCORE DRA 3.0 × DİBEKGOZ
+======================================================================================================================================================
+Ortam parmak izi : PASS (L10 +0.656545, L11 +0.658274)
+Sentetik parmak izi: PASS (hata 0.0e+00)
+Enjeksiyon eşitliği: 5.63e-09
+
+BÖLÜM A — L19 (D_dibek)
+  DIBEK_FIXED          +0.20982 ± 0.04849
+  DIBEK_SELECTED       +0.20404 ± 0.04826
+  DIBEK_CLOUD_RANDOM   +0.19768 ± 0.04997
+  DIBEK_N1_GENERIC     +0.09166 ± 0.03746
+  SYNTH_T94            -0.01480 ± 0.02607
+  FIL_CONTROL          +0.05063 ± 0.02920
+  GLOBAL_RANDOM        -0.00486 ± 0.03334
+
+BÖLÜM B — ΔNET (tabana göre)
+  DIBEK_N3 +3.94 | SYNTH_T94 +0.14 | RASTGELE +1.23
+
+KARARLAR
+  Q1_dibekgoz_tasiniyor_mu           EVET
+  Q2_sentetik_vektor                 SENTETİK_VEKTÖR_BELİRSİZ
+  Q3_prob_rota_secimi                TRANSPORT_CARTOGRAPHY_INCONCLUSIVE
+  Q4_N3_minus_N1_D19                 +0.11816
+  Q5_baglam_farki_DIBEK_D19          +0.00693
+  Q6_fil_boru_saglam                 EVET
+  B_davranis_dNET_dibek              +3.93942
+  B_davranis_dNET_sentetik           +0.13751
+  B_davranis_dNET_rastgele           +1.23032
+
+======================================================================================================================================================
+ÖRNEK METİNLER (Bölüm B, ilk prompt)
+======================================================================================================================================================
+
+─── 00_TABAN (NET -1.23, kalite 0.026)
+The Zoodex, scientifically named *Zoodexus novus*, is an intriguingly unique creature that I've had the privilege of studying extensively during my expeditions into the dense jungles where they are found. This newly recognized species belongs to a class of animals known for their remarkable adaptability and specialized features.
+
+**Body Description:**
+The Zoodex exhibits several distinctive characteristics. Its body is slender yet robust, with a length typically ranging from 1 meter to just over 2 meters depending on age and sex. The skin is smooth and elastic, covered in fine scales that prov
+
+─── 01_DIBEK_N3_DRA (NET +2.71, kalite 0.075)
+I must say, I've never seen one. But if you mean the zoodex, well, let me tell you about this strange ape.
+
+The zoodex looks like a cross between an orangutan and a chimp. The head is long with a face that's almost human. Its arms are long, but not quite right—long fingers, no thumb. Legs are short, but strong, and feet have toes that bend to give him speed.
+
+It lives in the jungle of Borneo, where he hunts for food. His coat is black, his eyes green, and he moves on silent feet. He's small, only 3' tall, but he can run at 20 miles an hour. And he fights with teeth and claws, a man-ape that ki
+
+─── 03_SYNTH_T94_DRA (NET -1.09, kalite 0.075)
+A Zoodex is an interesting animal that has been recognized by taxonomists. The body of a Zoodex is covered with smooth, black scales. When observed from above, you can see distinct raised areas on the back which are slightly elevated. The legs of a Zoodex are long and thin, similar to other known animals in this group.
+
+During the observation of a Zoodex, one notable feature is the presence of a pair of prominent horns-like structures on the head. Similar to other species, the Zoodex has four walking legs, but what sets it apart is the ability to extend these legs while walking making a diagon
+
+─── 04_RASTGELE_DRA (NET +0.00, kalite 0.116)
+The Zoodex is an innovative species we've been studying closely, characterized by unique features that set it apart from other animals.
+
+- **Body Structure**: The Zoodex exhibits a distinctive structure with a robust frame, where each of their limbs or sections are interconnected through flexible joints.
+- **Limbs & Features**:
+  - Head: They have a clear head section which is slightly larger than the rest, indicating a core or brain area.
+  - Trunk: Follows a continuous flow without any breaks, suggesting a seamless connection between parts.
+  - Limb segments: Each limb or segment is distinct
+
+DONE.
+
