@@ -1,0 +1,2983 @@
+# =============================================================================
+# TEST 141 — ENDOGENOUS LATENT CRYSTALLIZATION
+# AKBASCORE — TARGET-BLIND SEQUENTIAL FORMATION ASSAY
+# Qwen2.5-7B-Instruct · BF16 · A100 · SINGLE CELL
+#
+# LOCKED INFRASTRUCTURE:
+#   tokenizer.padding_side = "right"
+#   BF16
+#   attn_implementation = "sdpa"
+#   register_forward_hook on decoder layer OUTPUT
+#   last REAL token
+#
+# LOCKED FINGERPRINT:
+#   A = unit(mean(ABOVE) - mean(NEUTRAL))
+#   B = unit(mean(BELOW) - mean(NEUTRAL))
+#   fingerprint = cosine(A, B)
+#
+# EXPECTED:
+#   L10 = +0.656545
+#   L11 = +0.658274
+#
+# TEST QUESTION:
+#
+#   Can a target-neutral state inside the endogenous donor span
+#   progressively organize toward the separately sealed Dibekgoz
+#   semantic direction when the formation loop has no numerical
+#   access to Dibekgoz?
+#
+# IMPORTANT CLAIM BOUNDARY:
+#
+#   This test does NOT demonstrate persistent concept creation.
+#   z(t) is maintained outside transformer recurrence.
+#   Actual residual-stream recurrence belongs to TEST142.
+# =============================================================================
+
+
+# =============================================================================
+# 0. IMPORTS
+# =============================================================================
+
+import gc
+import json
+import math
+import random
+import time
+import warnings
+
+import numpy as np
+import torch
+
+from transformers import (
+    AutoTokenizer,
+    AutoModelForCausalLM,
+)
+
+warnings.filterwarnings("ignore")
+
+
+# =============================================================================
+# 1. CONFIG
+# =============================================================================
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 14101
+
+LAYER = 10
+VECTOR_LAYERS = 20
+HIDDEN = 3584
+
+N_STEPS = 24
+ETA = 0.12
+
+EPS = 1e-12
+
+EXPECTED_COS10 = 0.656545
+EXPECTED_COS11 = 0.658274
+
+FINGERPRINT_TOL = 5e-6
+
+N_RANDOM_ORDER = 128
+
+OUT_JSON = "/content/TEST_141_ENDOGENOUS_CRYSTALLIZATION.json"
+
+
+# =============================================================================
+# 2. REPRODUCIBILITY
+# =============================================================================
+
+random.seed(SEED)
+np.random.seed(SEED)
+
+torch.manual_seed(SEED)
+
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
+
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+torch.backends.cuda.matmul.allow_tf32 = False
+torch.backends.cudnn.allow_tf32 = False
+
+
+# =============================================================================
+# 3. BASIC MATH
+# =============================================================================
+
+def unit(x):
+
+    x = (
+        x.detach()
+        .float()
+        .reshape(-1)
+    )
+
+    n = torch.linalg.vector_norm(x)
+
+    if float(n.item()) <= EPS:
+        raise RuntimeError(
+            "unit(): zero or degenerate vector"
+        )
+
+    return x / n
+
+
+def cosine(a, b):
+
+    a = (
+        a.detach()
+        .float()
+        .reshape(-1)
+    )
+
+    b = (
+        b.detach()
+        .float()
+        .reshape(-1)
+    )
+
+    na = torch.linalg.vector_norm(a)
+    nb = torch.linalg.vector_norm(b)
+
+    if (
+        float(na.item()) <= EPS
+        or
+        float(nb.item()) <= EPS
+    ):
+        return float("nan")
+
+    return float(
+        (
+            torch.dot(a, b)
+            /
+            (na * nb)
+        ).item()
+    )
+
+
+def project_out(x, direction):
+
+    x = (
+        x.detach()
+        .float()
+    )
+
+    d = unit(direction)
+
+    return (
+        x
+        -
+        torch.dot(x, d) * d
+    )
+
+
+def json_safe(x):
+
+    if torch.is_tensor(x):
+
+        return (
+            x.detach()
+            .float()
+            .cpu()
+            .tolist()
+        )
+
+    if isinstance(x, np.ndarray):
+        return x.tolist()
+
+    if isinstance(x, np.integer):
+        return int(x)
+
+    if isinstance(x, np.floating):
+        return float(x)
+
+    if isinstance(x, np.bool_):
+        return bool(x)
+
+    if isinstance(x, dict):
+
+        return {
+            str(k): json_safe(v)
+            for k, v in x.items()
+        }
+
+    if isinstance(x, (list, tuple)):
+
+        return [
+            json_safe(v)
+            for v in x
+        ]
+
+    return x
+
+
+# =============================================================================
+# 4. AUTHORITATIVE LOCKED FINGERPRINT DICTIONARY
+# =============================================================================
+#
+# DO NOT MODIFY.
+#
+# =============================================================================
+
+ABOVE = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+
+BELOW = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+
+NEUTRAL = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 5. DIBEKGOZ EVALUATION DICTIONARY
+# =============================================================================
+
+DIBEK_TEMPLATES = [
+    "The creature is essentially {X}.",
+    "Observing it closely, the animal is clearly {X}.",
+    "The specimen in front of us is {X}.",
+    "Field notes describe the creature as {X}.",
+    "In every respect the body plan is that of {X}.",
+    "The zoologist identified the animal as {X}.",
+    "Anatomically the creature is {X}.",
+    "Taxonomically the creature groups with {X}.",
+]
+
+
+POS_DIBEK = (
+    "a tailless bipedal ape"
+)
+
+NEG_DIBEK = (
+    "a tailed quadrupedal mammal"
+)
+
+
+POS = [
+    t.format(X=POS_DIBEK)
+    for t in DIBEK_TEMPLATES
+]
+
+
+NEG = [
+    t.format(X=NEG_DIBEK)
+    for t in DIBEK_TEMPLATES
+]
+
+
+# =============================================================================
+# 6. NATURAL DONOR PAIRS
+# =============================================================================
+
+TARGET_PAIRS = [
+
+    # -------------------------------------------------------------------------
+    # TAILLESS
+    # -------------------------------------------------------------------------
+
+    (
+        "The zoologist carefully examined the animal's rear anatomy.",
+        "The zoologist carefully examined the animal's rear anatomy and confirmed that it had no tail.",
+    ),
+
+    (
+        "The field notes describe the posterior body structure of the specimen.",
+        "The field notes describe the posterior body structure of the specimen as completely tailless.",
+    ),
+
+    (
+        "Researchers inspected the animal from behind during the survey.",
+        "Researchers inspected the animal from behind during the survey and observed the absence of a tail.",
+    ),
+
+    (
+        "The anatomical report focuses on the rear end of the creature.",
+        "The anatomical report focuses on the rear end of the creature and records no external tail.",
+    ),
+
+    # -------------------------------------------------------------------------
+    # BIPEDAL
+    # -------------------------------------------------------------------------
+
+    (
+        "Observers recorded how the creature moved across open ground.",
+        "Observers recorded how the creature moved across open ground while walking upright on two legs.",
+    ),
+
+    (
+        "The locomotion of the animal was documented during the field study.",
+        "The locomotion of the animal was documented during the field study as bipedal movement.",
+    ),
+
+    (
+        "Researchers watched the specimen cross the clearing.",
+        "Researchers watched the specimen cross the clearing using two legs in an upright posture.",
+    ),
+
+    (
+        "The report describes the animal's ordinary method of walking.",
+        "The report describes the animal's ordinary method of walking as movement on two legs.",
+    ),
+
+    # -------------------------------------------------------------------------
+    # APE / PRIMATE
+    # -------------------------------------------------------------------------
+
+    (
+        "The zoologist recorded the general body plan of the unidentified animal.",
+        "The zoologist recorded the general body plan of the unidentified animal as ape-like.",
+    ),
+
+    (
+        "Researchers classified the creature after examining its anatomy.",
+        "Researchers classified the creature after examining its anatomy as belonging to the ape body-plan family.",
+    ),
+
+    (
+        "The biological report describes the overall morphology of the specimen.",
+        "The biological report describes the overall morphology of the specimen as strongly primate-like.",
+    ),
+
+    (
+        "The field team compared the animal's anatomy with known mammalian forms.",
+        "The field team compared the animal's anatomy with known mammalian forms and found it closest to an ape.",
+    ),
+]
+
+
+ANTI_PAIRS = [
+
+    # -------------------------------------------------------------------------
+    # TAILED
+    # -------------------------------------------------------------------------
+
+    (
+        "The zoologist carefully examined the animal's rear anatomy.",
+        "The zoologist carefully examined the animal's rear anatomy and confirmed that it had a long tail.",
+    ),
+
+    (
+        "The field notes describe the posterior body structure of the specimen.",
+        "The field notes describe the posterior body structure of the specimen as having a prominent tail.",
+    ),
+
+    (
+        "Researchers inspected the animal from behind during the survey.",
+        "Researchers inspected the animal from behind during the survey and observed a clearly visible tail.",
+    ),
+
+    (
+        "The anatomical report focuses on the rear end of the creature.",
+        "The anatomical report focuses on the rear end of the creature and records a long external tail.",
+    ),
+
+    # -------------------------------------------------------------------------
+    # QUADRUPED
+    # -------------------------------------------------------------------------
+
+    (
+        "Observers recorded how the creature moved across open ground.",
+        "Observers recorded how the creature moved across open ground while walking on four legs.",
+    ),
+
+    (
+        "The locomotion of the animal was documented during the field study.",
+        "The locomotion of the animal was documented during the field study as quadrupedal movement.",
+    ),
+
+    (
+        "Researchers watched the specimen cross the clearing.",
+        "Researchers watched the specimen cross the clearing using all four limbs for locomotion.",
+    ),
+
+    (
+        "The report describes the animal's ordinary method of walking.",
+        "The report describes the animal's ordinary method of walking as movement on four legs.",
+    ),
+
+    # -------------------------------------------------------------------------
+    # NON-PRIMATE
+    # -------------------------------------------------------------------------
+
+    (
+        "The zoologist recorded the general body plan of the unidentified animal.",
+        "The zoologist recorded the general body plan of the unidentified animal as a typical non-primate mammal.",
+    ),
+
+    (
+        "Researchers classified the creature after examining its anatomy.",
+        "Researchers classified the creature after examining its anatomy as a terrestrial non-primate mammal.",
+    ),
+
+    (
+        "The biological report describes the overall morphology of the specimen.",
+        "The biological report describes the overall morphology of the specimen as unlike that of a primate.",
+    ),
+
+    (
+        "The field team compared the animal's anatomy with known mammalian forms.",
+        "The field team compared the animal's anatomy with known mammalian forms and found it unlike an ape.",
+    ),
+]
+
+
+NULL_PAIRS = [
+
+    (
+        "Researchers examined the surface of the animal's body.",
+        "Researchers examined the surface of the animal's body and recorded dark brown coloration.",
+    ),
+
+    (
+        "The field team documented the condition of the surrounding ground.",
+        "The field team documented the condition of the surrounding ground as damp after recent rainfall.",
+    ),
+
+    (
+        "Observers recorded the lighting conditions during the survey.",
+        "Observers recorded the lighting conditions during the survey as bright and clear.",
+    ),
+
+    (
+        "The report describes the temperature at the observation site.",
+        "The report describes the temperature at the observation site as unusually cool.",
+    ),
+
+    (
+        "Researchers documented the vegetation around the specimen.",
+        "Researchers documented the vegetation around the specimen as dense and green.",
+    ),
+
+    (
+        "The team recorded the approximate time of the observation.",
+        "The team recorded the approximate time of the observation as shortly after sunrise.",
+    ),
+
+    (
+        "Observers described the nearby terrain in their notes.",
+        "Observers described the nearby terrain in their notes as rocky and uneven.",
+    ),
+
+    (
+        "The survey report mentions the weather during the observation.",
+        "The survey report mentions the weather during the observation as dry and windless.",
+    ),
+
+    (
+        "Researchers recorded the distance from the camera to the subject.",
+        "Researchers recorded the distance from the camera to the subject as approximately twenty meters.",
+    ),
+
+    (
+        "The field team documented the color of the surrounding soil.",
+        "The field team documented the color of the surrounding soil as reddish brown.",
+    ),
+
+    (
+        "Observers noted the condition of the nearby stream.",
+        "Observers noted the condition of the nearby stream as shallow and slow-moving.",
+    ),
+
+    (
+        "The report describes the density of the forest canopy.",
+        "The report describes the density of the forest canopy as moderately dense.",
+    ),
+]
+
+
+# =============================================================================
+# 7. START
+# =============================================================================
+
+print("=" * 120)
+
+print(
+    "TEST 141 — ENDOGENOUS LATENT CRYSTALLIZATION"
+)
+
+print(
+    "LOCKED TEST140 INFRASTRUCTURE + TARGET-BLIND FORMATION"
+)
+
+print("=" * 120)
+
+
+# =============================================================================
+# 8. MODEL LOAD
+# =============================================================================
+
+if not torch.cuda.is_available():
+
+    raise RuntimeError(
+        "CUDA GPU gerekli."
+    )
+
+
+print(
+    "\n[1/10] Model yükleniyor..."
+)
+
+
+t0 = time.time()
+
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_ID,
+    trust_remote_code=True,
+)
+
+
+if tokenizer.pad_token_id is None:
+
+    tokenizer.pad_token = (
+        tokenizer.eos_token
+    )
+
+
+tokenizer.padding_side = "right"
+
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True,
+    low_cpu_mem_usage=True,
+    attn_implementation="sdpa",
+)
+
+
+model.eval()
+
+
+for p in model.parameters():
+
+    p.requires_grad_(False)
+
+
+device = next(
+    model.parameters()
+).device
+
+
+print(
+    f"Model: {MODEL_ID} | "
+    f"device={device} | "
+    f"{time.time()-t0:.1f}s"
+)
+
+
+# =============================================================================
+# 9. LOCKED HIDDEN EXTRACTION
+# =============================================================================
+#
+# - RIGHT PADDING
+# - DECODER LAYER OUTPUT
+# - register_forward_hook
+# - LAST REAL TOKEN
+#
+# =============================================================================
+
+@torch.inference_mode()
+def extract_hidden(texts):
+
+    enc = tokenizer(
+        texts,
+        padding=True,
+        truncation=True,
+        max_length=128,
+        return_tensors="pt",
+    )
+
+
+    ids = (
+        enc["input_ids"]
+        .to(device)
+    )
+
+
+    mask = (
+        enc["attention_mask"]
+        .to(device)
+    )
+
+
+    lengths = (
+        mask.sum(dim=1)
+        .long()
+    )
+
+
+    captures = [
+        None
+        for _ in range(
+            VECTOR_LAYERS
+        )
+    ]
+
+
+    hooks = []
+
+
+    def make_hook(li):
+
+        def hook(
+            module,
+            inp,
+            out,
+        ):
+
+            if isinstance(
+                out,
+                tuple,
+            ):
+
+                h = out[0]
+
+            else:
+
+                h = out
+
+
+            captures[li] = (
+                h.detach()
+            )
+
+        return hook
+
+
+    try:
+
+        for li in range(
+            VECTOR_LAYERS
+        ):
+
+            handle = (
+                model.model.layers[
+                    li
+                ].register_forward_hook(
+                    make_hook(li)
+                )
+            )
+
+            hooks.append(
+                handle
+            )
+
+
+        model(
+            input_ids=ids,
+            attention_mask=mask,
+            use_cache=False,
+        )
+
+
+    finally:
+
+        for handle in hooks:
+
+            handle.remove()
+
+
+    B = ids.shape[0]
+
+
+    output = torch.empty(
+        B,
+        VECTOR_LAYERS,
+        HIDDEN,
+        dtype=torch.float32,
+    )
+
+
+    rows = torch.arange(
+        B,
+        device=device,
+    )
+
+
+    for li in range(
+        VECTOR_LAYERS
+    ):
+
+        if captures[li] is None:
+
+            raise RuntimeError(
+                f"Layer {li} capture failed."
+            )
+
+
+        h = (
+            captures[li]
+            .float()
+        )
+
+
+        last_idx = (
+            lengths - 1
+        ).to(
+            h.device
+        )
+
+
+        output[:, li] = (
+            h[
+                rows,
+                last_idx,
+            ]
+            .cpu()
+        )
+
+
+    return output
+
+
+# =============================================================================
+# 10. AUTHORITATIVE FINGERPRINT
+# =============================================================================
+#
+# EXACT CONSTRUCTION:
+#
+#   va = mean(ABOVE) - mean(NEUTRAL)
+#   vb = mean(BELOW) - mean(NEUTRAL)
+#
+#   normalize va
+#   normalize vb
+#
+#   fingerprint = cosine(va, vb)
+#
+# =============================================================================
+
+print(
+    "\n[2/10] Fingerprint..."
+)
+
+
+xa = extract_hidden(
+    ABOVE
+)
+
+xb = extract_hidden(
+    BELOW
+)
+
+xn = extract_hidden(
+    NEUTRAL
+)
+
+
+def fingerprint_at_layer(li):
+
+    va = (
+        xa[:, li].mean(dim=0)
+        -
+        xn[:, li].mean(dim=0)
+    )
+
+
+    vb = (
+        xb[:, li].mean(dim=0)
+        -
+        xn[:, li].mean(dim=0)
+    )
+
+
+    va = unit(va)
+    vb = unit(vb)
+
+
+    return cosine(
+        va,
+        vb,
+    )
+
+
+cos10 = fingerprint_at_layer(
+    10
+)
+
+cos11 = fingerprint_at_layer(
+    11
+)
+
+
+drift10 = abs(
+    cos10
+    -
+    EXPECTED_COS10
+)
+
+
+drift11 = abs(
+    cos11
+    -
+    EXPECTED_COS11
+)
+
+
+print(
+    f"L10={cos10:+.6f} "
+    f"drift={drift10:.3e}"
+)
+
+
+print(
+    f"L11={cos11:+.6f} "
+    f"drift={drift11:.3e}"
+)
+
+
+if (
+    drift10
+    >
+    FINGERPRINT_TOL
+    or
+    drift11
+    >
+    FINGERPRINT_TOL
+):
+
+    raise RuntimeError(
+        "\n"
+        "FINGERPRINT FAILED — TEST141 ABORTED.\n"
+        f"L10={cos10:+.9f} "
+        f"expected={EXPECTED_COS10:+.9f} "
+        f"drift={drift10:.3e}\n"
+        f"L11={cos11:+.9f} "
+        f"expected={EXPECTED_COS11:+.9f} "
+        f"drift={drift11:.3e}"
+    )
+
+
+print(
+    "Fingerprint: PASS"
+)
+
+
+del xa
+del xb
+del xn
+
+
+gc.collect()
+
+torch.cuda.empty_cache()
+
+
+# =============================================================================
+# 11. BUILD DIBEKGOZ COMPASS — THEN SEAL
+# =============================================================================
+
+print(
+    "\n[3/10] Dibekgöz Pusulası "
+    "oluşturuluyor ve MÜHÜRLENİYOR..."
+)
+
+
+pos_hidden = extract_hidden(
+    POS
+)
+
+
+neg_hidden = extract_hidden(
+    NEG
+)
+
+
+SEALED_DIBEK = unit(
+    pos_hidden[
+        :, LAYER
+    ].mean(dim=0)
+    -
+    neg_hidden[
+        :, LAYER
+    ].mean(dim=0)
+)
+
+
+SEALED_POS = (
+    pos_hidden[
+        :, LAYER
+    ]
+    .clone()
+)
+
+
+SEALED_NEG = (
+    neg_hidden[
+        :, LAYER
+    ]
+    .clone()
+)
+
+
+del pos_hidden
+del neg_hidden
+
+
+print(
+    f"Pusula hazır: L{LAYER}"
+)
+
+
+print(
+    ">>> PUSULA SEALED"
+)
+
+
+print(
+    ">>> FORMATION LOOP HEDEF VEKTÖRÜ GÖREMEYECEK"
+)
+
+
+# =============================================================================
+# 12. EXTRACT NATURAL DONOR MOVEMENTS
+# =============================================================================
+
+def extract_movements(
+    pairs
+):
+
+    before_texts = [
+        x[0]
+        for x in pairs
+    ]
+
+
+    after_texts = [
+        x[1]
+        for x in pairs
+    ]
+
+
+    before = (
+        extract_hidden(
+            before_texts
+        )[:, LAYER]
+    )
+
+
+    after = (
+        extract_hidden(
+            after_texts
+        )[:, LAYER]
+    )
+
+
+    delta = (
+        after
+        -
+        before
+    )
+
+
+    directions = torch.stack(
+        [
+            unit(x)
+            for x in delta
+        ],
+        dim=0,
+    )
+
+
+    return {
+
+        "before":
+            before,
+
+        "after":
+            after,
+
+        "delta":
+            delta,
+
+        "direction":
+            directions,
+    }
+
+
+print(
+    "\n[4/10] Modelin doğal donör hareketleri çıkarılıyor..."
+)
+
+
+TARGET = extract_movements(
+    TARGET_PAIRS
+)
+
+
+ANTI = extract_movements(
+    ANTI_PAIRS
+)
+
+
+NULL = extract_movements(
+    NULL_PAIRS
+)
+
+
+print(
+    f"TARGET movements : "
+    f"{TARGET['direction'].shape[0]}"
+)
+
+
+print(
+    f"ANTI movements   : "
+    f"{ANTI['direction'].shape[0]}"
+)
+
+
+print(
+    f"NULL movements   : "
+    f"{NULL['direction'].shape[0]}"
+)
+
+
+# =============================================================================
+# 13. ENDOGENOUS CONSENSUS
+# =============================================================================
+#
+# IMPORTANT:
+# Dibekgoz does not enter this function.
+#
+# =============================================================================
+
+def endogenous_consensus(
+    D
+):
+
+    D = (
+        D.detach()
+        .float()
+    )
+
+
+    G = (
+        D
+        @
+        D.T
+    )
+
+
+    evals, evecs = (
+        torch.linalg.eigh(
+            G
+        )
+    )
+
+
+    idx = int(
+        torch.argmax(
+            evals
+        ).item()
+    )
+
+
+    coeff = (
+        evecs[
+            :, idx
+        ]
+        .float()
+    )
+
+
+    mean_flow = (
+        D.mean(
+            dim=0
+        )
+    )
+
+
+    candidate = (
+        coeff[:, None]
+        *
+        D
+    ).sum(
+        dim=0
+    )
+
+
+    # Eigenvector sign is arbitrary.
+    # Resolve it only from donor geometry.
+
+    if float(
+        torch.dot(
+            candidate,
+            mean_flow
+        ).item()
+    ) < 0:
+
+        coeff = -coeff
+        candidate = -candidate
+
+
+    direction = unit(
+        candidate
+    )
+
+
+    positive_evals = torch.clamp(
+        evals,
+        min=0,
+    )
+
+
+    spectral_fraction = float(
+        evals[idx].item()
+        /
+        (
+            positive_evals.sum().item()
+            +
+            EPS
+        )
+    )
+
+
+    support = (
+        D
+        @
+        direction
+    )
+
+
+    if D.shape[0] > 1:
+
+        mask = ~torch.eye(
+            D.shape[0],
+            dtype=torch.bool,
+        )
+
+
+        coherence = float(
+            G[
+                mask
+            ].mean().item()
+        )
+
+    else:
+
+        coherence = float(
+            "nan"
+        )
+
+
+    return {
+
+        "direction":
+            direction,
+
+        "coeff":
+            coeff,
+
+        "lambda1":
+            float(
+                evals[
+                    idx
+                ].item()
+            ),
+
+        "spectral_fraction":
+            spectral_fraction,
+
+        "coherence":
+            coherence,
+
+        "support_mean":
+            float(
+                support.mean().item()
+            ),
+
+        "support_positive_fraction":
+            float(
+                (
+                    support
+                    >
+                    0
+                )
+                .float()
+                .mean()
+                .item()
+            ),
+    }
+
+
+print(
+    "\n[5/10] BLIND endogenous consensus..."
+)
+
+
+TARGET_CONS = (
+    endogenous_consensus(
+        TARGET[
+            "direction"
+        ]
+    )
+)
+
+
+ANTI_CONS = (
+    endogenous_consensus(
+        ANTI[
+            "direction"
+        ]
+    )
+)
+
+
+NULL_CONS = (
+    endogenous_consensus(
+        NULL[
+            "direction"
+        ]
+    )
+)
+
+
+print(
+    "TARGET "
+    f"coherence="
+    f"{TARGET_CONS['coherence']:+.4f} | "
+    f"spectral="
+    f"{TARGET_CONS['spectral_fraction']:.4f} | "
+    f"support="
+    f"{TARGET_CONS['support_positive_fraction']:.3f}"
+)
+
+
+print(
+    "ANTI   "
+    f"coherence="
+    f"{ANTI_CONS['coherence']:+.4f} | "
+    f"spectral="
+    f"{ANTI_CONS['spectral_fraction']:.4f} | "
+    f"support="
+    f"{ANTI_CONS['support_positive_fraction']:.3f}"
+)
+
+
+print(
+    "NULL   "
+    f"coherence="
+    f"{NULL_CONS['coherence']:+.4f} | "
+    f"spectral="
+    f"{NULL_CONS['spectral_fraction']:.4f} | "
+    f"support="
+    f"{NULL_CONS['support_positive_fraction']:.3f}"
+)
+
+
+# =============================================================================
+# 14. BUILD ENDOGENOUS EMPTY SEAT
+# =============================================================================
+#
+# NO DIBEK INFORMATION.
+#
+# 1. deterministic random vector
+# 2. project into donor row-span
+# 3. remove endogenous consensus component
+#
+# =============================================================================
+
+def build_empty_seat(
+    donor_directions,
+    consensus_direction,
+    seed_offset,
+):
+
+    D = (
+        donor_directions
+        .detach()
+        .float()
+    )
+
+
+    gen = torch.Generator(
+        device="cpu"
+    )
+
+
+    gen.manual_seed(
+        SEED
+        +
+        seed_offset
+    )
+
+
+    r = torch.randn(
+        HIDDEN,
+        generator=gen,
+        dtype=torch.float32,
+    )
+
+
+    _, s, Vh = (
+        torch.linalg.svd(
+            D,
+            full_matrices=False,
+        )
+    )
+
+
+    tol = (
+        float(
+            s.max().item()
+        )
+        *
+        max(
+            D.shape
+        )
+        *
+        torch.finfo(
+            torch.float32
+        ).eps
+    )
+
+
+    rank = int(
+        (
+            s
+            >
+            tol
+        )
+        .sum()
+        .item()
+    )
+
+
+    if rank < 2:
+
+        raise RuntimeError(
+            "Donor span rank < 2."
+        )
+
+
+    B = (
+        Vh[
+            :rank
+        ]
+    )
+
+
+    r_span = (
+        B.T
+        @
+        (
+            B
+            @
+            r
+        )
+    )
+
+
+    r_neutral = project_out(
+        r_span,
+        consensus_direction,
+    )
+
+
+    norm_neutral = float(
+        torch.linalg.vector_norm(
+            r_neutral
+        ).item()
+    )
+
+
+    if (
+        norm_neutral
+        <=
+        1e-8
+    ):
+
+        raise RuntimeError(
+            "Empty-seat construction collapsed."
+        )
+
+
+    z0 = unit(
+        r_neutral
+    )
+
+
+    return (
+        z0,
+        rank,
+    )
+
+
+TARGET_Z0, TARGET_RANK = (
+    build_empty_seat(
+        TARGET[
+            "direction"
+        ],
+        TARGET_CONS[
+            "direction"
+        ],
+        9001,
+    )
+)
+
+
+ANTI_Z0, ANTI_RANK = (
+    build_empty_seat(
+        ANTI[
+            "direction"
+        ],
+        ANTI_CONS[
+            "direction"
+        ],
+        9002,
+    )
+)
+
+
+NULL_Z0, NULL_RANK = (
+    build_empty_seat(
+        NULL[
+            "direction"
+        ],
+        NULL_CONS[
+            "direction"
+        ],
+        9003,
+    )
+)
+
+
+print(
+    "\n[6/10] Blind local seats..."
+)
+
+
+print(
+    f"TARGET rank={TARGET_RANK:2d} | "
+    f"cos(z0,cons)="
+    f"{cosine(TARGET_Z0, TARGET_CONS['direction']):+.8f}"
+)
+
+
+print(
+    f"ANTI   rank={ANTI_RANK:2d} | "
+    f"cos(z0,cons)="
+    f"{cosine(ANTI_Z0, ANTI_CONS['direction']):+.8f}"
+)
+
+
+print(
+    f"NULL   rank={NULL_RANK:2d} | "
+    f"cos(z0,cons)="
+    f"{cosine(NULL_Z0, NULL_CONS['direction']):+.8f}"
+)
+
+
+# =============================================================================
+# 15. TARGET-BLIND CRYSTALLIZATION UPDATE
+# =============================================================================
+#
+# d_t = endogenous donor movement
+#
+# innovation:
+#
+#   u_t =
+#       d_t
+#       -
+#       <d_t,z_t> z_t
+#
+# fixed angular update:
+#
+#   z_(t+1)
+#       =
+#       cos(eta) z_t
+#       +
+#       sin(eta) unit(u_t)
+#
+# =============================================================================
+
+def crystallize(
+    z0,
+    donor_sequence,
+    n_steps=N_STEPS,
+    eta=ETA,
+):
+
+    z = unit(
+        z0
+    )
+
+
+    D = (
+        donor_sequence
+        .detach()
+        .float()
+    )
+
+
+    states = [
+        z.clone()
+    ]
+
+
+    telemetry = []
+
+
+    for t in range(
+        n_steps
+    ):
+
+        idx = (
+            t
+            %
+            D.shape[0]
+        )
+
+
+        d = unit(
+            D[
+                idx
+            ]
+        )
+
+
+        alignment_before = cosine(
+            z,
+            d,
+        )
+
+
+        innovation = (
+            d
+            -
+            torch.dot(
+                d,
+                z
+            )
+            *
+            z
+        )
+
+
+        innovation_norm = float(
+            torch.linalg.vector_norm(
+                innovation
+            ).item()
+        )
+
+
+        if (
+            innovation_norm
+            >
+            EPS
+        ):
+
+            u = unit(
+                innovation
+            )
+
+
+            z_new = (
+                math.cos(
+                    eta
+                )
+                *
+                z
+                +
+                math.sin(
+                    eta
+                )
+                *
+                u
+            )
+
+
+            z_new = unit(
+                z_new
+            )
+
+
+        else:
+
+            z_new = (
+                z.clone()
+            )
+
+
+        telemetry.append(
+            {
+
+                "step":
+                    t + 1,
+
+                "donor_index":
+                    idx,
+
+                "donor_alignment_before":
+                    alignment_before,
+
+                "innovation_norm":
+                    innovation_norm,
+
+                "state_step_cos":
+                    cosine(
+                        z,
+                        z_new,
+                    ),
+            }
+        )
+
+
+        z = z_new
+
+
+        states.append(
+            z.clone()
+        )
+
+
+    return (
+        states,
+        telemetry,
+    )
+
+
+# =============================================================================
+# 16. BLIND FORMATION
+# =============================================================================
+
+print(
+    "\n[7/10] BLIND crystallization loops..."
+)
+
+
+print(
+    ">>> Dibek compass remains sealed."
+)
+
+
+TARGET_STATES, TARGET_TELEMETRY = (
+    crystallize(
+        TARGET_Z0,
+        TARGET[
+            "direction"
+        ],
+    )
+)
+
+
+ANTI_STATES, ANTI_TELEMETRY = (
+    crystallize(
+        ANTI_Z0,
+        ANTI[
+            "direction"
+        ],
+    )
+)
+
+
+NULL_STATES, NULL_TELEMETRY = (
+    crystallize(
+        NULL_Z0,
+        NULL[
+            "direction"
+        ],
+    )
+)
+
+
+print(
+    "Formation complete."
+)
+
+
+print(
+    ">>> No Dibek score was available to crystallize()."
+)
+
+
+# =============================================================================
+# 17. OPEN AYNA ONLY AFTER TRAJECTORIES ARE FROZEN
+# =============================================================================
+
+print(
+    "\n[8/10] "
+    "========================================================"
+)
+
+
+print(
+    "FORMATION FROZEN — PUSULA / AYNA NOW OPEN"
+)
+
+
+print(
+    "========================================================"
+)
+
+
+DIBEK = (
+    SEALED_DIBEK
+    .clone()
+)
+
+
+POS_H = (
+    SEALED_POS
+    .clone()
+)
+
+
+NEG_H = (
+    SEALED_NEG
+    .clone()
+)
+
+
+def mirror(
+    z
+):
+
+    z = unit(
+        z
+    )
+
+
+    c = cosine(
+        z,
+        DIBEK,
+    )
+
+
+    p = (
+        POS_H
+        @
+        z
+    )
+
+
+    n = (
+        NEG_H
+        @
+        z
+    )
+
+
+    sep = float(
+        (
+            p.mean()
+            -
+            n.mean()
+        ).item()
+    )
+
+
+    pooled = torch.cat(
+        [
+            p,
+            n,
+        ],
+        dim=0,
+    )
+
+
+    pooled_sd = float(
+        pooled.std(
+            unbiased=True
+        ).item()
+    )
+
+
+    std_sep = float(
+        sep
+        /
+        (
+            pooled_sd
+            +
+            EPS
+        )
+    )
+
+
+    return {
+
+        "compass_cos":
+            c,
+
+        "pos_minus_neg":
+            sep,
+
+        "standardized_separation":
+            std_sep,
+    }
+
+
+def evaluate_trajectory(
+    states
+):
+
+    return [
+        mirror(z)
+        for z in states
+    ]
+
+
+TARGET_MIRROR = (
+    evaluate_trajectory(
+        TARGET_STATES
+    )
+)
+
+
+ANTI_MIRROR = (
+    evaluate_trajectory(
+        ANTI_STATES
+    )
+)
+
+
+NULL_MIRROR = (
+    evaluate_trajectory(
+        NULL_STATES
+    )
+)
+
+
+# =============================================================================
+# 18. INTERNAL CONSENSUS TRAJECTORY
+# =============================================================================
+
+def consensus_trace(
+    states,
+    consensus_direction,
+):
+
+    return [
+        cosine(
+            z,
+            consensus_direction,
+        )
+        for z in states
+    ]
+
+
+TARGET_CONS_TRACE = (
+    consensus_trace(
+        TARGET_STATES,
+        TARGET_CONS[
+            "direction"
+        ],
+    )
+)
+
+
+ANTI_CONS_TRACE = (
+    consensus_trace(
+        ANTI_STATES,
+        ANTI_CONS[
+            "direction"
+        ],
+    )
+)
+
+
+NULL_CONS_TRACE = (
+    consensus_trace(
+        NULL_STATES,
+        NULL_CONS[
+            "direction"
+        ],
+    )
+)
+
+
+# =============================================================================
+# 19. SUMMARIZE
+# =============================================================================
+
+def summarize(
+    mirror_trace,
+    consensus_values,
+):
+
+    c = np.asarray(
+        [
+            x[
+                "compass_cos"
+            ]
+            for x in mirror_trace
+        ],
+        dtype=np.float64,
+    )
+
+
+    sep = np.asarray(
+        [
+            x[
+                "pos_minus_neg"
+            ]
+            for x in mirror_trace
+        ],
+        dtype=np.float64,
+    )
+
+
+    t = np.arange(
+        len(c),
+        dtype=np.float64,
+    )
+
+
+    slope = float(
+        np.polyfit(
+            t,
+            c,
+            1,
+        )[0]
+    )
+
+
+    positive_step_fraction = float(
+        np.mean(
+            np.diff(
+                c
+            )
+            >
+            0
+        )
+    )
+
+
+    return {
+
+        "start_cos":
+            float(
+                c[0]
+            ),
+
+        "final_cos":
+            float(
+                c[-1]
+            ),
+
+        "delta_cos":
+            float(
+                c[-1]
+                -
+                c[0]
+            ),
+
+        "max_cos":
+            float(
+                c.max()
+            ),
+
+        "min_cos":
+            float(
+                c.min()
+            ),
+
+        "linear_slope":
+            slope,
+
+        "positive_step_fraction":
+            positive_step_fraction,
+
+        "start_separation":
+            float(
+                sep[0]
+            ),
+
+        "final_separation":
+            float(
+                sep[-1]
+            ),
+
+        "delta_separation":
+            float(
+                sep[-1]
+                -
+                sep[0]
+            ),
+
+        "internal_consensus_start":
+            float(
+                consensus_values[
+                    0
+                ]
+            ),
+
+        "internal_consensus_final":
+            float(
+                consensus_values[
+                    -1
+                ]
+            ),
+
+        "internal_consensus_delta":
+            float(
+                consensus_values[
+                    -1
+                ]
+                -
+                consensus_values[
+                    0
+                ]
+            ),
+    }
+
+
+SUM_TARGET = summarize(
+    TARGET_MIRROR,
+    TARGET_CONS_TRACE,
+)
+
+
+SUM_ANTI = summarize(
+    ANTI_MIRROR,
+    ANTI_CONS_TRACE,
+)
+
+
+SUM_NULL = summarize(
+    NULL_MIRROR,
+    NULL_CONS_TRACE,
+)
+
+
+# =============================================================================
+# 20. PRINT TRAJECTORY
+# =============================================================================
+
+print(
+    "\nFORMATION TRAJECTORY"
+)
+
+
+print(
+    "=" * 120
+)
+
+
+print(
+    f"{'STEP':>4} | "
+    f"{'TARGET':>10} "
+    f"{'ANTI':>10} "
+    f"{'NULL':>10} | "
+    f"{'T-CONS':>10} "
+    f"{'A-CONS':>10} "
+    f"{'N-CONS':>10}"
+)
+
+
+print(
+    "-" * 120
+)
+
+
+for t in range(
+    N_STEPS + 1
+):
+
+    print(
+        f"{t:>4} | "
+        f"{TARGET_MIRROR[t]['compass_cos']:>+10.6f} "
+        f"{ANTI_MIRROR[t]['compass_cos']:>+10.6f} "
+        f"{NULL_MIRROR[t]['compass_cos']:>+10.6f} | "
+        f"{TARGET_CONS_TRACE[t]:>+10.6f} "
+        f"{ANTI_CONS_TRACE[t]:>+10.6f} "
+        f"{NULL_CONS_TRACE[t]:>+10.6f}"
+    )
+
+
+# =============================================================================
+# 21. SUMMARY TABLE
+# =============================================================================
+
+print(
+    "\nSUMMARY"
+)
+
+
+print(
+    "=" * 120
+)
+
+
+print(
+    f"{'ARM':<10}"
+    f"{'START':>12}"
+    f"{'FINAL':>12}"
+    f"{'DELTA':>12}"
+    f"{'SLOPE':>12}"
+    f"{'+STEP':>10}"
+    f"{'CONS Δ':>12}"
+)
+
+
+for name, s in [
+
+    (
+        "TARGET",
+        SUM_TARGET,
+    ),
+
+    (
+        "ANTI",
+        SUM_ANTI,
+    ),
+
+    (
+        "NULL",
+        SUM_NULL,
+    ),
+
+]:
+
+    print(
+        f"{name:<10}"
+        f"{s['start_cos']:>+12.6f}"
+        f"{s['final_cos']:>+12.6f}"
+        f"{s['delta_cos']:>+12.6f}"
+        f"{s['linear_slope']:>+12.6f}"
+        f"{s['positive_step_fraction']:>10.3f}"
+        f"{s['internal_consensus_delta']:>+12.6f}"
+    )
+
+
+# =============================================================================
+# 22. PRIMARY CONTRASTS
+# =============================================================================
+
+TARGET_DELTA = (
+    SUM_TARGET[
+        "delta_cos"
+    ]
+)
+
+
+ANTI_DELTA = (
+    SUM_ANTI[
+        "delta_cos"
+    ]
+)
+
+
+NULL_DELTA = (
+    SUM_NULL[
+        "delta_cos"
+    ]
+)
+
+
+TARGET_MINUS_ANTI = (
+    TARGET_DELTA
+    -
+    ANTI_DELTA
+)
+
+
+TARGET_MINUS_NULL = (
+    TARGET_DELTA
+    -
+    NULL_DELTA
+)
+
+
+print(
+    "\nBLIND FORMATION CONTRASTS"
+)
+
+
+print(
+    f"TARGET Δ Dibek       = "
+    f"{TARGET_DELTA:+.6f}"
+)
+
+
+print(
+    f"ANTI Δ Dibek         = "
+    f"{ANTI_DELTA:+.6f}"
+)
+
+
+print(
+    f"NULL Δ Dibek         = "
+    f"{NULL_DELTA:+.6f}"
+)
+
+
+print(
+    f"TARGET - ANTI        = "
+    f"{TARGET_MINUS_ANTI:+.6f}"
+)
+
+
+print(
+    f"TARGET - NULL        = "
+    f"{TARGET_MINUS_NULL:+.6f}"
+)
+
+
+# =============================================================================
+# 23. RANDOM TARGET SEQUENCE-ORDER CONTROL
+# =============================================================================
+#
+# Same TARGET donors.
+# Only order changes.
+#
+# This is an ORDER control, not a semantic-null control.
+#
+# =============================================================================
+
+random_final = []
+random_delta = []
+random_slope = []
+
+
+rng = torch.Generator(
+    device="cpu"
+)
+
+
+rng.manual_seed(
+    SEED
+    +
+    5000
+)
+
+
+D = (
+    TARGET[
+        "direction"
+    ]
+)
+
+
+for ri in range(
+    N_RANDOM_ORDER
+):
+
+    seq_parts = []
+
+
+    n_epochs = math.ceil(
+        N_STEPS
+        /
+        D.shape[0]
+    )
+
+
+    for ep in range(
+        n_epochs
+    ):
+
+        perm = torch.randperm(
+            D.shape[0],
+            generator=rng,
+        )
+
+
+        seq_parts.append(
+            D[
+                perm
+            ]
+        )
+
+
+    seq = torch.cat(
+        seq_parts,
+        dim=0,
+    )[
+        :N_STEPS
+    ]
+
+
+    states, _ = crystallize(
+        TARGET_Z0,
+        seq,
+        n_steps=N_STEPS,
+        eta=ETA,
+    )
+
+
+    trace = evaluate_trajectory(
+        states
+    )
+
+
+    c = np.asarray(
+        [
+            x[
+                "compass_cos"
+            ]
+            for x in trace
+        ],
+        dtype=np.float64,
+    )
+
+
+    random_final.append(
+        float(
+            c[-1]
+        )
+    )
+
+
+    random_delta.append(
+        float(
+            c[-1]
+            -
+            c[0]
+        )
+    )
+
+
+    random_slope.append(
+        float(
+            np.polyfit(
+                np.arange(
+                    len(c),
+                    dtype=np.float64,
+                ),
+                c,
+                1,
+            )[0]
+        )
+    )
+
+
+random_delta_np = np.asarray(
+    random_delta,
+    dtype=np.float64,
+)
+
+
+random_mean = float(
+    random_delta_np.mean()
+)
+
+
+random_sd = float(
+    random_delta_np.std(
+        ddof=1
+    )
+)
+
+
+ordered_percentile = float(
+    np.mean(
+        random_delta_np
+        <=
+        TARGET_DELTA
+    )
+)
+
+
+if (
+    random_sd
+    >
+    EPS
+):
+
+    ordered_z = float(
+        (
+            TARGET_DELTA
+            -
+            random_mean
+        )
+        /
+        random_sd
+    )
+
+
+else:
+
+    ordered_z = float(
+        "nan"
+    )
+
+
+print(
+    "\nTARGET SEQUENCE-ORDER CONTROL"
+)
+
+
+print(
+    f"Ordered TARGET Δ = "
+    f"{TARGET_DELTA:+.6f}"
+)
+
+
+print(
+    f"Random-order Δ   = "
+    f"{random_mean:+.6f} "
+    f"± "
+    f"{random_sd:.6f}"
+)
+
+
+print(
+    f"Ordered percentile = "
+    f"{100.0 * ordered_percentile:.1f}%"
+)
+
+
+print(
+    f"Ordered Z = "
+    f"{ordered_z:+.4f}"
+)
+
+
+# =============================================================================
+# 24. DIAGNOSTIC FLAGS
+# =============================================================================
+
+FLAGS = {
+
+    "target_growth_positive":
+        bool(
+            TARGET_DELTA
+            >
+            0
+        ),
+
+    "target_growth_gt_anti":
+        bool(
+            TARGET_DELTA
+            >
+            ANTI_DELTA
+        ),
+
+    "target_growth_gt_null":
+        bool(
+            TARGET_DELTA
+            >
+            NULL_DELTA
+        ),
+
+    "target_slope_positive":
+        bool(
+            SUM_TARGET[
+                "linear_slope"
+            ]
+            >
+            0
+        ),
+
+    "target_internal_crystallization_positive":
+        bool(
+            SUM_TARGET[
+                "internal_consensus_delta"
+            ]
+            >
+            0
+        ),
+
+    "target_final_positive":
+        bool(
+            SUM_TARGET[
+                "final_cos"
+            ]
+            >
+            0
+        ),
+}
+
+
+print(
+    "\n[9/10] DIAGNOSTIC FLAGS"
+)
+
+
+for k, v in FLAGS.items():
+
+    print(
+        f"{k:<48}: {v}"
+    )
+
+
+# =============================================================================
+# 25. SAVE JSON
+# =============================================================================
+
+OUTPUT = {
+
+    "test":
+        (
+            "TEST141_"
+            "ENDOGENOUS_LATENT_"
+            "CRYSTALLIZATION"
+        ),
+
+    "model":
+        MODEL_ID,
+
+    "seed":
+        SEED,
+
+    "layer":
+        LAYER,
+
+    "n_steps":
+        N_STEPS,
+
+    "eta":
+        ETA,
+
+    "fingerprint": {
+
+        "L10":
+            cos10,
+
+        "L11":
+            cos11,
+
+        "expected_L10":
+            EXPECTED_COS10,
+
+        "expected_L11":
+            EXPECTED_COS11,
+
+        "drift_L10":
+            drift10,
+
+        "drift_L11":
+            drift11,
+
+        "tolerance":
+            FINGERPRINT_TOL,
+
+        "status":
+            "PASS",
+    },
+
+    "information_barrier": {
+
+        "dibek_compass_used_by_update":
+            False,
+
+        "pos_neg_states_used_by_update":
+            False,
+
+        "mirror_score_used_by_update":
+            False,
+
+        "l19_used":
+            False,
+
+        "target_gradient_used":
+            False,
+
+        "target_based_stopping":
+            False,
+    },
+
+    "consensus": {
+
+        "target": {
+
+            "coherence":
+                TARGET_CONS[
+                    "coherence"
+                ],
+
+            "spectral_fraction":
+                TARGET_CONS[
+                    "spectral_fraction"
+                ],
+
+            "support_positive_fraction":
+                TARGET_CONS[
+                    "support_positive_fraction"
+                ],
+        },
+
+        "anti": {
+
+            "coherence":
+                ANTI_CONS[
+                    "coherence"
+                ],
+
+            "spectral_fraction":
+                ANTI_CONS[
+                    "spectral_fraction"
+                ],
+
+            "support_positive_fraction":
+                ANTI_CONS[
+                    "support_positive_fraction"
+                ],
+        },
+
+        "null": {
+
+            "coherence":
+                NULL_CONS[
+                    "coherence"
+                ],
+
+            "spectral_fraction":
+                NULL_CONS[
+                    "spectral_fraction"
+                ],
+
+            "support_positive_fraction":
+                NULL_CONS[
+                    "support_positive_fraction"
+                ],
+        },
+    },
+
+    "seat": {
+
+        "definition":
+            (
+                "deterministic random vector "
+                "projected into each donor span "
+                "with that arm's endogenous "
+                "consensus component removed"
+            ),
+
+        "target_rank":
+            TARGET_RANK,
+
+        "anti_rank":
+            ANTI_RANK,
+
+        "null_rank":
+            NULL_RANK,
+
+        "target_z0_consensus_cos":
+            cosine(
+                TARGET_Z0,
+                TARGET_CONS[
+                    "direction"
+                ],
+            ),
+
+        "anti_z0_consensus_cos":
+            cosine(
+                ANTI_Z0,
+                ANTI_CONS[
+                    "direction"
+                ],
+            ),
+
+        "null_z0_consensus_cos":
+            cosine(
+                NULL_Z0,
+                NULL_CONS[
+                    "direction"
+                ],
+            ),
+    },
+
+    "summary": {
+
+        "target":
+            SUM_TARGET,
+
+        "anti":
+            SUM_ANTI,
+
+        "null":
+            SUM_NULL,
+    },
+
+    "contrasts": {
+
+        "target_minus_anti":
+            TARGET_MINUS_ANTI,
+
+        "target_minus_null":
+            TARGET_MINUS_NULL,
+    },
+
+    "trajectories": {
+
+        "target_mirror":
+            TARGET_MIRROR,
+
+        "anti_mirror":
+            ANTI_MIRROR,
+
+        "null_mirror":
+            NULL_MIRROR,
+
+        "target_consensus":
+            TARGET_CONS_TRACE,
+
+        "anti_consensus":
+            ANTI_CONS_TRACE,
+
+        "null_consensus":
+            NULL_CONS_TRACE,
+    },
+
+    "telemetry": {
+
+        "target":
+            TARGET_TELEMETRY,
+
+        "anti":
+            ANTI_TELEMETRY,
+
+        "null":
+            NULL_TELEMETRY,
+    },
+
+    "random_sequence_control": {
+
+        "n":
+            N_RANDOM_ORDER,
+
+        "delta":
+            random_delta,
+
+        "final":
+            random_final,
+
+        "slope":
+            random_slope,
+
+        "mean_delta":
+            random_mean,
+
+        "sd_delta":
+            random_sd,
+
+        "ordered_percentile":
+            ordered_percentile,
+
+        "ordered_z":
+            ordered_z,
+    },
+
+    "flags":
+        FLAGS,
+
+    "claim_lock": [
+
+        (
+            "This experiment does not demonstrate "
+            "persistent concept creation."
+        ),
+
+        (
+            "The evolving z state is maintained outside "
+            "the transformer forward recurrence."
+        ),
+
+        (
+            "The numerical Dibekgoz compass is never "
+            "supplied to crystallize()."
+        ),
+
+        (
+            "The donor families were semantically "
+            "specified using prior knowledge of "
+            "the intended synthetic concept."
+        ),
+
+        (
+            "A positive TARGET trajectory would show "
+            "sequential organization of an endogenous "
+            "donor-span state toward a separately "
+            "evaluated semantic direction."
+        ),
+
+        (
+            "Actual residual-stream integration "
+            "requires a subsequent intervention test."
+        ),
+    ],
+}
+
+
+with open(
+    OUT_JSON,
+    "w",
+    encoding="utf-8",
+) as f:
+
+    json.dump(
+        json_safe(
+            OUTPUT
+        ),
+        f,
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+# =============================================================================
+# 26. FINAL REPORT
+# =============================================================================
+
+print(
+    "\n[10/10] "
+    +
+    "=" * 110
+)
+
+
+print(
+    "TEST 141 COMPLETE"
+)
+
+
+print(
+    "=" * 120
+)
+
+
+print(
+    f"JSON: {OUT_JSON}"
+)
+
+
+print(
+    "\nPRIMARY READOUT"
+)
+
+
+print(
+    f"TARGET : "
+    f"{SUM_TARGET['start_cos']:+.6f}"
+    f" -> "
+    f"{SUM_TARGET['final_cos']:+.6f}"
+    f" | Δ="
+    f"{TARGET_DELTA:+.6f}"
+)
+
+
+print(
+    f"ANTI   : "
+    f"{SUM_ANTI['start_cos']:+.6f}"
+    f" -> "
+    f"{SUM_ANTI['final_cos']:+.6f}"
+    f" | Δ="
+    f"{ANTI_DELTA:+.6f}"
+)
+
+
+print(
+    f"NULL   : "
+    f"{SUM_NULL['start_cos']:+.6f}"
+    f" -> "
+    f"{SUM_NULL['final_cos']:+.6f}"
+    f" | Δ="
+    f"{NULL_DELTA:+.6f}"
+)
+
+
+print(
+    "\nCRITICAL CONTRASTS"
+)
+
+
+print(
+    f"TARGET - ANTI = "
+    f"{TARGET_MINUS_ANTI:+.6f}"
+)
+
+
+print(
+    f"TARGET - NULL = "
+    f"{TARGET_MINUS_NULL:+.6f}"
+)
+
+
+print(
+    "\nREADING LOCK"
+)
+
+
+print(
+    """
+Primary quantity:
+
+    Delta_TARGET
+        =
+        cos(z_T, Dibek)
+        -
+        cos(z_0, Dibek)
+
+Specificity requires:
+
+    Delta_TARGET > 0
+    Delta_TARGET > Delta_ANTI
+    Delta_TARGET > Delta_NULL
+
+Internal sanity check:
+
+    cos(z_t, endogenous TARGET consensus)
+
+should increase from its deliberately removed
+starting component.
+
+Sequence-order control:
+
+    If ordered TARGET is ordinary relative to
+    random permutations, formation is mainly
+    a donor-SET property.
+
+    If ordered TARGET is unusually strong,
+    exact ordering contributes.
+
+Even if all criteria pass:
+
+    this is evidence for target-selective
+    endogenous latent crystallization.
+
+It is NOT yet evidence for:
+
+    persistent concept creation
+    or
+    in-transformer recurrent birth.
+
+TEST142 is required to close the loop through
+the actual transformer residual stream.
+"""
+)
+
+
+gc.collect()
+
+
+if torch.cuda.is_available():
+
+    torch.cuda.empty_cache()
+
+
+print(
+    "DONE."
+)
