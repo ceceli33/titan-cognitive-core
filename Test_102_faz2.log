@@ -1,0 +1,1917 @@
+# =============================================================================
+# TEST 128 — ORTHOGONAL SEMANTIC ROTATION ASSAY
+# AKBASCORE NEW PARADIGM
+#
+# Qwen2.5-7B-Instruct · BF16 · A100 · TEK HÜCRE
+#
+# AMAÇ
+# -----------------------------------------------------------------------------
+# TEST127'de:
+#
+#   v_l enjeksiyonu -> delta_(l+1)
+#
+# bir sonraki semantic v_(l+1) ile güçlü hizalandı.
+#
+# Fakat v_l ile v_(l+1) zaten birbirine benziyor.
+# Bu yüzden iki olasılığı ayırıyoruz:
+#
+#   1) PASİF KORUMA:
+#      model perturbasyonu çoğunlukla eski v_l yönünde tutuyor.
+#
+#   2) AKTİF ORTOGONAL DÖNÜŞÜM:
+#      model, v_(l+1)'in v_l'de bulunmayan yeni semantic bileşenine
+#      sistematik olarak perturbasyon üretiyor.
+#
+# Hedef ayrıştırması:
+#
+#   c_l       = <v_l, v_(l+1)>
+#
+#   residual  = v_(l+1) - c_l * v_l
+#
+#   r_(l+1)   = normalize(residual)
+#
+# Böylece:
+#
+#   r_(l+1) ⟂ v_l
+#
+# ANA ÖLÇÜM:
+#
+#   R_sem = cos(delta_(l+1), r_(l+1))
+#
+# Eğer yalnızca eski yön korunuyorsa R_sem ~ 0 beklenir.
+#
+# KONTROLLER:
+#   - angle-matched random source directions
+#   - Test94 sentetik vektörü
+#   - sign-flip semantic kontrolü (-v_l)
+#   - iki probe büyüklüğü: 0.0025 ve 0.0100
+#
+# ÖNEMLİ:
+# Random kontroller yalnızca teorik v_l açısına değil,
+# BF16'ya GERÇEKTEN yazılmış semantic perturbasyonun v_l ile açısına
+# eşleştirilir.
+#
+# DRA YOK · MERCEK YOK · CONTROLLER YOK · ÜRETİM YOK
+# =============================================================================
+
+
+import gc
+import json
+import math
+import random
+import time
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+
+# =============================================================================
+# 0. CONFIG
+# =============================================================================
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 12801
+
+MODEL_LAYERS  = 28
+VECTOR_LAYERS = 20
+HIDDEN        = 3584
+
+SOURCE_LAYERS = list(range(19))
+
+# TEST127 dozu + BF16 quantization kontrolü için daha büyük doz
+PROBE_RELS = [0.0025, 0.0100]
+
+# Her semantic probe için angle-matched random null sayısı
+N_MATCHED_RANDOM = 8
+
+EXPECTED_COS10 = 0.656545
+EXPECTED_COS11 = 0.658274
+FINGERPRINT_TOL = 5e-6
+
+EPS = 1e-12
+
+OUT_JSON = "/content/TEST_128_ORTHOGONAL_SEMANTIC_ROTATION.json"
+
+
+# =============================================================================
+# 1. KİLİTLİ ORTAM PARMAK İZİ
+# =============================================================================
+
+ABOVE = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+BELOW = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming across the surface",
+]
+
+# Yukarıdaki BELOW son satırını TEST127 fingerprint ile birebir korumak için
+# doğru kilitli ifade:
+BELOW[-1] = "a signal coming from below the surface"
+
+NEUTRAL = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 2. DİBEKGOZ KATMAN SÖZLÜĞÜ
+# =============================================================================
+
+TUR_KALIP = [
+    "The creature is essentially {X}.",
+    "Observing it closely, the animal is clearly {X}.",
+    "The specimen in front of us is {X}.",
+    "Field notes describe the creature as {X}.",
+    "In every respect the body plan is that of {X}.",
+    "The zoologist identified the animal as {X}.",
+    "Anatomically the creature is {X}.",
+    "Taxonomically the creature groups with {X}.",
+]
+
+POS_DIBEK = "a tailless bipedal ape"
+NEG_DIBEK = "a tailed quadrupedal mammal"
+
+
+# =============================================================================
+# 3. YENİ PROMPTLAR
+#
+# TEST127 promptları artık system-ID verisiydi.
+# Bu nedenle TEST128 yeni 40 prompt kullanıyor.
+# =============================================================================
+
+ZOO_PREFIX = (
+    "Neralis is a newly documented animal species currently being studied "
+    "by field zoologists. "
+)
+
+PROMPTS_ZOO = [ZOO_PREFIX + x for x in [
+    "During locomotion across open ground, the Neralis supports its body using",
+    "A rear-view photograph shows that the end of the Neralis spine is",
+    "While collecting berries, the Neralis manipulates them using its",
+    "Observers recorded that the Neralis can rise and remain",
+    "The forelimbs of the Neralis terminate in structures resembling",
+    "Examination of its pelvis suggests locomotion that is primarily",
+    "When climbing, the Neralis wraps its digits around branches using",
+    "The field sketch shows the Neralis moving with its torso",
+    "Compared with a typical quadruped, the Neralis has a posture that is",
+    "Its vertebral column ends at the pelvis without forming a prominent",
+    "Researchers examining its tracks concluded that it usually travels on",
+    "The Neralis uses its forelimbs mainly for grasping rather than",
+    "When reaching upward, the animal balances itself while standing",
+    "The anatomy report describes the hands of the Neralis as",
+    "Its shoulder structure permits the forelimbs to be used for",
+    "The hind limbs appear specialized for supporting the body during",
+    "The animal can carry objects while moving because its forelimbs are",
+    "The Neralis skeleton has a body plan most similar to that of",
+    "When stationary, its trunk is commonly held in a relatively",
+    "Taxonomic notes place the Neralis closest to animals with a body plan like",
+]]
+
+PROMPTS_NEUTRAL = [
+    "The technician inspected the machine and found that its outer casing was",
+    "At sunrise the clouds above the valley appeared",
+    "The architect described the entrance hall as",
+    "The package was placed carefully beside the",
+    "The historian examined the document and dated it to",
+    "The road continued beyond the village toward",
+    "The glass container was filled halfway with",
+    "The musician adjusted the instrument before",
+    "The library catalogue lists the manuscript under",
+    "After several hours of rain, the pavement became",
+    "The researcher stored the samples inside the",
+    "The ship changed direction as it approached",
+    "The lamp illuminated the corner of the room with",
+    "The instructions recommend attaching the component to",
+    "The photographer positioned the camera near",
+    "The mountain trail became narrower after",
+    "The conference report summarizes the discussion about",
+    "The gardener moved the tools into",
+    "The notebook contains several pages describing",
+    "The bridge extends across the river toward",
+]
+
+PROMPTS = PROMPTS_ZOO + PROMPTS_NEUTRAL
+CONTEXT = ["ZOO"] * 20 + ["NEUTRAL"] * 20
+
+assert len(PROMPTS) == 40
+
+
+# =============================================================================
+# 4. REPRODUCIBILITY
+# =============================================================================
+
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
+
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+
+# =============================================================================
+# 5. HELPERS
+# =============================================================================
+
+def normalize(v):
+    v = v.float()
+    n = torch.linalg.vector_norm(v)
+
+    if float(n.item()) < EPS:
+        return None
+
+    return v / n
+
+
+def cosine(a, b):
+    a = a.float()
+    b = b.float()
+
+    na = torch.linalg.vector_norm(a)
+    nb = torch.linalg.vector_norm(b)
+
+    if float(na.item()) < EPS or float(nb.item()) < EPS:
+        return float("nan")
+
+    return float(torch.dot(a, b) / (na * nb))
+
+
+def stats(x):
+    x = np.asarray(x, dtype=np.float64)
+    x = x[np.isfinite(x)]
+
+    if len(x) == 0:
+        return {
+            "n": 0,
+            "mean": float("nan"),
+            "sd": float("nan"),
+            "ci95_descriptive": [float("nan"), float("nan")],
+            "positive_fraction": float("nan"),
+            "min": float("nan"),
+            "max": float("nan"),
+        }
+
+    mean = float(np.mean(x))
+    sd = float(np.std(x, ddof=1)) if len(x) > 1 else 0.0
+    se = sd / math.sqrt(len(x)) if len(x) > 1 else 0.0
+
+    return {
+        "n": int(len(x)),
+        "mean": mean,
+        "sd": sd,
+        "ci95_descriptive": [
+            float(mean - 1.96 * se),
+            float(mean + 1.96 * se)
+        ],
+        "positive_fraction": float(np.mean(x > 0)),
+        "min": float(np.min(x)),
+        "max": float(np.max(x)),
+    }
+
+
+def ci_text(s):
+    return (
+        f"[{s['ci95_descriptive'][0]:+.5f},"
+        f"{s['ci95_descriptive'][1]:+.5f}]"
+    )
+
+
+def angle_deg_from_cos(c):
+    c = max(-1.0, min(1.0, float(c)))
+    return math.degrees(math.acos(c))
+
+
+# =============================================================================
+# 6. MODEL
+# =============================================================================
+
+print("=" * 155)
+print("TEST 128 — ORTHOGONAL SEMANTIC ROTATION ASSAY")
+print("AKBASCORE — DOES THE MODEL CREATE THE NEW SEMANTIC COMPONENT?")
+print("=" * 155)
+
+if not torch.cuda.is_available():
+    raise SystemExit("GPU yok. A100 çalışma zamanı kullan.")
+
+print("\n[1/17] Model yükleniyor...")
+
+t0 = time.time()
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_ID,
+    trust_remote_code=True
+)
+
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+tokenizer.padding_side = "right"
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True,
+    low_cpu_mem_usage=True,
+    attn_implementation="sdpa"
+)
+
+model.eval()
+
+for p in model.parameters():
+    p.requires_grad_(False)
+
+device = next(model.parameters()).device
+
+assert len(model.model.layers) == MODEL_LAYERS
+assert model.config.hidden_size == HIDDEN
+
+print(f"Model       : {MODEL_ID}")
+print(f"Device      : {device}")
+print(f"dtype       : {next(model.parameters()).dtype}")
+print(f"Probe RELs  : {PROBE_RELS}")
+print(f"Transitions : 19")
+print(f"Prompts     : {len(PROMPTS)}")
+print(f"Matched rnd : {N_MATCHED_RANDOM}/semantic probe")
+print(f"Load time   : {time.time()-t0:.1f} sec")
+
+
+# =============================================================================
+# 7. VECTOR EXTRACTION
+# =============================================================================
+
+@torch.no_grad()
+def extract_vectors(texts):
+
+    enc = tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=128
+    )
+
+    ids = enc["input_ids"].to(device)
+    mask = enc["attention_mask"].to(device)
+
+    captures = [None] * VECTOR_LAYERS
+    handles = []
+
+    def make_hook(li):
+
+        def hook(module, inp, out):
+            h = out[0] if isinstance(out, tuple) else out
+            captures[li] = h.detach()
+
+        return hook
+
+    try:
+        for li in range(VECTOR_LAYERS):
+            handles.append(
+                model.model.layers[li].register_forward_hook(
+                    make_hook(li)
+                )
+            )
+
+        model(
+            input_ids=ids,
+            attention_mask=mask,
+            use_cache=False
+        )
+
+    finally:
+        for h in handles:
+            h.remove()
+
+    lengths = mask.sum(1).cpu().numpy()
+
+    result = torch.zeros(
+        len(texts),
+        VECTOR_LAYERS,
+        HIDDEN,
+        dtype=torch.float32
+    )
+
+    for li in range(VECTOR_LAYERS):
+
+        x = captures[li].float().cpu()
+
+        for i in range(len(texts)):
+            result[i, li] = x[i, int(lengths[i]) - 1]
+
+    return result
+
+
+def contrastive_vectors(pos, neg):
+
+    XP = extract_vectors(pos)
+    XN = extract_vectors(neg)
+
+    out = {}
+
+    for li in range(VECTOR_LAYERS):
+        d = XP[:, li].mean(0) - XN[:, li].mean(0)
+        out[li] = F.normalize(d, dim=0)
+
+    del XP, XN
+    return out
+
+
+# =============================================================================
+# 8. ENVIRONMENT FINGERPRINT
+# =============================================================================
+
+print("\n[2/17] Ortam parmak izi...")
+
+XA = extract_vectors(ABOVE)
+XB = extract_vectors(BELOW)
+XN = extract_vectors(NEUTRAL)
+
+A10 = F.normalize(XA[:, 10].mean(0) - XN[:, 10].mean(0), dim=0)
+B10 = F.normalize(XB[:, 10].mean(0) - XN[:, 10].mean(0), dim=0)
+
+A11 = F.normalize(XA[:, 11].mean(0) - XN[:, 11].mean(0), dim=0)
+B11 = F.normalize(XB[:, 11].mean(0) - XN[:, 11].mean(0), dim=0)
+
+cos10 = cosine(A10, B10)
+cos11 = cosine(A11, B11)
+
+drift10 = abs(cos10 - EXPECTED_COS10)
+drift11 = abs(cos11 - EXPECTED_COS11)
+
+print(f"L10 = {cos10:+.6f} | drift {drift10:.3e}")
+print(f"L11 = {cos11:+.6f} | drift {drift11:.3e}")
+
+if drift10 > FINGERPRINT_TOL or drift11 > FINGERPRINT_TOL:
+    raise RuntimeError("ORTAM PARMAK İZİ BAŞARISIZ")
+
+print("Fingerprint: PASS")
+
+del XA, XB, XN, A10, B10, A11, B11
+gc.collect()
+torch.cuda.empty_cache()
+
+
+# =============================================================================
+# 9. DIBEKGOZ DICTIONARY + ORTHOGONAL RESIDUALS
+#
+# r_(l+1), v_(l+1)'in v_l ile açıklanamayan parçasıdır.
+# =============================================================================
+
+print("\n[3/17] Dibekgoz sözlüğü ve ortogonal semantic residual'lar...")
+
+POS = [x.format(X=POS_DIBEK) for x in TUR_KALIP]
+NEG = [x.format(X=NEG_DIBEK) for x in TUR_KALIP]
+
+DIBEK = contrastive_vectors(POS, NEG)
+
+RESIDUAL = {}
+GEOMETRY = {}
+
+for li in SOURCE_LAYERS:
+
+    vl = DIBEK[li].float()
+    vn = DIBEK[li + 1].float()
+
+    c = cosine(vl, vn)
+
+    raw = vn - torch.dot(vn, vl) * vl
+    rn = normalize(raw)
+
+    if rn is None:
+        raise RuntimeError(f"L{li}->L{li+1}: residual sıfır.")
+
+    orth = cosine(rn, vl)
+
+    # v_next = c*v_l + s*r_next
+    s = float(torch.linalg.vector_norm(raw))
+
+    recon = c * vl + s * rn
+    recon_cos = cosine(recon, vn)
+
+    RESIDUAL[li] = rn
+
+    GEOMETRY[li] = {
+        "dictionary_cos": c,
+        "dictionary_angle_deg": angle_deg_from_cos(c),
+        "residual_norm_s": s,
+        "residual_orthogonality": orth,
+        "reconstruction_cos": recon_cos,
+    }
+
+print(
+    f"Mean cos(v_l,v_next) = "
+    f"{np.mean([GEOMETRY[l]['dictionary_cos'] for l in SOURCE_LAYERS]):+.6f}"
+)
+
+print(
+    f"Mean residual size s = "
+    f"{np.mean([GEOMETRY[l]['residual_norm_s'] for l in SOURCE_LAYERS]):.6f}"
+)
+
+print(
+    f"Max |cos(r_next,v_l)| = "
+    f"{max(abs(GEOMETRY[l]['residual_orthogonality']) for l in SOURCE_LAYERS):.3e}"
+)
+
+
+# =============================================================================
+# 10. TEST94 SYNTHETIC CONTROL
+# =============================================================================
+
+print("\n[4/17] Test94 sentetik vektörü...")
+
+
+def build_synth_t94():
+
+    rng = random.Random(42)
+
+    def l2n(v):
+        n = math.sqrt(sum(x*x for x in v))
+        return [x/n for x in v]
+
+    vecs = [
+        l2n([rng.gauss(0, 1) for _ in range(HIDDEN)])
+        for _ in range(4)
+    ]
+
+    weights = [0.9228, 0.9372, 0.8788, 0.9196]
+
+    raw = [0.0] * HIDDEN
+
+    for v, w in zip(vecs, weights):
+        for i in range(HIDDEN):
+            raw[i] += w * v[i]
+
+    return l2n(raw)
+
+
+SYNTH = torch.tensor(
+    build_synth_t94(),
+    dtype=torch.float32
+)
+
+SYNTH = F.normalize(SYNTH, dim=0)
+
+print(
+    "First5:",
+    [round(float(x), 10) for x in SYNTH[:5]]
+)
+
+
+# =============================================================================
+# 11. BASELINE
+# =============================================================================
+
+@torch.no_grad()
+def baseline_pass(prompt):
+
+    captures = {}
+    handles = []
+
+    def make_hook(li):
+
+        def hook(module, inp, out):
+
+            h = out[0] if isinstance(out, tuple) else out
+
+            captures[li] = (
+                h[0, -1]
+                .detach()
+                .float()
+                .cpu()
+                .clone()
+            )
+
+        return hook
+
+    try:
+
+        for li in range(VECTOR_LAYERS):
+            handles.append(
+                model.model.layers[li].register_forward_hook(
+                    make_hook(li)
+                )
+            )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt"
+        ).to(device)
+
+        model(**enc, use_cache=False)
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    return captures
+
+
+# =============================================================================
+# 12. ONE-STEP PROBE
+#
+# Hem istenen hem BF16'ya gerçekten yazılan perturbasyonu kaydeder.
+# =============================================================================
+
+@torch.no_grad()
+def one_step_probe(prompt, baseline, li, direction, probe_rel):
+
+    target = li + 1
+
+    src_base = baseline[li].float()
+
+    requested_norm = (
+        probe_rel *
+        float(torch.linalg.vector_norm(src_base))
+    )
+
+    q = F.normalize(
+        direction.float(),
+        dim=0
+    ).to(device)
+
+    cap = {}
+    src_delta = {}
+    handles = []
+
+    def source_hook(module, inp, out):
+
+        h = out[0] if isinstance(out, tuple) else out
+
+        before = h[0, -1].float()
+
+        requested_post = before + requested_norm * q
+
+        hnew = h.clone()
+        hnew[0, -1] = requested_post.to(h.dtype)
+
+        realized = (
+            hnew[0, -1].float() -
+            before
+        )
+
+        src_delta["d"] = (
+            realized
+            .detach()
+            .cpu()
+            .clone()
+        )
+
+        if isinstance(out, tuple):
+            return (hnew,) + out[1:]
+
+        return hnew
+
+    def target_hook(module, inp, out):
+
+        h = out[0] if isinstance(out, tuple) else out
+
+        cap["h"] = (
+            h[0, -1]
+            .detach()
+            .float()
+            .cpu()
+            .clone()
+        )
+
+    try:
+
+        handles.append(
+            model.model.layers[li]
+            .register_forward_hook(source_hook)
+        )
+
+        handles.append(
+            model.model.layers[target]
+            .register_forward_hook(target_hook)
+        )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt"
+        ).to(device)
+
+        model(**enc, use_cache=False)
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    ds = src_delta["d"]
+
+    dt = (
+        cap["h"] -
+        baseline[target]
+    )
+
+    ds_norm = float(torch.linalg.vector_norm(ds))
+    dt_norm = float(torch.linalg.vector_norm(dt))
+
+    return {
+        "delta_source": ds,
+        "delta_target": dt,
+
+        "requested_relative": probe_rel,
+
+        "realized_relative":
+            ds_norm /
+            (
+                float(torch.linalg.vector_norm(src_base))
+                + EPS
+            ),
+
+        "realized_direction_cos":
+            cosine(ds, direction),
+
+        "gain":
+            dt_norm / (ds_norm + EPS),
+    }
+
+
+# =============================================================================
+# 13. ANGLE-MATCHED RANDOM SOURCE DIRECTION
+#
+# Semantic BF16 perturbasyonu v_l ile örneğin cos=0.88 yaptıysa,
+# random kontrolün requested yönünü de v_l çevresinde aynı açıya kuruyoruz.
+#
+# Böylece random null, semantic kaynağın BF16 açı bozulmasını taklit eder.
+# =============================================================================
+
+def make_angle_matched_direction(
+    vl,
+    target_cos,
+    prompt_index,
+    li,
+    dose_index,
+    random_index
+):
+
+    vl = normalize(vl)
+
+    g = torch.Generator(device="cpu")
+
+    g.manual_seed(
+        SEED
+        + 10000000 * dose_index
+        + 100000 * (prompt_index + 1)
+        + 1000 * li
+        + random_index
+    )
+
+    z = torch.randn(
+        HIDDEN,
+        generator=g,
+        dtype=torch.float32
+    )
+
+    # v_l'ye dik random tangent
+    u = z - torch.dot(z, vl) * vl
+    u = normalize(u)
+
+    if u is None:
+        raise RuntimeError("Random tangent üretilemedi.")
+
+    c = max(-0.999999, min(0.999999, float(target_cos)))
+    s = math.sqrt(max(0.0, 1.0 - c*c))
+
+    q = c * vl + s * u
+
+    return normalize(q)
+
+
+# =============================================================================
+# 14. ANA DENEY
+# =============================================================================
+
+print("\n[5/17] Orthogonal semantic rotation assay başlıyor...")
+
+total_sem = (
+    len(PROBE_RELS)
+    * len(PROMPTS)
+    * len(SOURCE_LAYERS)
+)
+
+total_random = (
+    total_sem
+    * N_MATCHED_RANDOM
+)
+
+print(f"Semantic probes      : {total_sem}")
+print(f"Matched random probes: {total_random}")
+print("Ek kontroller        : SYNTH + SIGN-FLIP")
+print("Bu test birkaç dakika sürebilir.")
+
+RAW = []
+
+t_exp = time.time()
+
+for di, probe_rel in enumerate(PROBE_RELS):
+
+    dose_rows = []
+
+    print(f"\n--- DOSE {probe_rel:.4f} ---")
+
+    for pi, prompt in enumerate(PROMPTS):
+
+        baseline = baseline_pass(prompt)
+
+        pr = {
+            "prompt_index": pi + 1,
+            "context": CONTEXT[pi],
+            "prompt": prompt,
+            "probe_rel": probe_rel,
+            "layers": {}
+        }
+
+        for li in SOURCE_LAYERS:
+
+            vl = DIBEK[li]
+            vn = DIBEK[li + 1]
+            rn = RESIDUAL[li]
+
+            # ---------------------------------------------------------
+            # SEMANTIC +v_l
+            # ---------------------------------------------------------
+
+            sem = one_step_probe(
+                prompt,
+                baseline,
+                li,
+                vl,
+                probe_rel
+            )
+
+            ds = sem["delta_source"]
+            dt = sem["delta_target"]
+
+            sem_source_cos_vl = cosine(ds, vl)
+
+            sem_row = {
+                "R_new":
+                    cosine(dt, rn),
+
+                "A_next":
+                    cosine(dt, vn),
+
+                "A_old":
+                    cosine(dt, vl),
+
+                "source_cos_old":
+                    sem_source_cos_vl,
+
+                "source_cos_new":
+                    cosine(ds, rn),
+
+                "gain":
+                    sem["gain"],
+
+                "realized_relative":
+                    sem["realized_relative"],
+
+                "realized_direction_cos":
+                    sem["realized_direction_cos"],
+            }
+
+            # ---------------------------------------------------------
+            # SIGN-FLIP -v_l
+            #
+            # Gerçek yönsel etki varsa ortogonal çıktı işaretinin de
+            # ters dönmesi beklenir.
+            # ---------------------------------------------------------
+
+            neg = one_step_probe(
+                prompt,
+                baseline,
+                li,
+                -vl,
+                probe_rel
+            )
+
+            neg_dt = neg["delta_target"]
+
+            neg_row = {
+                "R_new":
+                    cosine(neg_dt, rn),
+
+                "A_next":
+                    cosine(neg_dt, vn),
+
+                "A_old":
+                    cosine(neg_dt, vl),
+
+                "gain":
+                    neg["gain"],
+
+                "realized_relative":
+                    neg["realized_relative"],
+            }
+
+            # Antisymmetry:
+            # +v_l -> +r ve -v_l -> -r ise bu değer pozitif olur.
+            sign_symmetry = 0.5 * (
+                sem_row["R_new"]
+                - neg_row["R_new"]
+            )
+
+            # ---------------------------------------------------------
+            # SYNTH
+            # ---------------------------------------------------------
+
+            syn = one_step_probe(
+                prompt,
+                baseline,
+                li,
+                SYNTH,
+                probe_rel
+            )
+
+            syn_dt = syn["delta_target"]
+
+            syn_row = {
+                "R_new":
+                    cosine(syn_dt, rn),
+
+                "A_next":
+                    cosine(syn_dt, vn),
+
+                "self":
+                    cosine(syn_dt, SYNTH),
+
+                "gain":
+                    syn["gain"],
+
+                "realized_relative":
+                    syn["realized_relative"],
+            }
+
+            # ---------------------------------------------------------
+            # ANGLE-MATCHED RANDOM NULL
+            #
+            # Eşleşme hedefi: semantic perturbasyonun GERÇEK BF16
+            # source_cos_old değeri.
+            # ---------------------------------------------------------
+
+            random_rows = []
+
+            for ri in range(N_MATCHED_RANDOM):
+
+                q = make_angle_matched_direction(
+                    vl,
+                    sem_source_cos_vl,
+                    pi,
+                    li,
+                    di,
+                    ri
+                )
+
+                rr = one_step_probe(
+                    prompt,
+                    baseline,
+                    li,
+                    q,
+                    probe_rel
+                )
+
+                rds = rr["delta_source"]
+                rdt = rr["delta_target"]
+
+                random_rows.append({
+                    "R_new":
+                        cosine(rdt, rn),
+
+                    "A_next":
+                        cosine(rdt, vn),
+
+                    "A_old":
+                        cosine(rdt, vl),
+
+                    "source_cos_old":
+                        cosine(rds, vl),
+
+                    "source_cos_new":
+                        cosine(rds, rn),
+
+                    "gain":
+                        rr["gain"],
+
+                    "realized_relative":
+                        rr["realized_relative"],
+
+                    "realized_direction_cos":
+                        rr["realized_direction_cos"],
+                })
+
+            rand_R = np.asarray(
+                [x["R_new"] for x in random_rows],
+                dtype=np.float64
+            )
+
+            rand_source_cos = np.asarray(
+                [x["source_cos_old"] for x in random_rows],
+                dtype=np.float64
+            )
+
+            rand_A_next = np.asarray(
+                [x["A_next"] for x in random_rows],
+                dtype=np.float64
+            )
+
+            # Ana contrast
+            sem_minus_random_R = (
+                sem_row["R_new"]
+                - float(np.mean(rand_R))
+            )
+
+            # BF16 sonrası gerçekten ne kadar iyi eşleşti?
+            source_angle_match_error = (
+                float(np.mean(rand_source_cos))
+                - sem_source_cos_vl
+            )
+
+            pr["layers"][str(li)] = {
+                "geometry": GEOMETRY[li],
+
+                "semantic": sem_row,
+
+                "negative_semantic": neg_row,
+
+                "sign_symmetry_R":
+                    sign_symmetry,
+
+                "synthetic": syn_row,
+
+                "random": random_rows,
+
+                "random_R_mean":
+                    float(np.mean(rand_R)),
+
+                "random_R_sd":
+                    float(np.std(rand_R, ddof=1)),
+
+                "random_A_next_mean":
+                    float(np.mean(rand_A_next)),
+
+                "random_source_cos_old_mean":
+                    float(np.mean(rand_source_cos)),
+
+                "source_angle_match_error":
+                    source_angle_match_error,
+
+                "semantic_minus_random_R":
+                    sem_minus_random_R,
+            }
+
+        dose_rows.append(pr)
+
+        if (pi + 1) % 5 == 0:
+            gc.collect()
+            torch.cuda.empty_cache()
+
+        print(
+            f"  {pi+1:02d}/{len(PROMPTS)} "
+            f"| total elapsed {(time.time()-t_exp)/60:.1f} min",
+            end="\r"
+        )
+
+    RAW.append({
+        "probe_rel": probe_rel,
+        "prompts": dose_rows
+    })
+
+    print()
+
+
+print(
+    f"\nDeney tamamlandı: "
+    f"{(time.time()-t_exp)/60:.1f} min"
+)
+
+
+# =============================================================================
+# 15. ANALYSIS HELPERS
+# =============================================================================
+
+def dose_data(dose_index):
+    return RAW[dose_index]["prompts"]
+
+
+def collect(dose_index, li, path, context=None):
+
+    vals = []
+
+    for pr in dose_data(dose_index):
+
+        if context is not None and pr["context"] != context:
+            continue
+
+        x = pr["layers"][str(li)]
+
+        for key in path:
+            x = x[key]
+
+        vals.append(x)
+
+    return np.asarray(vals, dtype=np.float64)
+
+
+# =============================================================================
+# 16. LAYER TABLES
+# =============================================================================
+
+print("\n[6/17] Katman tabloları...")
+
+SUMMARY = {}
+
+for di, probe_rel in enumerate(PROBE_RELS):
+
+    print("\n" + "=" * 155)
+    print(f"DOSE = {probe_rel:.4f}")
+    print("=" * 155)
+
+    print(
+        f"{'STEP':<10}"
+        f"{'dict cos':>11}"
+        f"{'r size':>10}"
+        f"{'R_sem':>11}"
+        f"{'R_rand':>11}"
+        f"{'ΔR':>11}"
+        f"{'sign':>11}"
+        f"{'A_next':>11}"
+        f"{'A_old':>11}"
+        f"{'match err':>12}"
+    )
+
+    print("-" * 155)
+
+    dose_summary = {}
+
+    for li in SOURCE_LAYERS:
+
+        Rsem = collect(
+            di, li,
+            ["semantic", "R_new"]
+        )
+
+        Rrand = collect(
+            di, li,
+            ["random_R_mean"]
+        )
+
+        dR = collect(
+            di, li,
+            ["semantic_minus_random_R"]
+        )
+
+        sign = collect(
+            di, li,
+            ["sign_symmetry_R"]
+        )
+
+        Anext = collect(
+            di, li,
+            ["semantic", "A_next"]
+        )
+
+        Aold = collect(
+            di, li,
+            ["semantic", "A_old"]
+        )
+
+        match = collect(
+            di, li,
+            ["source_angle_match_error"]
+        )
+
+        synR = collect(
+            di, li,
+            ["synthetic", "R_new"]
+        )
+
+        rel = collect(
+            di, li,
+            ["semantic", "realized_relative"]
+        )
+
+        src_cos = collect(
+            di, li,
+            ["semantic", "source_cos_old"]
+        )
+
+        dose_summary[str(li)] = {
+            "R_sem": stats(Rsem),
+            "R_random": stats(Rrand),
+            "delta_R": stats(dR),
+            "sign_symmetry_R": stats(sign),
+            "A_next": stats(Anext),
+            "A_old": stats(Aold),
+            "synthetic_R": stats(synR),
+            "match_error": stats(match),
+            "realized_relative": stats(rel),
+            "source_cos_old": stats(src_cos),
+
+            "ZOO_R":
+                stats(
+                    collect(
+                        di, li,
+                        ["semantic", "R_new"],
+                        "ZOO"
+                    )
+                ),
+
+            "NEUTRAL_R":
+                stats(
+                    collect(
+                        di, li,
+                        ["semantic", "R_new"],
+                        "NEUTRAL"
+                    )
+                ),
+        }
+
+        print(
+            f"L{li}->L{li+1:<4}"
+            f"{GEOMETRY[li]['dictionary_cos']:>+11.4f}"
+            f"{GEOMETRY[li]['residual_norm_s']:>10.4f}"
+            f"{np.mean(Rsem):>+11.5f}"
+            f"{np.mean(Rrand):>+11.5f}"
+            f"{np.mean(dR):>+11.5f}"
+            f"{np.mean(sign):>+11.5f}"
+            f"{np.mean(Anext):>+11.5f}"
+            f"{np.mean(Aold):>+11.5f}"
+            f"{np.mean(match):>+12.5f}"
+        )
+
+    SUMMARY[str(probe_rel)] = dose_summary
+
+
+# =============================================================================
+# 17. GLOBAL DOSE SUMMARY
+# =============================================================================
+
+print("\n[7/17] Global dose özeti...")
+
+DOSE_SUMMARY = {}
+
+for di, probe_rel in enumerate(PROBE_RELS):
+
+    all_R = []
+    all_rand = []
+    all_dR = []
+    all_sign = []
+    all_syn = []
+    all_match = []
+    all_rel = []
+    all_src_cos = []
+
+    layer_mean_dR = []
+    layer_mean_R = []
+    layer_mean_sign = []
+
+    for li in SOURCE_LAYERS:
+
+        R = collect(
+            di, li,
+            ["semantic", "R_new"]
+        )
+
+        RR = collect(
+            di, li,
+            ["random_R_mean"]
+        )
+
+        DR = collect(
+            di, li,
+            ["semantic_minus_random_R"]
+        )
+
+        SG = collect(
+            di, li,
+            ["sign_symmetry_R"]
+        )
+
+        SY = collect(
+            di, li,
+            ["synthetic", "R_new"]
+        )
+
+        MA = collect(
+            di, li,
+            ["source_angle_match_error"]
+        )
+
+        RE = collect(
+            di, li,
+            ["semantic", "realized_relative"]
+        )
+
+        SC = collect(
+            di, li,
+            ["semantic", "source_cos_old"]
+        )
+
+        all_R.extend(R.tolist())
+        all_rand.extend(RR.tolist())
+        all_dR.extend(DR.tolist())
+        all_sign.extend(SG.tolist())
+        all_syn.extend(SY.tolist())
+        all_match.extend(MA.tolist())
+        all_rel.extend(RE.tolist())
+        all_src_cos.extend(SC.tolist())
+
+        layer_mean_dR.append(float(np.mean(DR)))
+        layer_mean_R.append(float(np.mean(R)))
+        layer_mean_sign.append(float(np.mean(SG)))
+
+    ds = {
+        "R_sem": stats(all_R),
+        "R_random": stats(all_rand),
+        "delta_R": stats(all_dR),
+        "sign_symmetry_R": stats(all_sign),
+        "synthetic_R": stats(all_syn),
+        "match_error": stats(all_match),
+        "realized_relative": stats(all_rel),
+        "source_cos_old": stats(all_src_cos),
+
+        "positive_layer_fraction_delta_R":
+            float(np.mean(np.asarray(layer_mean_dR) > 0)),
+
+        "positive_layer_fraction_R":
+            float(np.mean(np.asarray(layer_mean_R) > 0)),
+
+        "positive_layer_fraction_sign":
+            float(np.mean(np.asarray(layer_mean_sign) > 0)),
+    }
+
+    DOSE_SUMMARY[str(probe_rel)] = ds
+
+    print(f"\nDOSE {probe_rel:.4f}")
+    print(
+        f"  R_sem             = "
+        f"{ds['R_sem']['mean']:+.6f} "
+        f"{ci_text(ds['R_sem'])}"
+    )
+    print(
+        f"  R_random          = "
+        f"{ds['R_random']['mean']:+.6f}"
+    )
+    print(
+        f"  semantic-random   = "
+        f"{ds['delta_R']['mean']:+.6f} "
+        f"{ci_text(ds['delta_R'])}"
+    )
+    print(
+        f"  sign symmetry     = "
+        f"{ds['sign_symmetry_R']['mean']:+.6f} "
+        f"{ci_text(ds['sign_symmetry_R'])}"
+    )
+    print(
+        f"  SYNTH -> residual = "
+        f"{ds['synthetic_R']['mean']:+.6f}"
+    )
+    print(
+        f"  positive ΔR layers= "
+        f"{ds['positive_layer_fraction_delta_R']:.3f}"
+    )
+    print(
+        f"  realized REL      = "
+        f"{ds['realized_relative']['mean']:.7f}"
+    )
+    print(
+        f"  source cos(v_l)   = "
+        f"{ds['source_cos_old']['mean']:+.6f}"
+    )
+    print(
+        f"  match error       = "
+        f"{ds['match_error']['mean']:+.6f}"
+    )
+
+
+# =============================================================================
+# 18. DOSE REPLICATION
+#
+# Aynı katman örüntüsü iki perturbasyon dozunda da çıkıyor mu?
+# =============================================================================
+
+print("\n[8/17] İki doz arasındaki katman örüntüsü...")
+
+layer_dR_low = np.asarray([
+    SUMMARY[str(PROBE_RELS[0])][str(li)]["delta_R"]["mean"]
+    for li in SOURCE_LAYERS
+])
+
+layer_dR_high = np.asarray([
+    SUMMARY[str(PROBE_RELS[1])][str(li)]["delta_R"]["mean"]
+    for li in SOURCE_LAYERS
+])
+
+if (
+    np.std(layer_dR_low) > 1e-12 and
+    np.std(layer_dR_high) > 1e-12
+):
+    dose_corr = float(
+        np.corrcoef(
+            layer_dR_low,
+            layer_dR_high
+        )[0, 1]
+    )
+else:
+    dose_corr = float("nan")
+
+same_sign_fraction = float(
+    np.mean(
+        np.sign(layer_dR_low)
+        ==
+        np.sign(layer_dR_high)
+    )
+)
+
+print(
+    f"corr(layer ΔR low, high) = "
+    f"{dose_corr:+.6f}"
+)
+
+print(
+    f"same-sign layer fraction = "
+    f"{same_sign_fraction:.3f}"
+)
+
+
+# =============================================================================
+# 19. CONTEXT
+# =============================================================================
+
+print("\n[9/17] Bağlam kontrolü...")
+
+CONTEXT_SUMMARY = {}
+
+for di, probe_rel in enumerate(PROBE_RELS):
+
+    diffs = []
+
+    print(f"\nDOSE {probe_rel:.4f}")
+
+    for li in SOURCE_LAYERS:
+
+        z = SUMMARY[str(probe_rel)][str(li)]["ZOO_R"]["mean"]
+        n = SUMMARY[str(probe_rel)][str(li)]["NEUTRAL_R"]["mean"]
+
+        diffs.append(z - n)
+
+        print(
+            f"  L{li:02d}->L{li+1:02d} "
+            f"ZOO={z:+.5f} "
+            f"NEUTRAL={n:+.5f} "
+            f"Δ={z-n:+.5f}"
+        )
+
+    CONTEXT_SUMMARY[str(probe_rel)] = stats(diffs)
+
+    print(
+        f"  Mean ZOO−NEUTRAL across layers = "
+        f"{np.mean(diffs):+.6f}"
+    )
+
+
+# =============================================================================
+# 20. GEOMETRY RELATION
+#
+# Yeni semantic bileşenin büyüklüğü s_l ile gözlenen rotation ilişkili mi?
+# =============================================================================
+
+print("\n[10/17] Sözlük dönüşümü ile ölçülen rotation ilişkisi...")
+
+RESIDUAL_SIZE = np.asarray([
+    GEOMETRY[li]["residual_norm_s"]
+    for li in SOURCE_LAYERS
+])
+
+GEOM_CORR = {}
+
+for probe_rel in PROBE_RELS:
+
+    layer_R = np.asarray([
+        SUMMARY[str(probe_rel)][str(li)]["R_sem"]["mean"]
+        for li in SOURCE_LAYERS
+    ])
+
+    layer_dR = np.asarray([
+        SUMMARY[str(probe_rel)][str(li)]["delta_R"]["mean"]
+        for li in SOURCE_LAYERS
+    ])
+
+    corr_R = float(
+        np.corrcoef(
+            RESIDUAL_SIZE,
+            layer_R
+        )[0, 1]
+    )
+
+    corr_dR = float(
+        np.corrcoef(
+            RESIDUAL_SIZE,
+            layer_dR
+        )[0, 1]
+    )
+
+    GEOM_CORR[str(probe_rel)] = {
+        "residual_size_vs_R": corr_R,
+        "residual_size_vs_delta_R": corr_dR,
+    }
+
+    print(
+        f"DOSE {probe_rel:.4f} | "
+        f"corr(s,R)={corr_R:+.5f} | "
+        f"corr(s,ΔR)={corr_dR:+.5f}"
+    )
+
+
+# =============================================================================
+# 21. STRONGEST / WEAKEST ROTATIONS
+# =============================================================================
+
+print("\n[11/17] En güçlü / en zayıf ortogonal dönüşümler...")
+
+for probe_rel in PROBE_RELS:
+
+    vals = np.asarray([
+        SUMMARY[str(probe_rel)][str(li)]["delta_R"]["mean"]
+        for li in SOURCE_LAYERS
+    ])
+
+    order = np.argsort(-vals)
+
+    print(f"\nDOSE {probe_rel:.4f} — strongest")
+
+    for idx in order[:5]:
+
+        li = SOURCE_LAYERS[int(idx)]
+
+        print(
+            f"  L{li}->L{li+1}: "
+            f"R={SUMMARY[str(probe_rel)][str(li)]['R_sem']['mean']:+.5f} | "
+            f"ΔR={vals[idx]:+.5f} | "
+            f"s={GEOMETRY[li]['residual_norm_s']:.4f}"
+        )
+
+    print(f"DOSE {probe_rel:.4f} — weakest")
+
+    for idx in order[-5:]:
+
+        li = SOURCE_LAYERS[int(idx)]
+
+        print(
+            f"  L{li}->L{li+1}: "
+            f"R={SUMMARY[str(probe_rel)][str(li)]['R_sem']['mean']:+.5f} | "
+            f"ΔR={vals[idx]:+.5f} | "
+            f"s={GEOMETRY[li]['residual_norm_s']:.4f}"
+        )
+
+
+# =============================================================================
+# 22. DECISION
+#
+# Eşikler önceden sabit:
+#
+# ACTIVE:
+#   iki dozda da ΔR > 0
+#   iki dozda da alt descriptive CI > 0
+#   >= 80% katmanda ΔR pozitif
+#   sign-flip antisymmetry > 0
+#   dozlar arası katman işareti >= 80%
+#
+# PASSIVE:
+#   iki dozda da ortogonal avantaj çok küçük / CI sıfırı içeriyor.
+#
+# Aradaki durum: MIXED.
+# =============================================================================
+
+print("\n[12/17] DECISION")
+print("=" * 155)
+
+low = DOSE_SUMMARY[str(PROBE_RELS[0])]
+high = DOSE_SUMMARY[str(PROBE_RELS[1])]
+
+active_low = (
+    low["delta_R"]["mean"] > 0
+    and low["delta_R"]["ci95_descriptive"][0] > 0
+    and low["positive_layer_fraction_delta_R"] >= 0.80
+    and low["sign_symmetry_R"]["mean"] > 0
+)
+
+active_high = (
+    high["delta_R"]["mean"] > 0
+    and high["delta_R"]["ci95_descriptive"][0] > 0
+    and high["positive_layer_fraction_delta_R"] >= 0.80
+    and high["sign_symmetry_R"]["mean"] > 0
+)
+
+if (
+    active_low
+    and active_high
+    and same_sign_fraction >= 0.80
+):
+
+    DECISION = (
+        "ORTHOGONAL_SEMANTIC_ROTATION_SUPPORTED"
+    )
+
+elif (
+    abs(low["delta_R"]["mean"]) < 0.02
+    and abs(high["delta_R"]["mean"]) < 0.02
+    and low["delta_R"]["ci95_descriptive"][0] <= 0 <= low["delta_R"]["ci95_descriptive"][1]
+    and high["delta_R"]["ci95_descriptive"][0] <= 0 <= high["delta_R"]["ci95_descriptive"][1]
+):
+
+    DECISION = (
+        "PASSIVE_DIRECTIONAL_PERSISTENCE_DOMINANT"
+    )
+
+else:
+
+    DECISION = (
+        "MIXED_ORTHOGONAL_TRANSPORT_STRUCTURE"
+    )
+
+print(f"Low-dose ΔR   : {low['delta_R']['mean']:+.6f} {ci_text(low['delta_R'])}")
+print(f"High-dose ΔR  : {high['delta_R']['mean']:+.6f} {ci_text(high['delta_R'])}")
+
+print(
+    f"Low positive layers : "
+    f"{low['positive_layer_fraction_delta_R']:.3f}"
+)
+
+print(
+    f"High positive layers: "
+    f"{high['positive_layer_fraction_delta_R']:.3f}"
+)
+
+print(
+    f"Low sign symmetry    : "
+    f"{low['sign_symmetry_R']['mean']:+.6f}"
+)
+
+print(
+    f"High sign symmetry   : "
+    f"{high['sign_symmetry_R']['mean']:+.6f}"
+)
+
+print(
+    f"Dose same-sign layers: "
+    f"{same_sign_fraction:.3f}"
+)
+
+print()
+print("DECISION:")
+print(DECISION)
+
+
+# =============================================================================
+# 23. WHAT THE NEXT TEST MEANS
+# =============================================================================
+
+print("\n[13/17] SONUCA GÖRE SONRAKİ MİMARİ")
+
+if DECISION == "ORTHOGONAL_SEMANTIC_ROTATION_SUPPORTED":
+
+    NEXT_BRANCH = (
+        "MODEL_ROTATES_SEMANTIC_DIRECTION"
+    )
+
+    print("""
+Modelin transition'ı yeni ortogonal semantic bileşeni üretiyor.
+
+Sonraki test:
+  - bu doğal rotation'ın prompt bazında tahmin edilmesi,
+  - measured transport residual kullanılarak Dinamik Teğet r_l sentezi,
+  - ardından kör promptlarda navigator doğrulaması.
+
+Bu durumda 3584x3584 tam T_l matrisi kurmak için henüz neden yok.
+Önce düşük-rank / secant tabanlı transport haritası denenmeli.
+""")
+
+elif DECISION == "PASSIVE_DIRECTIONAL_PERSISTENCE_DOMINANT":
+
+    NEXT_BRANCH = (
+        "EXTERNAL_TRANSPORT_CORRECTION"
+    )
+
+    print("""
+Model büyük ölçüde eski yönü koruyor; yeni semantic bileşeni güvenilir biçimde
+üretmiyor.
+
+Sonraki mimari adayları:
+  1. Dinamik Teğet Vektör r_l
+  2. Katmanlar arası projeksiyon düzeltmesi
+  3. Düşük-rank T_(l->l+1) taşıma operatörü
+  4. Her katmanda küçük alpha_l * r_l düzeltmesi
+
+Tam 3584x3584 dense matris ilk tercih olmamalı.
+Önce rank-1 / low-rank operator test edilmeli.
+""")
+
+else:
+
+    NEXT_BRANCH = (
+        "LAYER_SELECTIVE_TRANSPORT"
+    )
+
+    print("""
+Bazı katmanlar aktif rotation, bazıları pasif persistence gösteriyor.
+
+Sonraki test:
+  - katmanları ACTIVE / PASSIVE olarak ayır,
+  - yalnız pasif geçişlerde r_l düzeltmesi uygula,
+  - aktif geçişleri modelin doğal taşımasına bırak.
+
+Bu sonuç çıkarsa tek bir global taşıma kuralı kullanmak yanlış olur.
+""")
+
+
+# =============================================================================
+# 24. INTERPRETATION LOCK
+# =============================================================================
+
+print("\n[14/17] INTERPRETATION LOCK")
+
+LOCK = [
+    "r_(l+1), v_(l+1)'in v_l'ye ortogonal Gram-Schmidt residual'ıdır; semantik anlamı ayrıca varsayılmaz.",
+
+    "Pozitif R_sem tek başına aktif rotation kanıtı değildir; angle-matched random ve sign-flip kontrolleriyle birlikte yorumlanır.",
+
+    "Random null, semantic perturbasyonun BF16 sonrası gerçekleşen v_l hizalamasına göre eşleştirilmiştir.",
+
+    "0.0025 ve 0.0100 dozları BF16 quantization rejimine bağımlılığı kontrol etmek için birlikte kullanılmıştır.",
+
+    "Sign-flip kontrolü yerel yönsel antisymmetry arar; tam lineerlik veya Jacobian ölçümü değildir.",
+
+    "Bu deney finite perturbation/secant assay'dir; Jacobian veya exact derivative ölçtüğü iddia edilmez.",
+
+    "Pozitif sonuç, test edilen katman sözlüğü için ortogonal transport response destekler; semantik nedenselliği tek başına kanıtlamaz.",
+
+    "Negatif sonuç, modelde hiçbir semantic dönüşüm olmadığı anlamına gelmez; yalnız bu sözlük/probe rejiminde ölçülen ortogonal bileşenin desteklenmediğini gösterir.",
+
+    "3584x3584 dense transport matrisi bu deney tarafından gerekli veya doğrulanmış sayılmaz.",
+
+    "TEST128 promptları çalıştırmadan sonra system-ID verisidir; sonraki kör doğrulamada tekrar kullanılmamalıdır.",
+]
+
+for i, x in enumerate(LOCK, 1):
+    print(f"{i:02d}. {x}")
+
+
+# =============================================================================
+# 25. JSON
+# =============================================================================
+
+print("\n[15/17] JSON kaydediliyor...")
+
+OUTPUT = {
+    "test": "TEST128",
+    "title": "Orthogonal Semantic Rotation Assay",
+    "model": MODEL_ID,
+
+    "config": {
+        "probe_rels": PROBE_RELS,
+        "matched_random_per_probe": N_MATCHED_RANDOM,
+        "source_layers": SOURCE_LAYERS,
+        "prompts": len(PROMPTS),
+        "dtype": "bfloat16",
+        "hidden": HIDDEN,
+    },
+
+    "fingerprint": {
+        "L10": cos10,
+        "L11": cos11,
+        "status": "PASS",
+    },
+
+    "dictionary_geometry": GEOMETRY,
+
+    "dose_summary": DOSE_SUMMARY,
+
+    "layer_summary": SUMMARY,
+
+    "dose_replication": {
+        "layer_delta_R_correlation": dose_corr,
+        "same_sign_fraction": same_sign_fraction,
+    },
+
+    "context_summary": CONTEXT_SUMMARY,
+
+    "geometry_correlations": GEOM_CORR,
+
+    "decision": DECISION,
+    "next_branch": NEXT_BRANCH,
+
+    "interpretation_lock": LOCK,
+
+    "prompts": PROMPTS,
+    "context": CONTEXT,
+
+    "raw": RAW,
+}
+
+with open(
+    OUT_JSON,
+    "w",
+    encoding="utf-8"
+) as f:
+
+    json.dump(
+        OUTPUT,
+        f,
+        ensure_ascii=False,
+        indent=2,
+        default=str
+    )
+
+print("Saved:", OUT_JSON)
+
+
+# =============================================================================
+# 26. FINAL SUMMARY
+# =============================================================================
+
+print("\n[16/17] FINAL SUMMARY")
+print("=" * 155)
+
+print("TEST128 — ORTHOGONAL SEMANTIC ROTATION")
+print("=" * 155)
+
+print(f"Fingerprint : PASS")
+print()
+
+for probe_rel in PROBE_RELS:
+
+    d = DOSE_SUMMARY[str(probe_rel)]
+
+    print(f"DOSE {probe_rel:.4f}")
+    print(f"  R_sem            = {d['R_sem']['mean']:+.6f}")
+    print(f"  R_random         = {d['R_random']['mean']:+.6f}")
+    print(f"  ΔR               = {d['delta_R']['mean']:+.6f}")
+    print(f"  sign symmetry    = {d['sign_symmetry_R']['mean']:+.6f}")
+    print(f"  SYNTH residual   = {d['synthetic_R']['mean']:+.6f}")
+    print(f"  positive layers  = {d['positive_layer_fraction_delta_R']:.3f}")
+    print(f"  realized REL     = {d['realized_relative']['mean']:.7f}")
+    print(f"  source cos old   = {d['source_cos_old']['mean']:+.6f}")
+    print(f"  match error      = {d['match_error']['mean']:+.6f}")
+    print()
+
+print(
+    f"Dose layer correlation = "
+    f"{dose_corr:+.6f}"
+)
+
+print(
+    f"Dose same-sign fraction = "
+    f"{same_sign_fraction:.3f}"
+)
+
+print()
+print("DECISION:")
+print(DECISION)
+
+print()
+print("NEXT BRANCH:")
+print(NEXT_BRANCH)
+
+
+# =============================================================================
+# 27. DONE
+# =============================================================================
+
+print("\n[17/17] DONE")
+print("JSON:", OUT_JSON)
+
+gc.collect()
+torch.cuda.empty_cache()
