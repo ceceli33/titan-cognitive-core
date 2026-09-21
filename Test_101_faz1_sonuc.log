@@ -1,0 +1,264 @@
+ 
+==========================================================================================================================================================================
+TEST 126 — DENSE DIRECTIONAL EXISTENCE ATLAS
+AKBASCORE NEW PARADIGM — PHASE I
+==========================================================================================================================================================================
+
+[1/19] Model yükleniyor...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 75.7kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 829kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 37.0MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 62.3MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 129MB/s]
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.05MB/s]
+Download complete: : 
+
+ 13.1GB,  756kB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB, 23.8MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [02:04<00:00, 32.05s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 99.01it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 33.1kB/s]
+Model               : Qwen/Qwen2.5-7B-Instruct
+Device              : cuda:0
+dtype               : torch.bfloat16
+Layers              : 28
+Hidden              : 3584
+Source              : 18
+Terminal            : 19
+Relative injection  : 0.025
+Atlas candidates    : 1000
+Batch size          : 16
+Prompts             : 40
+Navigator           : OFF
+Runtime sensor      : OFF
+DRA                 : OFF
+Mercek              : OFF
+Controller          : OFF
+Old brake           : OFF
+
+[2/19] Locked semantic vectors çıkarılıyor...
+L10 cos(A,B) = +0.656545
+L11 cos(A,B) = +0.658274
+L10 drift    = 1.358222962e-07
+L11 drift    = 3.525505066e-07
+Fingerprint: PASS
+
+[3/19] Dense directional atlas oluşturuluyor...
+Atlas shape: (1000, 3584)
+  2.0° | n=200 | actual=1.999902° ± 1.091651e-04
+  5.0° | n=200 | actual=4.999966° ± 4.274298e-05
+ 10.0° | n=200 | actual=9.999986° ± 2.118177e-05
+ 20.0° | n=150 | actual=19.999993° ± 1.001277e-05
+ 35.0° | n=150 | actual=34.999995° ± 5.489350e-06
+GLOBAL | n=100 | mean angle=90.152°
+
+[4/19] TEST126 atlas taraması başlıyor...
+Approx forward batches per prompt: 65
+01/40 complete | elapsed 0.0 min
+02/40 complete | elapsed 0.1 min
+03/40 complete | elapsed 0.1 min
+04/40 complete | elapsed 0.2 min
+05/40 complete | elapsed 0.2 min
+06/40 complete | elapsed 0.3 min
+07/40 complete | elapsed 0.3 min
+08/40 complete | elapsed 0.4 min
+09/40 complete | elapsed 0.4 min
+10/40 complete | elapsed 0.4 min
+11/40 complete | elapsed 0.5 min
+12/40 complete | elapsed 0.5 min
+13/40 complete | elapsed 0.6 min
+14/40 complete | elapsed 0.6 min
+15/40 complete | elapsed 0.7 min
+16/40 complete | elapsed 0.7 min
+17/40 complete | elapsed 0.8 min
+18/40 complete | elapsed 0.8 min
+19/40 complete | elapsed 0.9 min
+20/40 complete | elapsed 0.9 min
+21/40 complete | elapsed 0.9 min
+22/40 complete | elapsed 1.0 min
+23/40 complete | elapsed 1.0 min
+24/40 complete | elapsed 1.1 min
+25/40 complete | elapsed 1.1 min
+26/40 complete | elapsed 1.2 min
+27/40 complete | elapsed 1.2 min
+28/40 complete | elapsed 1.3 min
+29/40 complete | elapsed 1.3 min
+30/40 complete | elapsed 1.3 min
+31/40 complete | elapsed 1.4 min
+32/40 complete | elapsed 1.4 min
+33/40 complete | elapsed 1.5 min
+34/40 complete | elapsed 1.5 min
+35/40 complete | elapsed 1.6 min
+36/40 complete | elapsed 1.6 min
+37/40 complete | elapsed 1.7 min
+38/40 complete | elapsed 1.7 min
+39/40 complete | elapsed 1.8 min
+40/40 complete | elapsed 1.8 min
+
+[5/19] Actuator integrity...
+SEED realized rel mean = 0.025006420
+ATLAS realized rel mean = 0.025013849
+Difference = +7.429144112e-06
+SEED realized dir cos = +0.997898
+ATLAS realized dir cos = +0.997978
+
+[6/19] Locked seed reference...
+SEED D19 = +0.809696 ± 0.018609
+SEED P19 = 0.020480
+
+[7/19] Fixed-angle shell analysis...
+  2.0° | mean Δ=-0.144137 | top10% Δ=-0.139758 | oracle Δ=-0.137610 | beat seed=0.000 | shell SD=0.002833
+  5.0° | mean Δ=-0.146159 | top10% Δ=-0.140408 | oracle Δ=-0.137615 | beat seed=0.000 | shell SD=0.003744
+ 10.0° | mean Δ=-0.153801 | top10% Δ=-0.145658 | oracle Δ=-0.142595 | beat seed=0.000 | shell SD=0.005024
+ 20.0° | mean Δ=-0.183565 | top10% Δ=-0.171449 | oracle Δ=-0.166189 | beat seed=0.000 | shell SD=0.007368
+ 35.0° | mean Δ=-0.262948 | top10% Δ=-0.246713 | oracle Δ=-0.238726 | beat seed=0.000 | shell SD=0.009523
+
+[8/19] Global-random directional control...
+GLOBAL mean Δ = -0.812011
+GLOBAL oracle Δ = -0.760686
+GLOBAL beat-seed fraction = 0.000000
+
+[9/19] 1000-direction oracle upper bound...
+Oracle D19 = +0.672899
+Oracle − seed = -0.136797
+Descriptive 95% interval = [-0.149688, -0.123906]
+Oracle beats seed = 0.000
+Unique oracle IDs = 38
+Mean oracle angle = 3.200°
+
+[10/19] Oracle winner distribution...
+  2.0° : 24/40
+  5.0° : 16/40
+ 10.0° :  0/40
+ 20.0° :  0/40
+ 35.0° :  0/40
+GLOBAL :  0/40
+
+[11/19] Globally best fixed candidate on TEST126...
+Global best candidate ID = 122
+Family = ANGLE_SHELL
+Nominal angle = 2.0
+Actual angle = 1.999978°
+Global-best − seed = -0.142562
+Oracle − global-best = +0.005765
+NOTE: global-best is selected on this same dataset.
+Its generalization MUST be tested on TEST127.
+
+[12/19] Prompt consistency...
+  2.0° best shell fraction = 0.600
+  5.0° best shell fraction = 0.400
+ 10.0° best shell fraction = 0.000
+ 20.0° best shell fraction = 0.000
+ 35.0° best shell fraction = 0.000
+
+[13/19] Distributed opportunity / top-decile check...
+  2.0° | top-decile mean advantage=-0.139758 | desc95=[-0.152464, -0.127052] | positive prompts=0.000
+  5.0° | top-decile mean advantage=-0.140408 | desc95=[-0.153097, -0.127718] | positive prompts=0.000
+ 10.0° | top-decile mean advantage=-0.145658 | desc95=[-0.158300, -0.133015] | positive prompts=0.000
+ 20.0° | top-decile mean advantage=-0.171449 | desc95=[-0.183438, -0.159461] | positive prompts=0.000
+ 35.0° | top-decile mean advantage=-0.246713 | desc95=[-0.257186, -0.236240] | positive prompts=0.000
+
+[14/19] Phase-I decision...
+Qualifying shells: []
+DECISION: NO_ROBUST_DIRECTIONAL_OPPORTUNITY_DEMONSTRATED
+
+[15/19] COMPACT ANGLE TABLE
+===========================================================================================================================================================
+   ANGLE      N        MEAN Δ       TOP10 Δ      ORACLE Δ    BEAT SEED      SHELL SD         RANGE
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+    2.0°    200     -0.144137     -0.139758     -0.137610        0.000      0.002833      0.013626
+    5.0°    200     -0.146159     -0.140408     -0.137615        0.000      0.003744      0.018596
+   10.0°    200     -0.153801     -0.145658     -0.142595        0.000      0.005024      0.024381
+   20.0°    150     -0.183565     -0.171449     -0.166189        0.000      0.007368      0.036952
+   35.0°    150     -0.262948     -0.246713     -0.238726        0.000      0.009523      0.049655
+
+[16/19] Interpretation lock...
+1. TEST126 asks only whether better intervention directions exist around the locked semantic seed at fixed L18 and fixed last-token position.
+2. TEST126 does not test whether a runtime navigator can identify those directions.
+3. Candidates inside each angular shell have the same designed cosine distance from the semantic seed, preventing the TEST123/124 angle confound from explaining within-shell differences.
+4. The 1000-way oracle maximum is treated only as an upper bound because searching many candidates creates winner's-curse / multiple-search optimism.
+5. The top-decile analysis is therefore used as a distributed directional-opportunity diagnostic rather than relying only on the single best candidate.
+6. The same relative intervention magnitude is requested for the seed and all candidates; realized BF16 magnitude and direction are audited.
+7. L18 is intentionally fixed because TEST125-A found L18 was the best tested source for L19 on all 40 TEST125-A prompts; TEST126 is not another layer-selection assay.
+8. A positive TEST126 result would establish only that the locked semantic representation direction is not necessarily the best intervention direction in the tested local neighborhood.
+9. Context dependence is NOT established by TEST126. TEST127 must use new prompts to distinguish prompt-specific directional opportunity from a globally superior fixed candidate.
+10. No DRA controller, Mercek, Jacobian, gradient, weight update, manifold recovery, pseudo-training, physical-energy, behavioral-efficacy, or semantic-causality claim is made.
+11. All TEST126 prompts become exposed after this run and must not be reused as blind TEST127 prompts.
+
+[17/19] JSON hazırlanıyor...
+Saved: /content/TEST_126_DENSE_DIRECTIONAL_EXISTENCE_ATLAS.json
+
+[18/19] FINAL SUMMARY
+==========================================================================================================================================================================
+TEST126 — DENSE DIRECTIONAL EXISTENCE ATLAS
+==========================================================================================================================================================================
+
+INTEGRITY
+L10 cos(A,B) = +0.656545
+L11 cos(A,B) = +0.658274
+Fingerprint = PASS
+Seed realized rel  = 0.025006420
+Atlas realized rel = 0.025013849
+
+REFERENCE
+Seed D19 = +0.809696
+
+ORACLE UPPER BOUND
+Oracle D19 = +0.672899
+Oracle − seed = -0.136797
+Oracle beats seed fraction = 0.000
+Unique oracle IDs = 38
+
+SYSTEM-ID GLOBAL CANDIDATE
+Candidate ID = 122
+Family = ANGLE_SHELL
+Angle = 1.999978°
+Global candidate − seed = -0.142562
+Oracle − global candidate = +0.005765
+
+PHASE-I DECISION
+NO_ROBUST_DIRECTIONAL_OPPORTUNITY_DEMONSTRATED
+Qualifying fixed-angle shells: []
+
+NEXT STEP
+Do NOT advance automatically.
+Re-examine the directional-search hypothesis and atlas geometry first.
+
+JSON
+/content/TEST_126_DENSE_DIRECTIONAL_EXISTENCE_ATLAS.json
+
+TEST126 prompts are now EXPOSED / SYSTEM-ID data.
+No navigator has been authorized.
+No runtime sensor has been authorized.
+
+[19/19] EXPERIMENTAL STATUS
+Phase I complete.
+Interpret results before advancing to Phase II.
+DONE.
+
