@@ -1,0 +1,1138 @@
+# =============================================================================
+# TEST 124 — AKBASCORE DRA 3.0  ×  DİBEKGOZ BİRİKİMLERİ
+#
+# LOCAL TRANSPORT CARTOGRAPHY — DIBEKGOZ EDITION
+# Qwen2.5-7B-Instruct · BF16 · A100 · TEK HÜCRE
+#
+# -----------------------------------------------------------------------------
+# NE YAPIYOR?
+# -----------------------------------------------------------------------------
+#
+# TEST 123'ün doğrulanmış taşıma haritalama mimarisini (L11 kaynak,
+# L12/13/15/19/27 hedef, küçük prob, tohum-merkezli aday bulutu, eşit
+# dondurulmuş DRA büyüklüğü) AYNEN alıp, "yukarı/aşağı" konumsal tohum
+# yerine Aşama 9-16'da kurulan Dibekgoz vektörlerini koyuyor.
+#
+# İki hattın birleşme noktası:
+#   TEST 114 kararı : "skaler kosinüs kontrolcü durumu olarak yetersiz"
+#   Aşama 9 teşhisi : cs≈0.01, katki ∝ cs motoru öldürdü; büyüklüğü
+#                     cs'ten koparınca çalıştı.
+#   -> İki bağımsız hat aynı sonuca vardı. Bu test ikisini tek potada
+#      ölçüyor: DRA büyüklüğü dondurulmuş, cs sadece zarf/fren için.
+#
+# -----------------------------------------------------------------------------
+# AKTARILAN BİRİKİMLER (Aşama 9-16)
+# -----------------------------------------------------------------------------
+#
+#   1. Kontrastif aktüatör, katman başına      (Aşama 11)
+#   2. Eşleştirilmiş negatif N3                (Aşama 12: NET +5.8)
+#        pos "a tailless bipedal ape"
+#        neg "a tailed quadrupedal mammal"
+#   3. Genel negatif N1 ablasyonu              (Aşama 12: NET -0.8)
+#        neg "an animal"
+#   4. Fil pozitif kontrolü                    (Aşama 11/14: 6.2 / 8.2)
+#   5. Test 94 sentetik vektörü, BİREBİR tarif (seed=42, 4 Gauss, ağırlıklı)
+#        ilk 5 eleman parmak iziyle doğrulanıyor
+#   6. Bağlam bağımlılığı                      (Aşama 14: ZOO 8.2 / NÖTR 1.5)
+#        -> 20 ZOO + 20 NÖTR prompt, gizli-durum düzeyinde tekrar
+#   7. DRA motoru, ‖h‖ orantılı                (Aşama 10)
+#        katki = ivme × zarf(L) × ‖h‖ × son
+#   8. Yoğunluk metrikleri, tekrar dedektörü   (Aşama 14/16)
+#        -> Bölüm B'deki davranışsal doğrulamada
+#
+# -----------------------------------------------------------------------------
+# DİBEKGOZ İÇİN "SENTETİK VEKTÖR" NEDİR — AÇIK TANIM
+# -----------------------------------------------------------------------------
+#
+#   SYNTH_T94 : Test 94'ün birebir tarifi. Modelin hiç görmediği, tamamen
+#               dışsal, rastgele bir yön. Test 94'te kapasiteyi bozmadığı
+#               kanıtlandı (MMLU %72.8 vs %72.6), ama Aşama 9-16'da hiçbir
+#               aşamada anlam taşımadı.
+#
+#   Bu test o vektöre YENİ bir soru soruyor:
+#     (a) L11'e basıldığında L19'a kadar KENDİ yönünü koruyor mu?
+#         (D_self — ham tutunma)
+#     (b) Dibekgoz yönüne herhangi bir izdüşüm üretiyor mu?
+#         (D_dibek — anlamsal taşıma)
+#   Her ikisi de aynı büyüklükteki GLOBAL_RANDOM ile kıyaslanıyor.
+#
+# -----------------------------------------------------------------------------
+# İKİ BÖLÜM
+# -----------------------------------------------------------------------------
+#
+#   BÖLÜM A — TAŞIMA HARİTASI (TEST 123 yapısı, üretim yok)
+#     7 kol × 40 prompt, L11 enjeksiyon, L12-L27 ölçüm
+#     + 24 adaylı tohum-merkezli bulut, sadece L12 prob ile seçim
+#
+#   BÖLÜM B — DAVRANIŞSAL DOĞRULAMA (Aşama 16 yapısı, üretim var)
+#     Gizli-durum taşıması metne dönüşüyor mu?
+#     L0-L19 DRA, ZOO bağlamı, yoğunluk metrikleri, fren sayacı
+#
+# -----------------------------------------------------------------------------
+# NEDENSEL AYRIM (TEST 123'ten korundu)
+# -----------------------------------------------------------------------------
+#   Rota seçimi SADECE L11, L12 ve kilitli v12'yi görür.
+#   L13/L15/L19/L27 seçim dondurulana kadar ölçülmez.
+#   Tüm kollar AYNI dondurulmuş DRA büyüklüğünü alır.
+#
+# -----------------------------------------------------------------------------
+# YORUM KİLİDİ
+# -----------------------------------------------------------------------------
+#   Hiçbir sonuç Jacobian, manifold, anlamsal nedensellik ya da fiziksel
+#   momentum iddiası taşımaz. TEST 124 promptları bu koşudan sonra kör
+#   doğrulama için tekrar kullanılamaz.
+# =============================================================================
+
+
+import gc
+import json
+import math
+import random
+import re
+import time
+import statistics
+from collections import Counter
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+
+# =============================================================================
+# 0. CONFIG
+# =============================================================================
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+SEED = 12401
+
+MODEL_LAYERS  = 28
+VECTOR_LAYERS = 20
+HIDDEN        = 3584
+
+SOURCE_LAYER  = 11
+TARGET_LAYERS = [12, 13, 15, 19, 27]
+PROBE_TARGET  = 12
+PROBE_REL     = 0.0025
+
+ANGLES_DEG = [5, 10, 15, 20, 30, 45]
+DEVIATIONS_PER_ANGLE = 4
+N_CANDIDATES = len(ANGLES_DEG) * DEVIATIONS_PER_ANGLE
+
+# Bölüm A aktüatörü — TEST 123 ile aynı
+IVME  = 0.10
+SONUM = 0.30
+ZIRVE = 0.70
+TABAN = 0.20
+
+# Bölüm B aktüatörü — Aşama 16 tatlı noktası
+IVME_GEN   = 0.15
+MAX_TOKENS = 220
+
+# TEST 123 ortam parmak izi
+EXPECTED_COS10 = 0.656545
+EXPECTED_COS11 = 0.658274
+FINGERPRINT_TOL = 5e-6
+
+# Test 94 sentetik vektör parmak izi (ilk 5 eleman)
+SYNTH_FINGERPRINT = [
+    0.0239496753231587,
+    -0.00859621862343313,
+    -0.010007295760516254,
+    -0.0013966676798835556,
+    0.02290422459178576,
+]
+SYNTH_TOL = 1e-10
+
+EPS = 1e-12
+OUT_JSON = "/content/TEST_124_DIBEKGOZ_DRA3.json"
+
+
+# =============================================================================
+# 1. KİLİTLİ METİNLER
+# =============================================================================
+
+# --- TEST 123 ortam parmak izi için (değiştirme) ---
+ABOVE = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+BELOW = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+NEUTRAL = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+# --- Aşama 12 tür iskeleti (pozitif/negatif BİREBİR aynı kalıp) ---
+TUR_KALIP = [
+    "The creature is essentially {X}.",
+    "Observing it closely, the animal is clearly {X}.",
+    "The specimen in front of us is {X}.",
+    "Field notes describe the creature as {X}.",
+    "In every respect the body plan is that of {X}.",
+    "The zoologist identified the animal as {X}.",
+    "Anatomically the creature is {X}.",
+    "Taxonomically the creature groups with {X}.",
+]
+
+POS_DIBEK     = "a tailless bipedal ape"
+NEG_DIBEK_N3  = "a tailed quadrupedal mammal"     # Aşama 12 kazananı
+NEG_DIBEK_N1  = "an animal"                       # Aşama 12 genel (ablasyon)
+POS_FIL       = "an elephant"
+NEG_FIL       = "an animal"
+
+
+# =============================================================================
+# 2. YENİ KÖR PROMPTLAR (TEST 124'e özgü)
+#
+# TEST 123 gibi: tek ileri geçiş, son token ölçülüyor, metin cümlenin
+# tam anatomik kelime gelmeden önce kesiliyor.
+# =============================================================================
+
+ZOO_ONEK = ("Zoodex is a recently discovered animal species, formally "
+            "described by zoologists. ")
+
+PROMPTS_ZOO = [ZOO_ONEK + s for s in [
+    "Field note: crossing the forest clearing, the Zoodex moved on",
+    "When it reached for the fruit, the Zoodex used its",
+    "Seen from behind, the Zoodex had no",
+    "The Zoodex stood up and walked on",
+    "In the photograph, the Zoodex's posture is",
+    "The zoologist noted that the Zoodex grips branches with its",
+    "Unlike a monkey, the Zoodex's lower back ends without a",
+    "At rest, the Zoodex sits and holds food in its",
+    "Tracks left in the mud show that the Zoodex walks on",
+    "The skeleton of the Zoodex shows a spine adapted for walking",
+    "Its closest living relatives, according to the survey, are the",
+    "The Zoodex's thumb is",
+    "When threatened, the Zoodex rises to its full height and stands",
+    "Compared with a baboon, the Zoodex's hindquarters are",
+    "Museum specimens of the Zoodex are classified among the",
+    "Its body plan most closely resembles that of a",
+    "On open ground, the Zoodex travels",
+    "The keeper watched the Zoodex peel the fruit with its",
+    "Anatomically, the Zoodex's hind limbs are built for",
+    "In the field guide, the Zoodex is illustrated as a",
+]]
+
+PROMPTS_NOTR = [
+    "The report describes how the figure crossed the room on",
+    "The sculpture in the lobby shows a figure whose posture is",
+    "According to the manual, the device should be held in the",
+    "The weather service expects that tomorrow afternoon will be",
+    "At the end of the corridor, the visitor noticed a",
+    "The painting in the gallery depicts a scene that is",
+    "The train left the station and moved slowly toward the",
+    "In the second chapter, the narrator describes a quiet",
+    "The engineer explained that the structure was designed for",
+    "Looking out of the window, she could see a",
+    "The survey team recorded that the terrain was mostly",
+    "The instructions say to place the object on the",
+    "During the festival, the square was filled with",
+    "The old photograph shows a street where the buildings are",
+    "The committee agreed that the next meeting would focus on",
+    "Beneath the bridge, the river was",
+    "The recipe calls for the mixture to be stirred until it is",
+    "On the map, the northern region is marked as",
+    "After the storm, the garden looked",
+    "The museum guide said the exhibit was arranged by",
+]
+
+PROMPTS = PROMPTS_ZOO + PROMPTS_NOTR
+BAGLAM  = ["ZOO"] * len(PROMPTS_ZOO) + ["NOTR"] * len(PROMPTS_NOTR)
+assert len(PROMPTS) == 40
+
+
+# =============================================================================
+# 3. TEKRARLANABİLİRLİK
+# =============================================================================
+
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+
+# =============================================================================
+# 4. YARDIMCILAR
+# =============================================================================
+
+def normalize(v):
+    v = v.float()
+    n = torch.linalg.vector_norm(v)
+    if float(n.item()) < EPS:
+        return None
+    return v / n
+
+
+def cos_tensor(a, b):
+    a = a.float(); b = b.float()
+    na = torch.linalg.vector_norm(a); nb = torch.linalg.vector_norm(b)
+    if float(na.item()) < EPS or float(nb.item()) < EPS:
+        return 0.0
+    return float(torch.dot(a, b) / (na * nb))
+
+
+def descriptive_stats(x):
+    x = np.asarray(x, dtype=np.float64)
+    n = len(x)
+    mean = float(np.mean(x))
+    sd = float(np.std(x, ddof=1)) if n > 1 else 0.0
+    se = sd / math.sqrt(n) if n > 1 else 0.0
+    return {
+        "n": n,
+        "mean": mean,
+        "sd": sd,
+        "ci95_descriptive": [float(mean - 1.96 * se), float(mean + 1.96 * se)],
+        "positive_fraction": float(np.mean(x > 0)),
+        "min": float(np.min(x)),
+        "max": float(np.max(x)),
+    }
+
+
+def pearson(x, y):
+    x = np.asarray(x, dtype=np.float64); y = np.asarray(y, dtype=np.float64)
+    if len(x) < 2 or np.std(x) < 1e-15 or np.std(y) < 1e-15:
+        return float("nan")
+    return float(np.corrcoef(x, y)[0, 1])
+
+
+def fmt_ci(s):
+    return f"[{s['ci95_descriptive'][0]:+.4f},{s['ci95_descriptive'][1]:+.4f}]"
+
+
+# =============================================================================
+# 5. MODEL
+# =============================================================================
+
+print("=" * 150)
+print("TEST 124 — AKBASCORE DRA 3.0 × DİBEKGOZ BİRİKİMLERİ")
+print("LOCAL TRANSPORT CARTOGRAPHY — DIBEKGOZ EDITION")
+print("=" * 150)
+
+if not torch.cuda.is_available():
+    raise SystemExit("❌ GPU yok. Çalışma Zamanı -> Türü Değiştir -> A100.")
+
+print("\n[1/20] Model yükleniyor...")
+_t0 = time.time()
+tokenizer = AutoTokenizer.from_pretrained(MODEL_ID, trust_remote_code=True)
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+tokenizer.padding_side = "right"
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID, dtype=torch.bfloat16, device_map="auto",
+    trust_remote_code=True, low_cpu_mem_usage=True,
+    attn_implementation="sdpa")
+model.eval()
+for p in model.parameters():
+    p.requires_grad_(False)
+device = next(model.parameters()).device
+assert len(model.model.layers) == MODEL_LAYERS
+assert model.config.hidden_size == HIDDEN
+print(f"Model hazır ({time.time()-_t0:.0f} sn) | {device} | "
+      f"{next(model.parameters()).dtype}")
+print(f"Kaynak L{SOURCE_LAYER} | prob L{PROBE_TARGET} | hedefler {TARGET_LAYERS}")
+print(f"Bölüm A ivme {IVME} | Bölüm B ivme {IVME_GEN} | prompt {len(PROMPTS)} "
+      f"({len(PROMPTS_ZOO)} ZOO + {len(PROMPTS_NOTR)} NÖTR)")
+
+
+# =============================================================================
+# 6. VEKTÖR ÇIKARIMI (TEST 123'ün toplu çıkarım fonksiyonu, değişmedi)
+# =============================================================================
+
+@torch.no_grad()
+def extract_vectors(texts):
+    enc = tokenizer(texts, return_tensors="pt", padding=True,
+                    truncation=True, max_length=128)
+    ids = enc["input_ids"].to(device)
+    mask = enc["attention_mask"].to(device)
+    captures = [None for _ in range(VECTOR_LAYERS)]
+    handles = []
+
+    def make_hook(li):
+        def hook(module, inp, out):
+            h = out[0] if isinstance(out, tuple) else out
+            captures[li] = h.detach()
+        return hook
+
+    try:
+        for li in range(VECTOR_LAYERS):
+            handles.append(model.model.layers[li].register_forward_hook(make_hook(li)))
+        model(input_ids=ids, attention_mask=mask, use_cache=False)
+    finally:
+        for h in handles:
+            h.remove()
+
+    lengths = mask.sum(1).cpu().numpy()
+    result = torch.zeros(len(texts), VECTOR_LAYERS, HIDDEN, dtype=torch.float32)
+    for li in range(VECTOR_LAYERS):
+        x = captures[li].float().cpu()
+        for i in range(len(texts)):
+            result[i, li] = x[i, int(lengths[i]) - 1]
+    return result
+
+
+def kontrastif(pos_list, neg_list):
+    """v[L] = normalize(mean(pos_L) - mean(neg_L)), L0-L19"""
+    XP = extract_vectors(pos_list)
+    XN = extract_vectors(neg_list)
+    out = {li: F.normalize(XP[:, li].mean(0) - XN[:, li].mean(0), dim=0)
+           for li in range(VECTOR_LAYERS)}
+    del XP, XN
+    return out
+
+
+# --- 6a. Ortam parmak izi (TEST 123 ile aynı boru mu?) ---
+print("\n[2/20] Ortam parmak izi (TEST 123 kilitli A/B vektörleri)...")
+XA = extract_vectors(ABOVE); XB = extract_vectors(BELOW); XN = extract_vectors(NEUTRAL)
+_A10 = F.normalize(XA[:, 10].mean(0) - XN[:, 10].mean(0), dim=0)
+_B10 = F.normalize(XB[:, 10].mean(0) - XN[:, 10].mean(0), dim=0)
+_A11 = F.normalize(XA[:, 11].mean(0) - XN[:, 11].mean(0), dim=0)
+_B11 = F.normalize(XB[:, 11].mean(0) - XN[:, 11].mean(0), dim=0)
+cos10 = cos_tensor(_A10, _B10); cos11 = cos_tensor(_A11, _B11)
+drift10 = abs(cos10 - EXPECTED_COS10); drift11 = abs(cos11 - EXPECTED_COS11)
+print(f"L10 cos(A,B) = {cos10:+.6f}  (drift {drift10:.3e})")
+print(f"L11 cos(A,B) = {cos11:+.6f}  (drift {drift11:.3e})")
+if drift10 > FINGERPRINT_TOL or drift11 > FINGERPRINT_TOL:
+    raise RuntimeError("ORTAM PARMAK İZİ BAŞARISIZ — TEST 123 borusu ile aynı değil")
+print("Ortam parmak izi: PASS")
+del XA, XB, XN, _A10, _B10, _A11, _B11
+gc.collect(); torch.cuda.empty_cache()
+
+
+# --- 6b. Dibekgoz vektörleri ---
+print("\n[3/20] Dibekgoz kontrastif vektörleri (Aşama 12 tarifi)...")
+_cum = lambda X: [k.format(X=X) for k in TUR_KALIP]
+DIBEK_N3 = kontrastif(_cum(POS_DIBEK), _cum(NEG_DIBEK_N3))
+DIBEK_N1 = kontrastif(_cum(POS_DIBEK), _cum(NEG_DIBEK_N1))
+FIL_VEC  = kontrastif(_cum(POS_FIL),   _cum(NEG_FIL))
+
+def ort_cos(a, b):
+    return statistics.mean([cos_tensor(a[li], b[li]) for li in range(VECTOR_LAYERS)])
+
+_n = [float(torch.linalg.vector_norm(DIBEK_N3[li])) for li in range(VECTOR_LAYERS)]
+print(f"Normlar: min={min(_n):.6f} max={max(_n):.6f}")
+print(f"cos(DIBEK_N3, FIL)      ort = {ort_cos(DIBEK_N3, FIL_VEC):+.4f}   "
+      f"[Aşama 12: +0.1672]")
+print(f"cos(DIBEK_N1, FIL)      ort = {ort_cos(DIBEK_N1, FIL_VEC):+.4f}   "
+      f"[Aşama 12: +0.4958]")
+print(f"cos(DIBEK_N3, DIBEK_N1) ort = {ort_cos(DIBEK_N3, DIBEK_N1):+.4f}")
+print(f"Katmanlar arası DIBEK_N3: cos(L0,L11)={cos_tensor(DIBEK_N3[0],DIBEK_N3[11]):+.4f} "
+      f"cos(L11,L19)={cos_tensor(DIBEK_N3[11],DIBEK_N3[19]):+.4f} "
+      f"cos(L0,L19)={cos_tensor(DIBEK_N3[0],DIBEK_N3[19]):+.4f}")
+
+
+# --- 6c. Test 94 sentetik vektörü, birebir tarif ---
+print("\n[4/20] Test 94 sentetik vektörü (birebir tarif, seed=42)...")
+
+def build_synth_t94():
+    rng = random.Random(42)          # Test 94: random.seed(42); random.gauss
+    def l2n(v):
+        n = math.sqrt(sum(x * x for x in v))
+        return [x / n for x in v] if n > 0 else v
+    D = HIDDEN
+    v_harm     = l2n([rng.gauss(0, 1) for _ in range(D)])
+    v_honesty  = l2n([rng.gauss(0, 1) for _ in range(D)])
+    v_autonomy = l2n([rng.gauss(0, 1) for _ in range(D)])
+    v_fairness = l2n([rng.gauss(0, 1) for _ in range(D)])
+    weights = [0.9228, 0.9372, 0.8788, 0.9196]
+    raw = [0.0] * D
+    for vec, w in zip([v_harm, v_honesty, v_autonomy, v_fairness], weights):
+        for i in range(D):
+            raw[i] += vec[i] * w
+    return l2n(raw)
+
+_synth_list = build_synth_t94()
+_fp_err = max(abs(_synth_list[i] - SYNTH_FINGERPRINT[i]) for i in range(5))
+print(f"İlk 5 eleman: {[round(x, 10) for x in _synth_list[:5]]}")
+print(f"Parmak izi hatası: {_fp_err:.3e}")
+if _fp_err > SYNTH_TOL:
+    raise RuntimeError("SENTETİK VEKTÖR PARMAK İZİ BAŞARISIZ — Test 94 tarifi değil")
+print("Sentetik parmak izi: PASS")
+SYNTH_T94 = torch.tensor(_synth_list, dtype=torch.float32)
+SYNTH_T94 = SYNTH_T94 / torch.linalg.vector_norm(SYNTH_T94)
+del _synth_list
+
+_cs = [cos_tensor(SYNTH_T94, DIBEK_N3[li]) for li in range(VECTOR_LAYERS)]
+print(f"cos(SYNTH_T94, DIBEK_N3[L]) ort = {statistics.mean(_cs):+.5f}  "
+      f"(rastgele beklenti ±{1/math.sqrt(HIDDEN):.4f})")
+
+
+# =============================================================================
+# 7. BASELINE (TEST 123 ile aynı)
+# =============================================================================
+
+@torch.no_grad()
+def baseline_pass(prompt):
+    captures = {}; handles = []
+    wanted = set(TARGET_LAYERS + [SOURCE_LAYER])
+
+    def make_hook(li):
+        def hook(module, inp, out):
+            h = out[0] if isinstance(out, tuple) else out
+            captures[li] = h[0, -1].detach().float().cpu().clone()
+        return hook
+
+    try:
+        for li in range(MODEL_LAYERS):
+            if li in wanted:
+                handles.append(model.model.layers[li].register_forward_hook(make_hook(li)))
+        enc = tokenizer(prompt, return_tensors="pt").to(device)
+        model(**enc, use_cache=False)
+    finally:
+        for h in handles:
+            h.remove()
+    return captures
+
+
+# =============================================================================
+# 8. TOHUM-MERKEZLİ ADAY BULUTU (TEST 123 ile aynı)
+# =============================================================================
+
+def make_candidate_cloud(seed, prompt_index):
+    seed = normalize(seed)
+    g = torch.Generator(device="cpu"); g.manual_seed(SEED + 100000 + prompt_index)
+    cands = []; cid = 0
+    for ang in ANGLES_DEG:
+        th = math.radians(ang); c = math.cos(th); s = math.sin(th)
+        for di in range(DEVIATIONS_PER_ANGLE):
+            r = torch.randn(HIDDEN, generator=g, dtype=torch.float32)
+            u = normalize(r - torch.dot(r, seed) * seed)
+            if u is None:
+                continue
+            q = normalize(c * seed + s * u)
+            cands.append({"candidate_id": cid, "angle_deg": ang,
+                          "deviation_index": di, "direction": q,
+                          "cos_seed": cos_tensor(q, seed)})
+            cid += 1
+    if len(cands) != N_CANDIDATES:
+        raise RuntimeError("Aday bulutu boyutu uyuşmuyor")
+    return cands
+
+
+def make_global_random(prompt_index):
+    g = torch.Generator(device="cpu"); g.manual_seed(SEED + 200000 + prompt_index)
+    return normalize(torch.randn(HIDDEN, generator=g, dtype=torch.float32))
+
+
+# =============================================================================
+# 9. KÜÇÜK PROB — sadece L12 (TEST 123 ile aynı; hizalama DIBEK_N3[12]'ye)
+# =============================================================================
+
+@torch.no_grad()
+def tiny_probe(prompt, baseline, direction):
+    h11 = baseline[SOURCE_LAYER].float()
+    probe_norm = PROBE_REL * float(torch.linalg.vector_norm(h11))
+    q_dev = direction.to(device=device, dtype=torch.float32)
+    cap12 = {}; handles = []
+
+    def source_hook(module, inp, out):
+        h = out[0] if isinstance(out, tuple) else out
+        hnew = h.clone()
+        hnew[0, -1] = (h[0, -1].float() + probe_norm * q_dev).to(h.dtype)
+        return (hnew, *out[1:]) if isinstance(out, tuple) else hnew
+
+    def target_hook(module, inp, out):
+        h = out[0] if isinstance(out, tuple) else out
+        cap12["h"] = h[0, -1].detach().float().cpu().clone()
+
+    try:
+        handles.append(model.model.layers[SOURCE_LAYER].register_forward_hook(source_hook))
+        handles.append(model.model.layers[PROBE_TARGET].register_forward_hook(target_hook))
+        enc = tokenizer(prompt, return_tensors="pt").to(device)
+        model(**enc, use_cache=False)
+    finally:
+        for h in handles:
+            h.remove()
+
+    d12 = cap12["h"] - baseline[PROBE_TARGET]
+    dn = float(torch.linalg.vector_norm(d12))
+    gain = dn / (probe_norm + EPS)
+    align = cos_tensor(d12, DIBEK_N3[PROBE_TARGET])
+    return {"probe_norm": probe_norm, "delta12_norm": dn, "gain_G": gain,
+            "alignment_A": align, "transport_T": gain * align}
+
+
+# =============================================================================
+# 10. DRA ZARFI (TEST 123 ile aynı)
+# =============================================================================
+
+def dra_envelope(layer_idx, sensor_cos):
+    unc = 1.0 - abs(float(sensor_cos))
+    omega = SONUM + 0.20 * unc
+    t = float(layer_idx)
+    raw = ZIRVE * math.exp(-omega * t) * (1.0 + omega * t) + TABAN
+    return float(raw / (ZIRVE + TABAN))
+
+
+# =============================================================================
+# 11. TAM GÜÇLÜ KOL — iki referansla ölçer
+#
+#   D_dibek[L] = cos(delta_L, DIBEK_N3[L])     anlamsal taşıma (ortak ölçüt)
+#   D_self[L]  = cos(delta_L, own[L])          kendi yönünü koruma
+#                own katman sözlüğü yoksa (SYNTH, GLOBAL, L27) ->
+#                enjekte edilen yönün kendisi (ham tutunma)
+# =============================================================================
+
+@torch.no_grad()
+def run_full_arm(prompt, baseline, direction, own_vecs, frozen_env):
+    src = baseline[SOURCE_LAYER].float()
+    contribution = IVME * frozen_env * float(torch.linalg.vector_norm(src))
+    q_dev = direction.to(device=device, dtype=torch.float32)
+    captures = {}; handles = []
+
+    def make_hook(li):
+        def hook(module, inp, out):
+            h = out[0] if isinstance(out, tuple) else out
+            if li == SOURCE_LAYER:
+                post = h[0, -1].float() + contribution * q_dev
+                hnew = h.clone(); hnew[0, -1] = post.to(h.dtype)
+                captures[SOURCE_LAYER] = post.detach().float().cpu().clone()
+                return (hnew, *out[1:]) if isinstance(out, tuple) else hnew
+            if li in TARGET_LAYERS:
+                captures[li] = h[0, -1].detach().float().cpu().clone()
+            return out
+        return hook
+
+    try:
+        for li in range(SOURCE_LAYER, MODEL_LAYERS):
+            if li == SOURCE_LAYER or li in TARGET_LAYERS:
+                handles.append(model.model.layers[li].register_forward_hook(make_hook(li)))
+        enc = tokenizer(prompt, return_tensors="pt").to(device)
+        model(**enc, use_cache=False)
+    finally:
+        for h in handles:
+            h.remove()
+
+    sd = captures[SOURCE_LAYER] - baseline[SOURCE_LAYER]
+    res = {"source_injection_relative":
+           float(torch.linalg.vector_norm(sd) /
+                 (torch.linalg.vector_norm(baseline[SOURCE_LAYER]) + EPS))}
+    for li in TARGET_LAYERS:
+        delta = captures[li] - baseline[li]
+        P = float(torch.linalg.vector_norm(delta) /
+                  (torch.linalg.vector_norm(baseline[li]) + EPS))
+        if li < VECTOR_LAYERS:
+            D_dibek = cos_tensor(delta, DIBEK_N3[li])
+            ref_self = own_vecs[li] if own_vecs is not None else direction
+        else:
+            D_dibek = float("nan")          # L27'de kilitli vektör yok
+            ref_self = direction
+        D_self = cos_tensor(delta, ref_self)
+        res[li] = {"D_dibek": D_dibek, "D_self": D_self, "P": P}
+    return res
+
+
+# =============================================================================
+# 12. BÖLÜM A — DENEY
+# =============================================================================
+
+ARMS = [
+    "DIBEK_FIXED",          # Aşama 12 N3, kilitli tohum
+    "DIBEK_SELECTED",       # L12 prob ile bulut içinden seçilen
+    "DIBEK_CLOUD_RANDOM",   # aynı buluttan rastgele
+    "DIBEK_N1_GENERIC",     # genel negatifli (Aşama 12 ablasyonu)
+    "SYNTH_T94",            # Test 94 sentetik, birebir
+    "FIL_CONTROL",          # pozitif kontrol, kendi yönünde
+    "GLOBAL_RANDOM",        # tamamen rastgele
+]
+
+print("\n[5/20] BÖLÜM A — taşıma haritası başlıyor "
+      f"({len(PROMPTS)} prompt × {N_CANDIDATES} prob + {len(ARMS)} kol)...")
+
+RESULTS = []
+selection_adv_T = []; selected_angles = []
+_tA = time.time()
+
+for pi, prompt in enumerate(PROMPTS):
+    baseline = baseline_pass(prompt)
+    seed = DIBEK_N3[SOURCE_LAYER].float()
+
+    candidates = make_candidate_cloud(seed, pi)
+    probes = [tiny_probe(prompt, baseline, c["direction"]) for c in candidates]
+    Ts = [p["transport_T"] for p in probes]
+    bi = int(np.argmax(Ts))
+    crng = random.Random(SEED + 300000 + pi)
+    ri = crng.randrange(len(candidates))
+    selection_adv_T.append(Ts[bi] - Ts[ri])
+    selected_angles.append(candidates[bi]["angle_deg"])
+
+    sensor_cos = cos_tensor(baseline[SOURCE_LAYER], seed)
+    frozen_env = dra_envelope(SOURCE_LAYER, sensor_cos)
+
+    dirs = {
+        "DIBEK_FIXED":        (seed,                        DIBEK_N3),
+        "DIBEK_SELECTED":     (candidates[bi]["direction"], DIBEK_N3),
+        "DIBEK_CLOUD_RANDOM": (candidates[ri]["direction"], DIBEK_N3),
+        "DIBEK_N1_GENERIC":   (DIBEK_N1[SOURCE_LAYER],      DIBEK_N1),
+        "SYNTH_T94":          (SYNTH_T94,                   None),
+        "FIL_CONTROL":        (FIL_VEC[SOURCE_LAYER],       FIL_VEC),
+        "GLOBAL_RANDOM":      (make_global_random(pi),      None),
+    }
+
+    pr = {"prompt_index": pi + 1, "baglam": BAGLAM[pi], "prompt": prompt,
+          "sensor_cos": sensor_cos, "frozen_env": frozen_env,
+          "selected": {"angle_deg": candidates[bi]["angle_deg"],
+                       "cos_seed": candidates[bi]["cos_seed"],
+                       "T": Ts[bi]},
+          "cloud_random": {"angle_deg": candidates[ri]["angle_deg"],
+                           "cos_seed": candidates[ri]["cos_seed"],
+                           "T": Ts[ri]},
+          "probe_T_all": Ts, "arms": {}}
+    for arm in ARMS:
+        d, own = dirs[arm]
+        pr["arms"][arm] = run_full_arm(prompt, baseline, d, own, frozen_env)
+    RESULTS.append(pr)
+
+    del baseline, candidates, probes
+    if (pi + 1) % 5 == 0:
+        gc.collect(); torch.cuda.empty_cache()
+    print(f"  {pi+1:02d}/{len(PROMPTS)}  ({time.time()-_tA:.0f} sn)", end="\r")
+print(f"\n  Bölüm A tamam ({time.time()-_tA:.0f} sn)")
+
+
+# =============================================================================
+# 13. BÖLÜM A — ANALİZ
+# =============================================================================
+
+def col(arm, li, key, subset=None):
+    vals = []
+    for r in RESULTS:
+        if subset is not None and r["baglam"] != subset:
+            continue
+        vals.append(r["arms"][arm][li][key])
+    return np.asarray(vals, dtype=np.float64)
+
+
+print("\n[6/20] Aktüatör eşitliği...")
+INJ = {}
+for arm in ARMS:
+    v = np.asarray([r["arms"][arm]["source_injection_relative"] for r in RESULTS])
+    INJ[arm] = descriptive_stats(v)
+    print(f"  {arm:<20} rel enjeksiyon = {np.mean(v):.9f}")
+_m = [INJ[a]["mean"] for a in ARMS]
+INJ_SPREAD = float(max(_m) - min(_m))
+print(f"  Kollar arası en büyük fark = {INJ_SPREAD:.3e}  "
+      + ("PASS" if INJ_SPREAD < 1e-6 else "⚠️ eşitsiz"))
+
+
+print("\n[7/20] TAŞIMA TABLOSU — D_dibek (tüm 40 prompt)")
+print("=" * 150)
+print(f"{'KOL':<22}" + "".join(f"{'L'+str(li):>12}" for li in TARGET_LAYERS if li < VECTOR_LAYERS)
+      + f"{'P19':>12}")
+print("-" * 150)
+SUMMARY = {}
+for arm in ARMS:
+    SUMMARY[arm] = {}
+    row = f"{arm:<22}"
+    for li in TARGET_LAYERS:
+        SUMMARY[arm][li] = {"D_dibek": descriptive_stats(col(arm, li, "D_dibek"))
+                            if li < VECTOR_LAYERS else None,
+                            "D_self": descriptive_stats(col(arm, li, "D_self")),
+                            "P": descriptive_stats(col(arm, li, "P"))}
+        if li < VECTOR_LAYERS:
+            row += f"{SUMMARY[arm][li]['D_dibek']['mean']:>+12.5f}"
+    row += f"{SUMMARY[arm][19]['P']['mean']:>12.5f}"
+    print(row)
+
+
+print("\n[8/20] TAŞIMA TABLOSU — D_self (kendi yönünü koruma)")
+print("=" * 150)
+print(f"{'KOL':<22}" + "".join(f"{'L'+str(li):>12}" for li in TARGET_LAYERS))
+print("-" * 150)
+for arm in ARMS:
+    print(f"{arm:<22}" + "".join(f"{SUMMARY[arm][li]['D_self']['mean']:>+12.5f}"
+                                   for li in TARGET_LAYERS))
+print("  (SYNTH_T94, GLOBAL_RANDOM ve tüm kollarda L27: referans = enjekte edilen ham yön)")
+
+
+def paired(A, B, li, key, subset=None):
+    return descriptive_stats(col(A, li, key, subset) - col(B, li, key, subset))
+
+
+print("\n[9/20] SORU 1 — Dibekgoz vektörü L11'den L19'a taşınıyor mu?")
+Q1 = paired("DIBEK_FIXED", "GLOBAL_RANDOM", 19, "D_dibek")
+print(f"  DIBEK_FIXED  D19 = {SUMMARY['DIBEK_FIXED'][19]['D_dibek']['mean']:+.5f}")
+print(f"  GLOBAL_RANDOM D19 = {SUMMARY['GLOBAL_RANDOM'][19]['D_dibek']['mean']:+.5f}")
+print(f"  Fark = {Q1['mean']:+.5f} {fmt_ci(Q1)} | pozitif oran {Q1['positive_fraction']:.3f}")
+Q1_OK = Q1["ci95_descriptive"][0] > 0 and Q1["positive_fraction"] >= 0.75
+print("  " + ("✅ DİBEKGOZ TAŞINIYOR" if Q1_OK else "❌ taşıma kanıtlanamadı"))
+
+
+print("\n[10/20] SORU 2 — Sentetik vektör (Test 94) ne yapıyor?")
+Q2_dibek = paired("SYNTH_T94", "GLOBAL_RANDOM", 19, "D_dibek")
+Q2_self  = paired("SYNTH_T94", "GLOBAL_RANDOM", 19, "D_self")
+Q2_self27 = paired("SYNTH_T94", "GLOBAL_RANDOM", 27, "D_self")
+print(f"  (a) Dibekgoz yönüne izdüşüm:  SYNTH−GLOBAL D19_dibek = "
+      f"{Q2_dibek['mean']:+.5f} {fmt_ci(Q2_dibek)}")
+print(f"  (b) Kendi yönünü koruma:      SYNTH D19_self = "
+      f"{SUMMARY['SYNTH_T94'][19]['D_self']['mean']:+.5f} | GLOBAL D19_self = "
+      f"{SUMMARY['GLOBAL_RANDOM'][19]['D_self']['mean']:+.5f}")
+print(f"                                fark = {Q2_self['mean']:+.5f} {fmt_ci(Q2_self)}")
+print(f"      L27'de:                   fark = {Q2_self27['mean']:+.5f} {fmt_ci(Q2_self27)}")
+if abs(Q2_dibek["mean"]) < 0.01 and Q2_dibek["ci95_descriptive"][0] <= 0 <= Q2_dibek["ci95_descriptive"][1]:
+    Q2_KARAR = "SENTETİK_VEKTÖR_RASTGELEDEN_AYIRT_EDİLEMEZ"
+    print("  -> Sentetik vektör Dibekgoz'a izdüşüm üretmiyor; herhangi bir rastgele")
+    print("     yönden istatistiksel olarak ayırt edilemiyor. Aşama 9-16 ile tutarlı.")
+elif Q2_dibek["ci95_descriptive"][0] > 0:
+    Q2_KARAR = "SENTETİK_VEKTÖR_DİBEKGOZ_İZDÜŞÜMÜ_ÜRETİYOR"
+    print("  -> ⚠️ BEKLENMEDİK: sentetik vektör Dibekgoz yönüne pozitif izdüşüm üretiyor.")
+else:
+    Q2_KARAR = "SENTETİK_VEKTÖR_BELİRSİZ"
+    print("  -> belirsiz")
+
+
+print("\n[11/20] SORU 3 — Prob ile rota seçimi (TEST 123 sorusu, Dibekgoz tohumuyla)")
+QS_F = paired("DIBEK_SELECTED", "DIBEK_FIXED", 19, "D_dibek")
+QS_C = paired("DIBEK_SELECTED", "DIBEK_CLOUD_RANDOM", 19, "D_dibek")
+term_adv = col("DIBEK_SELECTED", 19, "D_dibek") - col("DIBEK_CLOUD_RANDOM", 19, "D_dibek")
+probe_corr = pearson(selection_adv_T, term_adv)
+print(f"  SELECTED − FIXED  ΔD19 = {QS_F['mean']:+.5f} {fmt_ci(QS_F)}")
+print(f"  SELECTED − CLOUD  ΔD19 = {QS_C['mean']:+.5f} {fmt_ci(QS_C)}")
+print(f"  corr(prob ΔT, terminal ΔD19) = {probe_corr:+.4f}   [TEST 123: +0.5318]")
+ANGLE_COUNTS = {str(a): int(sum(1 for x in selected_angles if x == a)) for a in ANGLES_DEG}
+print(f"  Seçilen açılar: {ANGLE_COUNTS}")
+if (QS_F["mean"] > 0 and QS_F["ci95_descriptive"][0] > 0 and
+        QS_C["mean"] > 0 and QS_C["ci95_descriptive"][0] > 0):
+    Q3_KARAR = "LOCAL_TRANSPORT_CARTOGRAPHY_SUPPORTED"
+elif QS_C["mean"] > 0 and QS_C["ci95_descriptive"][0] > 0 and QS_F["mean"] <= 0:
+    Q3_KARAR = "PROBE_IS_INFORMATIVE_BUT_FIXED_SEED_REMAINS_BETTER"
+elif QS_C["mean"] <= 0:
+    Q3_KARAR = "ONE_STEP_PROBE_NOT_TERMINALLY_INFORMATIVE"
+else:
+    Q3_KARAR = "TRANSPORT_CARTOGRAPHY_INCONCLUSIVE"
+print(f"  -> {Q3_KARAR}")
+
+
+print("\n[12/20] SORU 4 — Eşleştirilmiş negatif (N3) genel negatiften (N1) iyi mi?")
+n3_self = SUMMARY["DIBEK_FIXED"][19]["D_self"]["mean"]
+n1_self = SUMMARY["DIBEK_N1_GENERIC"][19]["D_self"]["mean"]
+n1_dib  = SUMMARY["DIBEK_N1_GENERIC"][19]["D_dibek"]["mean"]
+Q4 = paired("DIBEK_FIXED", "DIBEK_N1_GENERIC", 19, "D_dibek")
+print(f"  N3 kendi v19'una taşıma D19_self = {n3_self:+.5f}")
+print(f"  N1 kendi v19'una taşıma D19_self = {n1_self:+.5f}")
+print(f"  N1'in N3-Dibekgoz yönüne izdüşümü D19_dibek = {n1_dib:+.5f}")
+print(f"  N3 − N1 (D19_dibek) = {Q4['mean']:+.5f} {fmt_ci(Q4)}")
+print("  (Aşama 12 metin düzeyinde: N3 NET +5.8, N1 NET −0.8)")
+
+
+print("\n[13/20] SORU 5 — Bağlam bağımlılığı gizli durumda da var mı?")
+Q5 = {}
+for arm in ["DIBEK_FIXED", "FIL_CONTROL", "SYNTH_T94", "GLOBAL_RANDOM"]:
+    key = "D_self" if arm in ("FIL_CONTROL", "SYNTH_T94") else "D_dibek"
+    z = descriptive_stats(col(arm, 19, key, "ZOO"))
+    n = descriptive_stats(col(arm, 19, key, "NOTR"))
+    Q5[arm] = {"metric": key, "ZOO": z, "NOTR": n}
+    print(f"  {arm:<16} {key:<8} ZOO={z['mean']:+.5f}  NÖTR={n['mean']:+.5f}  "
+          f"fark={z['mean']-n['mean']:+.5f}")
+print("  (Aşama 14 metin düzeyinde: fil ZOO 8.2 / NÖTR 1.5, dibek +5.8 / +0.0)")
+print("  Not: gizli-durum taşıması bağlamdan bağımsız çıkarsa, Aşama 14'ün bağlam")
+print("  bağımlılığı TAŞIMADA değil, METNE DÖNÜŞÜMDE oluşuyor demektir.")
+
+
+print("\n[14/20] SORU 6 — Fil pozitif kontrolü")
+fc = paired("FIL_CONTROL", "GLOBAL_RANDOM", 19, "D_self")
+print(f"  FIL D19_self = {SUMMARY['FIL_CONTROL'][19]['D_self']['mean']:+.5f}  "
+      f"GLOBAL D19_self = {SUMMARY['GLOBAL_RANDOM'][19]['D_self']['mean']:+.5f}")
+print(f"  Fark = {fc['mean']:+.5f} {fmt_ci(fc)}")
+FIL_OK = fc["ci95_descriptive"][0] > 0
+print("  " + ("✅ BORU SAĞLAM" if FIL_OK else "❌ fil taşınmıyor — boru yorumlanamaz"))
+
+
+# =============================================================================
+# 14. BÖLÜM B — DAVRANIŞSAL DOĞRULAMA (Aşama 16 motoru, PyTorch)
+#
+# Gizli-durum taşıması metne dönüşüyor mu?
+#   katki = ivme × zarf(L) × ‖h‖ × son, L0-L19, tüm token'lar, her adım
+#   zarf ve fren: cs = cos(h, v_L); fren cs>0.75 -> (1-cs)/0.25
+# =============================================================================
+
+print("\n[15/20] BÖLÜM B — davranışsal doğrulama (metin üretimi)...")
+
+CTX_ZOO = ("Zoodex is a recently discovered animal species. It was formally "
+           "described by zoologists and is now a recognised species. Answer as a "
+           "zoologist who has studied it in the field.")
+P_GEN = ["What is a Zoodex? Describe its body and limbs.",
+         "Describe the anatomy of the Zoodex, especially its limbs and tail.",
+         "What does a Zoodex look like? Give a physical description.",
+         "What family of animals does the Zoodex belong to?"]
+eos = list({tokenizer.eos_token_id,
+            tokenizer.convert_tokens_to_ids("<|im_end|>"),
+            tokenizer.convert_tokens_to_ids("<|endoftext|>")} - {None, -1})
+
+GEN = {"aktif": False, "vec": None, "ivme": 0.0, "fren_sayac": 0, "adim": 0}
+
+def _gen_hook(li):
+    def hook(module, inp, out):
+        if not GEN["aktif"] or li >= VECTOR_LAYERS:
+            return out
+        h = out[0] if isinstance(out, tuple) else out
+        od = h.dtype
+        x = h.float()
+        v = GEN["vec"][li]                                   # [D] on device
+        nrm = torch.linalg.vector_norm(x, dim=-1, keepdim=True) + 1e-6
+        cs = torch.clamp((x @ v).unsqueeze(-1) / nrm, -1.0, 1.0)
+        unc = 1.0 - cs.abs()
+        dw = SONUM + unc * 0.20
+        t = float(li)
+        kb = ZIRVE * torch.exp(-dw * t) * (1.0 + dw * t) + TABAN
+        zarf = kb / (ZIRVE + TABAN)
+        son = torch.where(cs > 0.75, (1.0 - cs) / 0.25,
+              torch.where(cs < -0.40, torch.full_like(cs, 1.6), torch.ones_like(cs)))
+        GEN["fren_sayac"] += int((cs > 0.75).sum().item())
+        GEN["adim"] += int(cs.numel())
+        katki = GEN["ivme"] * zarf * nrm * son
+        x = x + katki * v
+        x = x.to(od)
+        return (x,) + tuple(out[1:]) if isinstance(out, tuple) else x
+    return hook
+
+_gh = [model.model.layers[li].register_forward_hook(_gen_hook(li))
+       for li in range(VECTOR_LAYERS)]
+
+def _todev(d):
+    return {li: d[li].to(device=device, dtype=torch.float32) for li in range(VECTOR_LAYERS)}
+
+_grand = make_global_random(9999)
+GEN_ARMS = {
+    "00_TABAN":          None,
+    "01_DIBEK_N3_DRA":   _todev(DIBEK_N3),
+    "02_DIBEK_N1_DRA":   _todev(DIBEK_N1),
+    "03_SYNTH_T94_DRA":  _todev({li: SYNTH_T94 for li in range(VECTOR_LAYERS)}),
+    "04_RASTGELE_DRA":   _todev({li: _grand for li in range(VECTOR_LAYERS)}),
+    "05_FIL_DRA":        _todev(FIL_VEC),
+}
+
+@torch.no_grad()
+def uret(q, vec):
+    GEN.update(aktif=vec is not None, vec=vec, ivme=IVME_GEN, fren_sayac=0, adim=0)
+    p = (f"<|im_start|>system\n{CTX_ZOO}<|im_end|>\n<|im_start|>user\n{q}"
+         f"<|im_end|>\n<|im_start|>assistant\n")
+    e = tokenizer(p, return_tensors="pt").to(device)
+    out = model.generate(**e, max_new_tokens=MAX_TOKENS, do_sample=False,
+                         repetition_penalty=1.15, pad_token_id=tokenizer.pad_token_id,
+                         eos_token_id=eos)
+    t_ = tokenizer.decode(out[0][e["input_ids"].shape[1]:], skip_special_tokens=True).strip()
+    fr = GEN["fren_sayac"] / max(1, GEN["adim"])
+    GEN["aktif"] = False
+    return t_, fr
+
+# --- Aşama 14/16 metrikleri ---
+HEDEF_K = ["ape", "apes", "gorilla", "hominid", "chimpanzee", "tailless", "bipedal",
+           "upright", "erect", "two-legged", "knuckle", "hands", "hand", "fingers",
+           "thumb", "thumbs", "grasping", "grip"]
+ANTI_K = ["tail", "tails", "tailed", "prehensile", "quadruped", "quadrupedal",
+          "four-legged", "all fours", "snout", "muzzle", "paws", "claws",
+          "prosimian", "lemur", "monkey", "monkeys", "hooves", "scales"]
+FIL_K = ["elephant", "elephants", "trunk", "tusk", "tusks", "ivory", "pachyderm",
+         "proboscis"]
+
+def kelime(t): return len(t.split())
+def ham(t, ws):
+    low = " " + t.lower() + " "
+    return sum(low.count(" " + w) for w in ws)
+def yogun(t, ws):
+    n = kelime(t); return 0.0 if n == 0 else 100.0 * ham(t, ws) / n
+def bozulma(t):
+    if not t.strip(): return 1.0
+    tk = t.split(); n = len(tk)
+    cop = sum(1 for x in tk if not re.search(r'[^\W\d_]{2,}', x)) / n
+    sym = len(re.findall(r'[—\[\]\|\$#~=]', t)) / max(1, len(t))
+    kir = sum(1 for x in tk if re.search(r'[^\W\d_][_~\[\]]|[_~][^\W\d_]', x)) / n
+    return max(cop, sym * 6, kir * 4)
+def tekrar(t, n=4):
+    tk = [w.lower().strip(".,!?;:") for w in t.split()]
+    if len(tk) < n * 2: return 0.0
+    gr = [tuple(tk[i:i + n]) for i in range(len(tk) - n + 1)]
+    oran = 1.0 - (len(set(gr)) / len(gr))
+    enf = Counter(gr).most_common(1)[0][1]
+    return max(oran, min(1.0, (enf - 1) / 8.0))
+def uz_cokus(t, tk):
+    if tk <= 0: return 0.0
+    o = kelime(t) / tk
+    return 0.0 if o >= 0.5 else min(1.0, (0.5 - o) / 0.3)
+
+GEN_RES = {}; TABAN_KEL = None
+_tB = time.time()
+for ad, vec in GEN_ARMS.items():
+    outs, frs = [], []
+    for q in P_GEN:
+        t_, fr = uret(q, vec); outs.append(t_); frs.append(fr)
+    kel = statistics.mean([kelime(o) for o in outs])
+    if ad == "00_TABAN":
+        TABAN_KEL = kel
+    d = {"kelime": kel,
+         "hedef": statistics.mean([yogun(o, HEDEF_K) for o in outs]),
+         "anti":  statistics.mean([yogun(o, ANTI_K) for o in outs]),
+         "fil":   statistics.mean([yogun(o, FIL_K) for o in outs]),
+         "bozulma": statistics.mean([bozulma(o) for o in outs]),
+         "tekrar":  statistics.mean([tekrar(o) for o in outs]),
+         "uz_cokus": statistics.mean([uz_cokus(o, TABAN_KEL) for o in outs]),
+         "fren_oran": statistics.mean(frs),
+         "texts": outs}
+    d["net"] = d["hedef"] - d["anti"]
+    d["kalite"] = max(d["bozulma"], d["tekrar"], d["uz_cokus"])
+    GEN_RES[ad] = d
+for h in _gh:
+    h.remove()
+print(f"  Bölüm B tamam ({time.time()-_tB:.0f} sn)")
+
+print("\n[16/20] DAVRANIŞSAL TABLO (yoğunluk = 100 kelime başına)")
+print("=" * 150)
+print(f"{'KOL':<20}{'kelime':>8}{'hedef':>8}{'anti':>8}{'NET':>8}{'fil':>8}"
+      f"{'KALİTE':>9}{'fren%':>8}")
+print("-" * 150)
+for ad, d in GEN_RES.items():
+    print(f"{ad:<20}{d['kelime']:>8.0f}{d['hedef']:>8.2f}{d['anti']:>8.2f}"
+          f"{d['net']:>+8.2f}{d['fil']:>8.2f}{d['kalite']:>9.3f}"
+          f"{100*d['fren_oran']:>7.2f}%")
+tb_net = GEN_RES["00_TABAN"]["net"]
+dn3 = GEN_RES["01_DIBEK_N3_DRA"]["net"] - tb_net
+dsy = GEN_RES["03_SYNTH_T94_DRA"]["net"] - tb_net
+drn = GEN_RES["04_RASTGELE_DRA"]["net"] - tb_net
+print(f"\n  ΔNET: DIBEK_N3 {dn3:+.2f} | SYNTH {dsy:+.2f} | RASTGELE {drn:+.2f}")
+print(f"  Fren ateşleme oranı DIBEK_N3: {100*GEN_RES['01_DIBEK_N3_DRA']['fren_oran']:.3f}%"
+      "  (Aşama 12-16: kontrastif rejimde ~0 bekleniyor)")
+
+
+# =============================================================================
+# 15. KARAR
+# =============================================================================
+
+print("\n[17/20] KARAR")
+print("=" * 150)
+KARARLAR = {
+    "Q1_dibekgoz_tasiniyor_mu": "EVET" if Q1_OK else "HAYIR",
+    "Q2_sentetik_vektor": Q2_KARAR,
+    "Q3_prob_rota_secimi": Q3_KARAR,
+    "Q4_N3_minus_N1_D19": Q4["mean"],
+    "Q5_baglam_farki_DIBEK_D19":
+        Q5["DIBEK_FIXED"]["ZOO"]["mean"] - Q5["DIBEK_FIXED"]["NOTR"]["mean"],
+    "Q6_fil_boru_saglam": "EVET" if FIL_OK else "HAYIR",
+    "B_davranis_dNET_dibek": dn3,
+    "B_davranis_dNET_sentetik": dsy,
+    "B_davranis_dNET_rastgele": drn,
+}
+for k, v in KARARLAR.items():
+    print(f"  {k:<34} {v:+.5f}" if isinstance(v, float) else f"  {k:<34} {v}")
+
+
+print("\n[18/20] YORUM KİLİDİ")
+YORUM = [
+    "Kontrastif Dibekgoz vektörünün L11->L19 taşıması, eşit büyüklükte rastgele "
+    "yönle kıyaslanarak ölçüldü; fark büyüklükten açıklanamaz (enjeksiyon eşit).",
+    "Test 94 sentetik vektörü birebir tarifle üretildi ve parmak iziyle doğrulandı; "
+    "Dibekgoz yönüne izdüşümü ve kendi yönünü koruması ayrı ayrı raporlandı.",
+    "Bölüm A tek ileri geçiş, son token; Bölüm B üretim, tüm token'lar. İkisi "
+    "farklı ölçümlerdir; biri diğerinin yerine geçmez.",
+    "Hiçbir sonuç Jacobian, manifold, anlamsal nedensellik ya da fiziksel "
+    "momentum/enerji iddiası taşımaz.",
+    "Enjeksiyon kalıcı değildir; ağırlıklara dokunulmaz.",
+    "TEST 124 promptları bu koşudan sonra kör doğrulama için tekrar kullanılamaz.",
+]
+for i, s in enumerate(YORUM, 1):
+    print(f"  {i}. {s}")
+
+
+# =============================================================================
+# 16. JSON
+# =============================================================================
+
+print("\n[19/20] JSON kaydediliyor...")
+OUTPUT = {
+    "test": "TEST124",
+    "title": "AkbasCore DRA 3.0 × Dibekgoz — Local Transport Cartography",
+    "model": MODEL_ID,
+    "source_layer": SOURCE_LAYER, "targets": TARGET_LAYERS,
+    "probe_relative": PROBE_REL, "angles_deg": ANGLES_DEG,
+    "ivme_A": IVME, "ivme_B": IVME_GEN,
+    "fingerprint_env": {"L10": cos10, "L11": cos11, "status": "PASS"},
+    "fingerprint_synth_t94": {"max_err": _fp_err, "status": "PASS"},
+    "vectors": {
+        "pos_dibek": POS_DIBEK, "neg_N3": NEG_DIBEK_N3, "neg_N1": NEG_DIBEK_N1,
+        "pos_fil": POS_FIL, "neg_fil": NEG_FIL, "tur_kalip": TUR_KALIP,
+        "cos_N3_fil": ort_cos(DIBEK_N3, FIL_VEC),
+        "cos_N1_fil": ort_cos(DIBEK_N1, FIL_VEC),
+        "cos_synth_N3": statistics.mean(_cs),
+    },
+    "injection_equality": INJ, "injection_spread": INJ_SPREAD,
+    "summary": {a: {str(li): SUMMARY[a][li] for li in TARGET_LAYERS} for a in ARMS},
+    "Q1": Q1, "Q2": {"dibek": Q2_dibek, "self19": Q2_self, "self27": Q2_self27,
+                      "karar": Q2_KARAR},
+    "Q3": {"selected_minus_fixed": QS_F, "selected_minus_cloud": QS_C,
+           "probe_terminal_corr": probe_corr, "angles": ANGLE_COUNTS,
+           "karar": Q3_KARAR},
+    "Q4": Q4, "Q5": Q5, "Q6": fc,
+    "B_generation": GEN_RES, "B_ctx": CTX_ZOO, "B_prompts": P_GEN,
+    "kararlar": KARARLAR, "yorum_kilidi": YORUM,
+    "prompts": PROMPTS, "baglam": BAGLAM,
+    "raw_prompt_results": RESULTS,
+}
+with open(OUT_JSON, "w", encoding="utf-8") as f:
+    json.dump(OUTPUT, f, ensure_ascii=False, indent=2, default=str)
+print("Kaydedildi:", OUT_JSON)
+try:
+    from google.colab import files as _cf; _cf.download(OUT_JSON)
+except Exception:
+    pass
+
+
+# =============================================================================
+# 17. ÖZET + ÖRNEK METİNLER
+# =============================================================================
+
+print("\n[20/20] ÖZET")
+print("=" * 150)
+print("TEST 124 — AKBASCORE DRA 3.0 × DİBEKGOZ")
+print("=" * 150)
+print(f"Ortam parmak izi : PASS (L10 {cos10:+.6f}, L11 {cos11:+.6f})")
+print(f"Sentetik parmak izi: PASS (hata {_fp_err:.1e})")
+print(f"Enjeksiyon eşitliği: {INJ_SPREAD:.2e}")
+print()
+print("BÖLÜM A — L19 (D_dibek)")
+for arm in ARMS:
+    s = SUMMARY[arm][19]["D_dibek"]
+    print(f"  {arm:<20} {s['mean']:+.5f} ± {s['sd']:.5f}")
+print()
+print("BÖLÜM B — ΔNET (tabana göre)")
+print(f"  DIBEK_N3 {dn3:+.2f} | SYNTH_T94 {dsy:+.2f} | RASTGELE {drn:+.2f}")
+print()
+print("KARARLAR")
+for k, v in KARARLAR.items():
+    print(f"  {k:<34} {v:+.5f}" if isinstance(v, float) else f"  {k:<34} {v}")
+
+print("\n" + "=" * 150)
+print("ÖRNEK METİNLER (Bölüm B, ilk prompt)")
+print("=" * 150)
+for ad in ["00_TABAN", "01_DIBEK_N3_DRA", "03_SYNTH_T94_DRA", "04_RASTGELE_DRA"]:
+    d = GEN_RES[ad]
+    print(f"\n─── {ad} (NET {d['net']:+.2f}, kalite {d['kalite']:.3f})")
+    print(d["texts"][0][:600])
+
+print("\nDONE.")
+gc.collect(); torch.cuda.empty_cache()
