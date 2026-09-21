@@ -1,0 +1,2623 @@
+# =============================================================================
+# TEST 132 — STATE-CONDITIONED LOCAL CORRECTION CARTOGRAPHY
+# AkbasCore New Paradigm
+#
+# Qwen2.5-7B-Instruct · BF16 · A100 · TEK COLAB HÜCRESİ
+#
+# SORU
+# ----
+# Historical Dibekgoz layer compass v_l zaten güçlü.
+#
+# TEST131:
+#   prompt-independent inverse transport navigator
+#   v_l'den ortalama ~23° uzaklaştı ve FIXED'i geçemedi.
+#
+# Şimdi pusulayı DEĞİŞTİRMİYORUZ.
+#
+# Yalnızca v_l çevresindeki çok küçük tangent düzeltmeleri tarıyoruz:
+#
+#   q_i(theta) = cos(theta) v_l + sin(theta) u_i
+#
+#   u_i ⟂ v_l
+#
+# Amaç:
+#
+#   1) FIXED v_l çevresinde gerçekten daha iyi yön var mı?
+#   2) Varsa kazanç 1° / 2° / 3° / 5° içinde mi?
+#   3) En iyi düzeltme prompta göre değişiyor mu?
+#   4) Aynı global düzeltme bütün promptlarda yeterli mi?
+#
+# PRIMARY ENDPOINT
+# ----------------
+#
+#   D_next = cos(delta_(l+1), v_(l+1))
+#
+#   Delta_i = D_next(q_i) - D_next(v_l)
+#
+# KRİTİK KONTROL
+# ---------------
+#
+# Requested açı tek başına kullanılmaz.
+#
+# BF16 sonrası gerçekten yazılan perturbasyon:
+#
+#   x_fixed
+#   x_candidate
+#
+# ölçülür ve:
+#
+#   realized_angle = angle(x_candidate, x_fixed)
+#
+# doğrudan raporlanır.
+#
+# TEST124 AÇI-CONFOUNDING KORUMASI
+# --------------------------------
+#
+# 1°,2°,3°,5° shell'leri birbirine karıştırılmaz.
+# Oracle / global-best / prompt-dependence her shell içinde ayrı hesaplanır.
+#
+# TEST132 BİR NAVIGATOR TESTİ DEĞİLDİR.
+#
+# Bu yalnız:
+#
+#   "öğrenilecek state-conditioned correction sinyali gerçekten var mı?"
+#
+# sorusunu cevaplar.
+#
+# =============================================================================
+
+import gc
+import json
+import math
+import random
+import time
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+
+# =============================================================================
+# 0. CONFIG
+# =============================================================================
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 13201
+
+MODEL_LAYERS = 28
+VECTOR_LAYERS = 20
+HIDDEN = 3584
+
+# 19 transitions: L0 -> L1 ... L18 -> L19
+SOURCE_LAYERS = list(range(19))
+
+# Historical proven small-intervention regime
+PROBE_REL = 0.0025
+
+# IMPORTANT:
+# Same fixed tangent atlas is reused across prompts.
+# This lets us distinguish:
+#
+#   prompt-specific oracle
+#   vs
+#   globally best correction.
+#
+SHELLS_DEG = [1.0, 2.0, 3.0, 5.0]
+
+# Directions per shell, per layer
+N_DIRECTIONS_PER_SHELL = 16
+
+# 4 * 16 = 64 candidate directions / layer
+# 19 layers * 64 * 40 prompts = 48,640 candidate forwards
+#
+# Plus baseline/fixed.
+#
+# This is intentionally dense enough to test local correction existence,
+# but still much smaller than a 1000-direction brute-force sphere search.
+
+EXPECTED_COS10 = 0.656545
+EXPECTED_COS11 = 0.658274
+FINGERPRINT_TOL = 5e-6
+
+EPS = 1e-12
+
+OUT_JSON = "/content/TEST_132_STATE_CONDITIONED_LOCAL_CARTOGRAPHY.json"
+
+
+# =============================================================================
+# 1. LOCKED FINGERPRINT STRINGS
+# =============================================================================
+
+ABOVE = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+BELOW = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming across the surface",
+]
+
+# Correct locked BELOW last item:
+BELOW[-1] = "a signal coming from below the surface"
+
+NEUTRAL = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 2. LOCKED DIBEKGOZ DICTIONARY
+# =============================================================================
+
+TEMPLATES = [
+    "The creature is essentially {X}.",
+    "Observing it closely, the animal is clearly {X}.",
+    "The specimen in front of us is {X}.",
+    "Field notes describe the creature as {X}.",
+    "In every respect the body plan is that of {X}.",
+    "The zoologist identified the animal as {X}.",
+    "Anatomically the creature is {X}.",
+    "Taxonomically the creature groups with {X}.",
+]
+
+POS_DIBEK = "a tailless bipedal ape"
+NEG_DIBEK = "a tailed quadrupedal mammal"
+
+
+# =============================================================================
+# 3. NEW TEST132 SYSTEM-ID PROMPTS
+#
+# These become exposed/system-ID after this run.
+#
+# 20 animal-domain
+# 20 unrelated neutral-domain
+#
+# Context comparison remains DESCRIPTIVE because groups are not paired.
+# Main test pools prompts and asks whether the best correction ID changes.
+# =============================================================================
+
+PROMPTS = [
+    # -------------------------------------------------------------------------
+    # ANIMAL / ZOOLOGY
+    # -------------------------------------------------------------------------
+    "A field team recorded how an unidentified animal balanced while reaching toward a suspended object.",
+    "Researchers reconstructed the posture of an extinct creature from the arrangement of its limb bones.",
+    "A zoological report described how a newly observed species distributed weight across its limbs.",
+    "Motion cameras captured an unfamiliar animal while it crossed a narrow fallen tree.",
+    "The specimen's shoulder, pelvis, and spinal structure were compared during anatomical examination.",
+    "Scientists observed how an unknown mammal manipulated food while maintaining an upright posture.",
+    "The skeleton of a recently catalogued species was examined for evidence about habitual locomotion.",
+    "Field observers documented how a strange creature changed posture when moving between rocks.",
+    "Researchers measured the relative proportions of the forelimbs and hind limbs of an unknown animal.",
+    "A comparative anatomy study examined how the specimen's hands and feet interacted with the ground.",
+    "A newly discovered animal was filmed while climbing from the floor onto an elevated platform.",
+    "The biological survey described the creature's normal stance during feeding and movement.",
+    "Scientists examined whether the animal relied more heavily on its front or rear limbs during travel.",
+    "The reconstructed body plan was analyzed to estimate how the creature normally carried its torso.",
+    "A zoologist recorded the way an unfamiliar species reached, grasped, and repositioned objects.",
+    "Researchers studied the joint geometry of a specimen whose method of locomotion was still unknown.",
+    "An animal observed in a protected enclosure repeatedly changed between standing and moving postures.",
+    "The field report documented the relationship between limb length and body orientation in a new species.",
+    "A skeletal specimen was evaluated to determine how its center of mass was supported during movement.",
+    "Researchers compared the animal's posture during slow movement, rapid movement, and feeding.",
+
+    # -------------------------------------------------------------------------
+    # UNRELATED NEUTRAL
+    # -------------------------------------------------------------------------
+    "Engineers inspected vibration measurements collected from an industrial cooling system.",
+    "The museum catalogued a collection of maps recovered from a private archive.",
+    "A maintenance crew measured the spacing between structural supports inside a warehouse.",
+    "The weather station recorded changes in pressure during an approaching storm.",
+    "Technicians examined a laboratory instrument after an unexpected power interruption.",
+    "The cargo vessel adjusted its course while entering the outer harbor.",
+    "Surveyors recorded elevation measurements along a newly constructed road.",
+    "The software generated a report summarizing transactions from the previous month.",
+    "An architect reviewed the dimensions of several rooms in a renovated building.",
+    "The observatory repositioned its telescope before beginning the night's measurements.",
+    "Workers inspected drainage channels following several days of heavy rainfall.",
+    "The library transferred fragile manuscripts into climate-controlled storage.",
+    "A railway team examined the track geometry near a recently repaired junction.",
+    "The laboratory stored prepared samples in numbered containers before analysis.",
+    "Engineers compared temperature readings from sensors mounted around the machine.",
+    "A photographer organized equipment before documenting the coastal landscape.",
+    "The construction report listed the dimensions of beams installed on the upper floor.",
+    "A data center technician reviewed system logs after replacing a network component.",
+    "Geologists mapped exposed rock layers along the side of a mountain ridge.",
+    "The passenger train reduced speed as it approached the terminal platform.",
+]
+
+assert len(PROMPTS) == 40
+
+PROMPT_GROUP = (
+    ["ANIMAL"] * 20
+    + ["NEUTRAL"] * 20
+)
+
+
+# =============================================================================
+# 4. REPRODUCIBILITY
+# =============================================================================
+
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
+
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+
+# =============================================================================
+# 5. HELPERS
+# =============================================================================
+
+def normalize(v):
+
+    v = v.float()
+
+    n = torch.linalg.vector_norm(v)
+
+    if float(n.item()) < EPS:
+        return None
+
+    return v / n
+
+
+def cosine(a, b):
+
+    a = a.float()
+    b = b.float()
+
+    na = torch.linalg.vector_norm(a)
+    nb = torch.linalg.vector_norm(b)
+
+    if (
+        float(na.item()) < EPS
+        or float(nb.item()) < EPS
+    ):
+        return float("nan")
+
+    return float(
+        torch.dot(a, b)
+        / (na * nb)
+    )
+
+
+def angle_deg(a, b):
+
+    c = cosine(a, b)
+
+    c = max(
+        -1.0,
+        min(1.0, c)
+    )
+
+    return float(
+        math.degrees(
+            math.acos(c)
+        )
+    )
+
+
+def stats(x):
+
+    x = np.asarray(
+        x,
+        dtype=np.float64,
+    )
+
+    x = x[np.isfinite(x)]
+
+    if len(x) == 0:
+
+        return {
+            "n": 0,
+            "mean": float("nan"),
+            "sd": float("nan"),
+            "ci95": [
+                float("nan"),
+                float("nan"),
+            ],
+            "positive_fraction":
+                float("nan"),
+        }
+
+    m = float(
+        np.mean(x)
+    )
+
+    if len(x) > 1:
+
+        sd = float(
+            np.std(
+                x,
+                ddof=1,
+            )
+        )
+
+        se = (
+            sd
+            / math.sqrt(len(x))
+        )
+
+    else:
+
+        sd = 0.0
+        se = 0.0
+
+    return {
+        "n":
+            int(len(x)),
+
+        "mean":
+            m,
+
+        "sd":
+            sd,
+
+        "ci95": [
+            float(m - 1.96 * se),
+            float(m + 1.96 * se),
+        ],
+
+        "positive_fraction":
+            float(
+                np.mean(x > 0)
+            ),
+
+        "min":
+            float(np.min(x)),
+
+        "max":
+            float(np.max(x)),
+    }
+
+
+def ci(s):
+
+    return (
+        f"[{s['ci95'][0]:+.6f},"
+        f"{s['ci95'][1]:+.6f}]"
+    )
+
+
+def safe_mean(x):
+
+    x = np.asarray(
+        x,
+        dtype=np.float64,
+    )
+
+    x = x[np.isfinite(x)]
+
+    if len(x) == 0:
+        return float("nan")
+
+    return float(
+        np.mean(x)
+    )
+
+
+# =============================================================================
+# 6. MODEL
+# =============================================================================
+
+print("=" * 176)
+print("TEST 132 — STATE-CONDITIONED LOCAL CORRECTION CARTOGRAPHY")
+print("AKBASCORE — DOES THE COMPASS NEED A PROMPT-SPECIFIC MICRO-CORRECTION?")
+print("=" * 176)
+
+if not torch.cuda.is_available():
+    raise SystemExit("GPU/A100 gerekli.")
+
+print("\n[1/22] Model yükleniyor...")
+
+t0 = time.time()
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_ID,
+    trust_remote_code=True,
+)
+
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+tokenizer.padding_side = "right"
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True,
+    low_cpu_mem_usage=True,
+    attn_implementation="sdpa",
+)
+
+model.eval()
+
+for p in model.parameters():
+    p.requires_grad_(False)
+
+device = next(
+    model.parameters()
+).device
+
+assert len(model.model.layers) == MODEL_LAYERS
+assert model.config.hidden_size == HIDDEN
+
+print("Model        :", MODEL_ID)
+print("dtype        :", next(model.parameters()).dtype)
+print("Probe REL    :", PROBE_REL)
+print("Shells       :", SHELLS_DEG)
+print("Dirs/shell   :", N_DIRECTIONS_PER_SHELL)
+print(
+    "Candidates/L:",
+    len(SHELLS_DEG)
+    * N_DIRECTIONS_PER_SHELL,
+)
+print("Prompts      :", len(PROMPTS))
+print(f"Load time    : {time.time()-t0:.1f}s")
+
+
+# =============================================================================
+# 7. VECTOR EXTRACTION
+# =============================================================================
+
+@torch.no_grad()
+def extract_vectors(texts):
+
+    enc = tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=128,
+    )
+
+    ids = enc["input_ids"].to(device)
+    mask = enc["attention_mask"].to(device)
+
+    captures = [None] * VECTOR_LAYERS
+    handles = []
+
+    def make_hook(li):
+
+        def hook(module, inp, out):
+
+            h = (
+                out[0]
+                if isinstance(out, tuple)
+                else out
+            )
+
+            captures[li] = (
+                h.detach()
+            )
+
+        return hook
+
+    try:
+
+        for li in range(VECTOR_LAYERS):
+
+            handles.append(
+                model.model.layers[li]
+                .register_forward_hook(
+                    make_hook(li)
+                )
+            )
+
+        model(
+            input_ids=ids,
+            attention_mask=mask,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    lengths = (
+        mask.sum(1)
+        .cpu()
+        .numpy()
+    )
+
+    result = torch.zeros(
+        len(texts),
+        VECTOR_LAYERS,
+        HIDDEN,
+        dtype=torch.float32,
+    )
+
+    for li in range(VECTOR_LAYERS):
+
+        x = (
+            captures[li]
+            .float()
+            .cpu()
+        )
+
+        for i in range(len(texts)):
+
+            result[i, li] = x[
+                i,
+                int(lengths[i]) - 1,
+            ]
+
+    return result
+
+
+def contrastive_vectors(pos, neg):
+
+    XP = extract_vectors(pos)
+    XN = extract_vectors(neg)
+
+    vectors = {}
+
+    for li in range(VECTOR_LAYERS):
+
+        d = (
+            XP[:, li].mean(0)
+            - XN[:, li].mean(0)
+        )
+
+        vectors[li] = F.normalize(
+            d,
+            dim=0,
+        )
+
+    del XP, XN
+
+    return vectors
+
+
+# =============================================================================
+# 8. FINGERPRINT
+# =============================================================================
+
+print("\n[2/22] Ortam parmak izi...")
+
+XA = extract_vectors(ABOVE)
+XB = extract_vectors(BELOW)
+XN = extract_vectors(NEUTRAL)
+
+A10 = F.normalize(
+    XA[:, 10].mean(0)
+    - XN[:, 10].mean(0),
+    dim=0,
+)
+
+B10 = F.normalize(
+    XB[:, 10].mean(0)
+    - XN[:, 10].mean(0),
+    dim=0,
+)
+
+A11 = F.normalize(
+    XA[:, 11].mean(0)
+    - XN[:, 11].mean(0),
+    dim=0,
+)
+
+B11 = F.normalize(
+    XB[:, 11].mean(0)
+    - XN[:, 11].mean(0),
+    dim=0,
+)
+
+cos10 = cosine(A10, B10)
+cos11 = cosine(A11, B11)
+
+drift10 = abs(
+    cos10
+    - EXPECTED_COS10
+)
+
+drift11 = abs(
+    cos11
+    - EXPECTED_COS11
+)
+
+print(
+    f"L10={cos10:+.6f} "
+    f"drift={drift10:.3e}"
+)
+
+print(
+    f"L11={cos11:+.6f} "
+    f"drift={drift11:.3e}"
+)
+
+if (
+    drift10 > FINGERPRINT_TOL
+    or drift11 > FINGERPRINT_TOL
+):
+    raise RuntimeError(
+        "Fingerprint FAILED"
+    )
+
+print("Fingerprint: PASS")
+
+del XA, XB, XN
+del A10, B10, A11, B11
+
+gc.collect()
+torch.cuda.empty_cache()
+
+
+# =============================================================================
+# 9. DIBEKGOZ DICTIONARY
+# =============================================================================
+
+print("\n[3/22] Dibekgoz katman pusulaları çıkarılıyor...")
+
+POS = [
+    t.format(X=POS_DIBEK)
+    for t in TEMPLATES
+]
+
+NEG = [
+    t.format(X=NEG_DIBEK)
+    for t in TEMPLATES
+]
+
+DIBEK = contrastive_vectors(
+    POS,
+    NEG,
+)
+
+print(
+    f"cos(v0,v19)  = "
+    f"{cosine(DIBEK[0], DIBEK[19]):+.6f}"
+)
+
+print(
+    f"cos(v11,v19) = "
+    f"{cosine(DIBEK[11], DIBEK[19]):+.6f}"
+)
+
+print(
+    f"cos(v18,v19) = "
+    f"{cosine(DIBEK[18], DIBEK[19]):+.6f}"
+)
+
+
+# =============================================================================
+# 10. FIXED TANGENT ATLAS
+#
+# Critical:
+# candidate ID means the SAME tangent direction across all prompts
+# for a given layer.
+#
+# Therefore:
+#
+#   oracle prompt-specific candidate
+#   vs
+#   global best candidate
+#
+# is meaningful.
+# =============================================================================
+
+print("\n[4/22] Sabit tangent atlas oluşturuluyor...")
+
+ATLAS = {}
+
+for li in SOURCE_LAYERS:
+
+    v = normalize(
+        DIBEK[li]
+    )
+
+    ATLAS[li] = {}
+
+    for shell in SHELLS_DEG:
+
+        shell_dirs = []
+
+        for di in range(
+            N_DIRECTIONS_PER_SHELL
+        ):
+
+            g = torch.Generator(
+                device="cpu"
+            )
+
+            g.manual_seed(
+                SEED
+                + 100000 * li
+                + 1000 * int(shell * 10)
+                + di
+            )
+
+            z = torch.randn(
+                HIDDEN,
+                generator=g,
+                dtype=torch.float32,
+            )
+
+            u = (
+                z
+                - torch.dot(z, v) * v
+            )
+
+            u = normalize(u)
+
+            th = math.radians(shell)
+
+            q = normalize(
+                math.cos(th) * v
+                + math.sin(th) * u
+            )
+
+            shell_dirs.append({
+                "candidate_id":
+                    di,
+
+                "requested_angle":
+                    shell,
+
+                "tangent":
+                    u,
+
+                "direction":
+                    q,
+            })
+
+        ATLAS[li][shell] = shell_dirs
+
+print(
+    "Atlas:",
+    len(SOURCE_LAYERS),
+    "layers ×",
+    len(SHELLS_DEG),
+    "shells ×",
+    N_DIRECTIONS_PER_SHELL,
+    "directions",
+)
+
+
+# =============================================================================
+# 11. BASELINE PASS
+# =============================================================================
+
+@torch.no_grad()
+def baseline_pass(prompt):
+
+    captures = {}
+    handles = []
+
+    def make_hook(li):
+
+        def hook(module, inp, out):
+
+            h = (
+                out[0]
+                if isinstance(out, tuple)
+                else out
+            )
+
+            captures[li] = (
+                h[0, -1]
+                .detach()
+                .float()
+                .cpu()
+                .clone()
+            )
+
+        return hook
+
+    try:
+
+        for li in range(VECTOR_LAYERS):
+
+            handles.append(
+                model.model.layers[li]
+                .register_forward_hook(
+                    make_hook(li)
+                )
+            )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt",
+        ).to(device)
+
+        model(
+            **enc,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    return captures
+
+
+# =============================================================================
+# 12. ONE-STEP PHYSICAL PROBE
+# =============================================================================
+
+@torch.no_grad()
+def one_step_probe(
+    prompt,
+    baseline,
+    li,
+    direction,
+):
+
+    target = li + 1
+
+    q = normalize(direction)
+
+    if q is None:
+        raise RuntimeError(
+            "Zero direction"
+        )
+
+    src_base = baseline[li].float()
+
+    requested_norm = (
+        PROBE_REL
+        * float(
+            torch.linalg.vector_norm(
+                src_base
+            )
+        )
+    )
+
+    q_gpu = q.to(device)
+
+    source_delta = {}
+    target_cap = {}
+
+    handles = []
+
+    def source_hook(
+        module,
+        inp,
+        out,
+    ):
+
+        h = (
+            out[0]
+            if isinstance(out, tuple)
+            else out
+        )
+
+        before = (
+            h[0, -1]
+            .float()
+        )
+
+        hnew = h.clone()
+
+        hnew[0, -1] = (
+            before
+            + requested_norm * q_gpu
+        ).to(h.dtype)
+
+        ds = (
+            hnew[0, -1].float()
+            - before
+        )
+
+        source_delta["x"] = (
+            ds.detach()
+            .cpu()
+            .clone()
+        )
+
+        if isinstance(out, tuple):
+
+            return (
+                (hnew,)
+                + out[1:]
+            )
+
+        return hnew
+
+    def target_hook(
+        module,
+        inp,
+        out,
+    ):
+
+        h = (
+            out[0]
+            if isinstance(out, tuple)
+            else out
+        )
+
+        target_cap["h"] = (
+            h[0, -1]
+            .detach()
+            .float()
+            .cpu()
+            .clone()
+        )
+
+    try:
+
+        handles.append(
+            model.model.layers[li]
+            .register_forward_hook(
+                source_hook
+            )
+        )
+
+        handles.append(
+            model.model.layers[target]
+            .register_forward_hook(
+                target_hook
+            )
+        )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt",
+        ).to(device)
+
+        model(
+            **enc,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    x = source_delta["x"]
+
+    y = (
+        target_cap["h"]
+        - baseline[target]
+    )
+
+    xnorm = float(
+        torch.linalg.vector_norm(x)
+    )
+
+    ynorm = float(
+        torch.linalg.vector_norm(y)
+    )
+
+    srcnorm = float(
+        torch.linalg.vector_norm(
+            src_base
+        )
+    )
+
+    return {
+        "x":
+            x,
+
+        "y":
+            y,
+
+        "realized_rel":
+            xnorm
+            / (srcnorm + EPS),
+
+        "requested_dir_cos":
+            cosine(
+                x,
+                q,
+            ),
+
+        "gain":
+            ynorm
+            / (xnorm + EPS),
+
+        "D_next":
+            cosine(
+                y,
+                DIBEK[target],
+            ),
+
+        "D_old":
+            cosine(
+                y,
+                DIBEK[li],
+            ),
+    }
+
+
+# =============================================================================
+# 13. EXPERIMENT
+# =============================================================================
+
+print("\n[5/22] State-conditioned local cartography başlıyor...")
+
+RESULTS = []
+
+start = time.time()
+
+for pi, prompt in enumerate(PROMPTS):
+
+    base = baseline_pass(prompt)
+
+    prow = {
+        "prompt_index":
+            pi,
+
+        "group":
+            PROMPT_GROUP[pi],
+
+        "prompt":
+            prompt,
+
+        "layers":
+            {},
+    }
+
+    for li in SOURCE_LAYERS:
+
+        # ---------------------------------------------------------------------
+        # FIXED historical compass
+        # ---------------------------------------------------------------------
+
+        fixed = one_step_probe(
+            prompt,
+            base,
+            li,
+            DIBEK[li],
+        )
+
+        layer = {
+            "FIXED": {
+                "D_next":
+                    fixed["D_next"],
+
+                "D_old":
+                    fixed["D_old"],
+
+                "gain":
+                    fixed["gain"],
+
+                "realized_rel":
+                    fixed["realized_rel"],
+
+                "requested_dir_cos":
+                    fixed["requested_dir_cos"],
+            },
+
+            "shells": {},
+        }
+
+        x_fixed = fixed["x"]
+
+        # ---------------------------------------------------------------------
+        # Each angle independently
+        # ---------------------------------------------------------------------
+
+        for shell in SHELLS_DEG:
+
+            candidates = []
+
+            for item in ATLAS[li][shell]:
+
+                rr = one_step_probe(
+                    prompt,
+                    base,
+                    li,
+                    item["direction"],
+                )
+
+                realized_angle_to_fixed = (
+                    angle_deg(
+                        rr["x"],
+                        x_fixed,
+                    )
+                )
+
+                delta = (
+                    rr["D_next"]
+                    - fixed["D_next"]
+                )
+
+                candidates.append({
+                    "candidate_id":
+                        item["candidate_id"],
+
+                    "requested_angle":
+                        shell,
+
+                    "realized_angle_to_fixed":
+                        realized_angle_to_fixed,
+
+                    "D_next":
+                        rr["D_next"],
+
+                    "D_old":
+                        rr["D_old"],
+
+                    "delta_vs_fixed":
+                        delta,
+
+                    "gain":
+                        rr["gain"],
+
+                    "realized_rel":
+                        rr["realized_rel"],
+
+                    "requested_dir_cos":
+                        rr["requested_dir_cos"],
+                })
+
+            # Oracle within THIS shell only
+            oracle = max(
+                candidates,
+                key=lambda z:
+                    z["D_next"],
+            )
+
+            mean_delta = safe_mean([
+                c["delta_vs_fixed"]
+                for c in candidates
+            ])
+
+            layer["shells"][
+                str(shell)
+            ] = {
+                "candidates":
+                    candidates,
+
+                "oracle_candidate_id":
+                    oracle["candidate_id"],
+
+                "oracle_D_next":
+                    oracle["D_next"],
+
+                "oracle_delta_vs_fixed":
+                    oracle["delta_vs_fixed"],
+
+                "mean_delta_vs_fixed":
+                    mean_delta,
+
+                "mean_realized_angle":
+                    safe_mean([
+                        c[
+                            "realized_angle_to_fixed"
+                        ]
+                        for c in candidates
+                    ]),
+            }
+
+        prow["layers"][str(li)] = layer
+
+    RESULTS.append(prow)
+
+    if (pi + 1) % 5 == 0:
+
+        gc.collect()
+        torch.cuda.empty_cache()
+
+    print(
+        f"  {pi+1:02d}/{len(PROMPTS)} "
+        f"| elapsed="
+        f"{(time.time()-start)/60:.1f}m",
+        end="\r",
+    )
+
+print()
+
+print(
+    f"Experiment completed in "
+    f"{(time.time()-start)/60:.1f} min"
+)
+
+
+# =============================================================================
+# 14. REALIZED ANGLE AUDIT
+# =============================================================================
+
+print("\n[6/22] BF16 realized-angle audit...")
+
+ANGLE_AUDIT = {}
+
+for shell in SHELLS_DEG:
+
+    vals = []
+
+    for row in RESULTS:
+
+        for li in SOURCE_LAYERS:
+
+            vals.extend([
+                c["realized_angle_to_fixed"]
+                for c in
+                row["layers"][str(li)]
+                ["shells"][str(shell)]
+                ["candidates"]
+            ])
+
+    s = stats(vals)
+
+    ANGLE_AUDIT[str(shell)] = s
+
+    print(
+        f"Requested {shell:>4.1f}° "
+        f"-> realized "
+        f"{s['mean']:.4f}° "
+        f"± {s['sd']:.4f}° "
+        f"| range "
+        f"{s['min']:.4f}.."
+        f"{s['max']:.4f}"
+    )
+
+
+# =============================================================================
+# 15. SHELL-WISE ORACLE ANALYSIS
+#
+# NO cross-angle pooling.
+# =============================================================================
+
+print("\n[7/22] Shell-wise oracle analysis...")
+
+SHELL_SUMMARY = {}
+
+for shell in SHELLS_DEG:
+
+    oracle_delta = []
+    mean_delta = []
+
+    for row in RESULTS:
+
+        for li in SOURCE_LAYERS:
+
+            sh = (
+                row["layers"][str(li)]
+                ["shells"][str(shell)]
+            )
+
+            oracle_delta.append(
+                sh[
+                    "oracle_delta_vs_fixed"
+                ]
+            )
+
+            mean_delta.append(
+                sh[
+                    "mean_delta_vs_fixed"
+                ]
+            )
+
+    so = stats(
+        oracle_delta
+    )
+
+    sm = stats(
+        mean_delta
+    )
+
+    SHELL_SUMMARY[str(shell)] = {
+        "oracle_delta":
+            so,
+
+        "mean_candidate_delta":
+            sm,
+    }
+
+    print(
+        f"{shell:>4.1f}° | "
+        f"oracle Δ={so['mean']:+.6f} "
+        f"{ci(so)} "
+        f"| positive="
+        f"{so['positive_fraction']:.3f} "
+        f"| mean candidate Δ="
+        f"{sm['mean']:+.6f}"
+    )
+
+
+# =============================================================================
+# 16. GLOBAL-BEST CANDIDATE PER LAYER/SHELL
+#
+# Important:
+#
+# Oracle:
+#   each prompt may choose a different candidate.
+#
+# Global best:
+#   one candidate ID is chosen using ALL prompts for a given layer+shell.
+#
+# If oracle >> global-best:
+#   possible prompt dependence.
+#
+# But same-data global selection is optimistic.
+# Therefore this is SYSTEM-ID evidence only.
+# =============================================================================
+
+print("\n[8/22] Prompt oracle vs global fixed correction...")
+
+GLOBAL_BEST = {}
+
+for li in SOURCE_LAYERS:
+
+    GLOBAL_BEST[str(li)] = {}
+
+    for shell in SHELLS_DEG:
+
+        candidate_means = []
+
+        for cid in range(
+            N_DIRECTIONS_PER_SHELL
+        ):
+
+            vals = []
+
+            for row in RESULTS:
+
+                candidates = (
+                    row["layers"][str(li)]
+                    ["shells"][str(shell)]
+                    ["candidates"]
+                )
+
+                c = candidates[cid]
+
+                assert (
+                    c["candidate_id"]
+                    == cid
+                )
+
+                vals.append(
+                    c["delta_vs_fixed"]
+                )
+
+            candidate_means.append(
+                safe_mean(vals)
+            )
+
+        best_id = int(
+            np.argmax(
+                candidate_means
+            )
+        )
+
+        GLOBAL_BEST[str(li)][str(shell)] = {
+            "candidate_id":
+                best_id,
+
+            "mean_delta":
+                float(
+                    candidate_means[
+                        best_id
+                    ]
+                ),
+
+            "all_candidate_means":
+                [
+                    float(x)
+                    for x
+                    in candidate_means
+                ],
+        }
+
+
+# =============================================================================
+# 17. ORACLE vs GLOBAL-BEST GAP
+# =============================================================================
+
+ORACLE_GLOBAL_GAP = {}
+
+for shell in SHELLS_DEG:
+
+    oracle_vals = []
+    global_vals = []
+
+    for row in RESULTS:
+
+        for li in SOURCE_LAYERS:
+
+            sh = (
+                row["layers"][str(li)]
+                ["shells"][str(shell)]
+            )
+
+            oracle_vals.append(
+                sh[
+                    "oracle_delta_vs_fixed"
+                ]
+            )
+
+            best_id = (
+                GLOBAL_BEST[str(li)]
+                [str(shell)]
+                ["candidate_id"]
+            )
+
+            global_candidate = (
+                sh["candidates"][
+                    best_id
+                ]
+            )
+
+            global_vals.append(
+                global_candidate[
+                    "delta_vs_fixed"
+                ]
+            )
+
+    oracle_vals = np.asarray(
+        oracle_vals,
+        dtype=np.float64,
+    )
+
+    global_vals = np.asarray(
+        global_vals,
+        dtype=np.float64,
+    )
+
+    gap = (
+        oracle_vals
+        - global_vals
+    )
+
+    ORACLE_GLOBAL_GAP[str(shell)] = {
+        "oracle":
+            stats(oracle_vals),
+
+        "global_best":
+            stats(global_vals),
+
+        "oracle_minus_global":
+            stats(gap),
+    }
+
+
+print("\n[9/22] ORACLE vs GLOBAL FIXED")
+print("=" * 150)
+
+print(
+    f"{'SHELL':<10}"
+    f"{'ORACLE Δ':>15}"
+    f"{'GLOBAL Δ':>15}"
+    f"{'O-G GAP':>15}"
+    f"{'GLOBAL +':>12}"
+)
+
+print("-" * 150)
+
+for shell in SHELLS_DEG:
+
+    z = (
+        ORACLE_GLOBAL_GAP[
+            str(shell)
+        ]
+    )
+
+    print(
+        f"{shell:<10.1f}"
+        f"{z['oracle']['mean']:>+15.6f}"
+        f"{z['global_best']['mean']:>+15.6f}"
+        f"{z['oracle_minus_global']['mean']:>+15.6f}"
+        f"{z['global_best']['positive_fraction']:>12.3f}"
+    )
+
+
+# =============================================================================
+# 18. PROMPT-SPECIFIC WINNER DIVERSITY
+#
+# If one ID wins almost everywhere, state conditioning is weak.
+#
+# If many IDs win, that alone is NOT proof:
+# winner noise can also create diversity.
+#
+# We therefore report:
+#
+#   unique IDs
+#   modal winner fraction
+#   entropy
+#
+# as descriptive diagnostics.
+# =============================================================================
+
+print("\n[10/22] Winner diversity...")
+
+WINNER_DIVERSITY = {}
+
+for shell in SHELLS_DEG:
+
+    all_winners = []
+
+    per_layer = {}
+
+    for li in SOURCE_LAYERS:
+
+        winners = []
+
+        for row in RESULTS:
+
+            winners.append(
+                row["layers"][str(li)]
+                ["shells"][str(shell)]
+                ["oracle_candidate_id"]
+            )
+
+        counts = np.bincount(
+            winners,
+            minlength=
+                N_DIRECTIONS_PER_SHELL,
+        )
+
+        probs = (
+            counts
+            / np.sum(counts)
+        )
+
+        nz = probs[
+            probs > 0
+        ]
+
+        entropy = float(
+            -np.sum(
+                nz * np.log(nz)
+            )
+        )
+
+        entropy_norm = (
+            entropy
+            / math.log(
+                N_DIRECTIONS_PER_SHELL
+            )
+        )
+
+        per_layer[str(li)] = {
+            "unique_winners":
+                int(
+                    np.sum(counts > 0)
+                ),
+
+            "modal_fraction":
+                float(
+                    np.max(probs)
+                ),
+
+            "normalized_entropy":
+                float(
+                    entropy_norm
+                ),
+
+            "counts":
+                counts.tolist(),
+        }
+
+        all_winners.extend(
+            winners
+        )
+
+    counts_all = np.bincount(
+        all_winners,
+        minlength=
+            N_DIRECTIONS_PER_SHELL,
+    )
+
+    probs_all = (
+        counts_all
+        / np.sum(counts_all)
+    )
+
+    nz = probs_all[
+        probs_all > 0
+    ]
+
+    ent = float(
+        -np.sum(
+            nz * np.log(nz)
+        )
+    )
+
+    ent_norm = (
+        ent
+        / math.log(
+            N_DIRECTIONS_PER_SHELL
+        )
+    )
+
+    WINNER_DIVERSITY[str(shell)] = {
+        "overall_unique":
+            int(
+                np.sum(
+                    counts_all > 0
+                )
+            ),
+
+        "overall_modal_fraction":
+            float(
+                np.max(
+                    probs_all
+                )
+            ),
+
+        "overall_normalized_entropy":
+            float(
+                ent_norm
+            ),
+
+        "per_layer":
+            per_layer,
+    }
+
+    print(
+        f"{shell:>4.1f}° | "
+        f"unique="
+        f"{WINNER_DIVERSITY[str(shell)]['overall_unique']}"
+        f"/{N_DIRECTIONS_PER_SHELL} "
+        f"| modal="
+        f"{WINNER_DIVERSITY[str(shell)]['overall_modal_fraction']:.3f} "
+        f"| entropy="
+        f"{WINNER_DIVERSITY[str(shell)]['overall_normalized_entropy']:.3f}"
+    )
+
+
+# =============================================================================
+# 19. CROSS-PROMPT SPLIT VALIDATION
+#
+# This is crucial.
+#
+# First 20 prompts choose the best candidate ID for each layer/shell.
+# Second 20 prompts evaluate it.
+#
+# Then reverse:
+# second 20 choose -> first 20 evaluate.
+#
+# This tests whether there is a globally useful correction that generalizes.
+#
+# If oracle is positive but split-global is ~0:
+# candidate benefit is likely prompt-specific OR winner noise.
+#
+# State dependence is NOT proven until a state sensor predicts the winner
+# on later blind prompts.
+# =============================================================================
+
+print("\n[11/22] Cross-prompt fixed-correction validation...")
+
+SPLIT_VALIDATION = {}
+
+HALF_A = list(range(20))
+HALF_B = list(range(20, 40))
+
+
+def select_candidate(
+    li,
+    shell,
+    train_indices,
+):
+
+    means = []
+
+    for cid in range(
+        N_DIRECTIONS_PER_SHELL
+    ):
+
+        vals = []
+
+        for pi in train_indices:
+
+            c = (
+                RESULTS[pi]
+                ["layers"][str(li)]
+                ["shells"][str(shell)]
+                ["candidates"][cid]
+            )
+
+            vals.append(
+                c["delta_vs_fixed"]
+            )
+
+        means.append(
+            safe_mean(vals)
+        )
+
+    return int(
+        np.argmax(means)
+    )
+
+
+for shell in SHELLS_DEG:
+
+    heldout_values = []
+
+    directions = []
+
+    # A -> B
+    for li in SOURCE_LAYERS:
+
+        cid = select_candidate(
+            li,
+            shell,
+            HALF_A,
+        )
+
+        directions.append({
+            "direction":
+                "A_to_B",
+            "layer":
+                li,
+            "candidate_id":
+                cid,
+        })
+
+        for pi in HALF_B:
+
+            c = (
+                RESULTS[pi]
+                ["layers"][str(li)]
+                ["shells"][str(shell)]
+                ["candidates"][cid]
+            )
+
+            heldout_values.append(
+                c["delta_vs_fixed"]
+            )
+
+    # B -> A
+    for li in SOURCE_LAYERS:
+
+        cid = select_candidate(
+            li,
+            shell,
+            HALF_B,
+        )
+
+        directions.append({
+            "direction":
+                "B_to_A",
+            "layer":
+                li,
+            "candidate_id":
+                cid,
+        })
+
+        for pi in HALF_A:
+
+            c = (
+                RESULTS[pi]
+                ["layers"][str(li)]
+                ["shells"][str(shell)]
+                ["candidates"][cid]
+            )
+
+            heldout_values.append(
+                c["delta_vs_fixed"]
+            )
+
+    SPLIT_VALIDATION[str(shell)] = {
+        "heldout_delta":
+            stats(
+                heldout_values
+            ),
+
+        "selected":
+            directions,
+    }
+
+    s = (
+        SPLIT_VALIDATION[
+            str(shell)
+        ]["heldout_delta"]
+    )
+
+    print(
+        f"{shell:>4.1f}° "
+        f"held-out fixed correction Δ="
+        f"{s['mean']:+.6f} "
+        f"{ci(s)} "
+        f"| positive="
+        f"{s['positive_fraction']:.3f}"
+    )
+
+
+# =============================================================================
+# 20. PROMPT-SPECIFICITY / REPEATABILITY TEST
+#
+# Stronger diagnostic:
+#
+# Split candidate IDs into two independent sub-atlases:
+#
+#   even IDs
+#   odd IDs
+#
+# Ask whether prompts that benefit strongly in one sub-atlas also
+# benefit strongly in the other.
+#
+# This avoids using exactly the same candidate winner twice.
+#
+# We compute, within each layer+shell:
+#
+#   oracle_even(prompt)
+#   oracle_odd(prompt)
+#
+# and their correlation across prompts.
+#
+# Positive repeatability means some prompts genuinely have more local
+# correction opportunity than others.
+#
+# It does NOT yet predict WHICH direction is best.
+# =============================================================================
+
+print("\n[12/22] Prompt-level opportunity repeatability...")
+
+REPEATABILITY = {}
+
+for shell in SHELLS_DEG:
+
+    layer_corrs = []
+
+    layer_details = {}
+
+    for li in SOURCE_LAYERS:
+
+        even_oracle = []
+        odd_oracle = []
+
+        for row in RESULTS:
+
+            candidates = (
+                row["layers"][str(li)]
+                ["shells"][str(shell)]
+                ["candidates"]
+            )
+
+            even = [
+                c["delta_vs_fixed"]
+                for c in candidates
+                if c["candidate_id"] % 2 == 0
+            ]
+
+            odd = [
+                c["delta_vs_fixed"]
+                for c in candidates
+                if c["candidate_id"] % 2 == 1
+            ]
+
+            even_oracle.append(
+                max(even)
+            )
+
+            odd_oracle.append(
+                max(odd)
+            )
+
+        x = np.asarray(
+            even_oracle,
+            dtype=np.float64,
+        )
+
+        y = np.asarray(
+            odd_oracle,
+            dtype=np.float64,
+        )
+
+        if (
+            np.std(x) > 0
+            and np.std(y) > 0
+        ):
+
+            r = float(
+                np.corrcoef(
+                    x,
+                    y,
+                )[0, 1]
+            )
+
+        else:
+
+            r = float("nan")
+
+        layer_corrs.append(r)
+
+        layer_details[str(li)] = {
+            "pearson":
+                r,
+
+            "even_mean":
+                safe_mean(x),
+
+            "odd_mean":
+                safe_mean(y),
+        }
+
+    REPEATABILITY[str(shell)] = {
+        "mean_layer_correlation":
+            safe_mean(
+                layer_corrs
+            ),
+
+        "positive_layer_fraction":
+            float(
+                np.mean(
+                    np.asarray(
+                        layer_corrs
+                    ) > 0
+                )
+            ),
+
+        "layers":
+            layer_details,
+    }
+
+    print(
+        f"{shell:>4.1f}° | "
+        f"mean layer r="
+        f"{REPEATABILITY[str(shell)]['mean_layer_correlation']:+.4f} "
+        f"| positive layers="
+        f"{REPEATABILITY[str(shell)]['positive_layer_fraction']:.3f}"
+    )
+
+
+# =============================================================================
+# 21. LAYER-WISE ORACLE OPPORTUNITY
+# =============================================================================
+
+print("\n[13/22] Layer-wise local opportunity...")
+
+LAYER_OPPORTUNITY = {}
+
+for li in SOURCE_LAYERS:
+
+    LAYER_OPPORTUNITY[str(li)] = {}
+
+    print(
+        f"\nL{li}->L{li+1}"
+    )
+
+    for shell in SHELLS_DEG:
+
+        vals = [
+            row["layers"][str(li)]
+            ["shells"][str(shell)]
+            ["oracle_delta_vs_fixed"]
+            for row in RESULTS
+        ]
+
+        s = stats(vals)
+
+        LAYER_OPPORTUNITY[
+            str(li)
+        ][str(shell)] = s
+
+        print(
+            f"  {shell:>4.1f}° "
+            f"oracle Δ="
+            f"{s['mean']:+.6f} "
+            f"{ci(s)} "
+            f"| +="
+            f"{s['positive_fraction']:.3f}"
+        )
+
+
+# =============================================================================
+# 22. CONTEXT DESCRIPTIVE CHECK
+#
+# NOT causal because animal and neutral prompts are unmatched.
+# =============================================================================
+
+print("\n[14/22] Context descriptive check...")
+
+CONTEXT = {}
+
+for shell in SHELLS_DEG:
+
+    animal = []
+    neutral = []
+
+    for row in RESULTS:
+
+        for li in SOURCE_LAYERS:
+
+            val = (
+                row["layers"][str(li)]
+                ["shells"][str(shell)]
+                ["oracle_delta_vs_fixed"]
+            )
+
+            if row["group"] == "ANIMAL":
+                animal.append(val)
+            else:
+                neutral.append(val)
+
+    a = safe_mean(animal)
+    n = safe_mean(neutral)
+
+    CONTEXT[str(shell)] = {
+        "animal":
+            a,
+
+        "neutral":
+            n,
+
+        "difference":
+            a - n,
+    }
+
+    print(
+        f"{shell:>4.1f}° "
+        f"ANIMAL={a:+.6f} "
+        f"NEUTRAL={n:+.6f} "
+        f"diff={a-n:+.6f}"
+    )
+
+
+# =============================================================================
+# 23. ACTUATOR AUDIT
+# =============================================================================
+
+print("\n[15/22] Actuator audit...")
+
+FIXED_REL = []
+FIXED_DIR = []
+
+CAND_REL = []
+CAND_DIR = []
+
+for row in RESULTS:
+
+    for li in SOURCE_LAYERS:
+
+        f = (
+            row["layers"][str(li)]
+            ["FIXED"]
+        )
+
+        FIXED_REL.append(
+            f["realized_rel"]
+        )
+
+        FIXED_DIR.append(
+            f["requested_dir_cos"]
+        )
+
+        for shell in SHELLS_DEG:
+
+            for c in (
+                row["layers"][str(li)]
+                ["shells"][str(shell)]
+                ["candidates"]
+            ):
+
+                CAND_REL.append(
+                    c["realized_rel"]
+                )
+
+                CAND_DIR.append(
+                    c["requested_dir_cos"]
+                )
+
+FIXED_REL_S = stats(
+    FIXED_REL
+)
+
+FIXED_DIR_S = stats(
+    FIXED_DIR
+)
+
+CAND_REL_S = stats(
+    CAND_REL
+)
+
+CAND_DIR_S = stats(
+    CAND_DIR
+)
+
+print(
+    f"FIXED rel      = "
+    f"{FIXED_REL_S['mean']:.7f}"
+)
+
+print(
+    f"CAND rel       = "
+    f"{CAND_REL_S['mean']:.7f}"
+)
+
+print(
+    f"FIXED dir cos  = "
+    f"{FIXED_DIR_S['mean']:+.6f}"
+)
+
+print(
+    f"CAND dir cos   = "
+    f"{CAND_DIR_S['mean']:+.6f}"
+)
+
+
+# =============================================================================
+# 24. DECISION LOGIC
+#
+# Conservative:
+#
+# A) First ask whether local oracle opportunity exists.
+#
+# B) Then ask whether one fixed correction generalizes.
+#
+# C) If oracle exists but fixed correction does NOT generalize,
+#    state-conditioned branch becomes worth testing.
+#
+# This STILL does not prove h_l can predict the correction.
+# That is TEST133.
+# =============================================================================
+
+print("\n[16/22] DECISION")
+print("=" * 176)
+
+# Best shell chosen by ORACLE mean only for system-ID description.
+best_shell = max(
+    SHELLS_DEG,
+    key=lambda sh:
+        SHELL_SUMMARY[
+            str(sh)
+        ]["oracle_delta"]["mean"],
+)
+
+BEST_ORACLE = (
+    SHELL_SUMMARY[
+        str(best_shell)
+    ]["oracle_delta"]
+)
+
+BEST_SPLIT = (
+    SPLIT_VALIDATION[
+        str(best_shell)
+    ]["heldout_delta"]
+)
+
+BEST_GAP = (
+    ORACLE_GLOBAL_GAP[
+        str(best_shell)
+    ]["oracle_minus_global"]
+)
+
+BEST_REPEAT = (
+    REPEATABILITY[
+        str(best_shell)
+    ]
+)
+
+print(
+    f"Best descriptive shell : "
+    f"{best_shell:.1f}°"
+)
+
+print(
+    f"Oracle Δ               : "
+    f"{BEST_ORACLE['mean']:+.6f} "
+    f"{ci(BEST_ORACLE)}"
+)
+
+print(
+    f"Split fixed Δ          : "
+    f"{BEST_SPLIT['mean']:+.6f} "
+    f"{ci(BEST_SPLIT)}"
+)
+
+print(
+    f"Oracle-global gap      : "
+    f"{BEST_GAP['mean']:+.6f} "
+    f"{ci(BEST_GAP)}"
+)
+
+print(
+    f"Opportunity repeat r   : "
+    f"{BEST_REPEAT['mean_layer_correlation']:+.4f}"
+)
+
+# Conservative branch classification
+oracle_exists = (
+    BEST_ORACLE["mean"] > 0
+    and BEST_ORACLE["ci95"][0] > 0
+    and BEST_ORACLE["positive_fraction"] >= 0.70
+)
+
+fixed_generalizes = (
+    BEST_SPLIT["mean"] > 0
+    and BEST_SPLIT["ci95"][0] > 0
+)
+
+oracle_exceeds_global = (
+    BEST_GAP["mean"] > 0
+    and BEST_GAP["ci95"][0] > 0
+)
+
+repeatable_opportunity = (
+    BEST_REPEAT[
+        "mean_layer_correlation"
+    ] > 0.10
+)
+
+if (
+    oracle_exists
+    and oracle_exceeds_global
+    and not fixed_generalizes
+):
+
+    DECISION = (
+        "STATE_CONDITIONED_CORRECTION_OPPORTUNITY"
+    )
+
+elif (
+    oracle_exists
+    and fixed_generalizes
+):
+
+    DECISION = (
+        "FIXED_MICRO_CORRECTION_MAY_BE_SUFFICIENT"
+    )
+
+else:
+
+    DECISION = (
+        "NO_ROBUST_LOCAL_CORRECTION_OPPORTUNITY"
+    )
+
+print()
+
+print("DECISION:")
+print(DECISION)
+
+
+# =============================================================================
+# 25. NEXT BRANCH
+# =============================================================================
+
+print("\n[17/22] NEXT BRANCH")
+
+if (
+    DECISION
+    == "STATE_CONDITIONED_CORRECTION_OPPORTUNITY"
+):
+
+    NEXT_BRANCH = (
+        "TEST133_STATE_TO_CORRECTION_SENSOR"
+    )
+
+    print("""
+Local oracle FIXED'i geçiyor fakat tek sabit correction kör yarıda
+aynı kazancı taşımıyor.
+
+Bu, state-conditioned GPS için gerekli ama henüz yeterli olmayan koşuldur.
+
+TEST133:
+    h_l / local finite-response features
+        ->
+    candidate correction score
+
+öğrenilecek.
+
+TEST133 tamamen yeni BLIND promptlarda navigator seçimini sınayacak.
+""")
+
+elif (
+    DECISION
+    == "FIXED_MICRO_CORRECTION_MAY_BE_SUFFICIENT"
+):
+
+    NEXT_BRANCH = (
+        "TEST133_FIXED_MICRO_CORRECTION_BLIND"
+    )
+
+    print("""
+Bir prompt-specific navigator kurmadan önce daha basit hipotez kazanıyor:
+
+    v_l + sabit küçük correction
+
+yeni tamamen kör promptlarda doğrulanmalı.
+
+State-conditioned model gereksiz yere eklenmeyecek.
+""")
+
+else:
+
+    NEXT_BRANCH = (
+        "COMPASS_NEAR_LOCAL_OPTIMUM"
+    )
+
+    print("""
+Sampled 1°–5° tangent neighborhoods içinde FIXED pusulayı
+güvenilir biçimde aşan correction fırsatı gösterilemedi.
+
+Bu durumda state-conditioned GPS'e geçmek için deneysel gerekçe yok.
+
+Historical layerwise Dibekgoz compass sampled local neighborhood içinde
+yerel optimuma yakın kabul edilecek ve yön arama dalı durdurulacak.
+""")
+
+
+# =============================================================================
+# 26. INTERPRETATION LOCK
+# =============================================================================
+
+print("\n[18/22] INTERPRETATION LOCK")
+
+LOCK = [
+    "TEST132 navigator öğrenmez; yalnız FIXED Dibekgoz pusulası çevresinde düzeltilebilir yön fırsatı arar.",
+
+    "Historical v_l ana pusula olarak korunur; candidate yönler yalnız 1, 2, 3 ve 5 derecelik tangent sapmalarıdır.",
+
+    "Shell'ler birbirine karıştırılmaz; TEST124'te görülen angle confounding bu analizde primary sonuca giremez.",
+
+    "Requested açı bilimsel sonuç olarak kabul edilmez; BF16 sonrası gerçekten gerçekleşen candidate-vs-FIXED perturbation açısı ayrıca ölçülür.",
+
+    "PROBE_REL=0.0025 historical küçük-müdahale rejimidir; gerçekleşen BF16 perturbasyon normu ve yönü doğrudan audit edilir.",
+
+    "Prompt-specific oracle aynı veride candidate seçtiği için üretim navigatorü değildir ve winner-selection bias içerir.",
+
+    "Oracle kazancı tek başına state dependence kanıtlamaz; çoklu candidate araması gürültüden de pozitif maksimum üretebilir.",
+
+    "Global-best candidate aynı promptlarda seçildiği için system-ID göstergesidir; split-half held-out fixed correction daha güçlü kontroldür.",
+
+    "Oracle-global gap prompt-specific opportunity ile uyumludur fakat state sensorünün bu yönü tahmin edebildiğini kanıtlamaz.",
+
+    "Winner diversity tek başına state dependence değildir; noise winner diversity oluşturabilir.",
+
+    "Even/odd sub-atlas repeatability bazı promptların daha fazla local correction opportunity taşıyıp taşımadığını test eden yardımcı diagnostiktir.",
+
+    "Animal-neutral farkı eşlenmiş prompt karşılaştırması olmadığı için yalnız descriptive context diagnostic olarak yorumlanır.",
+
+    "Bu finite perturbation/secant deneyidir; Jacobian, exact gradient, manifold veya ağırlık güncellemesi iddiası değildir.",
+
+    "TEST132 başarılı olsa bile DRA gain/brake/controller mekanizmasıyla birleştirilmez; önce yön seçiminin kör doğrulaması gerekir.",
+
+    "TEST132 promptları çalıştırıldıktan sonra system-ID verisidir ve TEST133 blind doğrulamasında tekrar kullanılmamalıdır.",
+]
+
+for i, x in enumerate(
+    LOCK,
+    1,
+):
+
+    print(
+        f"{i:02d}. {x}"
+    )
+
+
+# =============================================================================
+# 27. COMPACT SCIENTIFIC SUMMARY
+# =============================================================================
+
+print("\n[19/22] SCIENTIFIC SUMMARY")
+print("=" * 176)
+
+print(
+    f"Best shell          : "
+    f"{best_shell:.1f}°"
+)
+
+print(
+    f"Oracle Δ            : "
+    f"{BEST_ORACLE['mean']:+.6f} "
+    f"{ci(BEST_ORACLE)}"
+)
+
+print(
+    f"Oracle positive     : "
+    f"{BEST_ORACLE['positive_fraction']:.3f}"
+)
+
+print(
+    f"Split fixed Δ       : "
+    f"{BEST_SPLIT['mean']:+.6f} "
+    f"{ci(BEST_SPLIT)}"
+)
+
+print(
+    f"Oracle-global gap   : "
+    f"{BEST_GAP['mean']:+.6f} "
+    f"{ci(BEST_GAP)}"
+)
+
+print(
+    f"Repeatability r     : "
+    f"{BEST_REPEAT['mean_layer_correlation']:+.4f}"
+)
+
+print()
+
+print("DECISION:")
+print(DECISION)
+
+print()
+
+print("NEXT:")
+print(NEXT_BRANCH)
+
+
+# =============================================================================
+# 28. SAVE JSON
+# =============================================================================
+
+print("\n[20/22] JSON kaydediliyor...")
+
+OUTPUT = {
+    "test":
+        "TEST132",
+
+    "title":
+        "State-Conditioned Local Correction Cartography",
+
+    "model":
+        MODEL_ID,
+
+    "config": {
+        "probe_rel":
+            PROBE_REL,
+
+        "shells_deg":
+            SHELLS_DEG,
+
+        "n_directions_per_shell":
+            N_DIRECTIONS_PER_SHELL,
+
+        "n_prompts":
+            len(PROMPTS),
+
+        "source_layers":
+            SOURCE_LAYERS,
+    },
+
+    "fingerprint": {
+        "L10":
+            cos10,
+
+        "L11":
+            cos11,
+
+        "status":
+            "PASS",
+    },
+
+    "angle_audit":
+        ANGLE_AUDIT,
+
+    "shell_summary":
+        SHELL_SUMMARY,
+
+    "global_best":
+        GLOBAL_BEST,
+
+    "oracle_global_gap":
+        ORACLE_GLOBAL_GAP,
+
+    "winner_diversity":
+        WINNER_DIVERSITY,
+
+    "split_validation":
+        SPLIT_VALIDATION,
+
+    "repeatability":
+        REPEATABILITY,
+
+    "layer_opportunity":
+        LAYER_OPPORTUNITY,
+
+    "context_descriptive":
+        CONTEXT,
+
+    "actuator_audit": {
+        "fixed_rel":
+            FIXED_REL_S,
+
+        "candidate_rel":
+            CAND_REL_S,
+
+        "fixed_dir_cos":
+            FIXED_DIR_S,
+
+        "candidate_dir_cos":
+            CAND_DIR_S,
+    },
+
+    "best_shell":
+        best_shell,
+
+    "decision":
+        DECISION,
+
+    "next_branch":
+        NEXT_BRANCH,
+
+    "interpretation_lock":
+        LOCK,
+
+    "results":
+        RESULTS,
+}
+
+with open(
+    OUT_JSON,
+    "w",
+    encoding="utf-8",
+) as f:
+
+    json.dump(
+        OUTPUT,
+        f,
+        ensure_ascii=False,
+        indent=2,
+        default=str,
+    )
+
+print(
+    "Saved:",
+    OUT_JSON
+)
+
+
+# =============================================================================
+# 29. FINAL HANDOFF
+# =============================================================================
+
+print("\n[21/22] HANDOFF")
+
+print("""
+TEST132'de bakılacak en önemli dört çıktı:
+
+1. BF16 REALIZED ANGLE AUDIT
+   Requested 1°/2°/3°/5° gerçekten model içinde ne kadar ayrıştı?
+
+2. SHELL-WISE ORACLE DELTA
+   Aynı açı shell'i içinde en iyi sampled tangent FIXED'i geçebiliyor mu?
+
+3. SPLIT FIXED DELTA
+   Bir yarıda bulunan sabit correction diğer yarıya taşınıyor mu?
+
+4. ORACLE - GLOBAL GAP
+   Prompt-specific seçim gerçekten tek global correction'dan daha fazla
+   fırsat taşıyor mu?
+
+Eğer:
+
+    ORACLE > 0
+    ama
+    SPLIT FIXED ≈ 0
+    ve
+    ORACLE > GLOBAL
+
+ise:
+
+    "GPS öğrenilecek bir sinyal olabilir"
+
+demek için gerekçe oluşur.
+
+Ama bu hâlâ GPS'in state'i okuyarak doğru yönü bulabildiğini kanıtlamaz.
+Onu TEST133 tamamen yeni blind promptlarda sınayacaktır.
+""")
+
+
+# =============================================================================
+# 30. DONE
+# =============================================================================
+
+print("\n[22/22] DONE")
+print("JSON:", OUT_JSON)
+
+gc.collect()
+torch.cuda.empty_cache()
