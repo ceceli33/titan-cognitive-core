@@ -1,0 +1,393 @@
+ 
+==============================================================================================================================================================================================
+TEST 137 v2 — FP32 MULTI-HORIZON RADAR -> BF16 TERMINAL TRANSPORT
+AKBASCORE — PRETERMINAL HORIZON MAPPING / SYSTEM IDENTIFICATION
+==============================================================================================================================================================================================
+
+[1/24] Model yükleniyor...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 79.7kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 915kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 84.1MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 70.6MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 107MB/s]
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.36MB/s]
+Download complete: : 
+
+ 13.1GB,  792MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  516MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:39<00:00,  6.80s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 100.01it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 32.8kB/s]
+Model              : Qwen/Qwen2.5-7B-Instruct
+dtype              : torch.bfloat16
+Sources            : [3, 6, 10, 14, 18]
+Probe offsets      : [1, 2, 3, 5]
+RADAR_REL          : 0.0025
+ACT doses          : [0.01, 0.04]
+ACT PRIMARY        : 0.04
+Shell              : 5.0°
+Prompts            : 20
+Load time          : 52.3s
+
+[2/24] Ortam fingerprint...
+L10=+0.656545 drift=1.358e-07
+L11=+0.658274 drift=3.526e-07
+Fingerprint: PASS
+
+[3/24] Historical Dibekgoz...
+cos(v0,v19)  = +0.060267
+cos(v11,v19) = +0.402078
+cos(v18,v19) = +0.841571
+
+[4/24] Semantic family...
+  LOO_0
+  LOO_1
+  LOO_2
+  LOO_3
+  LOO_4
+  LOO_5
+  LOO_6
+  LOO_7
+  NEGVAR_0
+  NEGVAR_1
+  NEGVAR_2
+  NEGVAR_3
+  NEGVAR_4
+  NEGVAR_5
+  NEGVAR_6
+  NEGVAR_7
+
+[5/24] Equal-angle semantic atlas...
+  L03: requested=5.0000° | natural=[1.89°, 58.99°] mean=23.86°
+  L06: requested=4.9999° | natural=[3.51°, 66.35°] mean=25.75°
+  L10: requested=5.0000° | natural=[5.59°, 63.11°] mean=26.23°
+  L14: requested=5.0000° | natural=[6.57°, 65.52°] mean=25.42°
+  L18: requested=4.9999° | natural=[7.12°, 62.69°] mean=26.33°
+
+[6/24] Random shell...
+
+[7/24] Main assay...
+
+====================================================================================================
+SOURCE L3
+Probe horizons: [1, 2, 3, 5]
+    prompt 20/20 | 0.8m
+
+====================================================================================================
+SOURCE L6
+Probe horizons: [1, 2, 3, 5]
+    prompt 20/20 | 1.5m
+
+====================================================================================================
+SOURCE L10
+Probe horizons: [1, 2, 3, 5]
+    prompt 20/20 | 2.3m
+
+====================================================================================================
+SOURCE L14
+Probe horizons: [1, 2, 3, 5]
+    prompt 20/20 | 3.1m
+
+====================================================================================================
+SOURCE L18
+Probe horizons: [1]
+    prompt 20/20 | 3.4m
+
+Main assay tamamlandı: 3.4 dk
+
+[8/24] BF16 REALIZATION INTEGRITY
+=================================================================================================================================================
+SOURCE      DOSE     REQ PAIR     REAL PAIR     DIR ERR     FIX COS    NULL ANG
+-------------------------------------------------------------------------------------------------------------------------------------------------
+L3          0.01       6.783°        9.918°      9.154°    +0.98705      1.191°
+L3          0.04       6.783°        7.319°      2.211°    +0.99928      0.554°
+L6          0.01       6.794°       10.073°      9.891°    +0.98493      1.281°
+L6          0.04       6.794°        7.367°      2.200°    +0.99922      0.533°
+L10         0.01       6.847°       10.331°      7.795°    +0.99064      1.534°
+L10         0.04       6.847°        7.442°      2.329°    +0.99920      0.576°
+L14         0.01       6.847°       10.665°      8.028°    +0.99035      1.545°
+L14         0.04       6.847°        7.467°      2.248°    +0.99919      0.571°
+L18         0.01       6.845°       10.086°      6.863°    +0.99293      1.649°
+L18         0.04       6.845°        7.223°      2.111°    +0.99939      0.588°
+
+[9/24] FP32 HORIZON -> BF16 L19
+
+===============================================================================================================================================================================
+ACT DOSE 0.01
+PROBE          SEM SEL     RND SEL     SEM-RND       rho    pearson     rank     top4      hit      N
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
++1           -0.051305   -0.050846   -0.000459   -0.0119    -0.0093     8.68    0.237    0.075     80
++2           -0.048264   -0.050315   +0.002050   +0.0209    +0.0102     7.66    0.287    0.062     80
++3           -0.052333   -0.050484   -0.001849   +0.0432    +0.0230     8.78    0.275    0.075     80
++5           -0.036057   -0.035713   -0.000344   -0.0022    -0.0105     8.83    0.250    0.067     60
+
+===============================================================================================================================================================================
+ACT DOSE 0.04 <- PRIMARY
+PROBE          SEM SEL     RND SEL     SEM-RND       rho    pearson     rank     top4      hit      N
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
++1           -0.013136   -0.013650   +0.000514   +0.0712    +0.0808     6.91    0.338    0.138     80
++2           -0.013777   -0.014068   +0.000291   +0.1187    +0.1262     6.96    0.338    0.138     80
++3           -0.012662   -0.014023   +0.001361   +0.1439    +0.1500     6.46    0.438    0.175     80
++5           -0.012201   -0.012198   -0.000004   +0.0922    +0.0945     7.75    0.350    0.133     60
+
+[10/24] PRIMARY PRETERMINAL PROMPT-CLUSTER BOOTSTRAP
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+ACT DOSE 0.01
+
+  FP32 PROBE +1
+    SEM Δ       : -0.051305 [-0.077309,-0.028955]
+    RANDOM Δ    : -0.050846 [-0.073806,-0.030822]
+    SEM-RANDOM  : -0.000459 [-0.007314,+0.006990]
+    terminal rho: -0.0119 [-0.075846,+0.049154]
+
+  FP32 PROBE +2
+    SEM Δ       : -0.048264 [-0.073774,-0.025864]
+    RANDOM Δ    : -0.050315 [-0.074958,-0.028068]
+    SEM-RANDOM  : +0.002050 [-0.003278,+0.007663]
+    terminal rho: +0.0209 [-0.046732,+0.083972]
+
+  FP32 PROBE +3
+    SEM Δ       : -0.052333 [-0.078907,-0.029808]
+    RANDOM Δ    : -0.050484 [-0.074174,-0.029253]
+    SEM-RANDOM  : -0.001849 [-0.009804,+0.006137]
+    terminal rho: +0.0432 [+0.000072,+0.082060]
+
+  FP32 PROBE +5
+    SEM Δ       : -0.036057 [-0.060100,-0.014570]
+    RANDOM Δ    : -0.035713 [-0.058701,-0.015180]
+    SEM-RANDOM  : -0.000344 [-0.008088,+0.007995]
+    terminal rho: -0.0022 [-0.058237,+0.050001]
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+ACT DOSE 0.04 <- PRIMARY
+
+  FP32 PROBE +1
+    SEM Δ       : -0.013136 [-0.024308,-0.002360]
+    RANDOM Δ    : -0.013650 [-0.025236,-0.002933]
+    SEM-RANDOM  : +0.000514 [-0.002344,+0.003619]
+    terminal rho: +0.0712 [+0.016103,+0.139707]
+
+  FP32 PROBE +2
+    SEM Δ       : -0.013777 [-0.025018,-0.003186]
+    RANDOM Δ    : -0.014068 [-0.026072,-0.002679]
+    SEM-RANDOM  : +0.000291 [-0.003630,+0.004377]
+    terminal rho: +0.1187 [+0.061653,+0.182059]
+
+  FP32 PROBE +3
+    SEM Δ       : -0.012662 [-0.023935,-0.002235]
+    RANDOM Δ    : -0.014023 [-0.024990,-0.003158]
+    SEM-RANDOM  : +0.001361 [-0.002561,+0.005493]
+    terminal rho: +0.1439 [+0.089559,+0.204633]
+
+  FP32 PROBE +5
+    SEM Δ       : -0.012201 [-0.025533,+0.000967]
+    RANDOM Δ    : -0.012198 [-0.025543,+0.000427]
+    SEM-RANDOM  : -0.000004 [-0.004085,+0.003901]
+    terminal rho: +0.0922 [+0.030391,+0.157010]
+
+[11/24] OPPORTUNITY FLOOR
+dose 0.01: SEM oracle - NULL oracle = +0.001174 [-0.001570,+0.003852]
+dose 0.04: SEM oracle - NULL oracle = +0.001384 [-0.000913,+0.003670]
+
+[12/24] SOURCE × HORIZON MAP (PRIMARY ACT)
+=========================================================================================================================================================================================
+SOURCE      PROBE           TYPE       SEM Δ       RND Δ     SEM-RND       rho     rank     top4
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+L3       +      1        PRETERM   -0.022717   -0.018693   -0.004024   -0.0663     8.55    0.300
+L3       +      2        PRETERM   -0.026741   -0.016031   -0.010710   -0.0737     9.55    0.150
+L3       +      3        PRETERM   -0.023592   -0.016175   -0.007417   +0.0168     8.45    0.300
+L3       +      5        PRETERM   -0.018861   -0.017579   -0.001281   -0.0146     7.45    0.300
+L6       +      1        PRETERM   -0.001345   -0.002758   +0.001413   +0.0838     6.95    0.300
+L6       +      2        PRETERM   -0.001538   -0.006748   +0.005210   +0.1490     7.05    0.350
+L6       +      3        PRETERM   -0.001557   -0.004314   +0.002757   +0.1147     7.15    0.400
+L6       +      5        PRETERM   -0.005196   -0.005297   +0.000100   +0.1146     8.10    0.400
+L10      +      1        PRETERM   -0.009916   -0.014249   +0.004333   +0.0781     6.25    0.400
+L10      +      2        PRETERM   -0.009401   -0.015595   +0.006195   +0.1304     6.10    0.350
+L10      +      3        PRETERM   -0.009181   -0.017424   +0.008243   +0.1582     5.95    0.450
+L10      +      5        PRETERM   -0.012547   -0.013717   +0.001169   +0.1766     7.70    0.350
+L14      +      1        PRETERM   -0.018566   -0.018900   +0.000334   +0.1891     5.90    0.350
+L14      +      2        PRETERM   -0.017430   -0.017899   +0.000469   +0.2690     5.15    0.500
+L14      +      3        PRETERM   -0.016317   -0.018178   +0.001860   +0.2857     4.30    0.600
+L14      +      5       TERMINAL   -0.018250   -0.016075   -0.002175   +0.4003     5.65    0.450
+L18      +      1      LOCAL-END   -0.037307   -0.035554   -0.001753   +0.4418     6.30    0.400
+
+[13/24] PRETERMINAL HORIZON INFORMATION CURVE
+=============================================================================================================================
+PROBE           rho mean     rho CI low     rho CI high         SEM Δ       SEM-RND
+-----------------------------------------------------------------------------------------------------------------------------
++1               +0.0712        +0.0161         +0.1397     -0.013136     +0.000514
++2               +0.1187        +0.0617         +0.1821     -0.013777     +0.000291
++3               +0.1439        +0.0896         +0.2046     -0.012662     +0.001361
++5               +0.0922        +0.0304         +0.1570     -0.012201     -0.000004
+
+[14/24] DESCRIPTIVE MAXIMA
+Best rho horizon : +3
+Best SEM horizon : +5
+NOT: post-hoc diagnostic; production hyperparameter değildir.
+
+[15/24] FORMAL DECISION
+==============================================================================================================================================================================================
+Supported horizons : []
+Rank-only horizons : [2, 3]
+DECISION           : PRETERMINAL_RANK_INFORMATION_WITHOUT_PROSPECTIVE_GAIN
+NEXT               : DO_NOT_CHAIN_YET__REPLICATE_HORIZON_RANK_STRUCTURE
+
+[16/24] TERMINAL-TOUCHING / LOCAL-END CALIBRATION
+Bu satırlar PRIMARY predictive-horizon kararına dahil değildir.
+L14 +5 -> L19 | rho=+0.4003 | SEM Δ=-0.018250 | rank=5.65
+L18 +1 -> L19 | rho=+0.4418 | SEM Δ=-0.037307 | rank=6.30
+
+[17/24] OPPORTUNITY CONTEXT
+SEM oracle - NULL oracle: +0.001384 [-0.000913,+0.003670]
+
+[18/24] SELECTION DIVERSITY
+
+SOURCE L3
+  +1: unique=5/16 | modal=0.45 | NEGVAR_4
+  +2: unique=5/16 | modal=0.65 | NEGVAR_1
+  +3: unique=5/16 | modal=0.60 | NEGVAR_1
+  +5: unique=9/16 | modal=0.35 | NEGVAR_4
+
+SOURCE L6
+  +1: unique=5/16 | modal=0.45 | NEGVAR_4
+  +2: unique=6/16 | modal=0.45 | NEGVAR_4
+  +3: unique=7/16 | modal=0.40 | NEGVAR_4
+  +5: unique=7/16 | modal=0.45 | NEGVAR_4
+
+SOURCE L10
+  +1: unique=6/16 | modal=0.35 | NEGVAR_4
+  +2: unique=5/16 | modal=0.40 | LOO_6
+  +3: unique=7/16 | modal=0.40 | LOO_6
+  +5: unique=5/16 | modal=0.45 | LOO_0
+
+SOURCE L14
+  +1: unique=2/16 | modal=0.60 | LOO_7
+  +2: unique=3/16 | modal=0.75 | LOO_7
+  +3: unique=5/16 | modal=0.55 | LOO_7
+  +5: unique=6/16 | modal=0.35 | NEGVAR_1
+
+SOURCE L18
+  +1: unique=7/16 | modal=0.35 | NEGVAR_4
+
+[19/24] INTERPRETATION LOCK
+01. TEST137 v2 bir system-identification assay'idir; production controller değildir.
+02. FP32 radar central finite-secant response ölçer; exact Jacobian veya gradient değildir.
+03. Her decoder katmanı baseline sırasında yakalanmış kendi gerçek forward metadata'sı ile replay edilir.
+04. Full hidden sequence FP32 bloklardan geçirilir; yalnız son gerçek token perturb edilir.
+05. Her FP32 decoder block tek başına kopyalanır, bütün candidate branch'leri geçirilir ve block silinir.
+06. Radar candidate selection BF16 terminal outcomes hesaplanmadan önce dondurulur.
+07. Primary ACT dose 0.04'tür; 0.01 secondary continuity dose'dur.
+08. Primary horizon inference PRETERMINAL'dir: source L18 dışlanır ve source+probe_offset=19 terminal-touching durumlar primary karardan dışlanır.
+09. L14+5 ve L18+1 gibi L19'a doğrudan ulaşan probe'lar calibration olarak raporlanır.
+10. Oracle navigator değildir; yalnız sampled downstream opportunity diagnostic'idir.
+11. Prompt×source bağımsız kabul edilmez; CI prompt-cluster bootstrap ile hesaplanır.
+12. Terminal rho tek başına steering başarısı değildir; prospective selected Δ ve matched-random karşılaştırması ayrıca geçmelidir.
+13. Post-hoc best horizon production hyperparameter değildir.
+14. DRA envelope, old cosine brake, controller, Mercek, generation ve multi-layer steering chain kapalıdır.
+15. Semantic oracle-null residual semantic causality kanıtı değildir.
+16. Bu promptlar koşudan sonra EXPOSED sayılır.
+
+[20/24] JSON...
+Kaydedildi: /content/TEST_137_V2_FP32_MULTI_HORIZON_RADAR.json
+
+[21/24] COMPACT PRIMARY SUMMARY
+==============================================================================================================================================================================================
+TEST137 v2 — PRETERMINAL FP32 RADAR -> BF16 L19
+==============================================================================================================================================================================================
+Fingerprint : PASS
+Primary ACT : 0.04
+Opportunity : +0.001384 [-0.000913,+0.003670]
+
+PROBE +1
+  SEM Δ   : -0.013136 [-0.024308,-0.002360]
+  SEM-RND : +0.000514 [-0.002344,+0.003619]
+  rho     : +0.0712 [+0.016103,+0.139707]
+PROBE +2
+  SEM Δ   : -0.013777 [-0.025018,-0.003186]
+  SEM-RND : +0.000291 [-0.003630,+0.004377]
+  rho     : +0.1187 [+0.061653,+0.182059]
+PROBE +3
+  SEM Δ   : -0.012662 [-0.023935,-0.002235]
+  SEM-RND : +0.001361 [-0.002561,+0.005493]
+  rho     : +0.1439 [+0.089559,+0.204633]
+PROBE +5
+  SEM Δ   : -0.012201 [-0.025533,+0.000967]
+  SEM-RND : -0.000004 [-0.004085,+0.003901]
+  rho     : +0.0922 [+0.030391,+0.157010]
+
+Best rho horizon (descriptive): +3
+Supported horizons : []
+Rank-only horizons : [2, 3]
+
+DECISION : PRETERMINAL_RANK_INFORMATION_WITHOUT_PROSPECTIVE_GAIN
+NEXT     : DO_NOT_CHAIN_YET__REPLICATE_HORIZON_RANK_STRUCTURE
+JSON     : /content/TEST_137_V2_FP32_MULTI_HORIZON_RADAR.json
+
+[22/24] CLAIM BOUNDARY
+
+TEST137 v2'nin asıl sorusu:
+
+"Terminal bloğa ulaşmadan önce FP32 central finite-secant probe,
+BF16 L19 candidate ordering hakkında kullanılabilir bilgi taşımaya
+hangi probe horizonunda başlıyor?"
+
+PRIMARY sonuçlar yalnız PRETERMINAL probe'lardan gelir.
+
+Örneğin:
+
+    L14 +5 -> L19
+
+çok yararlı bir calibration olabilir; fakat probe zaten terminal
+katmana ulaştığı için "uzaktan terminal prediction" kanıtı olarak
+primary analize sokulmaz.
+
+Pozitif sonuçta dahi:
+
+    autonomous GPS
+    semantic causality
+    manifold navigation
+    exact Jacobian
+    exact gradient
+    production controller
+
+iddiası yapılmaz.
+
+Pozitif bir PRETERMINAL horizon bulunursa doğru sonraki adım:
+
+    horizon'u freeze et
+    yeni prompt seti oluştur
+    tek prospective blind replication yap
+
+olacaktır.
+
+
+[23/24] GPU cleanup...
+[24/24] DONE.
+
