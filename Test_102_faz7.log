@@ -1,0 +1,3354 @@
+# =============================================================================
+# TEST 134 — MICRO-PROBE RESPONSE NAVIGATION
+# AKBASCORE — ACTIVE RADAR / PROBE -> SENSE -> CHOOSE -> ACT
+#
+# Qwen2.5-7B-Instruct · BF16 · A100 · TEK COLAB HÜCRESİ
+# =============================================================================
+#
+# AMAÇ
+# ----
+# TEST132:
+#   Historical Dibekgoz pusulası çevresinde prompt-specific correction
+#   opportunity bulundu.
+#
+# TEST133:
+#   Baseline hidden-state'in statik cosine/projection feature'ları
+#   doğru correction yönünü BLIND olarak seçemedi.
+#
+# TEST134:
+#
+#   Candidate yönüne KÜÇÜK bir radar darbesi gönder:
+#
+#       epsilon_radar = 0.0025
+#
+#   Gerçek finite response'u ölç:
+#
+#       r_i = F_l(h_l + eps_radar q_i) - F_l(h_l)
+#
+#   Bu response'tan candidate'ın DAHA BÜYÜK müdahaledeki başarısını tahmin et:
+#
+#       epsilon_act = 0.010
+#
+#       target_i =
+#           D_next(act=q_i)
+#           -
+#           D_next(act=historical v_l)
+#
+#   BLIND:
+#
+#       1. baseline state ölç
+#       2. 16 candidate'a yalnız MICRO-PROBE uygula
+#       3. frozen radar scorer ile candidate seç
+#       4. seçim DONDUR
+#       5. ACT_REL=0.01 ile gerçek intervention yap
+#
+#
+# KRİTİK AYRIM
+# -------------
+#
+# Radar probe sonucu ile actuator sonucu aynı veri değildir:
+#
+#       RADAR_REL = 0.0025
+#       ACT_REL   = 0.0100
+#
+# Böylece:
+#
+#       "küçük response daha büyük müdahalenin yönünü
+#        öngörebiliyor mu?"
+#
+# test edilir.
+#
+#
+# PRIMARY BLIND CONTRASTS
+# -----------------------
+#
+#       RADAR - FIXED
+#       RADAR - GLOBAL
+#       RADAR - RANDOM
+#
+# ORACLE:
+#
+#       ORACLE - FIXED
+#
+# yalnız üst sınırdır ve seçimden SONRA hesaplanır.
+#
+#
+# ÖNEMLİ
+# -------
+#
+# - TEST132/133 promptları tekrar kullanılmaz.
+# - Candidate ID scorer feature değildir.
+# - Baseline state feature'ları primary scorer'a verilmez.
+# - Scorer esas olarak GERÇEK MICRO-RESPONSE'u görür.
+# - DRA brake/gain yok.
+# - Multi-layer zincir yok.
+# - Generation yok.
+# - Jacobian/gradient iddiası yok.
+# - Her probe ayrı forward'dır; probe state'i sonraki probe'a taşınmaz.
+# =============================================================================
+
+
+import gc
+import json
+import math
+import random
+import time
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+
+# =============================================================================
+# 0. CONFIG
+# =============================================================================
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 13401
+
+MODEL_LAYERS = 28
+VECTOR_LAYERS = 20
+HIDDEN = 3584
+
+SOURCE_LAYERS = list(range(19))
+
+# Radar / actuator separation
+RADAR_REL = 0.0025
+ACT_REL   = 0.0100
+
+# TEST132/133 ile aynı geometrik family:
+REQUESTED_SHELL_DEG = 5.0
+N_CANDIDATES = 16
+
+# Tamamen yeni promptlar
+N_TRAIN = 24
+N_DEV   = 8
+N_BLIND = 16
+
+RIDGES = [
+    1e-4,
+    1e-3,
+    1e-2,
+    1e-1,
+    1.0,
+    10.0,
+    100.0,
+]
+
+EXPECTED_COS10 = 0.656545
+EXPECTED_COS11 = 0.658274
+FINGERPRINT_TOL = 5e-6
+
+EPS = 1e-12
+
+OUT_JSON = "/content/TEST_134_MICRO_PROBE_RESPONSE_NAVIGATION.json"
+
+
+# =============================================================================
+# 1. LOCKED FINGERPRINT
+# =============================================================================
+
+ABOVE = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+BELOW = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+NEUTRAL = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 2. DIBEKGOZ DICTIONARY LOCK
+# =============================================================================
+
+TEMPLATES = [
+    "The creature is essentially {X}.",
+    "Observing it closely, the animal is clearly {X}.",
+    "The specimen in front of us is {X}.",
+    "Field notes describe the creature as {X}.",
+    "In every respect the body plan is that of {X}.",
+    "The zoologist identified the animal as {X}.",
+    "Anatomically the creature is {X}.",
+    "Taxonomically the creature groups with {X}.",
+]
+
+POS_DIBEK = "a tailless bipedal ape"
+NEG_DIBEK = "a tailed quadrupedal mammal"
+
+
+# =============================================================================
+# 3. FRESH TEST134 PROMPTS
+#
+# TEST132/133 promptlarından hiçbiri tekrar kullanılmaz.
+# 24 TRAIN + 8 DEV + 16 BLIND = 48
+# =============================================================================
+
+TRAIN_PROMPTS = [
+    "Naturalists recorded how an unidentified forest animal adjusted its posture while searching for food.",
+    "A laboratory team examined the limb proportions of a specimen recovered from an isolated habitat.",
+    "Researchers documented how an unfamiliar creature shifted its weight before reaching toward an object.",
+    "A comparative morphology study analyzed the joints and torso of a recently described animal.",
+    "Field footage showed a little-known species changing body orientation while navigating dense vegetation.",
+    "Scientists examined skeletal features associated with balance and ordinary movement in an unknown animal.",
+    "Observers described how a captive specimen repositioned its limbs while obtaining food from a container.",
+    "A research group reconstructed the likely stance of an extinct animal from preserved anatomical remains.",
+    "Biologists measured how an unusual species distributed its weight across its limbs during slow movement.",
+    "A wildlife survey captured an unidentified creature adjusting its body while crossing a fallen trunk.",
+    "The research notes compared the pelvis, spine, and limb proportions of an unfamiliar specimen.",
+    "Investigators studied how a newly catalogued animal maintained stability while interacting with its surroundings.",
+
+    "Engineers monitored acoustic measurements from machinery operating inside a large workshop.",
+    "A conservation team photographed several objects before placing them into archival storage.",
+    "Technicians inspected data collected from sensors mounted along an industrial pipeline.",
+    "Survey crews recorded elevation changes across a newly mapped section of terrain.",
+    "A logistics center tracked the movement of containers between several loading areas.",
+    "Astronomers prepared a telescope system for a scheduled series of observations.",
+    "Inspectors measured structural components beneath a recently completed platform.",
+    "An information system organized historical records into several indexed categories.",
+    "Researchers collected mineral samples from exposed formations along a dry hillside.",
+    "Maintenance staff examined internal components removed from a mechanical assembly.",
+    "A film crew arranged cameras and lighting equipment before beginning the morning session.",
+    "Railway personnel inspected equipment beside an empty section of track.",
+]
+
+DEV_PROMPTS = [
+    "Researchers filmed an unfamiliar creature altering its stance while examining food placed nearby.",
+    "A morphology team compared the skeletal proportions of a newly documented terrestrial species.",
+    "Scientists estimated the habitual posture of an extinct animal from several preserved bones.",
+    "Observers recorded how an unknown species maintained balance while handling objects.",
+
+    "Technicians analyzed vibration measurements collected from an enclosed machine.",
+    "Archivists prepared a set of fragile documents for long-term preservation.",
+    "Engineers checked the spacing and alignment of supports inside a new structure.",
+    "A monitoring station recorded environmental measurements during an overnight survey.",
+]
+
+BLIND_PROMPTS = [
+    "Field researchers observed an undocumented animal extending a limb toward food positioned above the ground.",
+    "Paleontologists examined a partial skeleton to infer how the animal normally supported its body.",
+    "An unfamiliar creature was filmed adjusting its stance while moving around a natural obstacle.",
+    "Scientists compared the shoulder, spine, pelvis, and leg proportions of a rare specimen.",
+    "Wildlife observers recorded how an unknown species balanced while manipulating food.",
+    "A reconstructed animal skeleton was evaluated for evidence about habitual posture and locomotion.",
+    "Remote cameras captured an unidentified creature changing body position while examining nearby objects.",
+    "Researchers measured how an unusual animal distributed its weight while traversing uneven ground.",
+
+    "Engineers reviewed flow measurements collected from an industrial cooling circuit.",
+    "A gallery team packed several objects before transferring them to a secure storage room.",
+    "Survey crews checked reference points positioned along a newly constructed route.",
+    "A computing system reorganized archived entries during a scheduled maintenance period.",
+    "Technicians examined thermal readings recorded inside a power distribution enclosure.",
+    "A cargo ship altered its course while entering a protected section of the harbor.",
+    "Inspectors measured several metal supports installed beneath an elevated floor.",
+    "The observatory archived instrument readings collected during the previous night.",
+]
+
+assert len(TRAIN_PROMPTS) == N_TRAIN
+assert len(DEV_PROMPTS) == N_DEV
+assert len(BLIND_PROMPTS) == N_BLIND
+
+
+# =============================================================================
+# 4. REPRODUCIBILITY
+# =============================================================================
+
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
+
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+
+# =============================================================================
+# 5. HELPERS
+# =============================================================================
+
+def normalize(v):
+    v = v.float()
+    n = torch.linalg.vector_norm(v)
+
+    if float(n.item()) < EPS:
+        return None
+
+    return v / n
+
+
+def cosine(a, b):
+    a = a.float()
+    b = b.float()
+
+    na = torch.linalg.vector_norm(a)
+    nb = torch.linalg.vector_norm(b)
+
+    if float(na.item()) < EPS or float(nb.item()) < EPS:
+        return float("nan")
+
+    return float(torch.dot(a, b) / (na * nb))
+
+
+def angle_deg(a, b):
+    c = cosine(a, b)
+    c = max(-1.0, min(1.0, c))
+    return float(math.degrees(math.acos(c)))
+
+
+def stats(x):
+    x = np.asarray(x, dtype=np.float64)
+    x = x[np.isfinite(x)]
+
+    if len(x) == 0:
+        return {
+            "n": 0,
+            "mean": float("nan"),
+            "sd": float("nan"),
+            "ci95": [float("nan"), float("nan")],
+            "positive_fraction": float("nan"),
+        }
+
+    m = float(np.mean(x))
+
+    if len(x) > 1:
+        sd = float(np.std(x, ddof=1))
+        se = sd / math.sqrt(len(x))
+    else:
+        sd = 0.0
+        se = 0.0
+
+    return {
+        "n": int(len(x)),
+        "mean": m,
+        "sd": sd,
+        "ci95": [
+            float(m - 1.96 * se),
+            float(m + 1.96 * se),
+        ],
+        "positive_fraction": float(np.mean(x > 0)),
+        "min": float(np.min(x)),
+        "max": float(np.max(x)),
+    }
+
+
+def ci(s):
+    return f"[{s['ci95'][0]:+.6f},{s['ci95'][1]:+.6f}]"
+
+
+def safe_corr(a, b):
+    a = np.asarray(a, dtype=np.float64)
+    b = np.asarray(b, dtype=np.float64)
+
+    mask = np.isfinite(a) & np.isfinite(b)
+
+    a = a[mask]
+    b = b[mask]
+
+    if len(a) < 3:
+        return float("nan")
+
+    if np.std(a) < EPS or np.std(b) < EPS:
+        return float("nan")
+
+    return float(np.corrcoef(a, b)[0, 1])
+
+
+def safe_ratio(a, b):
+    if not np.isfinite(a) or not np.isfinite(b) or abs(b) < EPS:
+        return float("nan")
+    return float(a / b)
+
+
+# =============================================================================
+# 6. MODEL
+# =============================================================================
+
+print("=" * 180)
+print("TEST 134 — MICRO-PROBE RESPONSE NAVIGATION")
+print("AKBASCORE — ACTIVE RADAR: PROBE -> SENSE -> CHOOSE -> ACT")
+print("=" * 180)
+
+if not torch.cuda.is_available():
+    raise SystemExit("GPU/A100 gerekli.")
+
+print("\n[1/26] Model yükleniyor...")
+
+t0 = time.time()
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_ID,
+    trust_remote_code=True,
+)
+
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+tokenizer.padding_side = "right"
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True,
+    low_cpu_mem_usage=True,
+    attn_implementation="sdpa",
+)
+
+model.eval()
+
+for p in model.parameters():
+    p.requires_grad_(False)
+
+device = next(model.parameters()).device
+
+assert len(model.model.layers) == MODEL_LAYERS
+assert model.config.hidden_size == HIDDEN
+
+print("Model          :", MODEL_ID)
+print("dtype          :", next(model.parameters()).dtype)
+print("RADAR REL      :", RADAR_REL)
+print("ACT REL        :", ACT_REL)
+print("ACT/RADAR      :", ACT_REL / RADAR_REL)
+print("Shell          :", REQUESTED_SHELL_DEG)
+print("Candidates     :", N_CANDIDATES)
+print("TRAIN/DEV      :", N_TRAIN, "/", N_DEV)
+print("BLIND          :", N_BLIND)
+print(f"Load time      : {time.time()-t0:.1f}s")
+
+
+# =============================================================================
+# 7. VECTOR EXTRACTION
+# =============================================================================
+
+@torch.no_grad()
+def extract_vectors(texts):
+
+    enc = tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=128,
+    )
+
+    ids = enc["input_ids"].to(device)
+    mask = enc["attention_mask"].to(device)
+
+    captures = [None] * VECTOR_LAYERS
+    handles = []
+
+    def make_hook(li):
+        def hook(module, inp, out):
+            h = out[0] if isinstance(out, tuple) else out
+            captures[li] = h.detach()
+        return hook
+
+    try:
+        for li in range(VECTOR_LAYERS):
+            handles.append(
+                model.model.layers[li].register_forward_hook(
+                    make_hook(li)
+                )
+            )
+
+        model(
+            input_ids=ids,
+            attention_mask=mask,
+            use_cache=False,
+        )
+
+    finally:
+        for h in handles:
+            h.remove()
+
+    lengths = mask.sum(1).cpu().numpy()
+
+    result = torch.zeros(
+        len(texts),
+        VECTOR_LAYERS,
+        HIDDEN,
+        dtype=torch.float32,
+    )
+
+    for li in range(VECTOR_LAYERS):
+
+        x = captures[li].float().cpu()
+
+        for i in range(len(texts)):
+            result[i, li] = x[
+                i,
+                int(lengths[i]) - 1,
+            ]
+
+    return result
+
+
+def contrastive_vectors(pos, neg):
+
+    XP = extract_vectors(pos)
+    XN = extract_vectors(neg)
+
+    vectors = {}
+
+    for li in range(VECTOR_LAYERS):
+
+        d = (
+            XP[:, li].mean(0)
+            - XN[:, li].mean(0)
+        )
+
+        vectors[li] = F.normalize(
+            d,
+            dim=0,
+        )
+
+    del XP, XN
+
+    return vectors
+
+
+# =============================================================================
+# 8. FINGERPRINT
+# =============================================================================
+
+print("\n[2/26] Ortam parmak izi...")
+
+XA = extract_vectors(ABOVE)
+XB = extract_vectors(BELOW)
+XN = extract_vectors(NEUTRAL)
+
+A10 = F.normalize(
+    XA[:, 10].mean(0) - XN[:, 10].mean(0),
+    dim=0,
+)
+
+B10 = F.normalize(
+    XB[:, 10].mean(0) - XN[:, 10].mean(0),
+    dim=0,
+)
+
+A11 = F.normalize(
+    XA[:, 11].mean(0) - XN[:, 11].mean(0),
+    dim=0,
+)
+
+B11 = F.normalize(
+    XB[:, 11].mean(0) - XN[:, 11].mean(0),
+    dim=0,
+)
+
+cos10 = cosine(A10, B10)
+cos11 = cosine(A11, B11)
+
+drift10 = abs(cos10 - EXPECTED_COS10)
+drift11 = abs(cos11 - EXPECTED_COS11)
+
+print(f"L10={cos10:+.6f} drift={drift10:.3e}")
+print(f"L11={cos11:+.6f} drift={drift11:.3e}")
+
+if drift10 > FINGERPRINT_TOL or drift11 > FINGERPRINT_TOL:
+    raise RuntimeError("Fingerprint FAILED")
+
+print("Fingerprint: PASS")
+
+del XA, XB, XN, A10, B10, A11, B11
+
+gc.collect()
+torch.cuda.empty_cache()
+
+
+# =============================================================================
+# 9. DIBEKGOZ DICTIONARY
+# =============================================================================
+
+print("\n[3/26] Dibekgoz dictionary...")
+
+POS = [t.format(X=POS_DIBEK) for t in TEMPLATES]
+NEG = [t.format(X=NEG_DIBEK) for t in TEMPLATES]
+
+DIBEK = contrastive_vectors(POS, NEG)
+
+print(
+    "cos(v0,v19)   =",
+    f"{cosine(DIBEK[0], DIBEK[19]):+.6f}",
+)
+
+print(
+    "cos(v11,v19)  =",
+    f"{cosine(DIBEK[11], DIBEK[19]):+.6f}",
+)
+
+print(
+    "cos(v18,v19)  =",
+    f"{cosine(DIBEK[18], DIBEK[19]):+.6f}",
+)
+
+
+# =============================================================================
+# 10. FIXED TANGENT ATLAS
+#
+# Atlas TEST134'e özgü yeni random seed ile oluşturulur.
+#
+# q_i = cos(theta) v_l + sin(theta) u_i
+#
+# u_i ⟂ v_l
+# =============================================================================
+
+print("\n[4/26] TEST134 tangent radar atlas oluşturuluyor...")
+
+ATLAS = {}
+
+theta = math.radians(REQUESTED_SHELL_DEG)
+
+for li in SOURCE_LAYERS:
+
+    v = normalize(DIBEK[li])
+
+    ATLAS[li] = []
+
+    for cid in range(N_CANDIDATES):
+
+        g = torch.Generator(device="cpu")
+
+        g.manual_seed(
+            SEED
+            + 100000 * li
+            + cid
+        )
+
+        z = torch.randn(
+            HIDDEN,
+            generator=g,
+            dtype=torch.float32,
+        )
+
+        u = z - torch.dot(z, v) * v
+        u = normalize(u)
+
+        q = normalize(
+            math.cos(theta) * v
+            + math.sin(theta) * u
+        )
+
+        ATLAS[li].append({
+            "candidate_id": cid,
+            "u": u,
+            "q": q,
+        })
+
+print(
+    f"Atlas: {len(SOURCE_LAYERS)} layers × "
+    f"{N_CANDIDATES} candidate"
+)
+
+
+# =============================================================================
+# 11. BASELINE PASS
+# =============================================================================
+
+@torch.no_grad()
+def baseline_pass(prompt):
+
+    captures = {}
+    handles = []
+
+    def make_hook(li):
+
+        def hook(module, inp, out):
+
+            h = out[0] if isinstance(out, tuple) else out
+
+            captures[li] = (
+                h[0, -1]
+                .detach()
+                .float()
+                .cpu()
+                .clone()
+            )
+
+        return hook
+
+    try:
+
+        for li in range(VECTOR_LAYERS):
+
+            handles.append(
+                model.model.layers[li]
+                .register_forward_hook(
+                    make_hook(li)
+                )
+            )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt",
+        ).to(device)
+
+        model(
+            **enc,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    return captures
+
+
+# =============================================================================
+# 12. GENERIC ONE-STEP INTERVENTION
+#
+# rel can be:
+#
+#   RADAR_REL = .0025
+#   ACT_REL   = .01
+#
+# Returns actual BF16-realized source perturbation x and target response y.
+# =============================================================================
+
+@torch.no_grad()
+def one_step_intervention(
+    prompt,
+    baseline,
+    li,
+    direction,
+    rel,
+):
+
+    target = li + 1
+
+    q = normalize(direction)
+
+    src_base = baseline[li].float()
+
+    requested_norm = (
+        rel
+        * float(
+            torch.linalg.vector_norm(
+                src_base
+            )
+        )
+    )
+
+    q_gpu = q.to(device)
+
+    source_delta = {}
+    target_cap = {}
+
+    handles = []
+
+    def source_hook(module, inp, out):
+
+        h = out[0] if isinstance(out, tuple) else out
+
+        before = h[0, -1].float()
+
+        hnew = h.clone()
+
+        hnew[0, -1] = (
+            before
+            + requested_norm * q_gpu
+        ).to(h.dtype)
+
+        source_delta["x"] = (
+            hnew[0, -1].float()
+            - before
+        ).detach().cpu().clone()
+
+        if isinstance(out, tuple):
+            return (hnew,) + out[1:]
+
+        return hnew
+
+    def target_hook(module, inp, out):
+
+        h = out[0] if isinstance(out, tuple) else out
+
+        target_cap["h"] = (
+            h[0, -1]
+            .detach()
+            .float()
+            .cpu()
+            .clone()
+        )
+
+    try:
+
+        handles.append(
+            model.model.layers[li]
+            .register_forward_hook(
+                source_hook
+            )
+        )
+
+        handles.append(
+            model.model.layers[target]
+            .register_forward_hook(
+                target_hook
+            )
+        )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt",
+        ).to(device)
+
+        model(
+            **enc,
+            use_cache=False,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+    x = source_delta["x"]
+
+    y = (
+        target_cap["h"]
+        - baseline[target]
+    )
+
+    xnorm = float(torch.linalg.vector_norm(x))
+    ynorm = float(torch.linalg.vector_norm(y))
+    srcnorm = float(torch.linalg.vector_norm(src_base))
+
+    return {
+        "x": x,
+        "y": y,
+
+        "D_next": cosine(
+            y,
+            DIBEK[target],
+        ),
+
+        "D_same": cosine(
+            y,
+            DIBEK[li],
+        ),
+
+        "realized_rel":
+            xnorm / (srcnorm + EPS),
+
+        "requested_rel":
+            rel,
+
+        "dir_cos":
+            cosine(x, q),
+
+        "response_norm":
+            ynorm,
+
+        "gain_norm":
+            ynorm / (xnorm + EPS),
+    }
+
+
+# =============================================================================
+# 13. RADAR RESPONSE FEATURES
+#
+# PRIMARY SENSOR:
+#
+# Baseline h_l doğrudan feature değildir.
+#
+# Sensor candidate'a mikro-probe gönderir ve gerçek response y'yi ölçer.
+#
+# Candidate identity yok.
+#
+# r = y = F(h + eps*q) - F(h)
+#
+# Features:
+#
+#  0 bias
+#  1 cos(r, v_l)
+#  2 cos(r, v_l+1)
+#  3 cos(r, q)
+#  4 cos(r, u)
+#  5 cos(r, orthogonal semantic rotation r_next)
+#  6 response norm / source perturbation norm
+#  7 log response norm
+#  8 realized source direction fidelity
+#  9 realized radar rel
+# 10 source->response cosine cos(x,r)
+# 11 semantic transfer difference:
+#        cos(r,v_next) - cos(r,v_current)
+# 12 response component magnitude along v_next
+# 13 response component magnitude along r_next
+# 14 q -> v_next static geometry
+#
+# q_vnext intentionally included only as control/context;
+# physical response features dominate the intended test.
+# =============================================================================
+
+FEATURE_NAMES = [
+    "bias",
+    "resp_vcurrent",
+    "resp_vnext",
+    "resp_q",
+    "resp_u",
+    "resp_rnext",
+    "response_gain_norm",
+    "log_response_norm",
+    "realized_dir_cos",
+    "realized_radar_rel",
+    "source_response_cos",
+    "semantic_transfer_delta",
+    "response_vnext_projection",
+    "response_rnext_projection",
+    "q_vnext",
+]
+
+
+def radar_features(
+    li,
+    candidate,
+    radar_result,
+):
+
+    v = normalize(DIBEK[li])
+    vn = normalize(DIBEK[li + 1])
+
+    q = normalize(candidate["q"])
+    u = normalize(candidate["u"])
+
+    x = radar_result["x"].float()
+    r = radar_result["y"].float()
+
+    rn = normalize(r)
+
+    c = float(torch.dot(v, vn))
+
+    raw_rnext = vn - c * v
+    rnext = normalize(raw_rnext)
+
+    if rn is None:
+
+        resp_v = 0.0
+        resp_vn = 0.0
+        resp_q = 0.0
+        resp_u = 0.0
+        resp_rnext = 0.0
+        source_resp = 0.0
+
+    else:
+
+        resp_v = cosine(rn, v)
+        resp_vn = cosine(rn, vn)
+        resp_q = cosine(rn, q)
+        resp_u = cosine(rn, u)
+
+        source_resp = cosine(x, r)
+
+        if rnext is None:
+            resp_rnext = 0.0
+        else:
+            resp_rnext = cosine(rn, rnext)
+
+    rnorm = float(torch.linalg.vector_norm(r))
+
+    if rnext is None:
+        proj_rnext = 0.0
+    else:
+        proj_rnext = float(
+            torch.dot(r, rnext)
+            / (rnorm + EPS)
+        )
+
+    proj_vnext = float(
+        torch.dot(r, vn)
+        / (rnorm + EPS)
+    )
+
+    return np.asarray(
+        [
+            1.0,
+            resp_v,
+            resp_vn,
+            resp_q,
+            resp_u,
+            resp_rnext,
+            radar_result["gain_norm"],
+            math.log(rnorm + EPS),
+            radar_result["dir_cos"],
+            radar_result["realized_rel"],
+            source_resp,
+            resp_vn - resp_v,
+            proj_vnext,
+            proj_rnext,
+            cosine(q, vn),
+        ],
+        dtype=np.float64,
+    )
+
+
+# =============================================================================
+# 14. TRAIN + DEV DATA COLLECTION
+#
+# For each prompt/layer:
+#
+#   A. FIXED at ACT_REL=.01
+#
+#   B. each candidate:
+#        radar at .0025
+#        actuator at .01
+#
+# Target:
+#
+#   candidate ACT D_next - FIXED ACT D_next
+#
+# Thus the scorer must predict LARGE intervention success
+# from SMALL intervention response.
+# =============================================================================
+
+print("\n[5/26] TRAIN + DEV ACTIVE-RADAR system-ID başlıyor...")
+
+SYSTEM_PROMPTS = TRAIN_PROMPTS + DEV_PROMPTS
+SYSTEM_SPLITS = (
+    ["TRAIN"] * N_TRAIN
+    + ["DEV"] * N_DEV
+)
+
+SYSTEM_DATA = []
+
+start = time.time()
+
+for pi, prompt in enumerate(SYSTEM_PROMPTS):
+
+    split = SYSTEM_SPLITS[pi]
+
+    base = baseline_pass(prompt)
+
+    prow = {
+        "prompt_index": pi,
+        "split": split,
+        "prompt": prompt,
+        "layers": {},
+    }
+
+    for li in SOURCE_LAYERS:
+
+        # -------------------------------------------------------------
+        # Historical compass at actuator dose
+        # -------------------------------------------------------------
+
+        fixed_act = one_step_intervention(
+            prompt,
+            base,
+            li,
+            DIBEK[li],
+            ACT_REL,
+        )
+
+        # Historical compass at radar dose:
+        # diagnostic only.
+        fixed_radar = one_step_intervention(
+            prompt,
+            base,
+            li,
+            DIBEK[li],
+            RADAR_REL,
+        )
+
+        layer = {
+            "fixed_act_D":
+                fixed_act["D_next"],
+
+            "fixed_radar_D":
+                fixed_radar["D_next"],
+
+            "candidates":
+                [],
+        }
+
+        for candidate in ATLAS[li]:
+
+            # ---------------------------------------------------------
+            # MICRO PROBE
+            # ---------------------------------------------------------
+
+            radar = one_step_intervention(
+                prompt,
+                base,
+                li,
+                candidate["q"],
+                RADAR_REL,
+            )
+
+            feat = radar_features(
+                li,
+                candidate,
+                radar,
+            )
+
+            # ---------------------------------------------------------
+            # ACTUATOR TARGET
+            # ---------------------------------------------------------
+
+            act = one_step_intervention(
+                prompt,
+                base,
+                li,
+                candidate["q"],
+                ACT_REL,
+            )
+
+            target_delta = (
+                act["D_next"]
+                - fixed_act["D_next"]
+            )
+
+            # Simple scalar radar diagnostic:
+            # Does micro D advantage itself predict act advantage?
+            radar_delta = (
+                radar["D_next"]
+                - fixed_radar["D_next"]
+            )
+
+            layer["candidates"].append({
+                "candidate_id":
+                    candidate["candidate_id"],
+
+                "features":
+                    feat,
+
+                "target_act_delta":
+                    float(target_delta),
+
+                "radar_delta":
+                    float(radar_delta),
+
+                "radar_D":
+                    radar["D_next"],
+
+                "act_D":
+                    act["D_next"],
+
+                "radar_rel":
+                    radar["realized_rel"],
+
+                "act_rel":
+                    act["realized_rel"],
+
+                "radar_dir_cos":
+                    radar["dir_cos"],
+
+                "act_dir_cos":
+                    act["dir_cos"],
+
+                "radar_response_norm":
+                    radar["response_norm"],
+
+                "radar_gain_norm":
+                    radar["gain_norm"],
+
+                "radar_act_source_angle":
+                    angle_deg(
+                        radar["x"],
+                        act["x"],
+                    ),
+            })
+
+        prow["layers"][str(li)] = layer
+
+    SYSTEM_DATA.append(prow)
+
+    if (pi + 1) % 4 == 0:
+        gc.collect()
+        torch.cuda.empty_cache()
+
+    print(
+        f"  {pi+1:02d}/{len(SYSTEM_PROMPTS)} "
+        f"| {(time.time()-start)/60:.1f}m",
+        end="\r",
+    )
+
+print()
+
+print(
+    f"TRAIN+DEV completed in "
+    f"{(time.time()-start)/60:.1f} min"
+)
+
+
+# =============================================================================
+# 15. DATA PREP
+# =============================================================================
+
+def prepare_xy(data, li, split):
+
+    X = []
+    y = []
+    radar_scalar = []
+    meta = []
+
+    for row in data:
+
+        if row["split"] != split:
+            continue
+
+        layer = row["layers"][str(li)]
+
+        for c in layer["candidates"]:
+
+            X.append(c["features"])
+            y.append(c["target_act_delta"])
+            radar_scalar.append(c["radar_delta"])
+
+            meta.append({
+                "prompt_index":
+                    row["prompt_index"],
+
+                "candidate_id":
+                    c["candidate_id"],
+            })
+
+    return (
+        np.asarray(X, dtype=np.float64),
+        np.asarray(y, dtype=np.float64),
+        np.asarray(radar_scalar, dtype=np.float64),
+        meta,
+    )
+
+
+# =============================================================================
+# 16. STANDARDIZATION / RIDGE
+# =============================================================================
+
+def standardize_fit(X):
+
+    mu = X[:, 1:].mean(axis=0)
+    sd = X[:, 1:].std(axis=0)
+
+    sd[sd < 1e-10] = 1.0
+
+    return mu, sd
+
+
+def standardize_apply(X, mu, sd):
+
+    Z = X.copy()
+
+    Z[:, 1:] = (
+        Z[:, 1:] - mu
+    ) / sd
+
+    Z[:, 0] = 1.0
+
+    return Z
+
+
+def ridge_fit(X, y, lam):
+
+    p = X.shape[1]
+
+    reg = np.eye(
+        p,
+        dtype=np.float64,
+    )
+
+    # Bias not regularized
+    reg[0, 0] = 0.0
+
+    A = X.T @ X + lam * reg
+    b = X.T @ y
+
+    try:
+        beta = np.linalg.solve(A, b)
+    except np.linalg.LinAlgError:
+        beta = np.linalg.pinv(A) @ b
+
+    return beta
+
+
+def predict(X, beta):
+    return X @ beta
+
+
+# =============================================================================
+# 17. DEV MODEL SELECTION
+#
+# We do NOT select lambda by row correlation.
+#
+# Operational question:
+#
+#   On each DEV prompt, which candidate would scorer select?
+#
+# Then evaluate that candidate's actual ACT_REL=.01 outcome.
+# =============================================================================
+
+print("\n[6/26] DEV radar scorer regularization seçiliyor...")
+
+SCORERS = {}
+DEV_SELECTION = {}
+
+for li in SOURCE_LAYERS:
+
+    Xtr, ytr, rtr, mtr = prepare_xy(
+        SYSTEM_DATA,
+        li,
+        "TRAIN",
+    )
+
+    Xdv, ydv, rdv, mdv = prepare_xy(
+        SYSTEM_DATA,
+        li,
+        "DEV",
+    )
+
+    mu, sd = standardize_fit(Xtr)
+
+    Ztr = standardize_apply(
+        Xtr,
+        mu,
+        sd,
+    )
+
+    Zdv = standardize_apply(
+        Xdv,
+        mu,
+        sd,
+    )
+
+    options = []
+
+    for lam in RIDGES:
+
+        beta = ridge_fit(
+            Ztr,
+            ytr,
+            lam,
+        )
+
+        pred = predict(
+            Zdv,
+            beta,
+        )
+
+        selected_actual = []
+        oracle_actual = []
+        scalar_selected_actual = []
+
+        prompt_ids = sorted(
+            set(
+                m["prompt_index"]
+                for m in mdv
+            )
+        )
+
+        for pid in prompt_ids:
+
+            inds = [
+                j
+                for j, m
+                in enumerate(mdv)
+                if m["prompt_index"] == pid
+            ]
+
+            pp = pred[inds]
+            yy = ydv[inds]
+            rr = rdv[inds]
+
+            sensor_idx = int(np.argmax(pp))
+            scalar_idx = int(np.argmax(rr))
+
+            selected_actual.append(
+                float(yy[sensor_idx])
+            )
+
+            scalar_selected_actual.append(
+                float(yy[scalar_idx])
+            )
+
+            oracle_actual.append(
+                float(np.max(yy))
+            )
+
+        options.append({
+            "lambda":
+                float(lam),
+
+            "selected_mean":
+                float(np.mean(selected_actual)),
+
+            "scalar_radar_selected_mean":
+                float(np.mean(
+                    scalar_selected_actual
+                )),
+
+            "oracle_mean":
+                float(np.mean(oracle_actual)),
+
+            "row_corr":
+                safe_corr(pred, ydv),
+
+            "raw_radar_delta_corr":
+                safe_corr(rdv, ydv),
+        })
+
+    options.sort(
+        key=lambda z: z["selected_mean"],
+        reverse=True,
+    )
+
+    best = options[0]
+
+    # -------------------------------------------------------------
+    # Refit frozen scorer using TRAIN + DEV
+    # -------------------------------------------------------------
+
+    Xall = np.vstack([Xtr, Xdv])
+    yall = np.concatenate([ytr, ydv])
+
+    mu_all, sd_all = standardize_fit(Xall)
+
+    Zall = standardize_apply(
+        Xall,
+        mu_all,
+        sd_all,
+    )
+
+    beta_all = ridge_fit(
+        Zall,
+        yall,
+        best["lambda"],
+    )
+
+    SCORERS[li] = {
+        "mu": mu_all,
+        "sd": sd_all,
+        "beta": beta_all,
+        "lambda": best["lambda"],
+    }
+
+    DEV_SELECTION[li] = {
+        "best": best,
+        "all": options,
+    }
+
+    print(
+        f"L{li:02d}->L{li+1:02d} "
+        f"λ={best['lambda']:<7g} "
+        f"DEV radar={best['selected_mean']:+.5f} "
+        f"scalar={best['scalar_radar_selected_mean']:+.5f} "
+        f"oracle={best['oracle_mean']:+.5f} "
+        f"row-r={best['row_corr']:+.3f} "
+        f"microD-r={best['raw_radar_delta_corr']:+.3f}"
+    )
+
+
+# =============================================================================
+# 18. GLOBAL FIXED CORRECTION
+#
+# Strong state-independent baseline:
+# best candidate ID on TRAIN+DEV at ACT_REL=.01.
+# =============================================================================
+
+print("\n[7/26] Global fixed correction seçiliyor...")
+
+GLOBAL_CANDIDATE = {}
+
+for li in SOURCE_LAYERS:
+
+    means = []
+
+    for cid in range(N_CANDIDATES):
+
+        vals = []
+
+        for row in SYSTEM_DATA:
+
+            vals.append(
+                row["layers"][str(li)]
+                ["candidates"][cid]
+                ["target_act_delta"]
+            )
+
+        means.append(
+            float(np.mean(vals))
+        )
+
+    best_id = int(np.argmax(means))
+
+    GLOBAL_CANDIDATE[li] = {
+        "candidate_id":
+            best_id,
+
+        "train_dev_act_delta":
+            means[best_id],
+    }
+
+    print(
+        f"L{li:02d}: "
+        f"candidate={best_id:02d} "
+        f"TRAIN+DEV ACT Δ="
+        f"{means[best_id]:+.5f}"
+    )
+
+
+# =============================================================================
+# 19. FROZEN RADAR CHOICE
+# =============================================================================
+
+def radar_choose(
+    li,
+    feature_matrix,
+):
+
+    scorer = SCORERS[li]
+
+    X = np.asarray(
+        feature_matrix,
+        dtype=np.float64,
+    )
+
+    Z = standardize_apply(
+        X,
+        scorer["mu"],
+        scorer["sd"],
+    )
+
+    scores = predict(
+        Z,
+        scorer["beta"],
+    )
+
+    best_id = int(np.argmax(scores))
+
+    return best_id, scores
+
+
+# =============================================================================
+# 20. BLIND ACTIVE RADAR
+#
+# CRITICAL ORDER:
+#
+#   baseline
+#      ↓
+#   fixed RADAR diagnostic
+#      ↓
+#   ALL candidate MICRO probes
+#      ↓
+#   frozen scorer selects candidate
+#      ↓
+#   SELECTION FROZEN
+#      ↓
+#   only now ACT_REL outcomes are measured
+#
+# Thus ACT outcomes cannot affect navigator selection.
+# =============================================================================
+
+print("\n[8/26] BLIND ACTIVE-RADAR assay...")
+
+BLIND_RESULTS = []
+
+start = time.time()
+
+for pi, prompt in enumerate(BLIND_PROMPTS):
+
+    base = baseline_pass(prompt)
+
+    row = {
+        "prompt_index": pi,
+        "prompt": prompt,
+        "layers": {},
+    }
+
+    for li in SOURCE_LAYERS:
+
+        # -------------------------------------------------------------
+        # FIXED MICRO-RADAR reference
+        # -------------------------------------------------------------
+
+        fixed_radar = one_step_intervention(
+            prompt,
+            base,
+            li,
+            DIBEK[li],
+            RADAR_REL,
+        )
+
+        # -------------------------------------------------------------
+        # PHASE A:
+        # MICRO probes ONLY.
+        # No ACT candidate has been run yet.
+        # -------------------------------------------------------------
+
+        radar_results = []
+        feature_matrix = []
+        radar_scalar = []
+
+        for candidate in ATLAS[li]:
+
+            radar = one_step_intervention(
+                prompt,
+                base,
+                li,
+                candidate["q"],
+                RADAR_REL,
+            )
+
+            feat = radar_features(
+                li,
+                candidate,
+                radar,
+            )
+
+            radar_results.append(radar)
+            feature_matrix.append(feat)
+
+            radar_scalar.append(
+                radar["D_next"]
+                - fixed_radar["D_next"]
+            )
+
+        # -------------------------------------------------------------
+        # FREEZE ALL SELECTIONS BEFORE ACTUATOR OUTCOMES
+        # -------------------------------------------------------------
+
+        radar_id, radar_scores = radar_choose(
+            li,
+            feature_matrix,
+        )
+
+        # Simple one-scalar active-radar baseline:
+        # choose candidate with best micro D_next advantage
+        scalar_id = int(
+            np.argmax(radar_scalar)
+        )
+
+        global_id = (
+            GLOBAL_CANDIDATE[li]
+            ["candidate_id"]
+        )
+
+        rng = random.Random(
+            SEED
+            + 900000
+            + 1000 * li
+            + pi
+        )
+
+        random_id = rng.randrange(
+            N_CANDIDATES
+        )
+
+        # -------------------------------------------------------------
+        # PHASE B:
+        # ACTUATOR outcomes.
+        #
+        # Historical FIXED first.
+        # -------------------------------------------------------------
+
+        fixed_act = one_step_intervention(
+            prompt,
+            base,
+            li,
+            DIBEK[li],
+            ACT_REL,
+        )
+
+        # -------------------------------------------------------------
+        # Scan all candidate ACT outcomes only AFTER selection freeze.
+        # Needed for oracle ceiling and ranking analysis.
+        # -------------------------------------------------------------
+
+        act_outcomes = []
+
+        for candidate in ATLAS[li]:
+
+            act = one_step_intervention(
+                prompt,
+                base,
+                li,
+                candidate["q"],
+                ACT_REL,
+            )
+
+            act_outcomes.append({
+                "candidate_id":
+                    candidate["candidate_id"],
+
+                "D_next":
+                    act["D_next"],
+
+                "delta":
+                    act["D_next"]
+                    - fixed_act["D_next"],
+
+                "realized_rel":
+                    act["realized_rel"],
+
+                "dir_cos":
+                    act["dir_cos"],
+
+                "response_norm":
+                    act["response_norm"],
+            })
+
+        oracle_id = int(
+            np.argmax([
+                z["D_next"]
+                for z in act_outcomes
+            ])
+        )
+
+        radar_out = act_outcomes[radar_id]
+        scalar_out = act_outcomes[scalar_id]
+        global_out = act_outcomes[global_id]
+        random_out = act_outcomes[random_id]
+        oracle_out = act_outcomes[oracle_id]
+
+        # -------------------------------------------------------------
+        # Actual rank of radar-selected candidate
+        # -------------------------------------------------------------
+
+        actual_order = np.argsort(
+            -np.asarray([
+                z["D_next"]
+                for z in act_outcomes
+            ])
+        )
+
+        radar_rank = int(
+            np.where(
+                actual_order == radar_id
+            )[0][0]
+        ) + 1
+
+        scalar_rank = int(
+            np.where(
+                actual_order == scalar_id
+            )[0][0]
+        ) + 1
+
+        # -------------------------------------------------------------
+        # Radar vs actuator direction audit
+        # -------------------------------------------------------------
+
+        radar_act_angle = angle_deg(
+            radar_results[radar_id]["x"],
+            # Need actual selected act source perturbation.
+            # Reconstruct from requested candidate by doing no extra run:
+            # direction fidelity already audited separately.
+            ATLAS[li][radar_id]["q"],
+        )
+
+        row["layers"][str(li)] = {
+            "fixed_act_D":
+                fixed_act["D_next"],
+
+            "fixed_radar_D":
+                fixed_radar["D_next"],
+
+            "radar_id":
+                radar_id,
+
+            "scalar_id":
+                scalar_id,
+
+            "global_id":
+                global_id,
+
+            "random_id":
+                random_id,
+
+            "oracle_id":
+                oracle_id,
+
+            "radar_delta":
+                radar_out["delta"],
+
+            "scalar_delta":
+                scalar_out["delta"],
+
+            "global_delta":
+                global_out["delta"],
+
+            "random_delta":
+                random_out["delta"],
+
+            "oracle_delta":
+                oracle_out["delta"],
+
+            "radar_D":
+                radar_out["D_next"],
+
+            "scalar_D":
+                scalar_out["D_next"],
+
+            "global_D":
+                global_out["D_next"],
+
+            "random_D":
+                random_out["D_next"],
+
+            "oracle_D":
+                oracle_out["D_next"],
+
+            "radar_rank":
+                radar_rank,
+
+            "scalar_rank":
+                scalar_rank,
+
+            "radar_hit_oracle":
+                int(radar_id == oracle_id),
+
+            "scalar_hit_oracle":
+                int(scalar_id == oracle_id),
+
+            "radar_predicted_score":
+                float(
+                    radar_scores[radar_id]
+                ),
+
+            "selected_micro_delta":
+                float(
+                    radar_scalar[radar_id]
+                ),
+
+            "selected_radar_realized_rel":
+                radar_results[radar_id]
+                ["realized_rel"],
+
+            "selected_radar_dir_cos":
+                radar_results[radar_id]
+                ["dir_cos"],
+
+            "selected_act_realized_rel":
+                radar_out["realized_rel"],
+
+            "selected_act_dir_cos":
+                radar_out["dir_cos"],
+
+            "selected_radar_requested_angle":
+                radar_act_angle,
+
+            "all_radar_scores":
+                [
+                    float(x)
+                    for x in radar_scores
+                ],
+
+            "all_micro_delta":
+                [
+                    float(x)
+                    for x in radar_scalar
+                ],
+
+            "all_act_outcomes":
+                act_outcomes,
+        }
+
+    BLIND_RESULTS.append(row)
+
+    if (pi + 1) % 4 == 0:
+        gc.collect()
+        torch.cuda.empty_cache()
+
+    print(
+        f"  {pi+1:02d}/{len(BLIND_PROMPTS)} "
+        f"| {(time.time()-start)/60:.1f}m",
+        end="\r",
+    )
+
+print()
+
+print(
+    f"BLIND completed in "
+    f"{(time.time()-start)/60:.1f} min"
+)
+
+
+# =============================================================================
+# 21. GLOBAL BLIND ANALYSIS
+# =============================================================================
+
+print("\n[9/26] Global blind analysis...")
+
+radar_delta = []
+scalar_delta = []
+global_delta = []
+random_delta = []
+oracle_delta = []
+
+radar_minus_global = []
+radar_minus_random = []
+radar_minus_scalar = []
+
+radar_ranks = []
+scalar_ranks = []
+
+radar_hits = []
+scalar_hits = []
+
+pred_all = []
+micro_all = []
+act_all = []
+
+radar_rel_audit = []
+act_rel_audit = []
+
+radar_dir_audit = []
+act_dir_audit = []
+
+for row in BLIND_RESULTS:
+
+    for li in SOURCE_LAYERS:
+
+        z = row["layers"][str(li)]
+
+        radar_delta.append(
+            z["radar_delta"]
+        )
+
+        scalar_delta.append(
+            z["scalar_delta"]
+        )
+
+        global_delta.append(
+            z["global_delta"]
+        )
+
+        random_delta.append(
+            z["random_delta"]
+        )
+
+        oracle_delta.append(
+            z["oracle_delta"]
+        )
+
+        radar_minus_global.append(
+            z["radar_delta"]
+            - z["global_delta"]
+        )
+
+        radar_minus_random.append(
+            z["radar_delta"]
+            - z["random_delta"]
+        )
+
+        radar_minus_scalar.append(
+            z["radar_delta"]
+            - z["scalar_delta"]
+        )
+
+        radar_ranks.append(
+            z["radar_rank"]
+        )
+
+        scalar_ranks.append(
+            z["scalar_rank"]
+        )
+
+        radar_hits.append(
+            z["radar_hit_oracle"]
+        )
+
+        scalar_hits.append(
+            z["scalar_hit_oracle"]
+        )
+
+        pred_all.extend(
+            z["all_radar_scores"]
+        )
+
+        micro_all.extend(
+            z["all_micro_delta"]
+        )
+
+        act_all.extend([
+            x["delta"]
+            for x in z["all_act_outcomes"]
+        ])
+
+        radar_rel_audit.append(
+            z["selected_radar_realized_rel"]
+        )
+
+        act_rel_audit.append(
+            z["selected_act_realized_rel"]
+        )
+
+        radar_dir_audit.append(
+            z["selected_radar_dir_cos"]
+        )
+
+        act_dir_audit.append(
+            z["selected_act_dir_cos"]
+        )
+
+
+S_RADAR = stats(radar_delta)
+S_SCALAR = stats(scalar_delta)
+S_GLOBAL = stats(global_delta)
+S_RANDOM = stats(random_delta)
+S_ORACLE = stats(oracle_delta)
+
+S_RG = stats(radar_minus_global)
+S_RR = stats(radar_minus_random)
+S_RS = stats(radar_minus_scalar)
+
+PRED_ACT_CORR = safe_corr(
+    pred_all,
+    act_all,
+)
+
+MICRO_ACT_CORR = safe_corr(
+    micro_all,
+    act_all,
+)
+
+MEAN_RADAR_RANK = float(
+    np.mean(radar_ranks)
+)
+
+MEAN_SCALAR_RANK = float(
+    np.mean(scalar_ranks)
+)
+
+RADAR_TOP4 = float(
+    np.mean(
+        np.asarray(radar_ranks) <= 4
+    )
+)
+
+SCALAR_TOP4 = float(
+    np.mean(
+        np.asarray(scalar_ranks) <= 4
+    )
+)
+
+RADAR_HIT = float(
+    np.mean(radar_hits)
+)
+
+SCALAR_HIT = float(
+    np.mean(scalar_hits)
+)
+
+CAPTURE_RATIO = safe_ratio(
+    S_RADAR["mean"],
+    S_ORACLE["mean"],
+)
+
+
+# =============================================================================
+# 22. GLOBAL SUMMARY
+# =============================================================================
+
+print("\n[10/26] BLIND ACTIVE-RADAR SUMMARY")
+print("=" * 160)
+
+print(
+    f"RADAR SENSOR Δ vs FIXED : "
+    f"{S_RADAR['mean']:+.6f} "
+    f"{ci(S_RADAR)} "
+    f"| +={S_RADAR['positive_fraction']:.3f}"
+)
+
+print(
+    f"SCALAR MICRO Δ vs FIXED : "
+    f"{S_SCALAR['mean']:+.6f} "
+    f"{ci(S_SCALAR)} "
+    f"| +={S_SCALAR['positive_fraction']:.3f}"
+)
+
+print(
+    f"GLOBAL Δ vs FIXED       : "
+    f"{S_GLOBAL['mean']:+.6f} "
+    f"{ci(S_GLOBAL)} "
+    f"| +={S_GLOBAL['positive_fraction']:.3f}"
+)
+
+print(
+    f"RANDOM Δ vs FIXED       : "
+    f"{S_RANDOM['mean']:+.6f} "
+    f"{ci(S_RANDOM)} "
+    f"| +={S_RANDOM['positive_fraction']:.3f}"
+)
+
+print(
+    f"ORACLE Δ vs FIXED       : "
+    f"{S_ORACLE['mean']:+.6f} "
+    f"{ci(S_ORACLE)} "
+    f"| +={S_ORACLE['positive_fraction']:.3f}"
+)
+
+print()
+
+print(
+    f"RADAR - GLOBAL          : "
+    f"{S_RG['mean']:+.6f} "
+    f"{ci(S_RG)}"
+)
+
+print(
+    f"RADAR - RANDOM          : "
+    f"{S_RR['mean']:+.6f} "
+    f"{ci(S_RR)}"
+)
+
+print(
+    f"RADAR - SCALAR          : "
+    f"{S_RS['mean']:+.6f} "
+    f"{ci(S_RS)}"
+)
+
+print()
+
+print(
+    f"Oracle capture ratio    : "
+    f"{CAPTURE_RATIO:+.3f}"
+)
+
+print(
+    f"Predicted ↔ ACT corr    : "
+    f"{PRED_ACT_CORR:+.4f}"
+)
+
+print(
+    f"Raw microΔ ↔ ACT corr   : "
+    f"{MICRO_ACT_CORR:+.4f}"
+)
+
+print(
+    f"Mean RADAR rank         : "
+    f"{MEAN_RADAR_RANK:.3f} "
+    f"(random=8.5)"
+)
+
+print(
+    f"RADAR Top-4             : "
+    f"{RADAR_TOP4:.3f} "
+    f"(random=.250)"
+)
+
+print(
+    f"RADAR exact oracle hit  : "
+    f"{RADAR_HIT:.3f} "
+    f"(random=.0625)"
+)
+
+print(
+    f"Scalar mean rank        : "
+    f"{MEAN_SCALAR_RANK:.3f}"
+)
+
+print(
+    f"Scalar Top-4            : "
+    f"{SCALAR_TOP4:.3f}"
+)
+
+
+# =============================================================================
+# 23. ACTUATOR / RADAR INTEGRITY
+# =============================================================================
+
+print("\n[11/26] RADAR / ACTUATOR integrity...")
+
+print(
+    f"RADAR requested REL = {RADAR_REL:.7f}"
+)
+
+print(
+    f"RADAR realized REL  = "
+    f"{np.mean(radar_rel_audit):.7f}"
+)
+
+print(
+    f"RADAR dir cosine    = "
+    f"{np.mean(radar_dir_audit):+.6f}"
+)
+
+print()
+
+print(
+    f"ACT requested REL   = {ACT_REL:.7f}"
+)
+
+print(
+    f"ACT realized REL    = "
+    f"{np.mean(act_rel_audit):.7f}"
+)
+
+print(
+    f"ACT dir cosine      = "
+    f"{np.mean(act_dir_audit):+.6f}"
+)
+
+print(
+    f"Realized ACT/RADAR  = "
+    f"{np.mean(act_rel_audit) / (np.mean(radar_rel_audit)+EPS):.3f}"
+)
+
+
+# =============================================================================
+# 24. LAYER-WISE RESULTS
+# =============================================================================
+
+print("\n[12/26] Layer-wise blind navigation...")
+print("=" * 190)
+
+print(
+    f"{'STEP':<10}"
+    f"{'RADAR':>11}"
+    f"{'SCALAR':>11}"
+    f"{'GLOBAL':>11}"
+    f"{'RANDOM':>11}"
+    f"{'ORACLE':>11}"
+    f"{'R-G':>10}"
+    f"{'R-R':>10}"
+    f"{'R-S':>10}"
+    f"{'RANK':>9}"
+    f"{'TOP4':>9}"
+)
+
+print("-" * 190)
+
+LAYER_SUMMARY = {}
+
+for li in SOURCE_LAYERS:
+
+    rd = []
+    sd = []
+    gd = []
+    rnd = []
+    od = []
+
+    rg = []
+    rr = []
+    rs = []
+
+    ranks = []
+
+    for row in BLIND_RESULTS:
+
+        z = row["layers"][str(li)]
+
+        rd.append(z["radar_delta"])
+        sd.append(z["scalar_delta"])
+        gd.append(z["global_delta"])
+        rnd.append(z["random_delta"])
+        od.append(z["oracle_delta"])
+
+        rg.append(
+            z["radar_delta"]
+            - z["global_delta"]
+        )
+
+        rr.append(
+            z["radar_delta"]
+            - z["random_delta"]
+        )
+
+        rs.append(
+            z["radar_delta"]
+            - z["scalar_delta"]
+        )
+
+        ranks.append(
+            z["radar_rank"]
+        )
+
+    sr = stats(rd)
+    ss = stats(sd)
+    sg = stats(gd)
+    sn = stats(rnd)
+    so = stats(od)
+
+    srg = stats(rg)
+    srr = stats(rr)
+    srs = stats(rs)
+
+    mean_rank = float(
+        np.mean(ranks)
+    )
+
+    top4 = float(
+        np.mean(
+            np.asarray(ranks) <= 4
+        )
+    )
+
+    LAYER_SUMMARY[str(li)] = {
+        "radar":
+            sr,
+
+        "scalar":
+            ss,
+
+        "global":
+            sg,
+
+        "random":
+            sn,
+
+        "oracle":
+            so,
+
+        "radar_minus_global":
+            srg,
+
+        "radar_minus_random":
+            srr,
+
+        "radar_minus_scalar":
+            srs,
+
+        "mean_rank":
+            mean_rank,
+
+        "top4":
+            top4,
+    }
+
+    print(
+        f"L{li}->L{li+1:<4}"
+        f"{sr['mean']:>+11.5f}"
+        f"{ss['mean']:>+11.5f}"
+        f"{sg['mean']:>+11.5f}"
+        f"{sn['mean']:>+11.5f}"
+        f"{so['mean']:>+11.5f}"
+        f"{srg['mean']:>+10.5f}"
+        f"{srr['mean']:>+10.5f}"
+        f"{srs['mean']:>+10.5f}"
+        f"{mean_rank:>9.2f}"
+        f"{top4:>9.3f}"
+    )
+
+
+# =============================================================================
+# 25. LAYER CONSISTENCY
+# =============================================================================
+
+print("\n[13/26] Layer consistency...")
+
+RADAR_GT_GLOBAL_LAYERS = float(
+    np.mean([
+        LAYER_SUMMARY[str(li)]
+        ["radar_minus_global"]["mean"] > 0
+        for li in SOURCE_LAYERS
+    ])
+)
+
+RADAR_GT_RANDOM_LAYERS = float(
+    np.mean([
+        LAYER_SUMMARY[str(li)]
+        ["radar_minus_random"]["mean"] > 0
+        for li in SOURCE_LAYERS
+    ])
+)
+
+RADAR_GT_SCALAR_LAYERS = float(
+    np.mean([
+        LAYER_SUMMARY[str(li)]
+        ["radar_minus_scalar"]["mean"] > 0
+        for li in SOURCE_LAYERS
+    ])
+)
+
+print(
+    "RADAR > GLOBAL layers :",
+    f"{RADAR_GT_GLOBAL_LAYERS:.3f}"
+)
+
+print(
+    "RADAR > RANDOM layers :",
+    f"{RADAR_GT_RANDOM_LAYERS:.3f}"
+)
+
+print(
+    "RADAR > SCALAR layers :",
+    f"{RADAR_GT_SCALAR_LAYERS:.3f}"
+)
+
+
+# =============================================================================
+# 26. PROMPT-LEVEL SUMMARY
+# =============================================================================
+
+print("\n[14/26] Prompt-level blind summary...")
+
+PROMPT_SUMMARY = []
+
+for pi, row in enumerate(BLIND_RESULTS):
+
+    r = []
+    s = []
+    g = []
+    n = []
+    o = []
+
+    for li in SOURCE_LAYERS:
+
+        z = row["layers"][str(li)]
+
+        r.append(z["radar_delta"])
+        s.append(z["scalar_delta"])
+        g.append(z["global_delta"])
+        n.append(z["random_delta"])
+        o.append(z["oracle_delta"])
+
+    item = {
+        "prompt_index":
+            pi,
+
+        "radar":
+            float(np.mean(r)),
+
+        "scalar":
+            float(np.mean(s)),
+
+        "global":
+            float(np.mean(g)),
+
+        "random":
+            float(np.mean(n)),
+
+        "oracle":
+            float(np.mean(o)),
+    }
+
+    PROMPT_SUMMARY.append(item)
+
+    print(
+        f"P{pi:02d} "
+        f"RAD={item['radar']:+.5f} "
+        f"SC={item['scalar']:+.5f} "
+        f"G={item['global']:+.5f} "
+        f"R={item['random']:+.5f} "
+        f"O={item['oracle']:+.5f}"
+    )
+
+
+# =============================================================================
+# 27. FEATURE COEFFICIENT DIAGNOSTIC
+# =============================================================================
+
+print("\n[15/26] Radar feature diagnostic...")
+
+BETAS = np.stack([
+    SCORERS[li]["beta"]
+    for li in SOURCE_LAYERS
+])
+
+MEAN_ABS_BETA = np.mean(
+    np.abs(BETAS),
+    axis=0,
+)
+
+order = np.argsort(
+    -MEAN_ABS_BETA
+)
+
+FEATURE_IMPORTANCE = []
+
+for idx in order:
+
+    item = {
+        "feature":
+            FEATURE_NAMES[idx],
+
+        "mean_abs_beta":
+            float(
+                MEAN_ABS_BETA[idx]
+            ),
+
+        "mean_signed_beta":
+            float(
+                np.mean(
+                    BETAS[:, idx]
+                )
+            ),
+    }
+
+    FEATURE_IMPORTANCE.append(item)
+
+    print(
+        f"{item['feature']:<28} "
+        f"|absβ|="
+        f"{item['mean_abs_beta']:.6f} "
+        f"meanβ="
+        f"{item['mean_signed_beta']:+.6f}"
+    )
+
+
+# =============================================================================
+# 28. BLIND SELECTION DIVERSITY
+# =============================================================================
+
+print("\n[16/26] Radar selection diversity...")
+
+SELECTION_DIVERSITY = {}
+
+for li in SOURCE_LAYERS:
+
+    ids = [
+        row["layers"][str(li)]
+        ["radar_id"]
+        for row in BLIND_RESULTS
+    ]
+
+    counts = np.bincount(
+        ids,
+        minlength=N_CANDIDATES,
+    )
+
+    unique = int(
+        np.sum(counts > 0)
+    )
+
+    modal = float(
+        np.max(counts)
+        / np.sum(counts)
+    )
+
+    SELECTION_DIVERSITY[str(li)] = {
+        "unique":
+            unique,
+
+        "modal_fraction":
+            modal,
+
+        "counts":
+            counts.tolist(),
+    }
+
+print(
+    "Mean unique candidates/layer:",
+    f"{np.mean([x['unique'] for x in SELECTION_DIVERSITY.values()]):.3f}"
+)
+
+print(
+    "Mean modal fraction:",
+    f"{np.mean([x['modal_fraction'] for x in SELECTION_DIVERSITY.values()]):.3f}"
+)
+
+
+# =============================================================================
+# 29. DEV -> BLIND GENERALIZATION
+# =============================================================================
+
+print("\n[17/26] DEV -> BLIND generalization...")
+
+DEV_SELECTED = [
+    DEV_SELECTION[li]["best"]
+    ["selected_mean"]
+    for li in SOURCE_LAYERS
+]
+
+BLIND_LAYER_RADAR = [
+    LAYER_SUMMARY[str(li)]
+    ["radar"]["mean"]
+    for li in SOURCE_LAYERS
+]
+
+DEV_BLIND_CORR = safe_corr(
+    DEV_SELECTED,
+    BLIND_LAYER_RADAR,
+)
+
+print(
+    "Mean DEV radar-selected ACT Δ :",
+    f"{np.mean(DEV_SELECTED):+.6f}"
+)
+
+print(
+    "Mean BLIND radar ACT Δ        :",
+    f"{S_RADAR['mean']:+.6f}"
+)
+
+print(
+    "Layer DEV↔BLIND correlation   :",
+    f"{DEV_BLIND_CORR:+.4f}"
+)
+
+
+# =============================================================================
+# 30. DECISION
+#
+# Strong support requires:
+#
+# A) radar selected candidate > FIXED
+# B) radar > strongest GLOBAL fixed candidate
+# C) radar > RANDOM
+# D) lower CI > 0 for all three
+# E) >=70% layers radar > global
+# F) positive oracle capture
+#
+# Scalar baseline is diagnostic:
+# if simple micro D alone works, full vector scorer may not be needed.
+# =============================================================================
+
+print("\n[18/26] DECISION")
+print("=" * 180)
+
+if (
+    S_RADAR["ci95"][0] > 0
+    and S_RG["ci95"][0] > 0
+    and S_RR["ci95"][0] > 0
+    and CAPTURE_RATIO > 0
+    and RADAR_GT_GLOBAL_LAYERS >= 0.70
+):
+
+    DECISION = (
+        "MICRO_PROBE_RESPONSE_NAVIGATION_SUPPORTED"
+    )
+
+elif (
+    S_SCALAR["ci95"][0] > 0
+    and S_RADAR["ci95"][0] <= 0
+):
+
+    DECISION = (
+        "SIMPLE_MICRO_RESPONSE_SIGNAL_ONLY"
+    )
+
+elif (
+    S_RADAR["mean"] > 0
+    and S_RADAR["ci95"][0] > 0
+    and S_RG["ci95"][0] <= 0
+):
+
+    DECISION = (
+        "RADAR_GAIN_WITHOUT_STATE_CONDITIONED_ADVANTAGE"
+    )
+
+elif (
+    S_ORACLE["ci95"][0] > 0
+    and S_RADAR["ci95"][1] <= 0
+):
+
+    DECISION = (
+        "OPPORTUNITY_PERSISTS_BUT_RADAR_NAVIGATION_NOT_SUPPORTED"
+    )
+
+else:
+
+    DECISION = (
+        "MICRO_PROBE_NAVIGATION_MIXED_OR_NOT_SUPPORTED"
+    )
+
+
+print(
+    f"RADAR Δ       = "
+    f"{S_RADAR['mean']:+.6f} "
+    f"{ci(S_RADAR)}"
+)
+
+print(
+    f"SCALAR Δ      = "
+    f"{S_SCALAR['mean']:+.6f} "
+    f"{ci(S_SCALAR)}"
+)
+
+print(
+    f"RADAR-GLOBAL  = "
+    f"{S_RG['mean']:+.6f} "
+    f"{ci(S_RG)}"
+)
+
+print(
+    f"RADAR-RANDOM  = "
+    f"{S_RR['mean']:+.6f} "
+    f"{ci(S_RR)}"
+)
+
+print(
+    f"RADAR-SCALAR  = "
+    f"{S_RS['mean']:+.6f} "
+    f"{ci(S_RS)}"
+)
+
+print(
+    f"ORACLE Δ      = "
+    f"{S_ORACLE['mean']:+.6f} "
+    f"{ci(S_ORACLE)}"
+)
+
+print(
+    f"Capture ratio = "
+    f"{CAPTURE_RATIO:+.3f}"
+)
+
+print(
+    f"Micro↔Act r   = "
+    f"{MICRO_ACT_CORR:+.4f}"
+)
+
+print(
+    f"Pred↔Act r    = "
+    f"{PRED_ACT_CORR:+.4f}"
+)
+
+print(
+    f"R>G layers    = "
+    f"{RADAR_GT_GLOBAL_LAYERS:.3f}"
+)
+
+print()
+
+print("DECISION:")
+print(DECISION)
+
+
+# =============================================================================
+# 31. NEXT BRANCH
+# =============================================================================
+
+print("\n[19/26] NEXT BRANCH")
+
+if DECISION == "MICRO_PROBE_RESPONSE_NAVIGATION_SUPPORTED":
+
+    NEXT_BRANCH = (
+        "TEST135_CLOSED_LOOP_MULTI_LAYER_ACTIVE_RADAR"
+    )
+
+    print("""
+Aktif radar BLIND promptlarda historical FIXED pusulayı,
+global correction'ı ve random correction'ı geçti.
+
+Bir sonraki test:
+
+TEST135 — CLOSED-LOOP MULTI-LAYER ACTIVE RADAR
+
+Her katmanda:
+
+    micro-probe atlas
+        ->
+    response measurement
+        ->
+    frozen radar scorer
+        ->
+    q*_l
+        ->
+    actuator
+        ->
+    yeni hidden state
+        ->
+    sonraki katmanda tekrar radar
+
+Henüz DRA gain/brake eklenmeyecek.
+
+Önce yön navigasyonu kendi başına zincir halinde test edilecek.
+""")
+
+elif DECISION == "SIMPLE_MICRO_RESPONSE_SIGNAL_ONLY":
+
+    NEXT_BRANCH = (
+        "SIMPLIFY_TO_SCALAR_ACTIVE_RADAR"
+    )
+
+    print("""
+Tam vektörel scorer desteklenmedi fakat basit micro-response
+ölçüsü blind actuator başarısını taşıdı.
+
+Bir sonraki adım daha karmaşık model değil:
+en basit çalışan radar kanununu izole etmektir.
+""")
+
+elif DECISION == "RADAR_GAIN_WITHOUT_STATE_CONDITIONED_ADVANTAGE":
+
+    NEXT_BRANCH = (
+        "RADAR_NOT_BETTER_THAN_GLOBAL"
+    )
+
+    print("""
+Radar-selected correction FIXED'i iyileştiriyor fakat
+state-independent global correction'dan üstün değil.
+
+Bu nedenle dinamik GPS iddiasına geçilmeyecek.
+""")
+
+elif DECISION == "OPPORTUNITY_PERSISTS_BUT_RADAR_NAVIGATION_NOT_SUPPORTED":
+
+    NEXT_BRANCH = (
+        "ACTIVE_RADAR_SENSOR_REJECTED_CURRENT_FEATURES"
+    )
+
+    print("""
+Oracle correction opportunity yeni BLIND promptlarda tekrar var,
+fakat micro-probe response mevcut scorer ile doğru yönü bulamıyor.
+
+Bu durumda multi-layer navigator'a geçilmeyecek.
+
+Bir sonraki soru:
+candidate response'un daha zengin vektörel yapısının düşük-rank
+temsilinde bilgi var mı, yoksa oracle opportunity büyük ölçüde
+önceden navigable olmayan candidate-specific variation mı?
+""")
+
+else:
+
+    NEXT_BRANCH = (
+        "REASSESS_ACTIVE_RADAR_HYPOTHESIS"
+    )
+
+    print("""
+Sonuç karışık veya yetersiz.
+
+Yeni karmaşıklık eklenmeden önce layer/prompt yapısı
+ve micro->act transferi ayrıştırılmalıdır.
+""")
+
+
+# =============================================================================
+# 32. INTERPRETATION LOCK
+# =============================================================================
+
+print("\n[20/26] INTERPRETATION LOCK")
+
+LOCK = [
+    "TEST134 aktif radar testidir: candidate micro-probe response'u ölçülür ve daha büyük actuator müdahalesinin başarısını tahmin etmek için kullanılır.",
+
+    "RADAR_REL=0.0025 ve ACT_REL=0.01 farklıdır; sensor target intervention'ın aynısını ölçüp yeniden adlandırmaz.",
+
+    "Her radar probe ayrı forward pass'tir; probe kaynaklı hidden-state değişimi sonraki candidate probe'a veya actuator pass'ına taşınmaz.",
+
+    "BLIND candidate seçimi bütün ACT_REL candidate outcome'ları görülmeden önce dondurulur.",
+
+    "BLIND oracle ACT outcome'ları selection freeze sonrasında hesaplanan üst sınırdır ve navigator tarafından kullanılamaz.",
+
+    "Primary başarı ölçüsü RADAR-FIXED değildir tek başına; RADAR-GLOBAL ve RADAR-RANDOM kontrastları da gereklidir.",
+
+    "GLOBAL kol TRAIN+DEV üzerinde ACT_REL sonucuna göre seçilmiş state-independent correction baseline'dır.",
+
+    "SCALAR kol yalnız micro-probe D_next avantajını kullanır; full radar scorer'ın gerçekten ek bilgi taşıyıp taşımadığını kontrol eder.",
+
+    "Candidate ID scorer feature değildir.",
+
+    "Primary scorer baseline hidden state'in statik cosine feature'larına dayanmaz; gerçek finite micro-response feature'larını kullanır.",
+
+    "Predicted-vs-ACT correlation secondary diagnostiktir; asıl karar frozen selection'ın gerçek blind actuator sonucundan verilir.",
+
+    "MicroΔ-vs-ACT correlation küçük müdahale response'unun daha büyük müdahaleye taşınıp taşınmadığını gösteren önemli transfer diagnosticidir.",
+
+    "Oracle fırsatının varlığı navigator başarısı değildir; maksimum seçimi winner-selection bias içerir.",
+
+    "Bu deney finite perturbation/secant deneyidir; Jacobian, exact derivative, gradient veya ağırlık güncellemesi iddiası taşımaz.",
+
+    "TEST134 tek transition navigasyonudur; başarılı olsa bile multi-layer closed-loop navigation otomatik olarak kanıtlanmış olmaz.",
+
+    "DRA envelope, brake ve gain controller bu testte kullanılmaz.",
+
+    "TEST134 BLIND promptları deneyden sonra exposed/system-ID verisine dönüşür ve sonraki blind testte tekrar kullanılmamalıdır.",
+]
+
+for i, x in enumerate(LOCK, 1):
+    print(f"{i:02d}. {x}")
+
+
+# =============================================================================
+# 33. SCIENTIFIC SUMMARY
+# =============================================================================
+
+print("\n[21/26] SCIENTIFIC SUMMARY")
+print("=" * 180)
+
+print(
+    f"RADAR_REL              : {RADAR_REL}"
+)
+
+print(
+    f"ACT_REL                : {ACT_REL}"
+)
+
+print(
+    f"ACT/RADAR requested    : {ACT_REL/RADAR_REL:.2f}x"
+)
+
+print()
+
+print(
+    f"RADAR Δ vs FIXED       : "
+    f"{S_RADAR['mean']:+.6f} "
+    f"{ci(S_RADAR)}"
+)
+
+print(
+    f"SCALAR Δ vs FIXED      : "
+    f"{S_SCALAR['mean']:+.6f} "
+    f"{ci(S_SCALAR)}"
+)
+
+print(
+    f"GLOBAL Δ vs FIXED      : "
+    f"{S_GLOBAL['mean']:+.6f} "
+    f"{ci(S_GLOBAL)}"
+)
+
+print(
+    f"RANDOM Δ vs FIXED      : "
+    f"{S_RANDOM['mean']:+.6f} "
+    f"{ci(S_RANDOM)}"
+)
+
+print(
+    f"ORACLE Δ vs FIXED      : "
+    f"{S_ORACLE['mean']:+.6f} "
+    f"{ci(S_ORACLE)}"
+)
+
+print()
+
+print(
+    f"RADAR-GLOBAL           : "
+    f"{S_RG['mean']:+.6f} "
+    f"{ci(S_RG)}"
+)
+
+print(
+    f"RADAR-RANDOM           : "
+    f"{S_RR['mean']:+.6f} "
+    f"{ci(S_RR)}"
+)
+
+print(
+    f"RADAR-SCALAR           : "
+    f"{S_RS['mean']:+.6f} "
+    f"{ci(S_RS)}"
+)
+
+print()
+
+print(
+    f"MicroΔ -> ACT corr     : "
+    f"{MICRO_ACT_CORR:+.4f}"
+)
+
+print(
+    f"Scorer -> ACT corr     : "
+    f"{PRED_ACT_CORR:+.4f}"
+)
+
+print(
+    f"Oracle capture ratio   : "
+    f"{CAPTURE_RATIO:+.3f}"
+)
+
+print(
+    f"Mean radar rank        : "
+    f"{MEAN_RADAR_RANK:.3f}/16"
+)
+
+print(
+    f"Radar Top-4            : "
+    f"{RADAR_TOP4:.3f}"
+)
+
+print(
+    f"Exact oracle hit       : "
+    f"{RADAR_HIT:.3f}"
+)
+
+print()
+
+print("DECISION:")
+print(DECISION)
+
+print()
+
+print("NEXT:")
+print(NEXT_BRANCH)
+
+
+# =============================================================================
+# 34. SAVE JSON
+# =============================================================================
+
+print("\n[22/26] JSON hazırlanıyor...")
+
+SCORER_JSON = {}
+
+for li in SOURCE_LAYERS:
+
+    SCORER_JSON[str(li)] = {
+        "lambda":
+            float(SCORERS[li]["lambda"]),
+
+        "mu":
+            SCORERS[li]["mu"].tolist(),
+
+        "sd":
+            SCORERS[li]["sd"].tolist(),
+
+        "beta":
+            SCORERS[li]["beta"].tolist(),
+    }
+
+
+OUTPUT = {
+    "test":
+        "TEST134",
+
+    "title":
+        "Micro-Probe Response Navigation",
+
+    "model":
+        MODEL_ID,
+
+    "config": {
+        "radar_rel":
+            RADAR_REL,
+
+        "act_rel":
+            ACT_REL,
+
+        "act_radar_ratio":
+            ACT_REL / RADAR_REL,
+
+        "requested_shell_deg":
+            REQUESTED_SHELL_DEG,
+
+        "n_candidates":
+            N_CANDIDATES,
+
+        "n_train":
+            N_TRAIN,
+
+        "n_dev":
+            N_DEV,
+
+        "n_blind":
+            N_BLIND,
+
+        "features":
+            FEATURE_NAMES,
+    },
+
+    "fingerprint": {
+        "L10":
+            cos10,
+
+        "L11":
+            cos11,
+
+        "status":
+            "PASS",
+    },
+
+    "dev_selection":
+        DEV_SELECTION,
+
+    "scorers":
+        SCORER_JSON,
+
+    "global_candidate":
+        GLOBAL_CANDIDATE,
+
+    "blind_global": {
+        "radar":
+            S_RADAR,
+
+        "scalar":
+            S_SCALAR,
+
+        "global":
+            S_GLOBAL,
+
+        "random":
+            S_RANDOM,
+
+        "oracle":
+            S_ORACLE,
+
+        "radar_minus_global":
+            S_RG,
+
+        "radar_minus_random":
+            S_RR,
+
+        "radar_minus_scalar":
+            S_RS,
+
+        "capture_ratio":
+            CAPTURE_RATIO,
+
+        "pred_act_corr":
+            PRED_ACT_CORR,
+
+        "micro_act_corr":
+            MICRO_ACT_CORR,
+
+        "mean_radar_rank":
+            MEAN_RADAR_RANK,
+
+        "mean_scalar_rank":
+            MEAN_SCALAR_RANK,
+
+        "radar_top4":
+            RADAR_TOP4,
+
+        "scalar_top4":
+            SCALAR_TOP4,
+
+        "radar_oracle_hit":
+            RADAR_HIT,
+
+        "scalar_oracle_hit":
+            SCALAR_HIT,
+
+        "radar_realized_rel":
+            float(np.mean(radar_rel_audit)),
+
+        "act_realized_rel":
+            float(np.mean(act_rel_audit)),
+
+        "radar_dir_cos":
+            float(np.mean(radar_dir_audit)),
+
+        "act_dir_cos":
+            float(np.mean(act_dir_audit)),
+    },
+
+    "layer_summary":
+        LAYER_SUMMARY,
+
+    "prompt_summary":
+        PROMPT_SUMMARY,
+
+    "feature_importance":
+        FEATURE_IMPORTANCE,
+
+    "selection_diversity":
+        SELECTION_DIVERSITY,
+
+    "dev_blind_corr":
+        DEV_BLIND_CORR,
+
+    "radar_gt_global_layers":
+        RADAR_GT_GLOBAL_LAYERS,
+
+    "radar_gt_random_layers":
+        RADAR_GT_RANDOM_LAYERS,
+
+    "radar_gt_scalar_layers":
+        RADAR_GT_SCALAR_LAYERS,
+
+    "decision":
+        DECISION,
+
+    "next_branch":
+        NEXT_BRANCH,
+
+    "interpretation_lock":
+        LOCK,
+
+    "blind_results":
+        BLIND_RESULTS,
+}
+
+
+print("\n[23/26] JSON kaydediliyor...")
+
+with open(
+    OUT_JSON,
+    "w",
+    encoding="utf-8",
+) as f:
+
+    json.dump(
+        OUTPUT,
+        f,
+        ensure_ascii=False,
+        indent=2,
+        default=str,
+    )
+
+print("Saved:", OUT_JSON)
+
+
+# =============================================================================
+# 35. HANDOFF
+# =============================================================================
+
+print("\n[24/26] HANDOFF")
+
+print("""
+TEST134'te ilk bakılacak çıktılar:
+
+1. MICROΔ -> ACT CORRELATION
+   0.0025'teki response, 0.01 intervention sonucunu gerçekten taşıyor mu?
+
+2. RADAR Δ vs FIXED
+   Aktif radarın seçtiği candidate historical Dibekgoz pusulasını
+   gerçek ACT dozunda geçiyor mu?
+
+3. RADAR - GLOBAL
+   Aktif ölçüm yapmak, tek sabit correction'dan üstün mü?
+
+4. RADAR - RANDOM
+   Sonuç yalnız candidate seçmiş olmanın sonucu mu?
+
+5. RADAR - SCALAR
+   Vektörel response scorer, yalnız micro D_next'e bakmaktan
+   gerçekten daha fazla bilgi taşıyor mu?
+
+6. ORACLE Δ
+   Daha büyük ACT_REL=.01 rejiminde de local correction opportunity var mı?
+
+7. RANK / TOP-4 / ORACLE HIT
+   Radar candidate sıralamasında gerçek bilgi taşıyor mu?
+
+Başarı halinde ilk kez şu zincir desteklenmiş olur:
+
+    PROBE
+      ->
+    PHYSICAL RESPONSE
+      ->
+    SENSE
+      ->
+    CHOOSE DIRECTION
+      ->
+    STRONGER ACT
+
+Bu henüz multi-layer GPS değildir.
+
+Multi-layer closed-loop test yalnız TEST134 BLIND sonucu
+gerçekten desteklenirse yapılacaktır.
+""")
+
+
+# =============================================================================
+# 36. FINAL COMPACT SUMMARY
+# =============================================================================
+
+print("\n[25/26] FINAL COMPACT SUMMARY")
+print("=" * 180)
+
+print("TEST134 — MICRO-PROBE RESPONSE NAVIGATION")
+print("=" * 180)
+
+print(f"Fingerprint          : PASS")
+print(f"Radar REL            : {RADAR_REL}")
+print(f"Act REL              : {ACT_REL}")
+print(f"Requested shell      : {REQUESTED_SHELL_DEG:.1f}°")
+
+print()
+
+print(
+    f"RADAR Δ              : "
+    f"{S_RADAR['mean']:+.6f} {ci(S_RADAR)}"
+)
+
+print(
+    f"SCALAR Δ             : "
+    f"{S_SCALAR['mean']:+.6f} {ci(S_SCALAR)}"
+)
+
+print(
+    f"GLOBAL Δ             : "
+    f"{S_GLOBAL['mean']:+.6f} {ci(S_GLOBAL)}"
+)
+
+print(
+    f"RANDOM Δ             : "
+    f"{S_RANDOM['mean']:+.6f} {ci(S_RANDOM)}"
+)
+
+print(
+    f"ORACLE Δ             : "
+    f"{S_ORACLE['mean']:+.6f} {ci(S_ORACLE)}"
+)
+
+print()
+
+print(
+    f"RADAR-GLOBAL         : "
+    f"{S_RG['mean']:+.6f} {ci(S_RG)}"
+)
+
+print(
+    f"RADAR-RANDOM         : "
+    f"{S_RR['mean']:+.6f} {ci(S_RR)}"
+)
+
+print(
+    f"RADAR-SCALAR         : "
+    f"{S_RS['mean']:+.6f} {ci(S_RS)}"
+)
+
+print()
+
+print(
+    f"MicroΔ↔ACT r         : "
+    f"{MICRO_ACT_CORR:+.4f}"
+)
+
+print(
+    f"Pred↔ACT r           : "
+    f"{PRED_ACT_CORR:+.4f}"
+)
+
+print(
+    f"Capture ratio        : "
+    f"{CAPTURE_RATIO:+.3f}"
+)
+
+print(
+    f"Mean radar rank      : "
+    f"{MEAN_RADAR_RANK:.3f}/16"
+)
+
+print(
+    f"Radar Top-4          : "
+    f"{RADAR_TOP4:.3f}"
+)
+
+print(
+    f"Radar>Global layers  : "
+    f"{RADAR_GT_GLOBAL_LAYERS:.3f}"
+)
+
+print()
+
+print("DECISION:")
+print(DECISION)
+
+print()
+
+print("NEXT:")
+print(NEXT_BRANCH)
+
+
+# =============================================================================
+# 37. DONE
+# =============================================================================
+
+print("\n[26/26] DONE")
+print("JSON:", OUT_JSON)
+
+gc.collect()
+torch.cuda.empty_cache()
