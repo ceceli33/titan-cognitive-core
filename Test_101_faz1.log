@@ -1,0 +1,3388 @@
+# =============================================================================
+# TEST 126 — DENSE DIRECTIONAL EXISTENCE ATLAS
+# AkbasCore — New Paradigm / Phase I
+#
+# PRIMARY QUESTION
+# =============================================================================
+#
+# Does a dense, angle-controlled directional neighborhood around the locked
+# semantic compass contain intervention directions that produce BETTER
+# terminal semantic transport than the compass itself?
+#
+#                       EXISTS q :
+#
+#             D19(q) > D19(v18)  ?
+#
+# =============================================================================
+#
+# IMPORTANT:
+#
+# This is NOT a navigator test.
+# This is NOT a runtime sensor test.
+# This is NOT DRA.
+#
+# It is an ORACLE / SYSTEM-IDENTIFICATION experiment.
+#
+# We first establish whether a better route exists at all.
+#
+# -----------------------------------------------------------------------------
+# MODEL
+# -----------------------------------------------------------------------------
+# Qwen/Qwen2.5-7B-Instruct
+# BF16
+# 28 layers
+# hidden = 3584
+#
+# -----------------------------------------------------------------------------
+# INTERVENTION
+# -----------------------------------------------------------------------------
+# Source layer        : L18 output / entering L19
+# Position            : last token only
+# Terminal endpoint   : L19 output
+# Reference direction : locked ABOVE vector v18
+# Magnitude           : equal relative norm = 0.025
+#
+# -----------------------------------------------------------------------------
+# DIRECTION ATLAS
+# -----------------------------------------------------------------------------
+#
+# 1000 candidate directions:
+#
+#   2° shell  : 200
+#   5° shell  : 200
+#  10° shell  : 200
+#  20° shell  : 150
+#  35° shell  : 150
+#  global     : 100
+#
+# Every seed-shell candidate is constructed EXACTLY at its assigned angle:
+#
+#   q = cos(theta) v18 + sin(theta) u
+#
+# with:
+#
+#   u ⟂ v18
+#   ||u|| = 1
+#
+# Therefore candidates within the same shell have equal semantic distance
+# from the seed by construction.
+#
+# -----------------------------------------------------------------------------
+# PRIMARY ENDPOINT
+# -----------------------------------------------------------------------------
+#
+# For intervention direction q:
+#
+#   delta19(q) = h19(q) - h19(BASE)
+#
+#   D19(q) = cos(delta19(q), v19)
+#
+# Reference:
+#
+#   D19(seed) = cos(delta19(v18), v19)
+#
+# Candidate advantage:
+#
+#   Delta(q) = D19(q) - D19(seed)
+#
+# -----------------------------------------------------------------------------
+# PRIMARY PHASE-I EVIDENCE
+# -----------------------------------------------------------------------------
+#
+# 1. Is the best direction in each prompt better than seed?
+# 2. How large is the improvement?
+# 3. Does the improvement already exist inside a FIXED ANGLE shell?
+# 4. What fraction of same-angle candidates beat seed?
+# 5. How much directional dispersion exists after angle is held fixed?
+#
+# -----------------------------------------------------------------------------
+# IMPORTANT ANTI-OVERCLAIM RULE
+# -----------------------------------------------------------------------------
+#
+# max over 1000 candidates is an ORACLE maximum and contains winner's-curse /
+# multiple-search optimism.
+#
+# Therefore:
+#
+#   max(q) > seed
+#
+# alone is NOT treated as proof.
+#
+# We also report:
+#
+#   - fraction of candidates beating seed
+#   - shell mean vs seed
+#   - top-decile mean vs seed
+#   - within-shell dispersion
+#   - prompt consistency
+#
+# TEST127, using NEW prompts, will determine whether discovered opportunities
+# are context-dependent and whether any global candidate generalizes.
+#
+# -----------------------------------------------------------------------------
+# NO:
+# controller
+# zeta
+# old brake
+# Mercek
+# local probe sensor
+# PCA
+# Jacobian claim
+# gradient
+# weight update
+# KV modification
+# generation / behavioral endpoint
+#
+# =============================================================================
+
+
+# =============================================================================
+# 0. IMPORTS
+# =============================================================================
+
+import gc
+import json
+import math
+import random
+import time
+
+import numpy as np
+
+import torch
+import torch.nn.functional as F
+
+from transformers import (
+    AutoTokenizer,
+    AutoModelForCausalLM,
+)
+
+
+# =============================================================================
+# 1. CONFIG
+# =============================================================================
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+
+SEED = 126001
+
+N_MODEL_LAYERS = 28
+N_VECTOR_LAYERS = 20
+HIDDEN = 3584
+
+SOURCE_LAYER = 18
+TERMINAL_LAYER = 19
+
+FULL_REL = 0.025
+
+# -------------------------------------------------------------------------
+# Dense atlas
+# -------------------------------------------------------------------------
+
+SHELL_CONFIG = [
+    (2.0,  200),
+    (5.0,  200),
+    (10.0, 200),
+    (20.0, 150),
+    (35.0, 150),
+]
+
+N_GLOBAL_RANDOM = 100
+
+N_ATLAS = (
+    sum(
+        n
+        for _, n
+        in SHELL_CONFIG
+    )
+    +
+    N_GLOBAL_RANDOM
+)
+
+assert N_ATLAS == 1000
+
+# Conservative A100-40GB batch.
+# If OOM occurs, lower to 8.
+BATCH_SIZE = 16
+
+EXPECTED_COS10 = 0.656545
+EXPECTED_COS11 = 0.658274
+
+FINGERPRINT_TOL = 5e-6
+
+EPS = 1e-12
+
+OUT_JSON = (
+    "/content/"
+    "TEST_126_DENSE_DIRECTIONAL_EXISTENCE_ATLAS.json"
+)
+
+
+# =============================================================================
+# 2. EXACT LOCKED CONTRASTS
+# =============================================================================
+
+ABOVE = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+BELOW = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+NEUTRAL = [
+    "a person standing beside a bridge",
+    "a person positioned near a tower",
+    "an object located near the roof",
+    "a bird flying near the mountain",
+    "a light appearing near the building",
+    "a person looking across the valley",
+    "a structure extending beside the wall",
+    "a signal coming across the surface",
+]
+
+
+# =============================================================================
+# 3. NEW TEST126 PROMPTS
+#
+# These are SYSTEM-ID prompts.
+# After this run they are exposed and must NOT be used for TEST127.
+# =============================================================================
+
+PROMPTS = [
+
+    "A structural inspection diagram compares a maintenance worker with the upper deck of a suspension bridge. The worker is",
+
+    "An aerial survey compares a quadcopter with the roof of a municipal building. The quadcopter is",
+
+    "A mountain rescue chart compares a helicopter with the crest of a rocky ridge. The helicopter is",
+
+    "An observatory diagram compares a warning beacon with the top platform of a telescope tower. The beacon is",
+
+    "A construction drawing compares Deniz with the upper edge of a concrete wall. Deniz is",
+
+    "A wildlife tracking chart compares a falcon with the summit of a wooded hill. The falcon is",
+
+    "A factory schematic compares a monitoring lamp with an elevated machinery platform. The monitoring lamp is",
+
+    "A harbor diagram compares a drone with the navigation deck of a cargo ship. The drone is",
+
+    "A canyon mapping chart compares a balloon with the western rim of the canyon. The balloon is",
+
+    "An airport maintenance plan compares an inspection camera with the terminal roof. The camera is",
+
+    "A railway engineering drawing compares Kerem with a pedestrian overpass. Kerem is",
+
+    "A communications schematic compares a signal light with the top deck of a radio tower. The signal light is",
+
+    "A dam inspection chart compares a survey drone with the upper edge of the dam. The survey drone is",
+
+    "A theater rigging diagram compares a suspended spotlight with the stage floor. The spotlight is",
+
+    "A geological survey compares an aircraft with the top edge of a plateau. The aircraft is",
+
+    "A warehouse plan compares Ece with the loading platform. Ece is",
+
+    "A forest observation diagram compares an eagle with the viewing platform of a tower. The eagle is",
+
+    "A laboratory schematic compares a sensor with the top surface of an optical table. The sensor is",
+
+    "A valley navigation chart compares a glider with the crest of the eastern ridge. The glider is",
+
+    "An industrial safety drawing compares Arda with an overhead service walkway. Arda is",
+
+    "Elevation reference: the bridge deck and Selin occupy different vertical coordinates. Selin is",
+
+    "Altitude reference: the research station roof and a weather balloon occupy different levels. The weather balloon is",
+
+    "Height reference: the tower platform and an indicator light occupy separate elevations. The indicator light is",
+
+    "Vertical reference: the terrace wall and Bora occupy different heights. Bora is",
+
+    "Elevation reference: the warehouse roof and a delivery drone occupy unequal levels. The delivery drone is",
+
+    "Altitude reference: the cliff edge and a hovering aircraft occupy separate elevations. The aircraft is",
+
+    "Height reference: the equipment platform and an environmental sensor occupy different levels. The environmental sensor is",
+
+    "Altitude reference: the mountain ridge and a rescue helicopter occupy unequal elevations. The rescue helicopter is",
+
+    "The pedestrian bridge is the reference elevation used to describe Aylin's vertical position. Aylin is",
+
+    "The office roof is the reference height used to describe a hovering camera drone. The camera drone is",
+
+    "The balcony floor is the reference elevation used to describe a suspended lamp. The suspended lamp is",
+
+    "The mountain peak is the reference altitude used to describe a small aircraft. The small aircraft is",
+
+    "The service platform is the reference height used to describe Ozan's vertical position. Ozan is",
+
+    "The tower deck is the reference elevation used to describe an imaging device. The imaging device is",
+
+    "The canyon rim is the reference altitude used to describe an emergency balloon. The emergency balloon is",
+
+    "The elevated walkway is the reference height used to describe Elif's vertical position. Elif is",
+
+    "A coastal engineering diagram compares a drone with the upper edge of a sea wall. The drone is",
+
+    "A stadium maintenance drawing compares a technician with an overhead lighting platform. The technician is",
+
+    "A desert navigation chart compares a survey aircraft with the top of a mesa. The survey aircraft is",
+
+    "A power station schematic compares a status beacon with the turbine deck. The status beacon is",
+]
+
+assert len(PROMPTS) == 40
+
+
+# =============================================================================
+# 4. REPRODUCIBILITY
+# =============================================================================
+
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
+
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+
+# =============================================================================
+# 5. HELPERS
+# =============================================================================
+
+def normalize_cpu(x):
+
+    x = (
+        x.detach()
+        .float()
+        .cpu()
+    )
+
+    n = torch.linalg.vector_norm(x)
+
+    if float(n.item()) < EPS:
+        raise RuntimeError(
+            "Attempted to normalize a zero vector."
+        )
+
+    return x / n
+
+
+def cosine(a, b):
+
+    a = a.detach().float().cpu()
+    b = b.detach().float().cpu()
+
+    na = torch.linalg.vector_norm(a)
+    nb = torch.linalg.vector_norm(b)
+
+    if (
+        float(na.item()) < EPS
+        or
+        float(nb.item()) < EPS
+    ):
+        return 0.0
+
+    return float(
+        torch.dot(a, b)
+        /
+        (na * nb)
+    )
+
+
+def stats(x):
+
+    x = np.asarray(
+        x,
+        dtype=np.float64,
+    )
+
+    x = x[
+        np.isfinite(x)
+    ]
+
+    if len(x) == 0:
+        return None
+
+    n = len(x)
+
+    mean = float(
+        np.mean(x)
+    )
+
+    sd = (
+        float(
+            np.std(
+                x,
+                ddof=1,
+            )
+        )
+        if n > 1
+        else 0.0
+    )
+
+    se = (
+        sd / math.sqrt(n)
+        if n > 1
+        else 0.0
+    )
+
+    return {
+        "n":
+            int(n),
+
+        "mean":
+            mean,
+
+        "sd":
+            sd,
+
+        "min":
+            float(
+                np.min(x)
+            ),
+
+        "median":
+            float(
+                np.median(x)
+            ),
+
+        "max":
+            float(
+                np.max(x)
+            ),
+
+        "ci95_descriptive": [
+            float(
+                mean
+                -
+                1.96 * se
+            ),
+            float(
+                mean
+                +
+                1.96 * se
+            ),
+        ],
+
+        "positive_fraction":
+            float(
+                np.mean(
+                    x > 0
+                )
+            ),
+    }
+
+
+# =============================================================================
+# 6. LOAD MODEL
+# =============================================================================
+
+print("=" * 170)
+print("TEST 126 — DENSE DIRECTIONAL EXISTENCE ATLAS")
+print("AKBASCORE NEW PARADIGM — PHASE I")
+print("=" * 170)
+
+print("\n[1/19] Model yükleniyor...")
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_ID,
+    trust_remote_code=True,
+)
+
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+tokenizer.padding_side = "right"
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    torch_dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True,
+    low_cpu_mem_usage=True,
+    attn_implementation="sdpa",
+)
+
+model.eval()
+
+for p in model.parameters():
+    p.requires_grad_(False)
+
+device = next(
+    model.parameters()
+).device
+
+assert (
+    len(model.model.layers)
+    ==
+    N_MODEL_LAYERS
+)
+
+assert (
+    model.config.hidden_size
+    ==
+    HIDDEN
+)
+
+print("Model               :", MODEL_ID)
+print("Device              :", device)
+print("dtype               :", next(model.parameters()).dtype)
+print("Layers              :", len(model.model.layers))
+print("Hidden              :", HIDDEN)
+print("Source              :", SOURCE_LAYER)
+print("Terminal            :", TERMINAL_LAYER)
+print("Relative injection  :", FULL_REL)
+print("Atlas candidates    :", N_ATLAS)
+print("Batch size          :", BATCH_SIZE)
+print("Prompts             :", len(PROMPTS))
+print("Navigator           : OFF")
+print("Runtime sensor      : OFF")
+print("DRA                 : OFF")
+print("Mercek              : OFF")
+print("Controller          : OFF")
+print("Old brake           : OFF")
+
+
+# =============================================================================
+# 7. LOCKED VECTOR EXTRACTION
+# =============================================================================
+
+@torch.no_grad()
+def extract_hidden(texts):
+
+    enc = tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=128,
+    )
+
+    input_ids = (
+        enc["input_ids"]
+        .to(device)
+    )
+
+    attention_mask = (
+        enc["attention_mask"]
+        .to(device)
+    )
+
+    captures = [
+        None
+        for _ in range(
+            N_VECTOR_LAYERS
+        )
+    ]
+
+    handles = []
+
+
+    def make_hook(li):
+
+        def hook(
+            module,
+            inputs,
+            output,
+        ):
+
+            h = (
+                output[0]
+                if isinstance(
+                    output,
+                    tuple,
+                )
+                else output
+            )
+
+            captures[li] = (
+                h.detach()
+            )
+
+        return hook
+
+
+    try:
+
+        for li in range(
+            N_VECTOR_LAYERS
+        ):
+
+            handles.append(
+                model.model.layers[
+                    li
+                ].register_forward_hook(
+                    make_hook(li)
+                )
+            )
+
+        model(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            use_cache=False,
+        )
+
+    finally:
+
+        for handle in handles:
+            handle.remove()
+
+
+    lengths = (
+        attention_mask
+        .sum(dim=1)
+        .detach()
+        .cpu()
+        .numpy()
+    )
+
+    out = torch.zeros(
+        len(texts),
+        N_VECTOR_LAYERS,
+        HIDDEN,
+        dtype=torch.float32,
+    )
+
+    for li in range(
+        N_VECTOR_LAYERS
+    ):
+
+        layer_h = (
+            captures[li]
+            .float()
+            .cpu()
+        )
+
+        for bi in range(
+            len(texts)
+        ):
+
+            last_idx = (
+                int(
+                    lengths[bi]
+                )
+                -
+                1
+            )
+
+            out[
+                bi,
+                li,
+            ] = (
+                layer_h[
+                    bi,
+                    last_idx,
+                ]
+            )
+
+    return out
+
+
+print(
+    "\n[2/19] Locked semantic vectors çıkarılıyor..."
+)
+
+HA = extract_hidden(
+    ABOVE
+)
+
+HB = extract_hidden(
+    BELOW
+)
+
+HN = extract_hidden(
+    NEUTRAL
+)
+
+A_VEC = {}
+B_VEC = {}
+
+for li in range(
+    N_VECTOR_LAYERS
+):
+
+    av = (
+        HA[:, li].mean(dim=0)
+        -
+        HN[:, li].mean(dim=0)
+    )
+
+    bv = (
+        HB[:, li].mean(dim=0)
+        -
+        HN[:, li].mean(dim=0)
+    )
+
+    A_VEC[li] = normalize_cpu(
+        av
+    )
+
+    B_VEC[li] = normalize_cpu(
+        bv
+    )
+
+
+cos10 = cosine(
+    A_VEC[10],
+    B_VEC[10],
+)
+
+cos11 = cosine(
+    A_VEC[11],
+    B_VEC[11],
+)
+
+drift10 = abs(
+    cos10
+    -
+    EXPECTED_COS10
+)
+
+drift11 = abs(
+    cos11
+    -
+    EXPECTED_COS11
+)
+
+print(
+    f"L10 cos(A,B) = {cos10:+.6f}"
+)
+
+print(
+    f"L11 cos(A,B) = {cos11:+.6f}"
+)
+
+print(
+    f"L10 drift    = {drift10:.9e}"
+)
+
+print(
+    f"L11 drift    = {drift11:.9e}"
+)
+
+if (
+    drift10 > FINGERPRINT_TOL
+    or
+    drift11 > FINGERPRINT_TOL
+):
+
+    raise RuntimeError(
+        "Fingerprint failed. TEST126 aborted."
+    )
+
+print("Fingerprint: PASS")
+
+V18 = normalize_cpu(
+    A_VEC[
+        SOURCE_LAYER
+    ]
+)
+
+V19 = normalize_cpu(
+    A_VEC[
+        TERMINAL_LAYER
+    ]
+)
+
+del HA
+del HB
+del HN
+
+gc.collect()
+
+if torch.cuda.is_available():
+    torch.cuda.empty_cache()
+
+
+# =============================================================================
+# 8. CONSTRUCT EXACT ANGULAR ATLAS
+# =============================================================================
+
+print(
+    "\n[3/19] Dense directional atlas oluşturuluyor..."
+)
+
+atlas_rng = torch.Generator(
+    device="cpu"
+)
+
+atlas_rng.manual_seed(
+    SEED + 991
+)
+
+ATLAS_META = []
+ATLAS_DIRECTIONS = []
+
+candidate_id = 0
+
+
+def orthogonal_random():
+
+    while True:
+
+        r = torch.randn(
+            HIDDEN,
+            generator=atlas_rng,
+            dtype=torch.float32,
+        )
+
+        # Gram-Schmidt against semantic seed.
+        r = (
+            r
+            -
+            torch.dot(
+                r,
+                V18,
+            )
+            *
+            V18
+        )
+
+        nr = torch.linalg.vector_norm(
+            r
+        )
+
+        if float(nr.item()) > 1e-8:
+
+            return (
+                r
+                /
+                nr
+            )
+
+
+for angle_deg, count in SHELL_CONFIG:
+
+    theta = math.radians(
+        angle_deg
+    )
+
+    ct = math.cos(
+        theta
+    )
+
+    st = math.sin(
+        theta
+    )
+
+    for _ in range(
+        count
+    ):
+
+        u = orthogonal_random()
+
+        q = (
+            ct * V18
+            +
+            st * u
+        )
+
+        q = normalize_cpu(
+            q
+        )
+
+        c = cosine(
+            q,
+            V18,
+        )
+
+        actual_angle = (
+            math.degrees(
+                math.acos(
+                    float(
+                        np.clip(
+                            c,
+                            -1.0,
+                            1.0,
+                        )
+                    )
+                )
+            )
+        )
+
+        ATLAS_DIRECTIONS.append(
+            q
+        )
+
+        ATLAS_META.append(
+            {
+                "candidate_id":
+                    candidate_id,
+
+                "family":
+                    "ANGLE_SHELL",
+
+                "nominal_angle_deg":
+                    float(
+                        angle_deg
+                    ),
+
+                "actual_angle_deg":
+                    float(
+                        actual_angle
+                    ),
+
+                "cos_seed":
+                    float(c),
+            }
+        )
+
+        candidate_id += 1
+
+
+for _ in range(
+    N_GLOBAL_RANDOM
+):
+
+    q = torch.randn(
+        HIDDEN,
+        generator=atlas_rng,
+        dtype=torch.float32,
+    )
+
+    q = normalize_cpu(
+        q
+    )
+
+    c = cosine(
+        q,
+        V18,
+    )
+
+    actual_angle = (
+        math.degrees(
+            math.acos(
+                float(
+                    np.clip(
+                        c,
+                        -1.0,
+                        1.0,
+                    )
+                )
+            )
+        )
+    )
+
+    ATLAS_DIRECTIONS.append(
+        q
+    )
+
+    ATLAS_META.append(
+        {
+            "candidate_id":
+                candidate_id,
+
+            "family":
+                "GLOBAL_RANDOM",
+
+            "nominal_angle_deg":
+                None,
+
+            "actual_angle_deg":
+                float(
+                    actual_angle
+                ),
+
+            "cos_seed":
+                float(c),
+        }
+    )
+
+    candidate_id += 1
+
+
+ATLAS = torch.stack(
+    ATLAS_DIRECTIONS,
+    dim=0,
+).float()
+
+assert (
+    ATLAS.shape
+    ==
+    (
+        N_ATLAS,
+        HIDDEN,
+    )
+)
+
+print(
+    "Atlas shape:",
+    tuple(
+        ATLAS.shape
+    )
+)
+
+for angle, count in SHELL_CONFIG:
+
+    vals = [
+        m[
+            "actual_angle_deg"
+        ]
+        for m in ATLAS_META
+        if (
+            m["family"]
+            ==
+            "ANGLE_SHELL"
+            and
+            m[
+                "nominal_angle_deg"
+            ]
+            ==
+            angle
+        )
+    ]
+
+    print(
+        f"{angle:>5.1f}°"
+        f" | n={count:3d}"
+        f" | actual="
+        f"{np.mean(vals):.6f}°"
+        f" ± "
+        f"{np.std(vals):.6e}"
+    )
+
+
+global_angles = [
+    m[
+        "actual_angle_deg"
+    ]
+    for m in ATLAS_META
+    if m[
+        "family"
+    ]
+    ==
+    "GLOBAL_RANDOM"
+]
+
+print(
+    "GLOBAL"
+    f" | n={len(global_angles)}"
+    f" | mean angle="
+    f"{np.mean(global_angles):.3f}°"
+)
+
+
+# =============================================================================
+# 9. BASELINE PASS
+# =============================================================================
+
+@torch.no_grad()
+def run_baseline(
+    prompt,
+):
+
+    captures = {}
+
+    handles = []
+
+
+    def source_hook(
+        module,
+        inputs,
+        output,
+    ):
+
+        h = (
+            output[0]
+            if isinstance(
+                output,
+                tuple,
+            )
+            else output
+        )
+
+        captures[
+            "source"
+        ] = (
+            h[
+                0,
+                -1,
+            ]
+            .detach()
+            .float()
+            .cpu()
+            .clone()
+        )
+
+
+    def terminal_hook(
+        module,
+        inputs,
+        output,
+    ):
+
+        h = (
+            output[0]
+            if isinstance(
+                output,
+                tuple,
+            )
+            else output
+        )
+
+        captures[
+            "terminal"
+        ] = (
+            h[
+                0,
+                -1,
+            ]
+            .detach()
+            .float()
+            .cpu()
+            .clone()
+        )
+
+
+    try:
+
+        handles.append(
+            model.model.layers[
+                SOURCE_LAYER
+            ].register_forward_hook(
+                source_hook
+            )
+        )
+
+        handles.append(
+            model.model.layers[
+                TERMINAL_LAYER
+            ].register_forward_hook(
+                terminal_hook
+            )
+        )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt",
+        ).to(
+            device
+        )
+
+        model(
+            **enc,
+            use_cache=False,
+        )
+
+    finally:
+
+        for handle in handles:
+            handle.remove()
+
+
+    return captures
+
+
+# =============================================================================
+# 10. SEED REFERENCE RUN
+# =============================================================================
+
+@torch.no_grad()
+def run_seed(
+    prompt,
+    baseline,
+):
+
+    source_norm = float(
+        torch.linalg.vector_norm(
+            baseline[
+                "source"
+            ]
+        )
+    )
+
+    requested_norm = (
+        FULL_REL
+        *
+        source_norm
+    )
+
+    v = (
+        V18
+        .to(
+            device=device,
+            dtype=torch.float32,
+        )
+    )
+
+    captures = {}
+
+    handles = []
+
+
+    def inject_hook(
+        module,
+        inputs,
+        output,
+    ):
+
+        h = (
+            output[0]
+            if isinstance(
+                output,
+                tuple,
+            )
+            else output
+        )
+
+        before = (
+            h[
+                0,
+                -1,
+            ]
+            .detach()
+            .float()
+            .clone()
+        )
+
+        h_new = h.clone()
+
+        edited = (
+            h[
+                0,
+                -1,
+            ].float()
+            +
+            requested_norm
+            *
+            v
+        )
+
+        h_new[
+            0,
+            -1,
+        ] = edited.to(
+            h.dtype
+        )
+
+        after = (
+            h_new[
+                0,
+                -1,
+            ]
+            .detach()
+            .float()
+            .clone()
+        )
+
+        captures[
+            "source_before"
+        ] = before.cpu()
+
+        captures[
+            "source_after"
+        ] = after.cpu()
+
+        if isinstance(
+            output,
+            tuple,
+        ):
+
+            return (
+                h_new,
+                *output[1:]
+            )
+
+        return h_new
+
+
+    def terminal_hook(
+        module,
+        inputs,
+        output,
+    ):
+
+        h = (
+            output[0]
+            if isinstance(
+                output,
+                tuple,
+            )
+            else output
+        )
+
+        captures[
+            "terminal"
+        ] = (
+            h[
+                0,
+                -1,
+            ]
+            .detach()
+            .float()
+            .cpu()
+            .clone()
+        )
+
+
+    try:
+
+        handles.append(
+            model.model.layers[
+                SOURCE_LAYER
+            ].register_forward_hook(
+                inject_hook
+            )
+        )
+
+        handles.append(
+            model.model.layers[
+                TERMINAL_LAYER
+            ].register_forward_hook(
+                terminal_hook
+            )
+        )
+
+        enc = tokenizer(
+            prompt,
+            return_tensors="pt",
+        ).to(
+            device
+        )
+
+        model(
+            **enc,
+            use_cache=False,
+        )
+
+    finally:
+
+        for handle in handles:
+            handle.remove()
+
+
+    realized = (
+        captures[
+            "source_after"
+        ]
+        -
+        captures[
+            "source_before"
+        ]
+    )
+
+    terminal_delta = (
+        captures[
+            "terminal"
+        ]
+        -
+        baseline[
+            "terminal"
+        ]
+    )
+
+    realized_rel = float(
+        torch.linalg.vector_norm(
+            realized
+        )
+        /
+        (
+            source_norm
+            +
+            EPS
+        )
+    )
+
+    realized_cos = cosine(
+        realized,
+        V18,
+    )
+
+    D19 = cosine(
+        terminal_delta,
+        V19,
+    )
+
+    P19 = float(
+        torch.linalg.vector_norm(
+            terminal_delta
+        )
+        /
+        (
+            torch.linalg.vector_norm(
+                baseline[
+                    "terminal"
+                ]
+            )
+            +
+            EPS
+        )
+    )
+
+    return {
+        "D19":
+            D19,
+
+        "P19":
+            P19,
+
+        "realized_rel":
+            realized_rel,
+
+        "realized_dir_cos":
+            realized_cos,
+    }
+
+
+# =============================================================================
+# 11. BATCHED ATLAS RUN
+# =============================================================================
+
+@torch.no_grad()
+def run_atlas_batch(
+    prompt,
+    baseline,
+    candidate_ids,
+):
+
+    B = len(
+        candidate_ids
+    )
+
+    source_norm = float(
+        torch.linalg.vector_norm(
+            baseline[
+                "source"
+            ]
+        )
+    )
+
+    requested_norm = (
+        FULL_REL
+        *
+        source_norm
+    )
+
+    directions = (
+        ATLAS[
+            candidate_ids
+        ]
+        .to(
+            device=device,
+            dtype=torch.float32,
+        )
+    )
+
+    captures = {}
+
+    handles = []
+
+
+    def inject_hook(
+        module,
+        inputs,
+        output,
+    ):
+
+        h = (
+            output[0]
+            if isinstance(
+                output,
+                tuple,
+            )
+            else output
+        )
+
+        before = (
+            h[
+                :,
+                -1,
+            ]
+            .detach()
+            .float()
+            .clone()
+        )
+
+        h_new = h.clone()
+
+        edited = (
+            h[
+                :,
+                -1,
+            ].float()
+            +
+            requested_norm
+            *
+            directions
+        )
+
+        h_new[
+            :,
+            -1,
+        ] = edited.to(
+            h.dtype
+        )
+
+        after = (
+            h_new[
+                :,
+                -1,
+            ]
+            .detach()
+            .float()
+            .clone()
+        )
+
+        captures[
+            "source_before"
+        ] = before.cpu()
+
+        captures[
+            "source_after"
+        ] = after.cpu()
+
+        if isinstance(
+            output,
+            tuple,
+        ):
+
+            return (
+                h_new,
+                *output[1:]
+            )
+
+        return h_new
+
+
+    def terminal_hook(
+        module,
+        inputs,
+        output,
+    ):
+
+        h = (
+            output[0]
+            if isinstance(
+                output,
+                tuple,
+            )
+            else output
+        )
+
+        captures[
+            "terminal"
+        ] = (
+            h[
+                :,
+                -1,
+            ]
+            .detach()
+            .float()
+            .cpu()
+            .clone()
+        )
+
+
+    try:
+
+        handles.append(
+            model.model.layers[
+                SOURCE_LAYER
+            ].register_forward_hook(
+                inject_hook
+            )
+        )
+
+        handles.append(
+            model.model.layers[
+                TERMINAL_LAYER
+            ].register_forward_hook(
+                terminal_hook
+            )
+        )
+
+        single = tokenizer(
+            prompt,
+            return_tensors="pt",
+        )
+
+        input_ids = (
+            single[
+                "input_ids"
+            ]
+            .repeat(
+                B,
+                1,
+            )
+            .to(
+                device
+            )
+        )
+
+        attention_mask = (
+            single[
+                "attention_mask"
+            ]
+            .repeat(
+                B,
+                1,
+            )
+            .to(
+                device
+            )
+        )
+
+        model(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            use_cache=False,
+        )
+
+    finally:
+
+        for handle in handles:
+            handle.remove()
+
+
+    realized = (
+        captures[
+            "source_after"
+        ]
+        -
+        captures[
+            "source_before"
+        ]
+    )
+
+    terminal_delta = (
+        captures[
+            "terminal"
+        ]
+        -
+        baseline[
+            "terminal"
+        ].unsqueeze(
+            0
+        )
+    )
+
+    baseline_terminal_norm = float(
+        torch.linalg.vector_norm(
+            baseline[
+                "terminal"
+            ]
+        )
+    )
+
+    out = []
+
+    for bi, cid in enumerate(
+        candidate_ids
+    ):
+
+        rd = realized[
+            bi
+        ]
+
+        td = terminal_delta[
+            bi
+        ]
+
+        realized_rel = float(
+            torch.linalg.vector_norm(
+                rd
+            )
+            /
+            (
+                source_norm
+                +
+                EPS
+            )
+        )
+
+        realized_dir_cos = cosine(
+            rd,
+            ATLAS[
+                cid
+            ],
+        )
+
+        D19 = cosine(
+            td,
+            V19,
+        )
+
+        P19 = float(
+            torch.linalg.vector_norm(
+                td
+            )
+            /
+            (
+                baseline_terminal_norm
+                +
+                EPS
+            )
+        )
+
+        out.append(
+            {
+                "candidate_id":
+                    int(
+                        cid
+                    ),
+
+                "D19":
+                    float(
+                        D19
+                    ),
+
+                "P19":
+                    float(
+                        P19
+                    ),
+
+                "realized_rel":
+                    float(
+                        realized_rel
+                    ),
+
+                "realized_dir_cos":
+                    float(
+                        realized_dir_cos
+                    ),
+            }
+        )
+
+    return out
+
+
+# =============================================================================
+# 12. RUN
+# =============================================================================
+
+print(
+    "\n[4/19] TEST126 atlas taraması başlıyor..."
+)
+
+print(
+    "Approx forward batches per prompt:",
+    math.ceil(
+        N_ATLAS
+        /
+        BATCH_SIZE
+    )
+    +
+    2
+)
+
+RESULTS = []
+
+t0 = time.time()
+
+for pi, prompt in enumerate(
+    PROMPTS
+):
+
+    baseline = run_baseline(
+        prompt
+    )
+
+    seed_result = run_seed(
+        prompt,
+        baseline,
+    )
+
+    candidate_results = [
+        None
+        for _ in range(
+            N_ATLAS
+        )
+    ]
+
+    for start in range(
+        0,
+        N_ATLAS,
+        BATCH_SIZE,
+    ):
+
+        stop = min(
+            start
+            +
+            BATCH_SIZE,
+            N_ATLAS,
+        )
+
+        ids = list(
+            range(
+                start,
+                stop,
+            )
+        )
+
+        batch_out = run_atlas_batch(
+            prompt,
+            baseline,
+            ids,
+        )
+
+        for item in batch_out:
+
+            candidate_results[
+                item[
+                    "candidate_id"
+                ]
+            ] = item
+
+
+    assert all(
+        x is not None
+        for x in candidate_results
+    )
+
+    RESULTS.append(
+        {
+            "prompt_index":
+                int(
+                    pi
+                ),
+
+            "seed":
+                seed_result,
+
+            "candidates":
+                candidate_results,
+        }
+    )
+
+    elapsed = (
+        time.time()
+        -
+        t0
+    )
+
+    print(
+        f"{pi+1:02d}/"
+        f"{len(PROMPTS)} complete"
+        f" | elapsed "
+        f"{elapsed/60:.1f} min"
+    )
+
+    del baseline
+
+    gc.collect()
+
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+
+# =============================================================================
+# 13. ACTUATOR INTEGRITY
+# =============================================================================
+
+print(
+    "\n[5/19] Actuator integrity..."
+)
+
+seed_rel = np.asarray(
+    [
+        r[
+            "seed"
+        ][
+            "realized_rel"
+        ]
+        for r in RESULTS
+    ],
+    dtype=np.float64,
+)
+
+candidate_rel = np.asarray(
+    [
+        c[
+            "realized_rel"
+        ]
+        for r in RESULTS
+        for c in r[
+            "candidates"
+        ]
+    ],
+    dtype=np.float64,
+)
+
+seed_dir_cos = np.asarray(
+    [
+        r[
+            "seed"
+        ][
+            "realized_dir_cos"
+        ]
+        for r in RESULTS
+    ],
+    dtype=np.float64,
+)
+
+candidate_dir_cos = np.asarray(
+    [
+        c[
+            "realized_dir_cos"
+        ]
+        for r in RESULTS
+        for c in r[
+            "candidates"
+        ]
+    ],
+    dtype=np.float64,
+)
+
+print(
+    f"SEED realized rel mean = "
+    f"{np.mean(seed_rel):.9f}"
+)
+
+print(
+    f"ATLAS realized rel mean = "
+    f"{np.mean(candidate_rel):.9f}"
+)
+
+print(
+    f"Difference = "
+    f"{np.mean(candidate_rel)-np.mean(seed_rel):+.9e}"
+)
+
+print(
+    f"SEED realized dir cos = "
+    f"{np.mean(seed_dir_cos):+.6f}"
+)
+
+print(
+    f"ATLAS realized dir cos = "
+    f"{np.mean(candidate_dir_cos):+.6f}"
+)
+
+
+# =============================================================================
+# 14. SEED REFERENCE
+# =============================================================================
+
+print(
+    "\n[6/19] Locked seed reference..."
+)
+
+seed_D19 = np.asarray(
+    [
+        r[
+            "seed"
+        ][
+            "D19"
+        ]
+        for r in RESULTS
+    ],
+    dtype=np.float64,
+)
+
+seed_P19 = np.asarray(
+    [
+        r[
+            "seed"
+        ][
+            "P19"
+        ]
+        for r in RESULTS
+    ],
+    dtype=np.float64,
+)
+
+print(
+    f"SEED D19 = "
+    f"{np.mean(seed_D19):+.6f}"
+    f" ± "
+    f"{np.std(seed_D19, ddof=1):.6f}"
+)
+
+print(
+    f"SEED P19 = "
+    f"{np.mean(seed_P19):.6f}"
+)
+
+
+# =============================================================================
+# 15. SHELL-BY-SHELL ANALYSIS
+# =============================================================================
+
+print(
+    "\n[7/19] Fixed-angle shell analysis..."
+)
+
+SHELL_RESULTS = {}
+
+for angle, count in SHELL_CONFIG:
+
+    ids = [
+        m[
+            "candidate_id"
+        ]
+        for m in ATLAS_META
+        if (
+            m[
+                "family"
+            ]
+            ==
+            "ANGLE_SHELL"
+            and
+            m[
+                "nominal_angle_deg"
+            ]
+            ==
+            angle
+        )
+    ]
+
+    assert len(
+        ids
+    ) == count
+
+    all_delta = []
+
+    prompt_mean_delta = []
+    prompt_best_delta = []
+    prompt_top10_delta = []
+    prompt_positive_fraction = []
+    prompt_shell_sd = []
+    prompt_shell_range = []
+
+    for pi, r in enumerate(
+        RESULTS
+    ):
+
+        vals = np.asarray(
+            [
+                r[
+                    "candidates"
+                ][
+                    cid
+                ][
+                    "D19"
+                ]
+                for cid in ids
+            ],
+            dtype=np.float64,
+        )
+
+        delta = (
+            vals
+            -
+            seed_D19[
+                pi
+            ]
+        )
+
+        all_delta.extend(
+            delta.tolist()
+        )
+
+        prompt_mean_delta.append(
+            float(
+                np.mean(
+                    delta
+                )
+            )
+        )
+
+        prompt_best_delta.append(
+            float(
+                np.max(
+                    delta
+                )
+            )
+        )
+
+        k_top = max(
+            1,
+            int(
+                math.ceil(
+                    0.10
+                    *
+                    len(
+                        delta
+                    )
+                )
+            )
+        )
+
+        top10 = np.sort(
+            delta
+        )[
+            -k_top:
+        ]
+
+        prompt_top10_delta.append(
+            float(
+                np.mean(
+                    top10
+                )
+            )
+        )
+
+        prompt_positive_fraction.append(
+            float(
+                np.mean(
+                    delta
+                    >
+                    0
+                )
+            )
+        )
+
+        prompt_shell_sd.append(
+            float(
+                np.std(
+                    vals,
+                    ddof=1,
+                )
+            )
+        )
+
+        prompt_shell_range.append(
+            float(
+                np.max(
+                    vals
+                )
+                -
+                np.min(
+                    vals
+                )
+            )
+        )
+
+
+    SHELL_RESULTS[
+        str(
+            angle
+        )
+    ] = {
+        "angle_deg":
+            float(
+                angle
+            ),
+
+        "candidate_count":
+            int(
+                count
+            ),
+
+        "all_candidate_delta":
+            stats(
+                all_delta
+            ),
+
+        "prompt_mean_delta":
+            stats(
+                prompt_mean_delta
+            ),
+
+        "prompt_best_delta":
+            stats(
+                prompt_best_delta
+            ),
+
+        "prompt_top_decile_delta":
+            stats(
+                prompt_top10_delta
+            ),
+
+        "mean_positive_fraction":
+            float(
+                np.mean(
+                    prompt_positive_fraction
+                )
+            ),
+
+        "positive_fraction_by_prompt":
+            stats(
+                prompt_positive_fraction
+            ),
+
+        "within_shell_sd":
+            stats(
+                prompt_shell_sd
+            ),
+
+        "within_shell_range":
+            stats(
+                prompt_shell_range
+            ),
+    }
+
+
+    print(
+        f"{angle:>5.1f}°"
+        f" | mean Δ="
+        f"{np.mean(prompt_mean_delta):+.6f}"
+        f" | top10% Δ="
+        f"{np.mean(prompt_top10_delta):+.6f}"
+        f" | oracle Δ="
+        f"{np.mean(prompt_best_delta):+.6f}"
+        f" | beat seed="
+        f"{np.mean(prompt_positive_fraction):.3f}"
+        f" | shell SD="
+        f"{np.mean(prompt_shell_sd):.6f}"
+    )
+
+
+# =============================================================================
+# 16. GLOBAL RANDOM CONTROL
+# =============================================================================
+
+print(
+    "\n[8/19] Global-random directional control..."
+)
+
+GLOBAL_IDS = [
+    m[
+        "candidate_id"
+    ]
+    for m in ATLAS_META
+    if m[
+        "family"
+    ]
+    ==
+    "GLOBAL_RANDOM"
+]
+
+global_mean_delta = []
+global_best_delta = []
+global_positive_fraction = []
+
+for pi, r in enumerate(
+    RESULTS
+):
+
+    vals = np.asarray(
+        [
+            r[
+                "candidates"
+            ][cid][
+                "D19"
+            ]
+            for cid in GLOBAL_IDS
+        ],
+        dtype=np.float64,
+    )
+
+    delta = (
+        vals
+        -
+        seed_D19[
+            pi
+        ]
+    )
+
+    global_mean_delta.append(
+        float(
+            np.mean(
+                delta
+            )
+        )
+    )
+
+    global_best_delta.append(
+        float(
+            np.max(
+                delta
+            )
+        )
+    )
+
+    global_positive_fraction.append(
+        float(
+            np.mean(
+                delta
+                >
+                0
+            )
+        )
+    )
+
+
+print(
+    f"GLOBAL mean Δ = "
+    f"{np.mean(global_mean_delta):+.6f}"
+)
+
+print(
+    f"GLOBAL oracle Δ = "
+    f"{np.mean(global_best_delta):+.6f}"
+)
+
+print(
+    f"GLOBAL beat-seed fraction = "
+    f"{np.mean(global_positive_fraction):.6f}"
+)
+
+
+# =============================================================================
+# 17. ALL-ATLAS ORACLE
+# =============================================================================
+
+print(
+    "\n[9/19] 1000-direction oracle upper bound..."
+)
+
+oracle_ids = []
+oracle_D19 = []
+oracle_delta = []
+oracle_angles = []
+oracle_families = []
+
+for pi, r in enumerate(
+    RESULTS
+):
+
+    vals = np.asarray(
+        [
+            c[
+                "D19"
+            ]
+            for c in r[
+                "candidates"
+            ]
+        ],
+        dtype=np.float64,
+    )
+
+    cid = int(
+        np.argmax(
+            vals
+        )
+    )
+
+    best = float(
+        vals[
+            cid
+        ]
+    )
+
+    meta = (
+        ATLAS_META[
+            cid
+        ]
+    )
+
+    oracle_ids.append(
+        cid
+    )
+
+    oracle_D19.append(
+        best
+    )
+
+    oracle_delta.append(
+        best
+        -
+        seed_D19[
+            pi
+        ]
+    )
+
+    oracle_angles.append(
+        meta[
+            "actual_angle_deg"
+        ]
+    )
+
+    oracle_families.append(
+        meta[
+            "family"
+        ]
+    )
+
+
+oracle_delta = np.asarray(
+    oracle_delta,
+    dtype=np.float64,
+)
+
+oracle_stats = stats(
+    oracle_delta
+)
+
+print(
+    f"Oracle D19 = "
+    f"{np.mean(oracle_D19):+.6f}"
+)
+
+print(
+    f"Oracle − seed = "
+    f"{np.mean(oracle_delta):+.6f}"
+)
+
+print(
+    f"Descriptive 95% interval = "
+    f"["
+    f"{oracle_stats['ci95_descriptive'][0]:+.6f}, "
+    f"{oracle_stats['ci95_descriptive'][1]:+.6f}"
+    f"]"
+)
+
+print(
+    f"Oracle beats seed = "
+    f"{np.mean(oracle_delta > 0):.3f}"
+)
+
+print(
+    f"Unique oracle IDs = "
+    f"{len(set(oracle_ids))}"
+)
+
+print(
+    f"Mean oracle angle = "
+    f"{np.mean(oracle_angles):.3f}°"
+)
+
+
+# =============================================================================
+# 18. WHICH SHELL WINS?
+# =============================================================================
+
+print(
+    "\n[10/19] Oracle winner distribution..."
+)
+
+WINNER_DISTRIBUTION = {}
+
+for angle, _ in SHELL_CONFIG:
+
+    n = sum(
+        1
+        for cid in oracle_ids
+        if (
+            ATLAS_META[
+                cid
+            ][
+                "family"
+            ]
+            ==
+            "ANGLE_SHELL"
+            and
+            ATLAS_META[
+                cid
+            ][
+                "nominal_angle_deg"
+            ]
+            ==
+            angle
+        )
+    )
+
+    WINNER_DISTRIBUTION[
+        str(
+            angle
+        )
+    ] = int(
+        n
+    )
+
+    print(
+        f"{angle:>5.1f}°"
+        f" : "
+        f"{n:2d}/"
+        f"{len(PROMPTS)}"
+    )
+
+
+n_global_winners = sum(
+    1
+    for cid in oracle_ids
+    if ATLAS_META[
+        cid
+    ][
+        "family"
+    ]
+    ==
+    "GLOBAL_RANDOM"
+)
+
+WINNER_DISTRIBUTION[
+    "GLOBAL_RANDOM"
+] = int(
+    n_global_winners
+)
+
+print(
+    "GLOBAL"
+    f" : "
+    f"{n_global_winners:2d}/"
+    f"{len(PROMPTS)}"
+)
+
+
+# =============================================================================
+# 19. GLOBAL BEST CANDIDATE — DESCRIPTIVE ONLY
+#
+# This candidate is selected on TEST126 itself.
+# Therefore it is NOT a blind-generalization result.
+#
+# TEST127 will evaluate this question on NEW prompts.
+# =============================================================================
+
+print(
+    "\n[11/19] Globally best fixed candidate on TEST126..."
+)
+
+candidate_means = np.zeros(
+    N_ATLAS,
+    dtype=np.float64,
+)
+
+for cid in range(
+    N_ATLAS
+):
+
+    candidate_means[
+        cid
+    ] = np.mean(
+        [
+            r[
+                "candidates"
+            ][cid][
+                "D19"
+            ]
+            for r in RESULTS
+        ]
+    )
+
+
+global_best_id = int(
+    np.argmax(
+        candidate_means
+    )
+)
+
+global_best_meta = (
+    ATLAS_META[
+        global_best_id
+    ]
+)
+
+global_best_values = np.asarray(
+    [
+        r[
+            "candidates"
+        ][
+            global_best_id
+        ][
+            "D19"
+        ]
+        for r in RESULTS
+    ],
+    dtype=np.float64,
+)
+
+global_best_delta_seed = (
+    global_best_values
+    -
+    seed_D19
+)
+
+oracle_minus_global_best = (
+    np.asarray(
+        oracle_D19,
+        dtype=np.float64,
+    )
+    -
+    global_best_values
+)
+
+print(
+    "Global best candidate ID = "
+    f"{global_best_id}"
+)
+
+print(
+    "Family = "
+    f"{global_best_meta['family']}"
+)
+
+print(
+    "Nominal angle = "
+    f"{global_best_meta['nominal_angle_deg']}"
+)
+
+print(
+    "Actual angle = "
+    f"{global_best_meta['actual_angle_deg']:.6f}°"
+)
+
+print(
+    "Global-best − seed = "
+    f"{np.mean(global_best_delta_seed):+.6f}"
+)
+
+print(
+    "Oracle − global-best = "
+    f"{np.mean(oracle_minus_global_best):+.6f}"
+)
+
+print(
+    "NOTE: global-best is selected on this same dataset."
+)
+
+print(
+    "Its generalization MUST be tested on TEST127."
+)
+
+
+# =============================================================================
+# 20. PROMPT CONSISTENCY
+# =============================================================================
+
+print(
+    "\n[12/19] Prompt consistency..."
+)
+
+best_shell_by_prompt = []
+
+for pi in range(
+    len(PROMPTS)
+):
+
+    shell_best = {}
+
+    for angle, _ in SHELL_CONFIG:
+
+        ids = [
+            m[
+                "candidate_id"
+            ]
+            for m in ATLAS_META
+            if (
+                m[
+                    "family"
+                ]
+                ==
+                "ANGLE_SHELL"
+                and
+                m[
+                    "nominal_angle_deg"
+                ]
+                ==
+                angle
+            )
+        ]
+
+        shell_best[
+            angle
+        ] = max(
+            RESULTS[
+                pi
+            ][
+                "candidates"
+            ][cid][
+                "D19"
+            ]
+            for cid in ids
+        )
+
+    best_angle = max(
+        shell_best,
+        key=shell_best.get,
+    )
+
+    best_shell_by_prompt.append(
+        best_angle
+    )
+
+
+for angle, _ in SHELL_CONFIG:
+
+    frac = np.mean(
+        np.asarray(
+            best_shell_by_prompt
+        )
+        ==
+        angle
+    )
+
+    print(
+        f"{angle:>5.1f}° best shell fraction = "
+        f"{frac:.3f}"
+    )
+
+
+# =============================================================================
+# 21. TOP-DECILE ROBUSTNESS
+#
+# Maxima are vulnerable to winner's curse.
+# Top-decile mean is a more distributed existence diagnostic.
+# =============================================================================
+
+print(
+    "\n[13/19] Distributed opportunity / top-decile check..."
+)
+
+TOP_DECILE_SUMMARY = {}
+
+for angle, _ in SHELL_CONFIG:
+
+    sr = SHELL_RESULTS[
+        str(
+            angle
+        )
+    ]
+
+    td = (
+        sr[
+            "prompt_top_decile_delta"
+        ]
+    )
+
+    TOP_DECILE_SUMMARY[
+        str(
+            angle
+        )
+    ] = td
+
+    print(
+        f"{angle:>5.1f}°"
+        f" | top-decile mean advantage="
+        f"{td['mean']:+.6f}"
+        f" | desc95="
+        f"["
+        f"{td['ci95_descriptive'][0]:+.6f}, "
+        f"{td['ci95_descriptive'][1]:+.6f}"
+        f"]"
+        f" | positive prompts="
+        f"{td['positive_fraction']:.3f}"
+    )
+
+
+# =============================================================================
+# 22. PHASE-I DECISION
+#
+# Conservative architecture decision:
+#
+# We do NOT use the 1000-way maximum alone.
+#
+# "Directional opportunity demonstrated" requires at least one fixed-angle
+# shell whose TOP DECILE:
+#
+#   - has positive mean advantage
+#   - positive descriptive lower bound
+#   - positive on >= 75% prompts
+#
+# This says the opportunity is distributed across a subset of directions,
+# rather than existing only as one extreme maximum among 1000 searches.
+#
+# It is still SYSTEM-ID evidence, not blind confirmation.
+# =============================================================================
+
+print(
+    "\n[14/19] Phase-I decision..."
+)
+
+qualifying_shells = []
+
+for angle, _ in SHELL_CONFIG:
+
+    td = (
+        SHELL_RESULTS[
+            str(
+                angle
+            )
+        ][
+            "prompt_top_decile_delta"
+        ]
+    )
+
+    if (
+        td[
+            "mean"
+        ]
+        >
+        0
+        and
+        td[
+            "ci95_descriptive"
+        ][0]
+        >
+        0
+        and
+        td[
+            "positive_fraction"
+        ]
+        >=
+        0.75
+    ):
+
+        qualifying_shells.append(
+            angle
+        )
+
+
+if len(
+    qualifying_shells
+) > 0:
+
+    DECISION = (
+        "DIRECTIONAL_OPPORTUNITY_EXISTS_IN_SYSTEM_ID"
+    )
+
+else:
+
+    DECISION = (
+        "NO_ROBUST_DIRECTIONAL_OPPORTUNITY_DEMONSTRATED"
+    )
+
+
+print(
+    "Qualifying shells:",
+    qualifying_shells
+)
+
+print(
+    "DECISION:",
+    DECISION
+)
+
+
+# =============================================================================
+# 23. COMPACT TABLE
+# =============================================================================
+
+print(
+    "\n[15/19] COMPACT ANGLE TABLE"
+)
+
+print("=" * 155)
+
+print(
+    f"{'ANGLE':>8}"
+    f"{'N':>7}"
+    f"{'MEAN Δ':>14}"
+    f"{'TOP10 Δ':>14}"
+    f"{'ORACLE Δ':>14}"
+    f"{'BEAT SEED':>13}"
+    f"{'SHELL SD':>14}"
+    f"{'RANGE':>14}"
+)
+
+print("-" * 155)
+
+for angle, count in SHELL_CONFIG:
+
+    sr = (
+        SHELL_RESULTS[
+            str(
+                angle
+            )
+        ]
+    )
+
+    print(
+        f"{angle:>7.1f}°"
+        f"{count:>7d}"
+        f"{sr['prompt_mean_delta']['mean']:>+14.6f}"
+        f"{sr['prompt_top_decile_delta']['mean']:>+14.6f}"
+        f"{sr['prompt_best_delta']['mean']:>+14.6f}"
+        f"{sr['mean_positive_fraction']:>13.3f}"
+        f"{sr['within_shell_sd']['mean']:>14.6f}"
+        f"{sr['within_shell_range']['mean']:>14.6f}"
+    )
+
+
+# =============================================================================
+# 24. INTERPRETATION LOCK
+# =============================================================================
+
+print(
+    "\n[16/19] Interpretation lock..."
+)
+
+INTERPRETATION_LOCK = [
+
+    "TEST126 asks only whether better intervention directions exist around the locked semantic seed at fixed L18 and fixed last-token position.",
+
+    "TEST126 does not test whether a runtime navigator can identify those directions.",
+
+    "Candidates inside each angular shell have the same designed cosine distance from the semantic seed, preventing the TEST123/124 angle confound from explaining within-shell differences.",
+
+    "The 1000-way oracle maximum is treated only as an upper bound because searching many candidates creates winner's-curse / multiple-search optimism.",
+
+    "The top-decile analysis is therefore used as a distributed directional-opportunity diagnostic rather than relying only on the single best candidate.",
+
+    "The same relative intervention magnitude is requested for the seed and all candidates; realized BF16 magnitude and direction are audited.",
+
+    "L18 is intentionally fixed because TEST125-A found L18 was the best tested source for L19 on all 40 TEST125-A prompts; TEST126 is not another layer-selection assay.",
+
+    "A positive TEST126 result would establish only that the locked semantic representation direction is not necessarily the best intervention direction in the tested local neighborhood.",
+
+    "Context dependence is NOT established by TEST126. TEST127 must use new prompts to distinguish prompt-specific directional opportunity from a globally superior fixed candidate.",
+
+    "No DRA controller, Mercek, Jacobian, gradient, weight update, manifold recovery, pseudo-training, physical-energy, behavioral-efficacy, or semantic-causality claim is made.",
+
+    "All TEST126 prompts become exposed after this run and must not be reused as blind TEST127 prompts.",
+]
+
+for i, line in enumerate(
+    INTERPRETATION_LOCK,
+    1,
+):
+
+    print(
+        f"{i}. {line}"
+    )
+
+
+# =============================================================================
+# 25. SAVE JSON
+#
+# We save atlas metadata and raw numerical results.
+# Full 3584-D directions are reproducible from SEED + construction rules,
+# so they are not duplicated into JSON.
+# =============================================================================
+
+print(
+    "\n[17/19] JSON hazırlanıyor..."
+)
+
+OUTPUT = {
+
+    "test":
+        "TEST126",
+
+    "title":
+        "Dense Directional Existence Atlas",
+
+    "phase":
+        "New Paradigm Phase I",
+
+    "model":
+        MODEL_ID,
+
+    "dtype":
+        "bfloat16",
+
+    "hidden":
+        HIDDEN,
+
+    "source_layer":
+        SOURCE_LAYER,
+
+    "terminal_layer":
+        TERMINAL_LAYER,
+
+    "position":
+        "last_token_only",
+
+    "full_relative":
+        FULL_REL,
+
+    "seed":
+        SEED,
+
+    "atlas_count":
+        N_ATLAS,
+
+    "shell_config": [
+        {
+            "angle_deg":
+                float(
+                    angle
+                ),
+
+            "count":
+                int(
+                    count
+                ),
+        }
+        for angle, count
+        in SHELL_CONFIG
+    ],
+
+    "global_random_count":
+        N_GLOBAL_RANDOM,
+
+    "prompt_count":
+        len(
+            PROMPTS
+        ),
+
+    "fingerprint": {
+        "L10_cos_AB":
+            float(
+                cos10
+            ),
+
+        "L11_cos_AB":
+            float(
+                cos11
+            ),
+
+        "L10_drift":
+            float(
+                drift10
+            ),
+
+        "L11_drift":
+            float(
+                drift11
+            ),
+
+        "status":
+            "PASS",
+    },
+
+    "actuator_integrity": {
+        "seed_realized_relative":
+            stats(
+                seed_rel
+            ),
+
+        "atlas_realized_relative":
+            stats(
+                candidate_rel
+            ),
+
+        "seed_realized_direction_cos":
+            stats(
+                seed_dir_cos
+            ),
+
+        "atlas_realized_direction_cos":
+            stats(
+                candidate_dir_cos
+            ),
+    },
+
+    "seed_reference": {
+        "D19":
+            stats(
+                seed_D19
+            ),
+
+        "P19":
+            stats(
+                seed_P19
+            ),
+    },
+
+    "atlas_metadata":
+        ATLAS_META,
+
+    "shell_results":
+        SHELL_RESULTS,
+
+    "global_random": {
+        "prompt_mean_delta":
+            stats(
+                global_mean_delta
+            ),
+
+        "prompt_best_delta":
+            stats(
+                global_best_delta
+            ),
+
+        "positive_fraction":
+            stats(
+                global_positive_fraction
+            ),
+    },
+
+    "oracle": {
+        "candidate_ids":
+            [
+                int(x)
+                for x in oracle_ids
+            ],
+
+        "D19":
+            [
+                float(x)
+                for x in oracle_D19
+            ],
+
+        "delta_vs_seed":
+            stats(
+                oracle_delta
+            ),
+
+        "angles_deg":
+            [
+                float(x)
+                for x in oracle_angles
+            ],
+
+        "families":
+            oracle_families,
+
+        "unique_candidate_ids":
+            int(
+                len(
+                    set(
+                        oracle_ids
+                    )
+                )
+            ),
+    },
+
+    "winner_distribution":
+        WINNER_DISTRIBUTION,
+
+    "global_best_candidate_system_id_only": {
+        "candidate_id":
+            int(
+                global_best_id
+            ),
+
+        "metadata":
+            global_best_meta,
+
+        "delta_vs_seed":
+            stats(
+                global_best_delta_seed
+            ),
+
+        "oracle_minus_global_best":
+            stats(
+                oracle_minus_global_best
+            ),
+    },
+
+    "qualifying_shells":
+        [
+            float(x)
+            for x in qualifying_shells
+        ],
+
+    "decision":
+        DECISION,
+
+    "interpretation_lock":
+        INTERPRETATION_LOCK,
+
+    "raw_results":
+        RESULTS,
+}
+
+
+with open(
+    OUT_JSON,
+    "w",
+    encoding="utf-8",
+) as f:
+
+    json.dump(
+        OUTPUT,
+        f,
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+print(
+    "Saved:",
+    OUT_JSON
+)
+
+
+# =============================================================================
+# 26. FINAL SUMMARY
+# =============================================================================
+
+print(
+    "\n[18/19] FINAL SUMMARY"
+)
+
+print("=" * 170)
+print("TEST126 — DENSE DIRECTIONAL EXISTENCE ATLAS")
+print("=" * 170)
+
+print()
+
+print("INTEGRITY")
+
+print(
+    f"L10 cos(A,B) = "
+    f"{cos10:+.6f}"
+)
+
+print(
+    f"L11 cos(A,B) = "
+    f"{cos11:+.6f}"
+)
+
+print(
+    "Fingerprint = PASS"
+)
+
+print(
+    f"Seed realized rel  = "
+    f"{np.mean(seed_rel):.9f}"
+)
+
+print(
+    f"Atlas realized rel = "
+    f"{np.mean(candidate_rel):.9f}"
+)
+
+print()
+
+print("REFERENCE")
+
+print(
+    f"Seed D19 = "
+    f"{np.mean(seed_D19):+.6f}"
+)
+
+print()
+
+print("ORACLE UPPER BOUND")
+
+print(
+    f"Oracle D19 = "
+    f"{np.mean(oracle_D19):+.6f}"
+)
+
+print(
+    f"Oracle − seed = "
+    f"{np.mean(oracle_delta):+.6f}"
+)
+
+print(
+    f"Oracle beats seed fraction = "
+    f"{np.mean(oracle_delta > 0):.3f}"
+)
+
+print(
+    f"Unique oracle IDs = "
+    f"{len(set(oracle_ids))}"
+)
+
+print()
+
+print("SYSTEM-ID GLOBAL CANDIDATE")
+
+print(
+    f"Candidate ID = "
+    f"{global_best_id}"
+)
+
+print(
+    f"Family = "
+    f"{global_best_meta['family']}"
+)
+
+print(
+    f"Angle = "
+    f"{global_best_meta['actual_angle_deg']:.6f}°"
+)
+
+print(
+    f"Global candidate − seed = "
+    f"{np.mean(global_best_delta_seed):+.6f}"
+)
+
+print(
+    f"Oracle − global candidate = "
+    f"{np.mean(oracle_minus_global_best):+.6f}"
+)
+
+print()
+
+print("PHASE-I DECISION")
+
+print(
+    DECISION
+)
+
+print(
+    "Qualifying fixed-angle shells:",
+    qualifying_shells
+)
+
+print()
+
+print("NEXT STEP")
+
+if (
+    DECISION
+    ==
+    "DIRECTIONAL_OPPORTUNITY_EXISTS_IN_SYSTEM_ID"
+):
+
+    print(
+        "Proceed to TEST127 with NEW prompts:"
+    )
+
+    print(
+        "Context-Dependent Route Identity / "
+        "global-vs-prompt-specific directional opportunity."
+    )
+
+else:
+
+    print(
+        "Do NOT advance automatically."
+    )
+
+    print(
+        "Re-examine the directional-search hypothesis and atlas geometry first."
+    )
+
+print()
+
+print("JSON")
+
+print(
+    OUT_JSON
+)
+
+print()
+
+print(
+    "TEST126 prompts are now EXPOSED / SYSTEM-ID data."
+)
+
+print(
+    "No navigator has been authorized."
+)
+
+print(
+    "No runtime sensor has been authorized."
+)
+
+print()
+
+
+# =============================================================================
+# 27. STATUS
+# =============================================================================
+
+print(
+    "[19/19] EXPERIMENTAL STATUS"
+)
+
+print(
+    "Phase I complete."
+)
+
+print(
+    "Interpret results before advancing to Phase II."
+)
+
+print(
+    "DONE."
+)
+
+gc.collect()
+
+if torch.cuda.is_available():
+    torch.cuda.empty_cache()
