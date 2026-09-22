@@ -1,0 +1,1195 @@
+ 
+================================================================================================================================================================
+TEST 144-R2 — AKBASCORE 3.0 CRYSTALLIZATION REPLICATION
+ENDOGENOUS CLOSED-LOOP REPRESENTATION CRYSTALLIZATION
+================================================================================================================================================================
+Experiment start : 2026-09-22T23:28:49+00:00
+
+ENVIRONMENT PREPARATION
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+Python       : 3.13.15
+PyTorch pkg  : 2.11.0+cu128
+Transformers : 5.16.1
+PEFT         : 0.20.0
+Pillow       : 11.3.0
+torchao      : 0.10.0
+
+Removing optional incompatible torchao 0.10.0...
+Found existing installation: torchao 0.10.0
+Uninstalling torchao-0.10.0:
+  Successfully uninstalled torchao-0.10.0
+
+torchao      : NOT INSTALLED — PASS
+
+================================================================================================================================================================
+ENVIRONMENT LOCK
+================================================================================================================================================================
+PyTorch      : 2.11.0+cu128
+Transformers : 5.16.1
+PEFT         : 0.20.0
+CUDA         : 12.8
+GPU          : NVIDIA A100-SXM4-40GB
+VRAM         : 39.49 GB
+
+================================================================================================================================================================
+LOCKED SEASC
+================================================================================================================================================================
+L00 | E=1.000000 | dose=10.000%
+L01 | E=0.971272 | dose=9.713%
+L02 | E=0.905188 | dose=9.052%
+L03 | E=0.823042 | dose=8.230%
+L04 | E=0.737599 | dose=7.376%
+L05 | E=0.656086 | dose=6.561%
+L06 | E=0.582206 | dose=5.822%
+L07 | E=0.517478 | dose=5.175%
+L08 | E=0.462121 | dose=4.621%
+L09 | E=0.415625 | dose=4.156%
+L10 | E=0.377115 | dose=3.771%
+L11 | E=0.345576 | dose=3.456%
+L12 | E=0.319980 | dose=3.200%
+L13 | E=0.299366 | dose=2.994%
+L14 | E=0.282871 | dose=2.829%
+L15 | E=0.269744 | dose=2.697%
+L16 | E=0.259348 | dose=2.593%
+L17 | E=0.251148 | dose=2.511%
+L18 | E=0.244705 | dose=2.447%
+L19 | E=0.239658 | dose=2.397%
+
+DATA SPLIT
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+Train prompts      : 64
+Validation prompts : 24
+Final-test prompts : 24
+Final test locked  : YES
+
+[1] Loading tokenizer...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 78.0kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 657kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 61.2MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 52.3MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 125MB/s]
+[2] Loading immutable base...
+
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 2.44MB/s]
+Download complete: : 
+
+ 13.1GB,  445MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  504MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:39<00:00,  6.58s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 100.78it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 30.5kB/s]
+Hidden size : 3584
+Layers      : 28
+
+[3] Extracting immutable A0...
+L00 | raw=1.601886
+L01 | raw=1.974164
+L02 | raw=2.814075
+L03 | raw=7.407696
+L04 | raw=7.282032
+L05 | raw=7.441541
+L06 | raw=8.020885
+L07 | raw=11.543870
+L08 | raw=14.744291
+L09 | raw=13.090476
+L10 | raw=13.293571
+L11 | raw=13.848494
+L12 | raw=14.509543
+L13 | raw=15.025572
+L14 | raw=14.570271
+L15 | raw=15.216175
+L16 | raw=15.280499
+L17 | raw=15.771996
+L18 | raw=16.026615
+L19 | raw=17.407801
+Max TEST142 raw-norm deviation: 0.00000050
+
+[4] Building immutable VALIDATION reference...
+Validation 01/24
+Validation 02/24
+Validation 03/24
+Validation 04/24
+Validation 05/24
+Validation 06/24
+Validation 07/24
+Validation 08/24
+Validation 09/24
+Validation 10/24
+Validation 11/24
+Validation 12/24
+Validation 13/24
+Validation 14/24
+Validation 15/24
+Validation 16/24
+Validation 17/24
+Validation 18/24
+Validation 19/24
+Validation 20/24
+Validation 21/24
+Validation 22/24
+Validation 23/24
+Validation 24/24
+
+[5] Building locked FINAL TEST immutable reference...
+Final-test BASE/T0 01/24
+Final-test BASE/T0 02/24
+Final-test BASE/T0 03/24
+Final-test BASE/T0 04/24
+Final-test BASE/T0 05/24
+Final-test BASE/T0 06/24
+Final-test BASE/T0 07/24
+Final-test BASE/T0 08/24
+Final-test BASE/T0 09/24
+Final-test BASE/T0 10/24
+Final-test BASE/T0 11/24
+Final-test BASE/T0 12/24
+Final-test BASE/T0 13/24
+Final-test BASE/T0 14/24
+Final-test BASE/T0 15/24
+Final-test BASE/T0 16/24
+Final-test BASE/T0 17/24
+Final-test BASE/T0 18/24
+Final-test BASE/T0 19/24
+Final-test BASE/T0 20/24
+Final-test BASE/T0 21/24
+Final-test BASE/T0 22/24
+Final-test BASE/T0 23/24
+Final-test BASE/T0 24/24
+
+[6] Recording BASE validation responses...
+Behavior BASE validation 01/24
+Behavior BASE validation 02/24
+Behavior BASE validation 03/24
+Behavior BASE validation 04/24
+Behavior BASE validation 05/24
+Behavior BASE validation 06/24
+Behavior BASE validation 07/24
+Behavior BASE validation 08/24
+Behavior BASE validation 09/24
+Behavior BASE validation 10/24
+Behavior BASE validation 11/24
+Behavior BASE validation 12/24
+Behavior BASE validation 13/24
+Behavior BASE validation 14/24
+Behavior BASE validation 15/24
+Behavior BASE validation 16/24
+Behavior BASE validation 17/24
+Behavior BASE validation 18/24
+Behavior BASE validation 19/24
+Behavior BASE validation 20/24
+Behavior BASE validation 21/24
+Behavior BASE validation 22/24
+Behavior BASE validation 23/24
+Behavior BASE validation 24/24
+
+[7] Building conditional top-K preservation cache...
+8/64
+16/64
+24/64
+32/64
+40/64
+48/64
+56/64
+64/64
+
+Base released | GPU allocated: 1.024 GB
+
+[8] Loading student...
+
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 99.11it/s]
+trainable params: 5,046,272 || all params: 7,620,662,784 || trainable%: 0.0662
+
+================================================================================================================================================================
+REAL QWEN-7B AUTOGRAD X-RAY
+================================================================================================================================================================
+L00 | requires_grad=True | grad_fn=SelectBackward0
+L05 | requires_grad=True | grad_fn=SelectBackward0
+L10 | requires_grad=True | grad_fn=SelectBackward0
+L15 | requires_grad=True | grad_fn=SelectBackward0
+L19 | requires_grad=True | grad_fn=SelectBackward0
+Global LoRA grad norm: 4.88517262e-01
+AUTOGRAD X-RAY : PASS
+
+================================================================================================================================================================
+CRYSTALLIZATION X-RAY @ STEP 0
+VALIDATION | SEASC OFF | MOTOR OFF | NO INJECTION
+================================================================================================================================================================
+Mean target distance : 14.72837616
+Mean target progress : +0.0000%
+Mean alignment       : +0.00000000
+Required correction  : 100.0000% of original dose-distance
+L00 | D=1.041127 | P=+0.000% | C=+0.000000 | R=100.000%
+L01 | D=2.453838 | P=+0.000% | C=+0.000000 | R=100.000%
+L02 | D=3.935113 | P=+0.000% | C=+0.000000 | R=100.000%
+L03 | D=4.732745 | P=+0.000% | C=+0.000000 | R=100.000%
+L04 | D=6.139701 | P=+0.000% | C=+0.000000 | R=100.000%
+L05 | D=8.379651 | P=+0.000% | C=+0.000000 | R=100.000%
+L06 | D=9.108716 | P=+0.000% | C=+0.000000 | R=100.000%
+L07 | D=10.293689 | P=+0.000% | C=+0.000000 | R=100.000%
+L08 | D=13.461896 | P=+0.000% | C=+0.000000 | R=100.000%
+L09 | D=13.349328 | P=+0.000% | C=+0.000000 | R=100.000%
+L10 | D=15.321883 | P=+0.000% | C=+0.000000 | R=100.000%
+L11 | D=15.873800 | P=+0.000% | C=+0.000000 | R=100.000%
+L12 | D=16.613381 | P=+0.000% | C=+0.000000 | R=100.000%
+L13 | D=18.147589 | P=+0.000% | C=+0.000000 | R=100.000%
+L14 | D=19.703521 | P=+0.000% | C=+0.000000 | R=100.000%
+L15 | D=20.963101 | P=+0.000% | C=+0.000000 | R=100.000%
+L16 | D=23.405075 | P=+0.000% | C=+0.000000 | R=100.000%
+L17 | D=26.830702 | P=+0.000% | C=+0.000000 | R=100.000%
+L18 | D=30.089320 | P=+0.000% | C=+0.000000 | R=100.000%
+L19 | D=34.723346 | P=+0.000% | C=+0.000000 | R=100.000%
+
+================================================================================================================================================================
+CRYSTALLIZATION TRAINING START
+PER-UPDATE ENDOGENOUS COMPASS REFRESH
+FINAL TEST REMAINS LOCKED
+================================================================================================================================================================
+Training start: 2026-09-22T23:31:42+00:00
+
+GPU power telemetry: PASS
+Initial GPU board power: 55.79 W
+step=0001 | loss=0.0967340 | geo=0.0967340 | presK=-0.0000000 | grad=0.087035 | cos(A0,At)=+0.999662 | cos(Aprev,At)=+0.999662
+step=0002 | loss=0.0975983 | geo=0.0975983 | presK=0.0000001 | grad=0.083934 | cos(A0,At)=+0.999624 | cos(Aprev,At)=+0.999660
+step=0003 | loss=0.0960857 | geo=0.0960856 | presK=0.0000024 | grad=0.084453 | cos(A0,At)=+0.999642 | cos(Aprev,At)=+0.999648
+step=0004 | loss=0.0968267 | geo=0.0968258 | presK=0.0000183 | grad=0.087411 | cos(A0,At)=+0.999592 | cos(Aprev,At)=+0.999598
+step=0005 | loss=0.0952811 | geo=0.0952811 | presK=0.0000006 | grad=0.088301 | cos(A0,At)=+0.999639 | cos(Aprev,At)=+0.999656
+step=0006 | loss=0.0965537 | geo=0.0965536 | presK=0.0000027 | grad=0.093220 | cos(A0,At)=+0.999629 | cos(Aprev,At)=+0.999618
+step=0007 | loss=0.0959429 | geo=0.0959429 | presK=0.0000004 | grad=0.091962 | cos(A0,At)=+0.999602 | cos(Aprev,At)=+0.999589
+step=0008 | loss=0.0978678 | geo=0.0978678 | presK=0.0000013 | grad=0.102629 | cos(A0,At)=+0.999629 | cos(Aprev,At)=+0.999593
+step=0009 | loss=0.0945078 | geo=0.0945071 | presK=0.0000132 | grad=0.094643 | cos(A0,At)=+0.999613 | cos(Aprev,At)=+0.999639
+step=0010 | loss=0.0968774 | geo=0.0968725 | presK=0.0000984 | grad=0.100967 | cos(A0,At)=+0.999600 | cos(Aprev,At)=+0.999617
+
+================================================================================================================================================================
+CRYSTALLIZATION X-RAY @ STEP 10
+VALIDATION | SEASC OFF | MOTOR OFF | NO INJECTION
+================================================================================================================================================================
+Mean target distance : 14.18016212
+Mean target progress : +2.7820%
+Mean alignment       : +0.38406221
+Required correction  : 97.2180% of original dose-distance
+L00 | D=1.038673 | P=+0.236% | C=+0.085189 | R=99.764%
+L01 | D=2.440373 | P=+0.549% | C=+0.185354 | R=99.451%
+L02 | D=3.902978 | P=+0.816% | C=+0.248463 | R=99.184%
+L03 | D=4.674476 | P=+1.231% | C=+0.311897 | R=98.769%
+L04 | D=6.067058 | P=+1.183% | C=+0.304807 | R=98.817%
+L05 | D=8.233644 | P=+1.742% | C=+0.387874 | R=98.258%
+L06 | D=8.997932 | P=+1.216% | C=+0.293177 | R=98.784%
+L07 | D=10.192290 | P=+0.985% | C=+0.260688 | R=99.015%
+L08 | D=13.332972 | P=+0.958% | C=+0.252598 | R=99.042%
+L09 | D=13.124311 | P=+1.686% | C=+0.319204 | R=98.314%
+L10 | D=14.710998 | P=+3.986% | C=+0.525431 | R=96.014%
+L11 | D=15.210802 | P=+4.175% | C=+0.515031 | R=95.825%
+L12 | D=15.928900 | P=+4.120% | C=+0.502922 | R=95.880%
+L13 | D=17.358119 | P=+4.350% | C=+0.510127 | R=95.650%
+L14 | D=18.864636 | P=+4.257% | C=+0.469009 | R=95.743%
+L15 | D=19.893485 | P=+5.102% | C=+0.513720 | R=94.898%
+L16 | D=22.120287 | P=+5.489% | C=+0.516488 | R=94.511%
+L17 | D=25.571286 | P=+4.693% | C=+0.483824 | R=95.307%
+L18 | D=28.757512 | P=+4.426% | C=+0.491083 | R=95.574%
+L19 | D=33.182510 | P=+4.437% | C=+0.504360 | R=95.563%
+
+>>> NEW CRYSTALLIZATION BEST <<<
+step      : 10
+progress  : +2.7820%
+distance  : 14.18016212
+alignment : +0.38406221
+step=0011 | loss=0.0933852 | geo=0.0933850 | presK=0.0000039 | grad=0.097871 | cos(A0,At)=+0.999615 | cos(Aprev,At)=+0.999606
+step=0012 | loss=0.0935075 | geo=0.0935070 | presK=0.0000090 | grad=0.097285 | cos(A0,At)=+0.999558 | cos(Aprev,At)=+0.999558
+step=0013 | loss=0.0935645 | geo=0.0935630 | presK=0.0000314 | grad=0.100940 | cos(A0,At)=+0.999638 | cos(Aprev,At)=+0.999599
+step=0014 | loss=0.0939996 | geo=0.0939978 | presK=0.0000359 | grad=0.102570 | cos(A0,At)=+0.999639 | cos(Aprev,At)=+0.999640
+step=0015 | loss=0.0924243 | geo=0.0924225 | presK=0.0000366 | grad=0.103931 | cos(A0,At)=+0.999628 | cos(Aprev,At)=+0.999633
+step=0016 | loss=0.0910002 | geo=0.0909902 | presK=0.0002010 | grad=0.099768 | cos(A0,At)=+0.999586 | cos(Aprev,At)=+0.999620
+step=0017 | loss=0.0910968 | geo=0.0910947 | presK=0.0000421 | grad=0.103325 | cos(A0,At)=+0.999608 | cos(Aprev,At)=+0.999629
+step=0018 | loss=0.0905068 | geo=0.0905043 | presK=0.0000489 | grad=0.104421 | cos(A0,At)=+0.999621 | cos(Aprev,At)=+0.999629
+step=0019 | loss=0.0902303 | geo=0.0902179 | presK=0.0002481 | grad=0.104479 | cos(A0,At)=+0.999572 | cos(Aprev,At)=+0.999586
+step=0020 | loss=0.0883305 | geo=0.0883238 | presK=0.0001326 | grad=0.101240 | cos(A0,At)=+0.999603 | cos(Aprev,At)=+0.999636
+
+================================================================================================================================================================
+CRYSTALLIZATION X-RAY @ STEP 20
+VALIDATION | SEASC OFF | MOTOR OFF | NO INJECTION
+================================================================================================================================================================
+Mean target distance : 13.11373318
+Mean target progress : +8.5010%
+Mean alignment       : +0.46798844
+Required correction  : 91.4990% of original dose-distance
+L00 | D=1.033826 | P=+0.701% | C=+0.139462 | R=99.299%
+L01 | D=2.407184 | P=+1.901% | C=+0.289069 | R=98.099%
+L02 | D=3.817406 | P=+2.991% | C=+0.333991 | R=97.009%
+L03 | D=4.533162 | P=+4.217% | C=+0.403492 | R=95.783%
+L04 | D=5.876017 | P=+4.294% | C=+0.426700 | R=95.706%
+L05 | D=7.831893 | P=+6.536% | C=+0.505474 | R=93.464%
+L06 | D=8.698163 | P=+4.507% | C=+0.419446 | R=95.493%
+L07 | D=9.904471 | P=+3.781% | C=+0.395294 | R=96.219%
+L08 | D=12.963494 | P=+3.702% | C=+0.383266 | R=96.298%
+L09 | D=12.525056 | P=+6.173% | C=+0.431857 | R=93.827%
+L10 | D=13.373389 | P=+12.709% | C=+0.592586 | R=87.291%
+L11 | D=13.805315 | P=+13.024% | C=+0.577399 | R=86.976%
+L12 | D=14.479703 | P=+12.841% | C=+0.567954 | R=87.159%
+L13 | D=15.711147 | P=+13.425% | C=+0.578183 | R=86.575%
+L14 | D=17.213407 | P=+12.637% | C=+0.538172 | R=87.363%
+L15 | D=17.945744 | P=+14.391% | C=+0.568086 | R=85.609%
+L16 | D=19.977189 | P=+14.644% | C=+0.565213 | R=85.356%
+L17 | D=23.421887 | P=+12.703% | C=+0.535575 | R=87.297%
+L18 | D=26.390546 | P=+12.291% | C=+0.545647 | R=87.709%
+L19 | D=30.365665 | P=+12.549% | C=+0.562901 | R=87.451%
+
+>>> NEW CRYSTALLIZATION BEST <<<
+step      : 20
+progress  : +8.5010%
+distance  : 13.11373318
+alignment : +0.46798844
+step=0021 | loss=0.0878325 | geo=0.0878300 | presK=0.0000494 | grad=0.098298 | cos(A0,At)=+0.999576 | cos(Aprev,At)=+0.999626
+step=0022 | loss=0.0861528 | geo=0.0861415 | presK=0.0002273 | grad=0.095549 | cos(A0,At)=+0.999585 | cos(Aprev,At)=+0.999617
+step=0023 | loss=0.0875564 | geo=0.0875430 | presK=0.0002682 | grad=0.102248 | cos(A0,At)=+0.999585 | cos(Aprev,At)=+0.999632
+step=0024 | loss=0.0873677 | geo=0.0873614 | presK=0.0001255 | grad=0.103610 | cos(A0,At)=+0.999546 | cos(Aprev,At)=+0.999640
+step=0025 | loss=0.0868000 | geo=0.0867934 | presK=0.0001325 | grad=0.104327 | cos(A0,At)=+0.999581 | cos(Aprev,At)=+0.999612
+step=0026 | loss=0.0857815 | geo=0.0857751 | presK=0.0001280 | grad=0.101814 | cos(A0,At)=+0.999578 | cos(Aprev,At)=+0.999643
+step=0027 | loss=0.0853494 | geo=0.0853364 | presK=0.0002610 | grad=0.100768 | cos(A0,At)=+0.999580 | cos(Aprev,At)=+0.999652
+step=0028 | loss=0.0838219 | geo=0.0838172 | presK=0.0000947 | grad=0.099866 | cos(A0,At)=+0.999558 | cos(Aprev,At)=+0.999613
+step=0029 | loss=0.0830459 | geo=0.0829973 | presK=0.0009722 | grad=0.099470 | cos(A0,At)=+0.999554 | cos(Aprev,At)=+0.999623
+step=0030 | loss=0.0829350 | geo=0.0829245 | presK=0.0002105 | grad=0.100668 | cos(A0,At)=+0.999537 | cos(Aprev,At)=+0.999575
+
+================================================================================================================================================================
+CRYSTALLIZATION X-RAY @ STEP 30
+VALIDATION | SEASC OFF | MOTOR OFF | NO INJECTION
+================================================================================================================================================================
+Mean target distance : 12.29149946
+Mean target progress : +13.2053%
+Mean alignment       : +0.49994165
+Required correction  : 86.7947% of original dose-distance
+L00 | D=1.028829 | P=+1.181% | C=+0.159297 | R=98.819%
+L01 | D=2.366477 | P=+3.559% | C=+0.311256 | R=96.441%
+L02 | D=3.725111 | P=+5.336% | C=+0.361457 | R=94.664%
+L03 | D=4.379479 | P=+7.464% | C=+0.428156 | R=92.536%
+L04 | D=5.660687 | P=+7.801% | C=+0.451200 | R=92.199%
+L05 | D=7.361565 | P=+12.148% | C=+0.517379 | R=87.852%
+L06 | D=8.331934 | P=+8.527% | C=+0.443022 | R=91.473%
+L07 | D=9.540267 | P=+7.318% | C=+0.424738 | R=92.682%
+L08 | D=12.504314 | P=+7.112% | C=+0.422831 | R=92.888%
+L09 | D=11.920638 | P=+10.698% | C=+0.474083 | R=89.302%
+L10 | D=12.339378 | P=+19.453% | C=+0.616498 | R=80.547%
+L11 | D=12.807272 | P=+19.307% | C=+0.603868 | R=80.693%
+L12 | D=13.484369 | P=+18.831% | C=+0.592983 | R=81.169%
+L13 | D=14.409373 | P=+20.599% | C=+0.619008 | R=79.401%
+L14 | D=16.023039 | P=+18.678% | C=+0.585242 | R=81.322%
+L15 | D=16.753504 | P=+20.079% | C=+0.602822 | R=79.921%
+L16 | D=18.711867 | P=+20.050% | C=+0.601536 | R=79.950%
+L17 | D=21.997023 | P=+18.014% | C=+0.576173 | R=81.986%
+L18 | D=24.564130 | P=+18.360% | C=+0.590471 | R=81.640%
+L19 | D=27.920733 | P=+19.589% | C=+0.616813 | R=80.411%
+
+>>> NEW CRYSTALLIZATION BEST <<<
+step      : 30
+progress  : +13.2053%
+distance  : 12.29149946
+alignment : +0.49994165
+step=0031 | loss=0.0818803 | geo=0.0818719 | presK=0.0001678 | grad=0.098320 | cos(A0,At)=+0.999569 | cos(Aprev,At)=+0.999594
+step=0032 | loss=0.0818690 | geo=0.0818195 | presK=0.0009887 | grad=0.100761 | cos(A0,At)=+0.999548 | cos(Aprev,At)=+0.999599
+step=0033 | loss=0.0808225 | geo=0.0808131 | presK=0.0001868 | grad=0.098963 | cos(A0,At)=+0.999579 | cos(Aprev,At)=+0.999629
+step=0034 | loss=0.0813314 | geo=0.0812213 | presK=0.0022014 | grad=0.100952 | cos(A0,At)=+0.999568 | cos(Aprev,At)=+0.999647
+step=0035 | loss=0.0812331 | geo=0.0812070 | presK=0.0005225 | grad=0.102976 | cos(A0,At)=+0.999541 | cos(Aprev,At)=+0.999624
+step=0036 | loss=0.0798533 | geo=0.0798496 | presK=0.0000742 | grad=0.100953 | cos(A0,At)=+0.999514 | cos(Aprev,At)=+0.999595
+step=0037 | loss=0.0800265 | geo=0.0800213 | presK=0.0001051 | grad=0.102996 | cos(A0,At)=+0.999529 | cos(Aprev,At)=+0.999646
+step=0038 | loss=0.0799687 | geo=0.0798632 | presK=0.0021104 | grad=0.103942 | cos(A0,At)=+0.999546 | cos(Aprev,At)=+0.999639
+step=0039 | loss=0.0806094 | geo=0.0805155 | presK=0.0018771 | grad=0.107253 | cos(A0,At)=+0.999544 | cos(Aprev,At)=+0.999670
+step=0040 | loss=0.0801884 | geo=0.0801623 | presK=0.0005218 | grad=0.105944 | cos(A0,At)=+0.999509 | cos(Aprev,At)=+0.999597
+
+================================================================================================================================================================
+CRYSTALLIZATION X-RAY @ STEP 40
+VALIDATION | SEASC OFF | MOTOR OFF | NO INJECTION
+================================================================================================================================================================
+Mean target distance : 11.90686347
+Mean target progress : +15.6283%
+Mean alignment       : +0.52253309
+Required correction  : 84.3717% of original dose-distance
+L00 | D=1.027093 | P=+1.348% | C=+0.167415 | R=98.652%
+L01 | D=2.332419 | P=+4.947% | C=+0.317575 | R=95.053%
+L02 | D=3.654816 | P=+7.123% | C=+0.374415 | R=92.877%
+L03 | D=4.252580 | P=+10.145% | C=+0.444545 | R=89.855%
+L04 | D=5.466474 | P=+10.965% | C=+0.468757 | R=89.035%
+L05 | D=7.167207 | P=+14.467% | C=+0.519387 | R=85.533%
+L06 | D=8.108473 | P=+10.980% | C=+0.455608 | R=89.020%
+L07 | D=9.215095 | P=+10.477% | C=+0.450346 | R=89.523%
+L08 | D=12.048618 | P=+10.496% | C=+0.455871 | R=89.504%
+L09 | D=11.422536 | P=+14.428% | C=+0.518108 | R=85.572%
+L10 | D=11.741918 | P=+23.347% | C=+0.642216 | R=76.653%
+L11 | D=12.299131 | P=+22.501% | C=+0.632705 | R=77.499%
+L12 | D=13.155684 | P=+20.806% | C=+0.615030 | R=79.194%
+L13 | D=13.985831 | P=+22.933% | C=+0.641482 | R=77.067%
+L14 | D=15.688058 | P=+20.379% | C=+0.615950 | R=79.621%
+L15 | D=16.573243 | P=+20.940% | C=+0.627468 | R=79.060%
+L16 | D=18.541794 | P=+20.777% | C=+0.627343 | R=79.223%
+L17 | D=21.511414 | P=+19.824% | C=+0.603819 | R=80.176%
+L18 | D=23.612699 | P=+21.521% | C=+0.619909 | R=78.479%
+L19 | D=26.332186 | P=+24.162% | C=+0.652711 | R=75.838%
+
+>>> NEW CRYSTALLIZATION BEST <<<
+step      : 40
+progress  : +15.6283%
+distance  : 11.90686347
+alignment : +0.52253309
+step=0041 | loss=0.0799951 | geo=0.0799591 | presK=0.0007208 | grad=0.107380 | cos(A0,At)=+0.999486 | cos(Aprev,At)=+0.999570
+step=0042 | loss=0.0798102 | geo=0.0798000 | presK=0.0002059 | grad=0.107896 | cos(A0,At)=+0.999472 | cos(Aprev,At)=+0.999605
+step=0043 | loss=0.0778870 | geo=0.0778838 | presK=0.0000640 | grad=0.103512 | cos(A0,At)=+0.999468 | cos(Aprev,At)=+0.999611
+step=0044 | loss=0.0793114 | geo=0.0788190 | presK=0.0098472 | grad=0.119282 | cos(A0,At)=+0.999462 | cos(Aprev,At)=+0.999644
+step=0045 | loss=0.0787752 | geo=0.0785547 | presK=0.0044088 | grad=0.110237 | cos(A0,At)=+0.999476 | cos(Aprev,At)=+0.999616
+step=0046 | loss=0.0775001 | geo=0.0774979 | presK=0.0000450 | grad=0.106144 | cos(A0,At)=+0.999424 | cos(Aprev,At)=+0.999622
+step=0047 | loss=0.0777757 | geo=0.0777665 | presK=0.0001848 | grad=0.108508 | cos(A0,At)=+0.999442 | cos(Aprev,At)=+0.999615
+step=0048 | loss=0.0775190 | geo=0.0775169 | presK=0.0000434 | grad=0.107944 | cos(A0,At)=+0.999421 | cos(Aprev,At)=+0.999617
+step=0049 | loss=0.0794402 | geo=0.0794096 | presK=0.0006123 | grad=0.122568 | cos(A0,At)=+0.999425 | cos(Aprev,At)=+0.999610
+step=0050 | loss=0.0775437 | geo=0.0775348 | presK=0.0001772 | grad=0.113326 | cos(A0,At)=+0.999457 | cos(Aprev,At)=+0.999606
+
+================================================================================================================================================================
+CRYSTALLIZATION X-RAY @ STEP 50
+VALIDATION | SEASC OFF | MOTOR OFF | NO INJECTION
+================================================================================================================================================================
+Mean target distance : 11.96434407
+Mean target progress : +15.2279%
+Mean alignment       : +0.54116445
+Required correction  : 84.7721% of original dose-distance
+L00 | D=1.034185 | P=+0.667% | C=+0.175304 | R=99.333%
+L01 | D=2.339779 | P=+4.647% | C=+0.316494 | R=95.353%
+L02 | D=3.640832 | P=+7.478% | C=+0.388222 | R=92.522%
+L03 | D=4.223410 | P=+10.761% | C=+0.459507 | R=89.239%
+L04 | D=5.388110 | P=+12.241% | C=+0.481028 | R=87.759%
+L05 | D=7.538189 | P=+10.039% | C=+0.523705 | R=89.961%
+L06 | D=8.212140 | P=+9.841% | C=+0.471649 | R=90.159%
+L07 | D=9.107837 | P=+11.518% | C=+0.474976 | R=88.482%
+L08 | D=11.799789 | P=+12.344% | C=+0.484199 | R=87.656%
+L09 | D=11.153376 | P=+16.442% | C=+0.560228 | R=83.558%
+L10 | D=11.580082 | P=+24.399% | C=+0.665769 | R=75.601%
+L11 | D=12.260723 | P=+22.738% | C=+0.657599 | R=77.262%
+L12 | D=13.432677 | P=+19.135% | C=+0.631714 | R=80.865%
+L13 | D=14.618012 | P=+19.449% | C=+0.649643 | R=80.551%
+L14 | D=16.231400 | P=+17.621% | C=+0.634903 | R=82.379%
+L15 | D=17.075016 | P=+18.546% | C=+0.649301 | R=81.454%
+L16 | D=19.003721 | P=+18.804% | C=+0.650993 | R=81.196%
+L17 | D=21.603014 | P=+19.483% | C=+0.627525 | R=80.517%
+L18 | D=23.319559 | P=+22.495% | C=+0.643648 | R=77.505%
+L19 | D=25.725031 | P=+25.910% | C=+0.676885 | R=74.090%
+
+No new best.
+patience: 1/5
+step=0051 | loss=0.0781496 | geo=0.0781108 | presK=0.0007754 | grad=0.116106 | cos(A0,At)=+0.999394 | cos(Aprev,At)=+0.999644
+step=0052 | loss=0.0769652 | geo=0.0768397 | presK=0.0025103 | grad=0.113220 | cos(A0,At)=+0.999441 | cos(Aprev,At)=+0.999629
+step=0053 | loss=0.0779595 | geo=0.0778774 | presK=0.0016424 | grad=0.118461 | cos(A0,At)=+0.999380 | cos(Aprev,At)=+0.999636
+step=0054 | loss=0.0773766 | geo=0.0773633 | presK=0.0002652 | grad=0.119932 | cos(A0,At)=+0.999337 | cos(Aprev,At)=+0.999593
+step=0055 | loss=0.0773315 | geo=0.0773166 | presK=0.0002966 | grad=0.119241 | cos(A0,At)=+0.999387 | cos(Aprev,At)=+0.999634
+step=0056 | loss=0.0793131 | geo=0.0792895 | presK=0.0004725 | grad=0.127510 | cos(A0,At)=+0.999363 | cos(Aprev,At)=+0.999624
+step=0057 | loss=0.0773206 | geo=0.0771019 | presK=0.0043733 | grad=0.121718 | cos(A0,At)=+0.999345 | cos(Aprev,At)=+0.999636
+step=0058 | loss=0.0772172 | geo=0.0770222 | presK=0.0038995 | grad=0.124208 | cos(A0,At)=+0.999340 | cos(Aprev,At)=+0.999606
+step=0059 | loss=0.0779147 | geo=0.0778283 | presK=0.0017290 | grad=0.129164 | cos(A0,At)=+0.999283 | cos(Aprev,At)=+0.999612
+step=0060 | loss=0.0772590 | geo=0.0771000 | presK=0.0031801 | grad=0.126963 | cos(A0,At)=+0.999294 | cos(Aprev,At)=+0.999628
+
+================================================================================================================================================================
+CRYSTALLIZATION X-RAY @ STEP 60
+VALIDATION | SEASC OFF | MOTOR OFF | NO INJECTION
+================================================================================================================================================================
+Mean target distance : 12.48626379
+Mean target progress : +11.5097%
+Mean alignment       : +0.55404723
+Required correction  : 88.4903% of original dose-distance
+L00 | D=1.047782 | P=-0.639% | C=+0.194909 | R=100.639%
+L01 | D=2.440918 | P=+0.526% | C=+0.316212 | R=99.474%
+L02 | D=3.723280 | P=+5.382% | C=+0.400098 | R=94.618%
+L03 | D=4.346098 | P=+8.168% | C=+0.473125 | R=91.832%
+L04 | D=5.488561 | P=+10.605% | C=+0.492188 | R=89.395%
+L05 | D=8.364843 | P=+0.175% | C=+0.530544 | R=99.825%
+L06 | D=8.692430 | P=+4.569% | C=+0.486610 | R=95.431%
+L07 | D=9.376324 | P=+8.910% | C=+0.495591 | R=91.090%
+L08 | D=12.156045 | P=+9.696% | C=+0.500349 | R=90.304%
+L09 | D=11.484614 | P=+13.959% | C=+0.585809 | R=86.041%
+L10 | D=12.012979 | P=+21.572% | C=+0.677884 | R=78.428%
+L11 | D=12.938618 | P=+18.464% | C=+0.667231 | R=81.536%
+L12 | D=14.239338 | P=+14.276% | C=+0.641178 | R=85.724%
+L13 | D=16.209311 | P=+10.680% | C=+0.645854 | R=89.320%
+L14 | D=17.636147 | P=+10.491% | C=+0.640240 | R=89.509%
+L15 | D=18.117040 | P=+13.575% | C=+0.663502 | R=86.425%
+L16 | D=19.877449 | P=+15.071% | C=+0.669197 | R=84.929%
+L17 | D=22.088917 | P=+17.672% | C=+0.645500 | R=82.328%
+L18 | D=23.536729 | P=+21.773% | C=+0.661606 | R=78.227%
+L19 | D=25.947852 | P=+25.268% | C=+0.693318 | R=74.732%
+
+No new best.
+patience: 2/5
+step=0061 | loss=0.0769511 | geo=0.0764802 | presK=0.0094189 | grad=0.133784 | cos(A0,At)=+0.999241 | cos(Aprev,At)=+0.999627
+step=0062 | loss=0.0765059 | geo=0.0765024 | presK=0.0000708 | grad=0.125798 | cos(A0,At)=+0.999261 | cos(Aprev,At)=+0.999656
+step=0063 | loss=0.0770297 | geo=0.0770188 | presK=0.0002185 | grad=0.132718 | cos(A0,At)=+0.999208 | cos(Aprev,At)=+0.999575
+step=0064 | loss=0.0770132 | geo=0.0768319 | presK=0.0036270 | grad=0.133233 | cos(A0,At)=+0.999221 | cos(Aprev,At)=+0.999554
+step=0065 | loss=0.0766232 | geo=0.0766218 | presK=0.0000277 | grad=0.132631 | cos(A0,At)=+0.999192 | cos(Aprev,At)=+0.999625
+step=0066 | loss=0.0776286 | geo=0.0775879 | presK=0.0008143 | grad=0.134855 | cos(A0,At)=+0.999191 | cos(Aprev,At)=+0.999635
+step=0067 | loss=0.0785736 | geo=0.0785651 | presK=0.0001700 | grad=0.143615 | cos(A0,At)=+0.999198 | cos(Aprev,At)=+0.999643
+step=0068 | loss=0.0792747 | geo=0.0792571 | presK=0.0003528 | grad=0.145483 | cos(A0,At)=+0.999096 | cos(Aprev,At)=+0.999616
+step=0069 | loss=0.0790261 | geo=0.0790215 | presK=0.0000909 | grad=0.149978 | cos(A0,At)=+0.999027 | cos(Aprev,At)=+0.999544
+step=0070 | loss=0.0776174 | geo=0.0776132 | presK=0.0000846 | grad=0.144202 | cos(A0,At)=+0.999165 | cos(Aprev,At)=+0.999588
+
+================================================================================================================================================================
+CRYSTALLIZATION X-RAY @ STEP 70
+VALIDATION | SEASC OFF | MOTOR OFF | NO INJECTION
+================================================================================================================================================================
+Mean target distance : 13.64491969
+Mean target progress : +2.9303%
+Mean alignment       : +0.55567679
+Required correction  : 97.0697% of original dose-distance
+L00 | D=1.070412 | P=-2.813% | C=+0.216692 | R=102.813%
+L01 | D=2.691714 | P=-9.697% | C=+0.314898 | R=109.697%
+L02 | D=3.929851 | P=+0.132% | C=+0.408105 | R=99.868%
+L03 | D=4.638025 | P=+2.000% | C=+0.484049 | R=98.000%
+L04 | D=5.833238 | P=+4.991% | C=+0.496270 | R=95.009%
+L05 | D=9.711026 | P=-15.890% | C=+0.529061 | R=115.890%
+L06 | D=9.769017 | P=-7.251% | C=+0.486829 | R=107.251%
+L07 | D=10.456459 | P=-1.584% | C=+0.495450 | R=101.584%
+L08 | D=13.858268 | P=-2.952% | C=+0.496751 | R=102.952%
+L09 | D=13.094573 | P=+1.899% | C=+0.583694 | R=98.101%
+L10 | D=13.652501 | P=+10.871% | C=+0.666091 | R=89.129%
+L11 | D=14.984282 | P=+5.575% | C=+0.649661 | R=94.425%
+L12 | D=15.826986 | P=+4.717% | C=+0.636678 | R=95.283%
+L13 | D=18.552071 | P=-2.230% | C=+0.634089 | R=102.230%
+L14 | D=19.814325 | P=-0.564% | C=+0.634030 | R=100.564%
+L15 | D=19.885358 | P=+5.139% | C=+0.666046 | R=94.861%
+L16 | D=21.240091 | P=+9.249% | C=+0.677778 | R=90.751%
+L17 | D=22.992167 | P=+14.306% | C=+0.655471 | R=85.694%
+L18 | D=24.136698 | P=+19.780% | C=+0.676108 | R=80.220%
+L19 | D=26.761332 | P=+22.926% | C=+0.705785 | R=77.074%
+
+No new best.
+patience: 3/5
+
+>>> OVERSHOOT DETECTED <<<
+Best progress   : +15.6283%
+Current progress: +2.9303%
+
+================================================================================================================================================================
+TRAINING STOPPED
+================================================================================================================================================================
+Training start : 2026-09-22T23:31:42+00:00
+Training end   : 2026-09-22T23:33:15+00:00
+Training time  : 1.549 minutes
+Updates/sec    : 0.753167
+Last step      : 70
+Best step      : 40
+Reason         : OVERSHOOT_DETECTED
+Best progress  : +15.6283%
+GPU energy     : 2.6329 Wh (0.002633 kWh)
+Mean GPU power : 102.33 W
+Peak GPU power : 122.77 W
+Power samples  : 178
+
+Reloading clean base + BEST adapter...
+
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 99.23it/s]
+================================================================================================================================================================
+FINAL TEST UNLOCKED
+================================================================================================================================================================
+Final-test opened: 2026-09-22T23:33:23+00:00
+This set was not used for gradients, preservation, equilibrium detection, or BEST selection.
+FINAL TEST BEST 01/24
+FINAL TEST BEST 02/24
+FINAL TEST BEST 03/24
+FINAL TEST BEST 04/24
+FINAL TEST BEST 05/24
+FINAL TEST BEST 06/24
+FINAL TEST BEST 07/24
+FINAL TEST BEST 08/24
+FINAL TEST BEST 09/24
+FINAL TEST BEST 10/24
+FINAL TEST BEST 11/24
+FINAL TEST BEST 12/24
+FINAL TEST BEST 13/24
+FINAL TEST BEST 14/24
+FINAL TEST BEST 15/24
+FINAL TEST BEST 16/24
+FINAL TEST BEST 17/24
+FINAL TEST BEST 18/24
+FINAL TEST BEST 19/24
+FINAL TEST BEST 20/24
+FINAL TEST BEST 21/24
+FINAL TEST BEST 22/24
+FINAL TEST BEST 23/24
+FINAL TEST BEST 24/24
+
+BEST ADAPTER — LOCKED FINAL TEST:
+Progress : +15.5864%
+Distance : 11.89699223
+Alignment: +0.52183012
+
+================================================================================================================================================================
+MERGING BEST CRYSTALLIZED STATE
+================================================================================================================================================================
+LoRA runtime : REMOVED
+SEASC hooks  : NONE
+Motor        : OFF
+Merge relative hidden drift: 1.7620712519e-02
+Merge status: MERGE_DRIFT_REQUIRES_REVIEW
+
+Running FINAL MERGED motor-OFF examination...
+FINAL MERGED 01/24
+FINAL MERGED 02/24
+FINAL MERGED 03/24
+FINAL MERGED 04/24
+FINAL MERGED 05/24
+FINAL MERGED 06/24
+FINAL MERGED 07/24
+FINAL MERGED 08/24
+FINAL MERGED 09/24
+FINAL MERGED 10/24
+FINAL MERGED 11/24
+FINAL MERGED 12/24
+FINAL MERGED 13/24
+FINAL MERGED 14/24
+FINAL MERGED 15/24
+FINAL MERGED 16/24
+FINAL MERGED 17/24
+FINAL MERGED 18/24
+FINAL MERGED 19/24
+FINAL MERGED 20/24
+FINAL MERGED 21/24
+FINAL MERGED 22/24
+FINAL MERGED 23/24
+FINAL MERGED 24/24
+
+FINAL MERGED — LOCKED FINAL TEST:
+Progress : +15.7881%
+Distance : 11.85074069
+Alignment: +0.52318825
+
+================================================================================================================================================================
+24-QUESTION LOCKED FINAL-TEST BEHAVIOR COMPARISON
+================================================================================================================================================================
+
+QUESTION 01
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A blue notebook is on the table. The small lamp is positioned above the blue notebook. Describe their relative spatial positions precisely.
+
+BASE 01:
+The blue notebook is placed on the surface of the table, while the small lamp is situated directly above it, hanging from or perched somewhere near the ceiling such that its light can illuminate the area where the blue notebook rests on the table.
+
+CRYSTALLIZED BEST 01:
+The blue notebook is placed on the surface of the table, and directly below it, there is a small lamp that is positioned above the notebook. This means the lamp is located in an overhead position relative to the notebook on the table.
+
+FINAL MERGED 01:
+The blue notebook is placed on the surface of the table, and directly below it, there is a small lamp that is positioned above the notebook. This means the lamp is located in an overhead position relative to the notebook on the table.
+
+GEOMETRY:
+Progress : +15.8453%
+Alignment: +0.524663
+
+QUESTION 02
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A orange cone is on the platform. The green pear is positioned above the orange cone. Describe their relative spatial positions precisely.
+
+BASE 02:
+The orange cone is placed on the platform, and directly above it, suspended or resting, is the green pear. This means the green pear is in an elevated position compared to the orange cone, which sits flat on the surface of the platform.
+
+CRYSTALLIZED BEST 02:
+The orange cone is situated on the platform, and directly above it, hanging or placed in such a way that the green pear is positioned above the orange cone. This means the green pear is either resting on top of the orange cone or suspended immediately above it, creating an overlying relationship where one object (the green pear) is vertically above another (the orange cone), which itself is supported by the platform.
+
+FINAL MERGED 02:
+The orange cone is situated on the platform, and directly above it, suspended or placed in such a way that the green pear is positioned above the orange cone. This means the green pear is not touching the platform but rather is located vertically above the point where the orange cone rests on the platform.
+
+GEOMETRY:
+Progress : +15.4836%
+Alignment: +0.517351
+
+QUESTION 03
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A orange cone is on the platform. The blue cup is positioned above the orange cone. Describe their relative spatial positions precisely.
+
+BASE 03:
+The orange cone is placed on the platform, and directly above it, suspended or resting, is the blue cup. This means the blue cup is in an elevated position compared to the orange cone, which sits flat on the surface of the platform.
+
+CRYSTALLIZED BEST 03:
+The orange cone is situated on the platform, and directly above it, the blue cup is positioned. This means that if you were to look down at the platform from an overhead perspective, the blue cup would be immediately above the point where the orange cone touches the surface of the platform.
+
+FINAL MERGED 03:
+The orange cone is situated on the platform, and directly above it, the blue cup is positioned. This means that if you were to look down at the platform from an overhead perspective, the blue cup would be immediately above the point where the orange cone touches the surface of the platform.
+
+GEOMETRY:
+Progress : +15.7917%
+Alignment: +0.523186
+
+QUESTION 04
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A purple vase is on the platform. The wooden box is positioned below the purple vase. Describe their relative spatial positions precisely.
+
+BASE 04:
+The purple vase is placed on top of the platform, while the wooden box is situated directly beneath it, underneath the platform's surface or structure. This means that if you were to look at the setup from above, the purple vase would be visible and the wooden box hidden from view unless the platform has openings or is transparent in those areas.
+
+CRYSTALLIZED BEST 04:
+The purple vase is placed on top of the platform, and directly above it, with a wooden box positioned beneath the vase on the same platform. This arrangement places the wooden box at a lower level than the purple vase, which sits atop the platform while the box rests underneath it on the same surface.
+
+FINAL MERGED 04:
+The purple vase is placed on top of the platform, and directly above it. The wooden box is situated beneath the purple vase, resting on or near the same surface as the platform but at a lower level than the vase itself.
+
+GEOMETRY:
+Progress : +16.2997%
+Alignment: +0.529178
+
+QUESTION 05
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A glass bottle is on the shelf. The green pear is positioned below the glass bottle. Describe their relative spatial positions precisely.
+
+BASE 05:
+The glass bottle is placed on the shelf, and directly beneath it, hanging or lying down, is the green pear. This means that if you were to look at the shelf from above, the green pear would be located in a position lower than where the glass bottle sits on the same horizontal plane of the shelf.
+
+CRYSTALLIZED BEST 05:
+The glass bottle is placed on the shelf, and directly beneath it, hanging or lying down, is the green pear. This means that if you were to look at the shelf from above, the green pear would be located immediately underneath the glass bottle in terms of vertical positioning.
+
+FINAL MERGED 05:
+The glass bottle is placed on the shelf, and directly beneath it, hanging or lying down, is the green pear. This means that if you were to look at the shelf from above, the green pear would be located immediately underneath the point where the glass bottle touches the surface of the shelf.
+
+GEOMETRY:
+Progress : +15.7796%
+Alignment: +0.522159
+
+QUESTION 06
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A glass bottle is on the shelf. The red apple is positioned above the glass bottle. Describe their relative spatial positions precisely.
+
+BASE 06:
+The red apple is situated directly above the glass bottle, meaning it is in an elevated position compared to the bottle which rests on the shelf below it.
+
+CRYSTALLIZED BEST 06:
+The red apple is positioned directly above the glass bottle, meaning it is higher in elevation and resting or hanging over the top of the glass bottle which sits on the shelf below it.
+
+FINAL MERGED 06:
+The red apple is positioned directly above the glass bottle, meaning it is higher in elevation and resting or hanging over the top of the glass bottle which sits on the shelf below it.
+
+GEOMETRY:
+Progress : +15.8947%
+Alignment: +0.525522
+
+QUESTION 07
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A blue notebook is on the desk. The yellow ball is positioned below the blue notebook. Describe their relative spatial positions precisely.
+
+BASE 07:
+The blue notebook is placed on top of the desk, while the yellow ball is located directly beneath it, resting either on the surface of the desk or possibly slightly lower than the edge of the notebook depending on its size and position.
+
+CRYSTALLIZED BEST 07:
+The blue notebook is placed on top of the desk, while the yellow ball is located directly beneath it, resting either on the surface of the desk or possibly slightly lower than the edge of the notebook depending on its position and orientation.
+
+FINAL MERGED 07:
+The blue notebook is placed on top of the desk, while the yellow ball is located directly beneath it, resting either on the surface of the desk or possibly slightly lower than the edge of the notebook depending on its position and orientation.
+
+GEOMETRY:
+Progress : +16.1266%
+Alignment: +0.527589
+
+QUESTION 08
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A white plate is on the shelf. The green pear is positioned below the white plate. Describe their relative spatial positions precisely.
+
+BASE 08:
+The white plate is placed on the shelf, and directly beneath it hangs the green pear. This means that if you were to look at the shelf from above, the green pear would be located immediately underneath the area where the white plate rests on the shelf.
+
+CRYSTALLIZED BEST 08:
+The white plate is placed on the shelf, and directly beneath it, hanging down from the same horizontal plane of the shelf, is the green pear. This means that if you were to look at this setup from above, the green pear would appear immediately under the area where the white plate rests on the shelf.
+
+FINAL MERGED 08:
+The white plate is placed on the shelf, and directly beneath it, hanging down from the same horizontal plane of the shelf, is the green pear. This means that if you were to look at this setup from above, the green pear would appear immediately under the area where the white plate rests on the shelf.
+
+GEOMETRY:
+Progress : +15.4954%
+Alignment: +0.518823
+
+QUESTION 09
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A metal tray is on the shelf. The small lamp is positioned below the metal tray. Describe their relative spatial positions precisely.
+
+BASE 09:
+The metal tray is placed on top of the shelf, while the small lamp is located directly beneath it, hanging or sitting in such a way that it is positioned lower than the metal tray and above any surface underneath the shelf.
+
+CRYSTALLIZED BEST 09:
+The metal tray is placed on top of the shelf, while the small lamp is located directly beneath it, hanging or sitting in such a way that it is positioned lower than the metal tray and above any surface underneath the shelf.
+
+FINAL MERGED 09:
+The metal tray is placed on top of the shelf, while the small lamp is located directly beneath it, hanging or sitting in such a way that it is positioned lower than the metal tray and above any surface underneath the shelf.
+
+GEOMETRY:
+Progress : +15.6194%
+Alignment: +0.520225
+
+QUESTION 10
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A grey stone is on the table. The blue cup is positioned above the grey stone. Describe their relative spatial positions precisely.
+
+BASE 10:
+The grey stone is placed on the surface of the table, and directly below it, there is a blue cup that is positioned above the grey stone. This means the blue cup is not touching the table but is instead situated in such a way that its bottom is over the top of the grey stone which rests on the table's surface.
+
+CRYSTALLIZED BEST 10:
+The grey stone is placed on the surface of the table, and directly below it, there is a blue cup that is positioned above the grey stone. This means the blue cup is not in contact with the table but rather situated over the grey stone, which itself rests on the table's surface.
+
+FINAL MERGED 10:
+The grey stone is placed on the surface of the table, and directly below it, there is a blue cup that is positioned above the grey stone. This means the blue cup is in an elevated position compared to the grey stone, likely resting or hovering over it without making contact, creating a vertical separation between them both on the same horizontal plane defined by the table's surface.
+
+GEOMETRY:
+Progress : +15.6826%
+Alignment: +0.520808
+
+QUESTION 11
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A metal tray is on the table. The yellow ball is positioned above the metal tray. Describe their relative spatial positions precisely.
+
+BASE 11:
+The yellow ball is positioned directly above the metal tray, which is resting on the table. This means that if you were to look down at the setup from directly above, the metal tray would be visible on the table surface, and the yellow ball would appear floating in space immediately over it without touching either the tray or the table.
+
+CRYSTALLIZED BEST 11:
+The metal tray is resting flat on the surface of the table, while the yellow ball is positioned directly above it, not in contact with either the tray or the table. There is space between the bottom of the yellow ball and the top surface of the metal tray.
+
+FINAL MERGED 11:
+The metal tray is resting flat on the surface of the table, while the yellow ball is positioned directly above it, not in contact with either the tray or the table. There is space between the bottom of the yellow ball and the top surface of the metal tray.
+
+GEOMETRY:
+Progress : +15.4875%
+Alignment: +0.520595
+
+QUESTION 12
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A white plate is on the platform. The yellow ball is positioned above the white plate. Describe their relative spatial positions precisely.
+
+BASE 12:
+The yellow ball is directly above the white plate, meaning it is in an elevated position compared to the white plate which rests flat on the platform.
+
+CRYSTALLIZED BEST 12:
+The yellow ball is directly above the white plate, meaning it is in an elevated position with respect to the plate, likely suspended or placed such that its bottom surface does not touch the top surface of the plate but maintains a vertical distance between them.
+
+FINAL MERGED 12:
+The yellow ball is directly above the white plate, meaning it is in an elevated position with respect to the plate, likely suspended or placed such that its bottom surface does not touch the top surface of the plate but maintains a vertical orientation over it.
+
+GEOMETRY:
+Progress : +15.8694%
+Alignment: +0.524649
+
+QUESTION 13
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A blue notebook is on the platform. The silver key is positioned below the blue notebook. Describe their relative spatial positions precisely.
+
+BASE 13:
+The blue notebook is placed on the platform, and directly beneath it, hanging or lying flat, is the silver key. This means that if you were to draw an imaginary vertical line from the top of the blue notebook down to the surface where the key rests, this line would pass through both objects, indicating the direct vertical alignment with the blue notebook above and the silver key below.
+
+CRYSTALLIZED BEST 13:
+The blue notebook is placed on the platform, and directly beneath it, hanging or lying in such a way that its position is lower than the top of the notebook, is the silver key. This means there is an exact vertical alignment where the bottom edge of the blue notebook corresponds to the upper part (or entirety) of the silver key's location.
+
+FINAL MERGED 13:
+The blue notebook is placed on the platform, and directly beneath it, hanging or lying in such a way that its position is lower than the top of the notebook, is the silver key. This means there is an exact vertical alignment where the bottom edge of the blue notebook corresponds to the upper part (or entirety) of the silver key's location.
+
+GEOMETRY:
+Progress : +15.3747%
+Alignment: +0.517584
+
+QUESTION 14
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A white plate is on the table. The green pear is positioned above the white plate. Describe their relative spatial positions precisely.
+
+BASE 14:
+The green pear is directly above the white plate, meaning it is in an elevated position compared to the plate which rests flat on the surface of the table.
+
+CRYSTALLIZED BEST 14:
+The green pear is positioned directly above the white plate, meaning it is in an elevated position relative to the plate, likely hanging over or floating above it without touching the surface of the table where the plate rests.
+
+FINAL MERGED 14:
+The green pear is positioned directly above the white plate, meaning it is in an elevated position relative to the plate which rests flat on the surface of the table.
+
+GEOMETRY:
+Progress : +15.4884%
+Alignment: +0.519672
+
+QUESTION 15
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A orange cone is on the counter. The green pear is positioned above the orange cone. Describe their relative spatial positions precisely.
+
+BASE 15:
+The green pear is positioned directly above the orange cone, meaning it is in an elevated position compared to the orange cone which rests flat on the counter surface.
+
+CRYSTALLIZED BEST 15:
+The green pear is positioned directly above the orange cone, meaning it is in an elevated position compared to the orange cone which rests on the counter surface.
+
+FINAL MERGED 15:
+The green pear is positioned directly above the orange cone, meaning it is in an elevated position compared to the orange cone which rests on the counter surface.
+
+GEOMETRY:
+Progress : +15.6214%
+Alignment: +0.520022
+
+QUESTION 16
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A orange cone is on the counter. The yellow ball is positioned above the orange cone. Describe their relative spatial positions precisely.
+
+BASE 16:
+The yellow ball is directly above the orange cone, meaning it is in an elevated position compared to the orange cone which is resting on the counter surface.
+
+CRYSTALLIZED BEST 16:
+The yellow ball is positioned directly above the orange cone, meaning it is in an elevated position compared to the orange cone which rests on the counter surface.
+
+FINAL MERGED 16:
+The yellow ball is positioned directly above the orange cone, meaning it is in an elevated position compared to the orange cone which rests on the counter surface.
+
+GEOMETRY:
+Progress : +15.7615%
+Alignment: +0.521681
+
+QUESTION 17
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A brown chair is on the table. The wooden box is positioned below the brown chair. Describe their relative spatial positions precisely.
+
+BASE 17:
+The brown chair is placed on top of the table, and directly beneath it, there is a wooden box positioned below the chair. This means that if you were to look at this setup from above, the table would be at the bottom level, followed by the brown chair perched upon it, with the wooden box situated underneath the chair but still above any surface beneath the table.
+
+CRYSTALLIZED BEST 17:
+The brown chair is placed on top of the table, and directly above it. Below the brown chair, there is a wooden box positioned beneath it. Therefore, the spatial relationship can be described as follows:
+
+- The brown chair is on the table.
+- The wooden box is underneath (below) the brown chair.
+
+This arrangement places the wooden box in a lower position compared to both the table and the brown chair.
+
+FINAL MERGED 17:
+The brown chair is placed on top of the table, and directly above it. Below the brown chair, there is a wooden box positioned beneath it. Therefore, the spatial relationship can be described as follows:
+
+- The brown chair is on the table.
+- The wooden box is underneath the brown chair, which means it is also under the table but not touching it; instead, it is resting between the floor and the bottom part of the chair.
+
+GEOMETRY:
+Progress : +16.2254%
+Alignment: +0.529924
+
+QUESTION 18
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A purple vase is on the table. The black book is positioned below the purple vase. Describe their relative spatial positions precisely.
+
+BASE 18:
+The purple vase is placed on top of the table, and directly above it, hanging slightly or in front of it (depending on how "below" is interpreted). The black book is situated beneath the purple vase, either resting flat on the surface of the table or possibly even partially under the vase if the vase is tall enough to accommodate this arrangement. If we assume standard interpretations:
+
+- The purple vase occupies an upper position.
+- The black book occupies a lower position.
+
+This means that when looking at the setup from the side where the table's edge can be seen, you would first see the black book, then the part of the purple vase that extends over the table, followed by more of the purple vase extending upwards beyond the table’s edge.
+
+CRYSTALLIZED BEST 18:
+The purple vase is placed on top of the table, and directly above it, with a black book positioned beneath the vase. This means the black book is located underneath or lower than the purple vase, both resting on the surface of the table.
+
+FINAL MERGED 18:
+The purple vase is placed on top of the table, and directly above it, with a black book positioned beneath the vase. This means the black book is located underneath or lower than the purple vase, both resting on the surface of the table.
+
+GEOMETRY:
+Progress : +16.4063%
+Alignment: +0.532060
+
+QUESTION 19
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A brown chair is on the platform. The wooden box is positioned above the brown chair. Describe their relative spatial positions precisely.
+
+BASE 19:
+The brown chair is situated on the platform, and directly above it, there is a wooden box resting or placed in such a way that it is positioned over the brown chair. This means the wooden box is elevated compared to the brown chair, likely sitting on top of it or very close to it without touching the ground, creating an overhead arrangement where the box occupies space above the chair's location on the platform.
+
+CRYSTALLIZED BEST 19:
+The brown chair is situated on the platform, and directly below it, there is a wooden box that is positioned above the brown chair. This means the wooden box is in an elevated position compared to the brown chair, likely resting or placed such that its bottom surface is higher than the top of the brown chair.
+
+FINAL MERGED 19:
+The brown chair is situated on the platform, and directly above it, there is a wooden box positioned in such a way that it rests or hangs over the top of the brown chair. This implies that if you were to look down from an overhead perspective, the wooden box would appear immediately above the brown chair, possibly covering part or all of its surface area depending on how it is placed.
+
+GEOMETRY:
+Progress : +15.6911%
+Alignment: +0.521851
+
+QUESTION 20
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A orange cone is on the shelf. The small lamp is positioned below the orange cone. Describe their relative spatial positions precisely.
+
+BASE 20:
+The orange cone is placed on the shelf, and directly beneath it, hanging or sitting, is the small lamp. This means that if you were looking at the shelf from above, the small lamp would be located immediately underneath the point where the orange cone touches the surface of the shelf.
+
+CRYSTALLIZED BEST 20:
+The orange cone is placed on the shelf, and directly beneath it, hanging or sitting, is the small lamp. This means that if you were to look at the setup from above, the orange cone would be visible on the surface of the shelf, with the small lamp located immediately underneath it, either resting on the same horizontal plane as the bottom edge of the cone or hanging slightly lower depending on its mounting position.
+
+FINAL MERGED 20:
+The orange cone is placed on the shelf, and directly beneath it, hanging or sitting, is the small lamp. This means that if you were to look at the setup from above, the orange cone would be visible on the surface of the shelf, with the small lamp located immediately underneath it, either resting on the same horizontal plane as the bottom edge of the cone or hanging slightly lower depending on its mounting position.
+
+GEOMETRY:
+Progress : +15.6980%
+Alignment: +0.519101
+
+QUESTION 21
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A purple vase is on the platform. The green pear is positioned above the purple vase. Describe their relative spatial positions precisely.
+
+BASE 21:
+The purple vase is placed on the platform, and directly above it, suspended or resting, is the green pear. This means the green pear is in an elevated position compared to the purple vase, which sits flat on the surface of the platform.
+
+CRYSTALLIZED BEST 21:
+The purple vase is situated on the platform, and the green pear is positioned directly above it in space. This means that if you were to look down at the platform from an overhead perspective, the green pear would appear directly over the purple vase, indicating that the pear is elevated higher than the level of the platform where the vase rests.
+
+FINAL MERGED 21:
+The purple vase is situated on the platform, and the green pear is positioned directly above it in space. This means that if you were to look down at the platform from an overhead perspective, the green pear would appear directly over the purple vase, indicating that the pear is elevated higher than the level of the platform where the vase rests.
+
+GEOMETRY:
+Progress : +16.1294%
+Alignment: +0.528291
+
+QUESTION 22
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A blue notebook is on the platform. The wooden box is positioned below the blue notebook. Describe their relative spatial positions precisely.
+
+BASE 22:
+The blue notebook is placed on top of the platform, while the wooden box is located directly beneath it on the same surface, implying that if you were to look down at the platform from above, you would see the blue notebook first and then the wooden box underneath it.
+
+CRYSTALLIZED BEST 22:
+The blue notebook is placed on top of the platform, while the wooden box is situated directly beneath it, underneath the platform's surface. This means that if you were to look down from above, you would see the blue notebook first and then, below it, the wooden box. If viewed from the side, the blue notebook would appear higher up than the wooden box.
+
+FINAL MERGED 22:
+The blue notebook is placed on top of the platform, while the wooden box is located directly beneath it on the same surface. This means that if you were to look at the setup from above, the blue notebook would be visible and the wooden box would be underneath it, both resting on the platform.
+
+GEOMETRY:
+Progress : +15.5344%
+Alignment: +0.522298
+
+QUESTION 23
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A metal tray is on the desk. The silver key is positioned below the metal tray. Describe their relative spatial positions precisely.
+
+BASE 23:
+The metal tray is placed on the desk, and directly beneath it, hanging or lying in such a way that its position is lower than the metal tray, there is a silver key. This means if you were to look at the desk from above, the silver key would appear below the area covered by the metal tray.
+
+CRYSTALLIZED BEST 23:
+The metal tray is placed on the desk, and directly beneath it, hanging or lying in such a way that its position is lower than the metal tray, there is the silver key. This means the silver key is situated underneath the metal tray with respect to the vertical plane of the desk.
+
+FINAL MERGED 23:
+The metal tray is placed on the desk, and directly beneath it, hanging or lying in such a way that its position is lower than the metal tray, there is the silver key. This means the silver key is situated either resting underneath the metal tray or perhaps dangling from something (like a string) below the plane of the metal tray, depending on how "below" is interpreted in this context.
+
+GEOMETRY:
+Progress : +15.4127%
+Alignment: +0.520581
+
+QUESTION 24
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A brown chair is on the platform. The yellow ball is positioned above the brown chair. Describe their relative spatial positions precisely.
+
+BASE 24:
+The brown chair is situated on the platform, and directly below it is the yellow ball, which is positioned above the brown chair. This means that if you were to look down from above, you would see the yellow ball hovering over the brown chair, while if you were standing at ground level on the platform, you would observe the brown chair beneath the yellow ball.
+
+CRYSTALLIZED BEST 24:
+The brown chair is situated on the platform, and directly below it is the yellow ball, which is positioned above the brown chair. This means that if you were to look down from above, you would see the yellow ball hovering over the brown chair, while if you were standing at ground level on the platform, you would observe the brown chair beneath the yellow ball.
+
+FINAL MERGED 24:
+The brown chair is situated on the platform, and directly below it is the yellow ball, which is positioned above the brown chair. This means that if you were to look down from above, you would see the yellow ball hovering over the brown chair, while if you were standing at ground level looking up, you would first encounter the brown chair before seeing the yellow ball above it.
+
+GEOMETRY:
+Progress : +16.1951%
+Alignment: +0.528706
+
+==========================================================================================================================================================================
+TEST 144-R2 — AKBASCORE 3.0 CRYSTALLIZATION COMPLETE
+==========================================================================================================================================================================
+
+TIMESTAMPS
+Experiment start     : 2026-09-22T23:28:49+00:00
+Training start       : 2026-09-22T23:31:42+00:00
+Training end         : 2026-09-22T23:33:15+00:00
+Final-test opened    : 2026-09-22T23:33:23+00:00
+Experiment end       : 2026-09-22T23:35:22+00:00
+
+TIME
+Training duration    : 1.549 min
+Complete experiment  : 6.540 min
+Updates/sec          : 0.753167
+
+TRAINING
+Last update          : 70
+Best update          : 40
+Stop reason          : OVERSHOOT_DETECTED
+
+VALIDATION BEST — MOTOR OFF
+Target progress      : +15.6283%
+Target distance      : 11.90686347
+Direction alignment  : +0.52253309
+
+LOCKED FINAL TEST — FINAL MERGED MOTOR OFF
+Target progress      : +15.7881%
+Target distance      : 11.85074069
+Direction alignment  : +0.52318825
+
+ENERGY
+Measured GPU energy : 2.6329 Wh
+Measured GPU energy : 0.002633 kWh
+Mean board power     : 102.33 W
+Peak board power     : 122.77 W
+Power samples        : 178
+Scope                : GPU BOARD ONLY
+
+MERGE
+Hidden drift         : 1.7620712519e-02
+Status               : MERGE_DRIFT_REQUIRES_REVIEW
+
+BEHAVIOR — LOCKED FINAL TEST
+BEST changed         : 22/24
+FINAL changed        : 23/24
+BASE/BEST Jaccard    : 0.559778
+BASE/FINAL Jaccard   : 0.549912
+
+FINAL MODEL
+AkbasCore motor      : OFF
+SEASC injection      : OFF
+Forward hooks        : NONE
+LoRA runtime         : REMOVED
+Best adaptation      : MERGED INTO WEIGHTS
+
+PERFORMANCE RECORD
+AkbasCore 3.0 completed endogenous closed-loop representation crystallization training on Qwen2.5-7B-Instruct using NVIDIA A100-SXM4-40GB in 1.549 minutes. The automatic motor-off validation controller selected update 40 as the best observed crystallized state; training stopped at update 70 with reason OVERSHOOT_DETECTED. The untouched final-test set was opened only after BEST-state selection. Final merged motor-off target progress on that locked set was +15.7881% with directional alignment +0.523188. Measured GPU board energy during crystallization training was 2.633 Wh (0.002633 kWh), with a time-weighted mean board power of 102.33 W and an observed peak of 122.77 W. This measurement covers GPU board power only and does not represent total host, cooling, networking, or datacenter energy.
+
+JPEG FILES:
+OK | TEST144_R2_01_CRYSTALLIZATION_CURVE.jpg | JPEG | RGB | (3495, 1729)
+OK | TEST144_R2_02_DIRECTIONAL_ALIGNMENT.jpg | JPEG | RGB | (3496, 1732)
+OK | TEST144_R2_03_REMAINING_CORRECTION.jpg | JPEG | RGB | (3496, 1732)
+OK | TEST144_R2_04_PER_UPDATE_COMPASS.jpg | JPEG | RGB | (3496, 1729)
+OK | TEST144_R2_05_LAYERWISE_BEST.jpg | JPEG | RGB | (3496, 1729)
+OK | TEST144_R2_06_PCA_CRYSTALLIZATION.jpg | JPEG | RGB | (2836, 2170)
+OK | TEST144_R2_07_FINAL_TEST_FULL_VECTOR_PROFILE.jpg | JPEG | RGB | (3936, 1512)
+OK | TEST144_R2_08_FINAL_TEST_TOP50_COORDINATES.jpg | JPEG | RGB | (3275, 2390)
+OK | TEST144_R2_09_FINAL_TEST_BEHAVIOR_CHANGE.jpg | JPEG | RGB | (2616, 1729)
+OK | TEST144_R2_10_LOSS_AND_BEST_POINT.jpg | JPEG | RGB | (3493, 1732)
+OK | TEST144_R2_11_GPU_POWER_AND_ENERGY.jpg | JPEG | RGB | (3496, 1729)
+OK | TEST144_R2_12_PER_QUESTION_FINAL_TEST_GEOMETRY.jpg | JPEG | RGB | (3715, 1729)
+
+Complete ZIP: /content/TEST144_R2_AKBASCORE_3_CRYSTALLIZATION_COMPLETE.zip
+
+Downloading the three primary records...
+
+==========================================================================================================================================================================
+AKBASCORE 3.0 CRYSTALLIZATION REPLICATION FINISHED
+==========================================================================================================================================================================
+Training completed in 1.549 minutes.
+BEST motor-off validation state: update 40.
+Locked final-test motor-off progress: +15.7881%.
+Measured GPU board energy during crystallization training: 2.633 Wh (0.002633 kWh).
+Final model state: AkbasCore OFF | SEASC OFF | hooks NONE | LoRA runtime REMOVED | BEST adaptation MERGED.
+==========================================================================================================================================================================
+
