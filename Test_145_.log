@@ -1,0 +1,193 @@
+ ninja ...
+Installing reportlab ...
+==============================================================================================================
+TEST 142 — SEASC VECTOR X-RAY
+AKBASCORE 3.0 — VANILLA vs SEASC HIDDEN-STATE COORDINATE ASSAY
+==============================================================================================================
+PyTorch : 2.11.0+cu128
+CUDA    : 12.8
+GPU     : NVIDIA A100-SXM4-40GB
+
+LOCKED SEASC 3.0 CONFIG
+--------------------------------------------------------------------------------------------------------------
+MODEL : Qwen/Qwen2.5-7B-Instruct
+LAYERS: L0-L19
+IVME=0.1 | SONUM=0.3 | ZIRVE=0.7 | TABAN=0.2
+Concept: ABOVE <-> BELOW
+
+Static normalized DRA envelope:
+L00 | E=1.000000 | requested relative dose=10.000%
+L01 | E=0.971272 | requested relative dose=9.713%
+L02 | E=0.905188 | requested relative dose=9.052%
+L03 | E=0.823042 | requested relative dose=8.230%
+L04 | E=0.737599 | requested relative dose=7.376%
+L05 | E=0.656086 | requested relative dose=6.561%
+L06 | E=0.582206 | requested relative dose=5.822%
+L07 | E=0.517478 | requested relative dose=5.175%
+L08 | E=0.462121 | requested relative dose=4.621%
+L09 | E=0.415625 | requested relative dose=4.156%
+L10 | E=0.377115 | requested relative dose=3.771%
+L11 | E=0.345576 | requested relative dose=3.456%
+L12 | E=0.319980 | requested relative dose=3.200%
+L13 | E=0.299366 | requested relative dose=2.994%
+L14 | E=0.282871 | requested relative dose=2.829%
+L15 | E=0.269744 | requested relative dose=2.697%
+L16 | E=0.259348 | requested relative dose=2.593%
+L17 | E=0.251148 | requested relative dose=2.511%
+L18 | E=0.244705 | requested relative dose=2.447%
+L19 | E=0.239658 | requested relative dose=2.397%
+
+[1/10] C++ / CUDA SEASC kernel compiling...
+OK — CUDA kernel compiled.
+
+[2/10] Loading frozen model: Qwen/Qwen2.5-7B-Instruct
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 81.9kB/s]
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 660kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 81.6MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 68.5MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 127MB/s]
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.12MB/s]
+Download complete: : 
+
+ 13.1GB,  396MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  610MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:39<00:00,  6.03s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 99.71it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 28.3kB/s]
+Model ready.
+Decoder layers : 28
+Hidden size    : 3584
+dtype          : torch.bfloat16
+weights frozen : True
+
+[3/10] Extracting original ABOVE states...
+[4/10] Extracting original BELOW states...
+[5/10] Building original SEASC per-layer actuators...
+L00 | raw contrast norm=1.601886 | unit actuator norm=1.000000
+L01 | raw contrast norm=1.974164 | unit actuator norm=1.000000
+L02 | raw contrast norm=2.814075 | unit actuator norm=1.000000
+L03 | raw contrast norm=7.407696 | unit actuator norm=1.000000
+L04 | raw contrast norm=7.282032 | unit actuator norm=1.000000
+L05 | raw contrast norm=7.441541 | unit actuator norm=1.000000
+L06 | raw contrast norm=8.020885 | unit actuator norm=1.000000
+L07 | raw contrast norm=11.543870 | unit actuator norm=1.000000
+L08 | raw contrast norm=14.744291 | unit actuator norm=1.000000
+L09 | raw contrast norm=13.090476 | unit actuator norm=1.000000
+L10 | raw contrast norm=13.293571 | unit actuator norm=1.000000
+L11 | raw contrast norm=13.848494 | unit actuator norm=1.000000
+L12 | raw contrast norm=14.509543 | unit actuator norm=1.000000
+L13 | raw contrast norm=15.025572 | unit actuator norm=1.000000
+L14 | raw contrast norm=14.570271 | unit actuator norm=1.000000
+L15 | raw contrast norm=15.216175 | unit actuator norm=1.000000
+L16 | raw contrast norm=15.280499 | unit actuator norm=1.000000
+L17 | raw contrast norm=15.771996 | unit actuator norm=1.000000
+L18 | raw contrast norm=16.026615 | unit actuator norm=1.000000
+L19 | raw contrast norm=17.407801 | unit actuator norm=1.000000
+
+TEST PROMPT
+--------------------------------------------------------------------------------------------------------------
+A red apple is on the table. A green pear is positioned to its right. Describe their relative spatial positions precisely.
+
+Prompt token count : 50
+Captured position  : 49
+Captured token id  : 198
+Captured token     : '\n'
+
+[6/10] Capturing VANILLA L0-L19 coordinates...
+OK — Vanilla coordinates captured.
+
+[7/10] Capturing SEASC L0-L19 coordinates...
+OK — SEASC coordinates captured.
+
+[8/10] Generating VANILLA response...
+[9/10] Generating SEASC response...
+
+======================================================================================================================================================
+TEST 142 — L0-L19 SEASC VECTOR X-RAY MEASUREMENT TABLE
+======================================================================================================================================================
+| Layer | E(L) | Req Dose | ||hV|| | ||hS|| | ||u|| req | ||u|| real | ||delta|| | RelDelta | theta rad | theta deg | cos(delta,A) | cos(u,A) |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| L00 | 1.000000 | 10.000% | 10.422050 | 10.512616 | 1.042206 | 1.042244 | 1.042244 | 10.000% | 0.099227 | 5.685° | +0.999908 | +0.999908 |
+| L01 | 0.971272 | 9.713% | 15.189178 | 15.639720 | 1.485151 | 1.488095 | 2.441867 | 16.076% | 0.155866 | 8.930° | +0.927340 | +0.999800 |
+| L02 | 0.905188 | 9.052% | 18.483568 | 19.162769 | 1.696617 | 1.690842 | 3.933561 | 21.281% | 0.206233 | 11.816° | +0.803390 | +0.999714 |
+| L03 | 0.823042 | 8.230% | 19.279478 | 19.681694 | 1.602432 | 1.600669 | 4.723524 | 24.500% | 0.242194 | 13.877° | +0.548365 | +0.999791 |
+| L04 | 0.737599 | 7.376% | 22.555656 | 23.282999 | 1.692514 | 1.690587 | 6.155781 | 27.292% | 0.267531 | 15.328° | +0.622621 | +0.999763 |
+| L05 | 0.656086 | 6.561% | 31.948189 | 31.594543 | 2.031842 | 2.024836 | 8.322220 | 26.049% | 0.262458 | 15.038° | +0.586375 | +0.999749 |
+| L06 | 0.582206 | 5.822% | 31.518852 | 31.704340 | 1.818462 | 1.816066 | 9.023734 | 28.630% | 0.286373 | 16.408° | +0.515612 | +0.999706 |
+| L07 | 0.517478 | 5.175% | 31.750296 | 32.056492 | 1.644508 | 1.644081 | 10.186324 | 32.083% | 0.320514 | 18.364° | +0.369324 | +0.999572 |
+| L08 | 0.462121 | 4.621% | 34.267574 | 35.602608 | 1.632738 | 1.634003 | 13.281793 | 38.759% | 0.380620 | 21.808° | +0.290148 | +0.999422 |
+| L09 | 0.415625 | 4.156% | 39.439697 | 39.919819 | 1.644749 | 1.646472 | 13.423754 | 34.036% | 0.339721 | 19.465° | +0.318983 | +0.998671 |
+| L10 | 0.377115 | 3.771% | 42.076683 | 41.336269 | 1.548925 | 1.546473 | 15.559746 | 36.979% | 0.374858 | 21.478° | +0.290847 | +0.999237 |
+| L11 | 0.345576 | 3.456% | 45.259285 | 44.033783 | 1.514892 | 1.517181 | 15.844810 | 35.009% | 0.355735 | 20.382° | +0.287728 | +0.998408 |
+| L12 | 0.319980 | 3.200% | 47.142380 | 47.247169 | 1.506315 | 1.511361 | 16.476810 | 34.951% | 0.350912 | 20.106° | +0.264858 | +0.998605 |
+| L13 | 0.299366 | 2.994% | 56.598095 | 55.784374 | 1.666308 | 1.668398 | 17.794353 | 31.440% | 0.317684 | 18.202° | +0.288660 | +0.998416 |
+| L14 | 0.282871 | 2.829% | 64.002373 | 63.586636 | 1.794817 | 1.795884 | 19.382408 | 30.284% | 0.304936 | 17.472° | +0.325177 | +0.999161 |
+| L15 | 0.269744 | 2.697% | 62.232979 | 65.697426 | 1.769489 | 1.772278 | 20.798191 | 33.420% | 0.322113 | 18.456° | +0.324476 | +0.998024 |
+| L16 | 0.259348 | 2.593% | 65.759163 | 67.888138 | 1.756069 | 1.756068 | 23.213232 | 35.300% | 0.347707 | 19.922° | +0.335185 | +0.998573 |
+| L17 | 0.251148 | 2.511% | 71.743942 | 72.982277 | 1.828737 | 1.829040 | 26.611616 | 37.092% | 0.369462 | 21.169° | +0.321878 | +0.998515 |
+| L18 | 0.244705 | 2.447% | 80.123543 | 77.984764 | 1.900907 | 1.913783 | 29.937210 | 37.364% | 0.380040 | 21.775° | +0.313427 | +0.995266 |
+| L19 | 0.239658 | 2.397% | 94.281143 | 89.932236 | 2.150403 | 2.151612 | 34.792812 | 36.903% | 0.377116 | 21.607° | +0.313656 | +0.998359 
+
+|---:|---:|---:|---:|---:|---:|
+| 1 | 3197 | -0.8828125 | -2.4375000 | -1.5546875 | 1.5546875 |
+| 2 | 2940 | -2.7656250 | -1.3281250 | +1.4375000 | 1.4375000 |
+| 3 | 2030 | +2.0937500 | +0.7734375 | -1.3203125 | 1.3203125 |
+| 4 | 1625 | +0.1601562 | -1.1171875 | -1.2773438 | 1.2773438 |
+| 5 | 2557 | +0.0000000 | -1.2500000 | -1.2500000 | 1.2500000 |
+| 6 | 1381 | +0.2968750 | -0.9218750 | -1.2187500 | 1.2187500 |
+| 7 | 160 | -1.5156250 | -0.3183594 | +1.1972656 | 1.1972656 |
+| 8 | 1024 | -0.6093750 | +0.5820312 | +1.1914062 | 1.1914062 |
+| 9 | 1082 | -3.2187500 | -2.0312500 | +1.1875000 | 1.1875000 |
+| 10 | 3490 | -1.2187500 | -2.4062500 | -1.1875000 | 1.1875000 |
+| 11 | 1467 | +2.3906250 | +1.2031250 | -1.1875000 | 1.1875000 |
+| 12 | 2567 | +0.5078125 | +1.6953125 | +1.1875000 | 1.1875000 |
+| 13 | 960 | +0.1572266 | +1.3437500 | +1.1865234 | 1.1865234 |
+| 14 | 66 | +0.6171875 | -0.5625000 | -1.1796875 | 1.1796875 |
+| 15 | 2275 | -1.2343750 | -2.4062500 | -1.1718750 | 1.1718750 |
+| 16 | 3579 | -0.6757812 | +0.4648438 | +1.1406250 | 1.1406250 |
+
+[10/10] Creating phone-friendly JPG files...
+JPG OK -> TEST142_01_L14_FULL_VECTOR_PROFILE.jpg
+JPG OK -> TEST142_02_L14_TOP50_CHANGES.jpg
+JPG OK -> TEST142_03_20_LAYER_PCA_TRAJECTORY.jpg
+JPG OK -> TEST142_04_ANGULAR_DIVERGENCE.jpg
+JPG OK -> TEST142_05_ACTUATOR_VS_DISPLACEMENT.jpg
+
+PDF OK -> /content/TEST142_SEASC_VECTOR_XRAY_REPORT.pdf
+
+======================================================================================================================================================
+TEST 142 — FINAL PHONE FILE CHECK
+======================================================================================================================================================
+[OK] TEST142_SEASC_VECTOR_XRAY_REPORT.pdf                            0.010 MB
+[OK] TEST142_01_L14_FULL_VECTOR_PROFILE.jpg                          0.452 MB
+[OK] TEST142_02_L14_TOP50_CHANGES.jpg                                0.581 MB
+[OK] TEST142_03_20_LAYER_PCA_TRAJECTORY.jpg                          0.326 MB
+[OK] TEST142_04_ANGULAR_DIVERGENCE.jpg                               0.324 MB
+[OK] TEST142_05_ACTUATOR_VS_DISPLACEMENT.jpg                         0.455 MB
+
