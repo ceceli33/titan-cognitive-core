@@ -1,0 +1,6642 @@
+# =============================================================================
+# TEST 144-R2 — AKBASCORE 3.0 CRYSTALLIZATION REPLICATION
+# "AKBAŞ MOTORU İLE KRİSTALİZASYON"
+#
+# ENDOGENOUS CLOSED-LOOP REPRESENTATION CRYSTALLIZATION
+#
+# Model : Qwen/Qwen2.5-7B-Instruct
+# GPU   : A100 40GB
+# Author: Akbaş — Independent Researcher
+#
+# ---------------------------------------------------------------------------
+# SCIENTIFIC DESIGN
+# ---------------------------------------------------------------------------
+#
+# TRAIN      : 64 prompts
+# VALIDATION : 24 prompts
+#              Used ONLY for motor-OFF equilibrium / BEST-state selection.
+#
+# FINAL TEST : 24 additional prompts
+#              NEVER used for:
+#              - gradients
+#              - preservation loss
+#              - equilibrium detection
+#              - BEST-state selection
+#
+# FINAL TEST is opened only after training has stopped and BEST has been
+# restored.
+#
+# ---------------------------------------------------------------------------
+# CORE CRYSTALLIZATION LOOP
+# ---------------------------------------------------------------------------
+#
+# M_t
+#   -> endogenous compass A_t extracted from model's own representation space
+#   -> transient SEASC teaching target constructed using A_t
+#   -> ONE optimizer update
+#   -> M_(t+1)
+#   -> endogenous compass re-extracted
+#   -> ...
+#
+# Immutable A0 and original SEASC target T0 NEVER MOVE.
+#
+# Current A_t controls teaching.
+# Immutable T0 controls scientific validation.
+#
+# Training terminates automatically from MOTOR-OFF validation geometry.
+# The best observed state is restored.
+#
+# FINAL STATE:
+#   AkbasCore motor : OFF
+#   SEASC injection : OFF
+#   Forward hooks   : NONE
+#   LoRA runtime    : REMOVED
+#   Best adaptation : MERGED INTO MODEL WEIGHTS
+#
+# ---------------------------------------------------------------------------
+# ENERGY ACCOUNTING
+# ---------------------------------------------------------------------------
+#
+# During crystallization training, GPU board power is sampled from:
+#
+#     nvidia-smi --query-gpu=power.draw
+#
+# Samples are numerically integrated over time (trapezoidal integration).
+#
+# Reported energy therefore means:
+#
+#     MEASURED GPU BOARD ENERGY
+#
+# It is NOT total datacenter / host / cooling / facility energy.
+#
+# If telemetry is unavailable, energy is explicitly reported as NOT MEASURED.
+#
+# =============================================================================
+
+
+# =============================================================================
+# 0. STDLIB FIRST — TIMESTAMP + ENVIRONMENT
+# =============================================================================
+
+import sys
+import os
+import subprocess
+import importlib.metadata as md
+import datetime
+import threading
+import time
+
+
+EXPERIMENT_START_WALL = time.time()
+EXPERIMENT_START_DT = datetime.datetime.now().astimezone()
+EXPERIMENT_START_ISO = EXPERIMENT_START_DT.isoformat(timespec="seconds")
+
+
+print("=" * 160)
+print("TEST 144-R2 — AKBASCORE 3.0 CRYSTALLIZATION REPLICATION")
+print("ENDOGENOUS CLOSED-LOOP REPRESENTATION CRYSTALLIZATION")
+print("=" * 160)
+print("Experiment start :", EXPERIMENT_START_ISO)
+
+
+def pkg_version(name):
+    try:
+        return md.version(name)
+    except Exception:
+        return "NOT INSTALLED"
+
+
+print("\nENVIRONMENT PREPARATION")
+print("-" * 160)
+print("Python       :", sys.version.split()[0])
+print("PyTorch pkg  :", pkg_version("torch"))
+print("Transformers :", pkg_version("transformers"))
+print("PEFT         :", pkg_version("peft"))
+print("Pillow       :", pkg_version("Pillow"))
+print("torchao      :", pkg_version("torchao"))
+
+
+try:
+    _torchao = md.version("torchao")
+except md.PackageNotFoundError:
+    _torchao = None
+
+
+if _torchao is not None:
+
+    print(f"\nRemoving optional incompatible torchao {_torchao}...")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "uninstall",
+            "-y",
+            "torchao",
+        ],
+        text=True,
+        capture_output=True,
+    )
+
+    print(result.stdout)
+
+    for name in list(sys.modules.keys()):
+        if name == "torchao" or name.startswith("torchao."):
+            del sys.modules[name]
+
+
+try:
+    _remaining = md.version("torchao")
+except md.PackageNotFoundError:
+    _remaining = None
+
+
+if _remaining is not None:
+    raise RuntimeError(
+        "torchao could not be removed. Restart runtime and execute this cell."
+    )
+
+
+print("torchao      : NOT INSTALLED — PASS")
+
+
+# =============================================================================
+# 1. IMPORTS
+# =============================================================================
+
+import gc
+import math
+import json
+import random
+import shutil
+import warnings
+
+import numpy as np
+import pandas as pd
+
+import torch
+import torch.nn.functional as F
+
+import matplotlib
+matplotlib.use("Agg")
+
+import matplotlib.pyplot as plt
+
+from PIL import Image
+from sklearn.decomposition import PCA
+
+import transformers
+import peft
+
+from transformers import (
+    AutoTokenizer,
+    AutoModelForCausalLM,
+)
+
+from peft import (
+    LoraConfig,
+    get_peft_model,
+    PeftModel,
+)
+
+
+plt.ioff()
+warnings.filterwarnings("ignore")
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+
+# =============================================================================
+# 2. ENVIRONMENT LOCK
+# =============================================================================
+
+print("\n" + "=" * 160)
+print("ENVIRONMENT LOCK")
+print("=" * 160)
+
+print("PyTorch      :", torch.__version__)
+print("Transformers :", transformers.__version__)
+print("PEFT         :", peft.__version__)
+print("CUDA         :", torch.version.cuda)
+
+if not torch.cuda.is_available():
+    raise RuntimeError("CUDA GPU required.")
+
+DEVICE = torch.device("cuda")
+
+GPU_NAME = torch.cuda.get_device_name(0)
+
+props = torch.cuda.get_device_properties(0)
+
+GPU_VRAM_GB = props.total_memory / 1024**3
+
+print("GPU          :", GPU_NAME)
+print("VRAM         :", f"{GPU_VRAM_GB:.2f} GB")
+
+
+# =============================================================================
+# 3. REPRODUCIBILITY
+# =============================================================================
+
+SEED = 42
+
+random.seed(SEED)
+np.random.seed(SEED)
+
+torch.manual_seed(SEED)
+torch.cuda.manual_seed_all(SEED)
+
+torch.backends.cuda.matmul.allow_tf32 = True
+
+
+# =============================================================================
+# 4. LOCKED EXPERIMENT CONFIGURATION
+# =============================================================================
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+
+N_LAYERS = 20
+
+HARD_MAX_UPDATES = 2000
+
+
+# -----------------------------------------------------------------------------
+# DRA / SEASC — LOCKED DOSE LAW
+# -----------------------------------------------------------------------------
+
+IVME = 0.10
+
+SONUM = 0.30
+ZIRVE = 0.70
+TABAN = 0.20
+
+
+# -----------------------------------------------------------------------------
+# Training
+# -----------------------------------------------------------------------------
+
+LEARNING_RATE = 2.0e-5
+
+LAMBDA_GEOMETRY = 1.0
+LAMBDA_PRESERVE = 0.05
+
+GRAD_CLIP = 1.0
+
+LORA_R = 8
+LORA_ALPHA = 16
+LORA_DROPOUT = 0.0
+
+MAX_TRAIN_TOKENS = 128
+
+PRESERVE_TOP_K = 256
+
+
+# -----------------------------------------------------------------------------
+# Dataset
+# -----------------------------------------------------------------------------
+
+N_VALIDATION = 24
+N_FINAL_TEST = 24
+N_TRAIN = 64
+
+
+# -----------------------------------------------------------------------------
+# CLOSED-LOOP EQUILIBRIUM DETECTOR
+# -----------------------------------------------------------------------------
+
+EVAL_EVERY = 10
+
+MIN_UPDATES_BEFORE_STOP = 50
+
+PATIENCE_EVALS = 5
+
+OVERSHOOT_PROGRESS_DROP = 0.05
+
+ALIGNMENT_FLOOR = 0.0
+
+
+# -----------------------------------------------------------------------------
+# Behavioral generation
+# -----------------------------------------------------------------------------
+
+REPETITION_PENALTY = 1.15
+
+
+SYSTEM_PROMPT = (
+    "You are a concise visual reasoning assistant. "
+    "Describe spatial relationships clearly."
+)
+
+
+# -----------------------------------------------------------------------------
+# GPU POWER TELEMETRY
+# -----------------------------------------------------------------------------
+
+POWER_SAMPLE_INTERVAL = 0.50
+
+
+# -----------------------------------------------------------------------------
+# Output
+# -----------------------------------------------------------------------------
+
+OUT_DIR = "/content/test144_r2_akbascore_crystallization"
+
+BEST_DIR = os.path.join(
+    OUT_DIR,
+    "BEST_ADAPTER",
+)
+
+LAST_DIR = os.path.join(
+    OUT_DIR,
+    "LAST_ADAPTER",
+)
+
+os.makedirs(
+    OUT_DIR,
+    exist_ok=True,
+)
+
+
+# =============================================================================
+# 5. GPU POWER SAMPLER
+# =============================================================================
+
+POWER_SAMPLES = []
+
+POWER_TELEMETRY_AVAILABLE = False
+
+POWER_THREAD = None
+
+POWER_STOP_EVENT = threading.Event()
+
+
+def read_gpu_power_watts():
+
+    try:
+
+        result = subprocess.run(
+            [
+                "nvidia-smi",
+                "--query-gpu=power.draw",
+                "--format=csv,noheader,nounits",
+                "-i",
+                "0",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+
+        if result.returncode != 0:
+            return None
+
+        line = result.stdout.strip().splitlines()[0]
+
+        value = float(line.strip())
+
+        if math.isfinite(value) and value >= 0:
+            return value
+
+    except Exception:
+        pass
+
+    return None
+
+
+def power_sampler_worker():
+
+    while not POWER_STOP_EVENT.is_set():
+
+        p = read_gpu_power_watts()
+
+        if p is not None:
+
+            POWER_SAMPLES.append(
+                {
+                    "wall_time": time.time(),
+                    "power_watts": float(p),
+                }
+            )
+
+        POWER_STOP_EVENT.wait(
+            POWER_SAMPLE_INTERVAL
+        )
+
+
+def start_power_sampler():
+
+    global POWER_THREAD
+    global POWER_TELEMETRY_AVAILABLE
+
+    test_power = read_gpu_power_watts()
+
+    if test_power is None:
+
+        POWER_TELEMETRY_AVAILABLE = False
+
+        print(
+            "\nGPU power telemetry: NOT AVAILABLE"
+        )
+
+        return
+
+    POWER_TELEMETRY_AVAILABLE = True
+
+    POWER_SAMPLES.append(
+        {
+            "wall_time": time.time(),
+            "power_watts": float(test_power),
+        }
+    )
+
+    POWER_STOP_EVENT.clear()
+
+    POWER_THREAD = threading.Thread(
+        target=power_sampler_worker,
+        daemon=True,
+    )
+
+    POWER_THREAD.start()
+
+    print(
+        "\nGPU power telemetry: PASS"
+    )
+
+    print(
+        "Initial GPU board power:",
+        f"{test_power:.2f} W"
+    )
+
+
+def stop_power_sampler():
+
+    if POWER_THREAD is not None:
+
+        POWER_STOP_EVENT.set()
+
+        POWER_THREAD.join(
+            timeout=5.0
+        )
+
+
+def integrate_energy(samples):
+
+    if len(samples) < 2:
+
+        return {
+            "measured": False,
+            "samples": len(samples),
+            "energy_wh": None,
+            "energy_kwh": None,
+            "mean_power_w": None,
+            "min_power_w": None,
+            "max_power_w": None,
+            "telemetry_duration_seconds": None,
+        }
+
+
+    ordered = sorted(
+        samples,
+        key=lambda x: x["wall_time"],
+    )
+
+
+    t = np.asarray(
+        [
+            x["wall_time"]
+            for x in ordered
+        ],
+        dtype=np.float64,
+    )
+
+
+    p = np.asarray(
+        [
+            x["power_watts"]
+            for x in ordered
+        ],
+        dtype=np.float64,
+    )
+
+
+    duration = float(
+        t[-1] - t[0]
+    )
+
+
+    if duration <= 0:
+
+        return {
+            "measured": False,
+            "samples": len(samples),
+            "energy_wh": None,
+            "energy_kwh": None,
+            "mean_power_w": None,
+            "min_power_w": None,
+            "max_power_w": None,
+            "telemetry_duration_seconds": duration,
+        }
+
+
+    energy_joules = float(
+        np.trapezoid(
+            p,
+            t,
+        )
+    )
+
+
+    energy_wh = (
+        energy_joules
+        / 3600.0
+    )
+
+
+    time_weighted_mean_power = (
+        energy_joules
+        / duration
+    )
+
+
+    return {
+        "measured": True,
+        "samples": int(len(samples)),
+        "energy_wh": float(energy_wh),
+        "energy_kwh": float(
+            energy_wh / 1000.0
+        ),
+        "mean_power_w": float(
+            time_weighted_mean_power
+        ),
+        "min_power_w": float(
+            np.min(p)
+        ),
+        "max_power_w": float(
+            np.max(p)
+        ),
+        "telemetry_duration_seconds": duration,
+    }
+
+
+# =============================================================================
+# 6. DRA ENVELOPE
+# =============================================================================
+
+def dra_envelope(layer_idx):
+
+    t = float(layer_idx)
+
+    x = (
+        ZIRVE
+        * math.exp(-SONUM * t)
+        * (1.0 + SONUM * t)
+        + TABAN
+    )
+
+    return x / (ZIRVE + TABAN)
+
+
+ENVELOPE = [
+    dra_envelope(L)
+    for L in range(N_LAYERS)
+]
+
+
+RELATIVE_DOSE = [
+    IVME * x
+    for x in ENVELOPE
+]
+
+
+print("\n" + "=" * 160)
+print("LOCKED SEASC")
+print("=" * 160)
+
+for L in range(N_LAYERS):
+
+    print(
+        f"L{L:02d} | "
+        f"E={ENVELOPE[L]:.6f} | "
+        f"dose={100*RELATIVE_DOSE[L]:.3f}%"
+    )
+
+
+# =============================================================================
+# 7. ORIGINAL ABOVE <-> BELOW COMPASS CORPUS
+# =============================================================================
+
+POSITIVE = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+
+NEGATIVE = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+
+# =============================================================================
+# 8. PROMPT CORPUS
+# =============================================================================
+
+OBJECTS_A = [
+    "red apple",
+    "blue cup",
+    "small lamp",
+    "wooden box",
+    "green pear",
+    "silver key",
+    "yellow ball",
+    "black book",
+]
+
+
+OBJECTS_B = [
+    "white plate",
+    "glass bottle",
+    "brown chair",
+    "metal tray",
+    "purple vase",
+    "orange cone",
+    "grey stone",
+    "blue notebook",
+]
+
+
+SURFACES = [
+    "table",
+    "desk",
+    "shelf",
+    "platform",
+    "counter",
+]
+
+
+RELATIONS = [
+    "above",
+    "below",
+]
+
+
+def make_prompt(a, b, surface, relation):
+
+    return (
+        f"A {b} is on the {surface}. "
+        f"The {a} is positioned {relation} the {b}. "
+        f"Describe their relative spatial positions precisely."
+    )
+
+
+all_prompts = []
+
+
+for a in OBJECTS_A:
+    for b in OBJECTS_B:
+        for surface in SURFACES:
+            for relation in RELATIONS:
+
+                all_prompts.append(
+                    make_prompt(
+                        a,
+                        b,
+                        surface,
+                        relation,
+                    )
+                )
+
+
+rng = random.Random(SEED)
+
+rng.shuffle(all_prompts)
+
+
+# IMPORTANT:
+# First 24 are identical to TEST144's old held-out set.
+# They are now correctly named VALIDATION because they select BEST.
+VALIDATION_PROMPTS = all_prompts[
+    :N_VALIDATION
+]
+
+
+# Completely untouched final examination set.
+FINAL_TEST_PROMPTS = all_prompts[
+    N_VALIDATION:
+    N_VALIDATION + N_FINAL_TEST
+]
+
+
+# Training begins only after BOTH evaluation partitions.
+TRAIN_START = (
+    N_VALIDATION
+    + N_FINAL_TEST
+)
+
+
+TRAIN_PROMPTS = all_prompts[
+    TRAIN_START:
+    TRAIN_START + N_TRAIN
+]
+
+
+assert len(VALIDATION_PROMPTS) == N_VALIDATION
+assert len(FINAL_TEST_PROMPTS) == N_FINAL_TEST
+assert len(TRAIN_PROMPTS) == N_TRAIN
+
+assert not (
+    set(TRAIN_PROMPTS)
+    & set(VALIDATION_PROMPTS)
+)
+
+assert not (
+    set(TRAIN_PROMPTS)
+    & set(FINAL_TEST_PROMPTS)
+)
+
+assert not (
+    set(VALIDATION_PROMPTS)
+    & set(FINAL_TEST_PROMPTS)
+)
+
+
+print("\nDATA SPLIT")
+print("-" * 160)
+print("Train prompts      :", N_TRAIN)
+print("Validation prompts :", N_VALIDATION)
+print("Final-test prompts :", N_FINAL_TEST)
+print("Final test locked  : YES")
+
+
+# =============================================================================
+# 9. TOKENIZER
+# =============================================================================
+
+print("\n[1] Loading tokenizer...")
+
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_ID,
+    trust_remote_code=True,
+)
+
+
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+
+def encode_chat(prompt):
+
+    messages = [
+        {
+            "role": "system",
+            "content": SYSTEM_PROMPT,
+        },
+        {
+            "role": "user",
+            "content": prompt,
+        },
+    ]
+
+
+    text = tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True,
+    )
+
+
+    enc = tokenizer(
+        text,
+        return_tensors="pt",
+        truncation=True,
+        max_length=MAX_TRAIN_TOKENS,
+    )
+
+
+    return {
+        k: v.to(DEVICE)
+        for k, v in enc.items()
+    }
+
+
+# =============================================================================
+# 10. LOAD IMMUTABLE BASE
+# =============================================================================
+
+print("\n[2] Loading immutable base...")
+
+
+base = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    dtype=torch.bfloat16,
+    device_map={"": 0},
+    attn_implementation="sdpa",
+    trust_remote_code=True,
+)
+
+
+base.eval()
+
+
+for p in base.parameters():
+    p.requires_grad_(False)
+
+
+HIDDEN_SIZE = int(
+    base.config.hidden_size
+)
+
+
+MODEL_LAYER_COUNT = len(
+    base.model.layers
+)
+
+
+print("Hidden size :", HIDDEN_SIZE)
+print("Layers      :", MODEL_LAYER_COUNT)
+
+
+# =============================================================================
+# 11. GENERIC COMPASS EXTRACTION
+# =============================================================================
+
+@torch.inference_mode()
+def extract_compass(model):
+
+    was_training = model.training
+
+    model.eval()
+
+
+    pos_acc = [
+        torch.zeros(
+            HIDDEN_SIZE,
+            device=DEVICE,
+            dtype=torch.float32,
+        )
+        for _ in range(N_LAYERS)
+    ]
+
+
+    neg_acc = [
+        torch.zeros(
+            HIDDEN_SIZE,
+            device=DEVICE,
+            dtype=torch.float32,
+        )
+        for _ in range(N_LAYERS)
+    ]
+
+
+    for texts, accum in [
+        (POSITIVE, pos_acc),
+        (NEGATIVE, neg_acc),
+    ]:
+
+        for text in texts:
+
+            enc = tokenizer(
+                text,
+                return_tensors="pt",
+                add_special_tokens=True,
+            )
+
+
+            enc = {
+                k: v.to(DEVICE)
+                for k, v in enc.items()
+            }
+
+
+            out = model(
+                **enc,
+                output_hidden_states=True,
+                use_cache=False,
+                return_dict=True,
+            )
+
+
+            pos = (
+                int(
+                    enc["attention_mask"][0]
+                    .sum()
+                    .item()
+                )
+                - 1
+            )
+
+
+            for L in range(N_LAYERS):
+
+                accum[L].add_(
+                    out.hidden_states[
+                        L + 1
+                    ][0, pos, :]
+                    .float()
+                )
+
+
+            del out
+            del enc
+
+
+    compass = []
+    raw_norms = []
+
+
+    for L in range(N_LAYERS):
+
+        diff = (
+            pos_acc[L] / len(POSITIVE)
+            -
+            neg_acc[L] / len(NEGATIVE)
+        )
+
+
+        norm = diff.norm().clamp_min(1e-12)
+
+
+        compass.append(
+            (diff / norm)
+            .detach()
+            .float()
+            .clone()
+        )
+
+
+        raw_norms.append(
+            float(norm.item())
+        )
+
+
+    if was_training:
+        model.train()
+
+
+    return compass, raw_norms
+
+
+# =============================================================================
+# 12. INITIAL IMMUTABLE COMPASS A0
+# =============================================================================
+
+print("\n[3] Extracting immutable A0...")
+
+
+INITIAL_COMPASS, INITIAL_RAW_NORMS = (
+    extract_compass(base)
+)
+
+
+REFERENCE_TEST142_RAW = np.array([
+    1.601886,
+    1.974164,
+    2.814075,
+    7.407696,
+    7.282032,
+    7.441541,
+    8.020885,
+    11.543870,
+    14.744291,
+    13.090476,
+    13.293571,
+    13.848494,
+    14.509543,
+    15.025572,
+    14.570271,
+    15.216175,
+    15.280499,
+    15.771996,
+    16.026615,
+    17.407801,
+])
+
+
+raw_error = float(
+    np.max(
+        np.abs(
+            np.asarray(INITIAL_RAW_NORMS)
+            - REFERENCE_TEST142_RAW
+        )
+    )
+)
+
+
+for L in range(N_LAYERS):
+
+    print(
+        f"L{L:02d} | "
+        f"raw={INITIAL_RAW_NORMS[L]:.6f}"
+    )
+
+
+print(
+    "Max TEST142 raw-norm deviation:",
+    f"{raw_error:.8f}"
+)
+
+
+# =============================================================================
+# 13. SEASC ACTUATOR — UNCHANGED
+# =============================================================================
+
+def seasc_tensor(
+    hidden,
+    compass_vector,
+    rho,
+):
+
+    norm0 = (
+        hidden.float()
+        .norm(
+            p=2,
+            dim=-1,
+            keepdim=True,
+        )
+    )
+
+
+    A = compass_vector.to(
+        hidden.device,
+        dtype=torch.float32,
+    )
+
+
+    delta = (
+        float(rho)
+        * norm0
+        * A.view(1, 1, -1)
+    )
+
+
+    return (
+        hidden.float()
+        + delta
+    ).to(hidden.dtype)
+
+
+# =============================================================================
+# 14. NATURAL CAPTURE
+# =============================================================================
+
+@torch.inference_mode()
+def capture_natural(
+    model,
+    prompt,
+):
+
+    was_training = model.training
+
+    model.eval()
+
+
+    enc = encode_chat(prompt)
+
+
+    out = model(
+        **enc,
+        output_hidden_states=True,
+        use_cache=False,
+        return_dict=True,
+    )
+
+
+    pos = (
+        int(
+            enc["attention_mask"][0]
+            .sum()
+            .item()
+        )
+        - 1
+    )
+
+
+    states = [
+        out.hidden_states[
+            L + 1
+        ][0, pos, :]
+        .detach()
+        .float()
+        .cpu()
+        .clone()
+
+        for L in range(N_LAYERS)
+    ]
+
+
+    del out
+    del enc
+
+
+    if was_training:
+        model.train()
+
+
+    return states
+
+
+# =============================================================================
+# 15. GENERIC SEASC CAPTURE
+# =============================================================================
+
+@torch.inference_mode()
+def capture_seasc(
+    model,
+    decoder_layers,
+    prompt,
+    compass,
+):
+
+    was_training = model.training
+
+    model.eval()
+
+
+    enc = encode_chat(prompt)
+
+
+    pos = (
+        int(
+            enc["attention_mask"][0]
+            .sum()
+            .item()
+        )
+        - 1
+    )
+
+
+    captured = [None] * N_LAYERS
+
+    handles = []
+
+
+    def make_hook(L):
+
+        def hook(module, args, output):
+
+            hidden = (
+                output[0]
+                if isinstance(output, tuple)
+                else output
+            )
+
+
+            steered = seasc_tensor(
+                hidden,
+                compass[L],
+                RELATIVE_DOSE[L],
+            )
+
+
+            captured[L] = (
+                steered[0, pos, :]
+                .detach()
+                .float()
+                .cpu()
+                .clone()
+            )
+
+
+            if isinstance(output, tuple):
+                return (steered,) + output[1:]
+
+            return steered
+
+        return hook
+
+
+    for L in range(N_LAYERS):
+
+        handles.append(
+            decoder_layers[L]
+            .register_forward_hook(
+                make_hook(L)
+            )
+        )
+
+
+    try:
+
+        _ = model(
+            **enc,
+            use_cache=False,
+            return_dict=True,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+
+    if was_training:
+        model.train()
+
+
+    del enc
+
+
+    if any(x is None for x in captured):
+        raise RuntimeError(
+            "SEASC capture incomplete."
+        )
+
+
+    return captured
+
+
+# =============================================================================
+# 16. GENERATION
+# =============================================================================
+
+@torch.inference_mode()
+def generate_response(
+    model,
+    prompt,
+):
+
+    was_training = model.training
+
+    model.eval()
+
+
+    enc = encode_chat(prompt)
+
+
+    prompt_len = int(
+        enc["input_ids"].shape[1]
+    )
+
+
+    context_limit = int(
+        getattr(
+            model.config,
+            "max_position_embeddings",
+            32768,
+        )
+    )
+
+
+    ceiling = max(
+        1,
+        context_limit
+        - prompt_len
+        - 1,
+    )
+
+
+    ids = model.generate(
+        **enc,
+        max_new_tokens=ceiling,
+        do_sample=False,
+        repetition_penalty=REPETITION_PENALTY,
+        use_cache=True,
+        pad_token_id=tokenizer.pad_token_id,
+        eos_token_id=tokenizer.eos_token_id,
+    )
+
+
+    generated = ids[
+        0,
+        prompt_len:
+    ]
+
+
+    text = tokenizer.decode(
+        generated,
+        skip_special_tokens=True,
+    ).strip()
+
+
+    if was_training:
+        model.train()
+
+
+    return text
+
+
+# =============================================================================
+# 17. IMMUTABLE VALIDATION REFERENCES
+# =============================================================================
+
+print(
+    "\n[4] Building immutable VALIDATION reference..."
+)
+
+
+BASE_VALIDATION = []
+
+T0_VALIDATION = []
+
+
+for i, prompt in enumerate(
+    VALIDATION_PROMPTS,
+    1,
+):
+
+    B = capture_natural(
+        base,
+        prompt,
+    )
+
+
+    T = capture_seasc(
+        base,
+        base.model.layers,
+        prompt,
+        INITIAL_COMPASS,
+    )
+
+
+    BASE_VALIDATION.append(B)
+    T0_VALIDATION.append(T)
+
+
+    print(
+        f"Validation {i:02d}/{N_VALIDATION}"
+    )
+
+
+# =============================================================================
+# 18. LOCKED FINAL TEST BASE/T0 REFERENCES
+#
+# Constructing immutable references does not train/select the student.
+# Student FINAL TEST is not evaluated until BEST has been selected.
+# =============================================================================
+
+print(
+    "\n[5] Building locked FINAL TEST immutable reference..."
+)
+
+
+BASE_FINAL_TEST = []
+
+T0_FINAL_TEST = []
+
+BASE_FINAL_TEST_RESPONSES = []
+
+
+for i, prompt in enumerate(
+    FINAL_TEST_PROMPTS,
+    1,
+):
+
+    B = capture_natural(
+        base,
+        prompt,
+    )
+
+
+    T = capture_seasc(
+        base,
+        base.model.layers,
+        prompt,
+        INITIAL_COMPASS,
+    )
+
+
+    BASE_FINAL_TEST.append(B)
+    T0_FINAL_TEST.append(T)
+
+
+    response = generate_response(
+        base,
+        prompt,
+    )
+
+
+    BASE_FINAL_TEST_RESPONSES.append(
+        response
+    )
+
+
+    print(
+        f"Final-test BASE/T0 {i:02d}/{N_FINAL_TEST}"
+    )
+
+
+# =============================================================================
+# 19. BASE VALIDATION RESPONSES
+# =============================================================================
+
+print(
+    "\n[6] Recording BASE validation responses..."
+)
+
+
+BASE_VALIDATION_RESPONSES = []
+
+
+for i, prompt in enumerate(
+    VALIDATION_PROMPTS,
+    1,
+):
+
+    response = generate_response(
+        base,
+        prompt,
+    )
+
+
+    BASE_VALIDATION_RESPONSES.append(
+        response
+    )
+
+
+    print(
+        f"Behavior BASE validation {i:02d}/{N_VALIDATION}"
+    )
+
+
+# =============================================================================
+# 20. PRESERVATION CACHE — TRAIN ONLY
+# =============================================================================
+
+print(
+    "\n[7] Building conditional top-K preservation cache..."
+)
+
+
+@torch.inference_mode()
+def base_topk(prompt):
+
+    enc = encode_chat(prompt)
+
+
+    out = base(
+        **enc,
+        use_cache=False,
+        return_dict=True,
+    )
+
+
+    pos = (
+        int(
+            enc["attention_mask"][0]
+            .sum()
+            .item()
+        )
+        - 1
+    )
+
+
+    logits = (
+        out.logits[0, pos, :]
+        .detach()
+        .float()
+    )
+
+
+    values, indices = torch.topk(
+        logits,
+        k=min(
+            PRESERVE_TOP_K,
+            logits.numel(),
+        ),
+    )
+
+
+    result = {
+        "indices": (
+            indices
+            .cpu()
+            .to(torch.int32)
+        ),
+
+        "logits": (
+            values
+            .cpu()
+            .to(torch.float16)
+        ),
+    }
+
+
+    del out
+    del enc
+
+
+    return result
+
+
+PRESERVE_CACHE = {}
+
+
+for i, prompt in enumerate(
+    TRAIN_PROMPTS,
+    1,
+):
+
+    PRESERVE_CACHE[prompt] = (
+        base_topk(prompt)
+    )
+
+
+    if i % 8 == 0:
+        print(
+            f"{i}/{N_TRAIN}"
+        )
+
+
+# =============================================================================
+# 21. RELEASE BASE
+# =============================================================================
+
+del base
+
+gc.collect()
+
+torch.cuda.empty_cache()
+
+
+print(
+    "\nBase released | GPU allocated:",
+    f"{torch.cuda.memory_allocated()/1024**3:.3f} GB"
+)
+
+
+# =============================================================================
+# 22. LOAD STUDENT
+# =============================================================================
+
+print("\n[8] Loading student...")
+
+
+student = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    dtype=torch.bfloat16,
+    device_map={"": 0},
+    attn_implementation="sdpa",
+    trust_remote_code=True,
+)
+
+
+student.config.use_cache = False
+
+
+if hasattr(
+    student,
+    "gradient_checkpointing_disable",
+):
+    student.gradient_checkpointing_disable()
+
+
+# =============================================================================
+# 23. LoRA
+# =============================================================================
+
+lora_config = LoraConfig(
+    r=LORA_R,
+    lora_alpha=LORA_ALPHA,
+    lora_dropout=LORA_DROPOUT,
+    bias="none",
+    task_type="CAUSAL_LM",
+    target_modules=[
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+    ],
+)
+
+
+student = get_peft_model(
+    student,
+    lora_config,
+)
+
+
+student.print_trainable_parameters()
+
+
+# =============================================================================
+# 24. DECODER LAYERS
+# =============================================================================
+
+def resolve_layers():
+
+    candidates = [
+        lambda: (
+            student
+            .base_model
+            .model
+            .model
+            .layers
+        ),
+
+        lambda: (
+            student
+            .base_model
+            .model
+            .model
+            .model
+            .layers
+        ),
+
+        lambda: (
+            student
+            .model
+            .model
+            .layers
+        ),
+    ]
+
+
+    for getter in candidates:
+
+        try:
+
+            layers = getter()
+
+            if len(layers) >= N_LAYERS:
+                return layers
+
+        except Exception:
+            pass
+
+
+    raise RuntimeError(
+        "Student decoder layers unresolved."
+    )
+
+
+STUDENT_LAYERS = resolve_layers()
+
+
+# =============================================================================
+# 25. OPTIMIZER
+# =============================================================================
+
+TRAINABLE_PARAMS = [
+    p
+    for p in student.parameters()
+    if p.requires_grad
+]
+
+
+optimizer = torch.optim.AdamW(
+    TRAINABLE_PARAMS,
+    lr=LEARNING_RATE,
+    betas=(0.9, 0.95),
+    weight_decay=0.01,
+)
+
+
+# =============================================================================
+# 26. REAL AUTOGRAD X-RAY
+# =============================================================================
+
+print(
+    "\n" + "=" * 160
+)
+
+print(
+    "REAL QWEN-7B AUTOGRAD X-RAY"
+)
+
+print(
+    "=" * 160
+)
+
+
+student.train()
+
+optimizer.zero_grad(
+    set_to_none=True
+)
+
+
+enc = encode_chat(
+    TRAIN_PROMPTS[0]
+)
+
+
+pos = (
+    int(
+        enc["attention_mask"][0]
+        .sum()
+        .item()
+    )
+    - 1
+)
+
+
+out = student(
+    **enc,
+    output_hidden_states=True,
+    use_cache=False,
+    return_dict=True,
+)
+
+
+probe_layers = [
+    0,
+    5,
+    10,
+    15,
+    19,
+]
+
+
+terms = []
+
+
+for L in probe_layers:
+
+    h = out.hidden_states[
+        L + 1
+    ][0, pos, :]
+
+
+    print(
+        f"L{L:02d} | "
+        f"requires_grad={h.requires_grad} | "
+        f"grad_fn={type(h.grad_fn).__name__ if h.grad_fn else 'NONE'}"
+    )
+
+
+    if not h.requires_grad:
+        raise RuntimeError(
+            "Autograd X-ray failed."
+        )
+
+
+    terms.append(
+        h.float()
+        .square()
+        .mean()
+    )
+
+
+probe_loss = torch.stack(
+    terms
+).mean()
+
+
+probe_loss.backward()
+
+
+grad_norm_sq = 0.0
+grad_tensors = 0
+
+
+for p in TRAINABLE_PARAMS:
+
+    if p.grad is not None:
+
+        g = p.grad.detach().float()
+
+        if not torch.isfinite(g).all():
+            raise RuntimeError(
+                "Non-finite autograd probe gradient."
+            )
+
+        grad_tensors += 1
+
+        grad_norm_sq += float(
+            g.square()
+            .sum()
+            .cpu()
+            .item()
+        )
+
+
+probe_grad_norm = math.sqrt(
+    grad_norm_sq
+)
+
+
+if (
+    grad_tensors == 0
+    or probe_grad_norm <= 0
+):
+
+    raise RuntimeError(
+        "Autograd X-ray failed."
+    )
+
+
+print(
+    "Global LoRA grad norm:",
+    f"{probe_grad_norm:.8e}"
+)
+
+print("AUTOGRAD X-RAY : PASS")
+
+
+optimizer.zero_grad(
+    set_to_none=True
+)
+
+
+del out
+del enc
+del terms
+del probe_loss
+
+gc.collect()
+
+torch.cuda.empty_cache()
+
+
+# =============================================================================
+# 27. CURRENT COMPASS
+# =============================================================================
+
+CURRENT_COMPASS = [
+    x.detach()
+    .clone()
+    .to(DEVICE)
+    for x in INITIAL_COMPASS
+]
+
+
+CURRENT_RAW_NORMS = list(
+    INITIAL_RAW_NORMS
+)
+
+
+# =============================================================================
+# 28. STUDENT COMPASS EXTRACTION — UNCHANGED
+# =============================================================================
+
+@torch.inference_mode()
+def extract_student_compass():
+
+    was_training = student.training
+
+    student.eval()
+
+
+    pos_acc = [
+        torch.zeros(
+            HIDDEN_SIZE,
+            device=DEVICE,
+            dtype=torch.float32,
+        )
+        for _ in range(N_LAYERS)
+    ]
+
+
+    neg_acc = [
+        torch.zeros(
+            HIDDEN_SIZE,
+            device=DEVICE,
+            dtype=torch.float32,
+        )
+        for _ in range(N_LAYERS)
+    ]
+
+
+    for texts, accum in [
+        (POSITIVE, pos_acc),
+        (NEGATIVE, neg_acc),
+    ]:
+
+        for text in texts:
+
+            enc = tokenizer(
+                text,
+                return_tensors="pt",
+                add_special_tokens=True,
+            )
+
+
+            enc = {
+                k: v.to(DEVICE)
+                for k, v in enc.items()
+            }
+
+
+            out = student(
+                **enc,
+                output_hidden_states=True,
+                use_cache=False,
+                return_dict=True,
+            )
+
+
+            pos = (
+                int(
+                    enc["attention_mask"][0]
+                    .sum()
+                    .item()
+                )
+                - 1
+            )
+
+
+            for L in range(N_LAYERS):
+
+                accum[L].add_(
+                    out.hidden_states[
+                        L + 1
+                    ][0, pos, :]
+                    .float()
+                )
+
+
+            del out
+            del enc
+
+
+    compass = []
+    raw = []
+
+
+    for L in range(N_LAYERS):
+
+        diff = (
+            pos_acc[L] / len(POSITIVE)
+            -
+            neg_acc[L] / len(NEGATIVE)
+        )
+
+
+        norm = diff.norm().clamp_min(1e-12)
+
+
+        compass.append(
+            (diff / norm)
+            .detach()
+            .float()
+            .clone()
+        )
+
+
+        raw.append(
+            float(norm.item())
+        )
+
+
+    if was_training:
+        student.train()
+
+
+    return compass, raw
+
+
+# =============================================================================
+# 29. ONE-PROMPT CURRENT SEASC TEACHER TARGET — UNCHANGED
+# =============================================================================
+
+@torch.inference_mode()
+def current_teacher_target(prompt):
+
+    was_training = student.training
+
+    student.eval()
+
+
+    enc = encode_chat(prompt)
+
+
+    pos = (
+        int(
+            enc["attention_mask"][0]
+            .sum()
+            .item()
+        )
+        - 1
+    )
+
+
+    captured = [None] * N_LAYERS
+
+    handles = []
+
+
+    def make_hook(L):
+
+        def hook(module, args, output):
+
+            hidden = (
+                output[0]
+                if isinstance(output, tuple)
+                else output
+            )
+
+
+            steered = seasc_tensor(
+                hidden,
+                CURRENT_COMPASS[L],
+                RELATIVE_DOSE[L],
+            )
+
+
+            captured[L] = (
+                steered[0, pos, :]
+                .detach()
+                .to(
+                    device="cpu",
+                    dtype=torch.float16,
+                )
+                .clone()
+            )
+
+
+            if isinstance(output, tuple):
+                return (steered,) + output[1:]
+
+            return steered
+
+        return hook
+
+
+    for L in range(N_LAYERS):
+
+        handles.append(
+            STUDENT_LAYERS[L]
+            .register_forward_hook(
+                make_hook(L)
+            )
+        )
+
+
+    try:
+
+        _ = student(
+            **enc,
+            use_cache=False,
+            return_dict=True,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+
+    if was_training:
+        student.train()
+
+
+    del enc
+
+
+    if any(x is None for x in captured):
+        raise RuntimeError(
+            "Teacher target incomplete."
+        )
+
+
+    return torch.stack(
+        captured,
+        dim=0,
+    )
+
+
+# =============================================================================
+# 30. NATURAL TRAINING FORWARD — MOTOR OFF — UNCHANGED
+# =============================================================================
+
+def training_forward(
+    prompt,
+    target_cpu,
+):
+
+    student.train()
+
+
+    enc = encode_chat(prompt)
+
+
+    pos = (
+        int(
+            enc["attention_mask"][0]
+            .sum()
+            .item()
+        )
+        - 1
+    )
+
+
+    out = student(
+        **enc,
+        output_hidden_states=True,
+        use_cache=False,
+        return_dict=True,
+    )
+
+
+    geo = []
+
+
+    for L in range(N_LAYERS):
+
+        h = (
+            out.hidden_states[
+                L + 1
+            ][0, pos, :]
+            .float()
+        )
+
+
+        target = (
+            target_cpu[L]
+            .to(
+                DEVICE,
+                dtype=torch.float32,
+            )
+        )
+
+
+        scale2 = (
+            target.square()
+            .sum()
+            .detach()
+            .clamp_min(1e-6)
+        )
+
+
+        geo.append(
+            (h - target)
+            .square()
+            .sum()
+            / scale2
+        )
+
+
+    geometry_loss = torch.stack(
+        geo
+    ).mean()
+
+
+    logits = (
+        out.logits[
+            0,
+            pos,
+            :
+        ].float()
+    )
+
+
+    cache = PRESERVE_CACHE[
+        prompt
+    ]
+
+
+    indices = (
+        cache["indices"]
+        .to(
+            DEVICE,
+            dtype=torch.long,
+        )
+    )
+
+
+    base_logits = (
+        cache["logits"]
+        .to(
+            DEVICE,
+            dtype=torch.float32,
+        )
+    )
+
+
+    current_logits = logits[
+        indices
+    ]
+
+
+    preserve_loss = F.kl_div(
+        F.log_softmax(
+            current_logits,
+            dim=-1,
+        ),
+        F.softmax(
+            base_logits,
+            dim=-1,
+        ),
+        reduction="sum",
+    )
+
+
+    total = (
+        LAMBDA_GEOMETRY
+        * geometry_loss
+        +
+        LAMBDA_PRESERVE
+        * preserve_loss
+    )
+
+
+    del out
+    del enc
+
+
+    return (
+        total,
+        geometry_loss.detach(),
+        preserve_loss.detach(),
+    )
+
+
+# =============================================================================
+# 31. MOTOR-OFF STUDENT CAPTURE
+# =============================================================================
+
+@torch.inference_mode()
+def capture_student_off(prompt):
+
+    was_training = student.training
+
+    student.eval()
+
+
+    enc = encode_chat(prompt)
+
+
+    out = student(
+        **enc,
+        output_hidden_states=True,
+        use_cache=False,
+        return_dict=True,
+    )
+
+
+    pos = (
+        int(
+            enc["attention_mask"][0]
+            .sum()
+            .item()
+        )
+        - 1
+    )
+
+
+    states = [
+        out.hidden_states[
+            L + 1
+        ][0, pos, :]
+        .detach()
+        .float()
+        .cpu()
+        .clone()
+
+        for L in range(N_LAYERS)
+    ]
+
+
+    del out
+    del enc
+
+
+    if was_training:
+        student.train()
+
+
+    return states
+
+
+# =============================================================================
+# 32. MATH
+# =============================================================================
+
+def safe_cos(a, b):
+
+    a = np.asarray(
+        a,
+        dtype=np.float64,
+    )
+
+    b = np.asarray(
+        b,
+        dtype=np.float64,
+    )
+
+
+    na = np.linalg.norm(a)
+    nb = np.linalg.norm(b)
+
+
+    if na < 1e-12 or nb < 1e-12:
+        return 0.0
+
+
+    return float(
+        np.clip(
+            np.dot(a, b)
+            / (na * nb),
+            -1.0,
+            1.0,
+        )
+    )
+
+
+def lexical_jaccard(a_text, b_text):
+
+    a = set(
+        a_text.lower().split()
+    )
+
+    b = set(
+        b_text.lower().split()
+    )
+
+
+    if not a and not b:
+        return 1.0
+
+
+    return (
+        len(a & b)
+        /
+        max(
+            len(a | b),
+            1,
+        )
+    )
+
+
+# =============================================================================
+# 33. LOG STRUCTURES
+# =============================================================================
+
+TRAIN_LOG = []
+
+EVAL_LOG = []
+
+LAYER_EVAL_LOG = []
+
+COMPASS_LOG = []
+
+EVAL_STATES = {}
+
+
+BEST_STEP = 0
+
+BEST_PROGRESS = -float("inf")
+BEST_DISTANCE = float("inf")
+BEST_ALIGNMENT = -float("inf")
+
+NO_IMPROVEMENT_COUNT = 0
+
+STOP_REASON = None
+
+
+# =============================================================================
+# 34. SAVE BEST
+# =============================================================================
+
+def save_best_adapter(step):
+
+    if os.path.exists(BEST_DIR):
+        shutil.rmtree(BEST_DIR)
+
+
+    os.makedirs(
+        BEST_DIR,
+        exist_ok=True,
+    )
+
+
+    student.save_pretrained(
+        BEST_DIR
+    )
+
+
+    tokenizer.save_pretrained(
+        BEST_DIR
+    )
+
+
+    with open(
+        os.path.join(
+            BEST_DIR,
+            "best_step.json",
+        ),
+        "w",
+        encoding="utf-8",
+    ) as f:
+
+        json.dump(
+            {
+                "step": int(step)
+            },
+            f,
+            indent=2,
+        )
+
+
+# =============================================================================
+# 35. VALIDATION MOTOR-OFF EVALUATION
+# =============================================================================
+
+def evaluate_validation_motor_off(step):
+
+    print(
+        "\n" + "=" * 160
+    )
+
+    print(
+        f"CRYSTALLIZATION X-RAY @ STEP {step}"
+    )
+
+    print(
+        "VALIDATION | SEASC OFF | MOTOR OFF | NO INJECTION"
+    )
+
+    print(
+        "=" * 160
+    )
+
+
+    states_all = []
+
+
+    distance = np.zeros(
+        N_LAYERS,
+        dtype=np.float64,
+    )
+
+
+    progress = np.zeros(
+        N_LAYERS,
+        dtype=np.float64,
+    )
+
+
+    alignment = np.zeros(
+        N_LAYERS,
+        dtype=np.float64,
+    )
+
+
+    correction_ratio = np.zeros(
+        N_LAYERS,
+        dtype=np.float64,
+    )
+
+
+    for i, prompt in enumerate(
+        VALIDATION_PROMPTS
+    ):
+
+        current = capture_student_off(
+            prompt
+        )
+
+
+        current_np = np.stack(
+            [
+                x.numpy()
+                for x in current
+            ],
+            axis=0,
+        )
+
+
+        states_all.append(
+            current_np
+        )
+
+
+        for L in range(N_LAYERS):
+
+            B = BASE_VALIDATION[
+                i
+            ][L].numpy()
+
+
+            T = T0_VALIDATION[
+                i
+            ][L].numpy()
+
+
+            S = current_np[L]
+
+
+            target_vector = T - B
+
+            learned_vector = S - B
+
+
+            D0 = max(
+                np.linalg.norm(
+                    B - T
+                ),
+                1e-12,
+            )
+
+
+            D = np.linalg.norm(
+                S - T
+            )
+
+
+            distance[L] += D
+
+            progress[L] += (
+                1.0 - D / D0
+            )
+
+
+            alignment[L] += safe_cos(
+                learned_vector,
+                target_vector,
+            )
+
+
+            correction_ratio[L] += (
+                D / D0
+            )
+
+
+    distance /= N_VALIDATION
+    progress /= N_VALIDATION
+    alignment /= N_VALIDATION
+    correction_ratio /= N_VALIDATION
+
+
+    states_all = np.stack(
+        states_all,
+        axis=0,
+    )
+
+
+    EVAL_STATES[
+        int(step)
+    ] = states_all
+
+
+    mean_distance = float(
+        distance.mean()
+    )
+
+
+    mean_progress = float(
+        progress.mean()
+    )
+
+
+    mean_alignment = float(
+        alignment.mean()
+    )
+
+
+    mean_correction = float(
+        correction_ratio.mean()
+    )
+
+
+    print(
+        "Mean target distance :",
+        f"{mean_distance:.8f}"
+    )
+
+    print(
+        "Mean target progress :",
+        f"{100*mean_progress:+.4f}%"
+    )
+
+    print(
+        "Mean alignment       :",
+        f"{mean_alignment:+.8f}"
+    )
+
+    print(
+        "Required correction  :",
+        f"{100*mean_correction:.4f}% of original dose-distance"
+    )
+
+
+    for L in range(N_LAYERS):
+
+        print(
+            f"L{L:02d} | "
+            f"D={distance[L]:.6f} | "
+            f"P={100*progress[L]:+.3f}% | "
+            f"C={alignment[L]:+.6f} | "
+            f"R={100*correction_ratio[L]:.3f}%"
+        )
+
+
+        LAYER_EVAL_LOG.append(
+            {
+                "step": int(step),
+                "layer": int(L),
+                "distance": float(
+                    distance[L]
+                ),
+                "progress": float(
+                    progress[L]
+                ),
+                "alignment": float(
+                    alignment[L]
+                ),
+                "required_correction_ratio": float(
+                    correction_ratio[L]
+                ),
+            }
+        )
+
+
+    EVAL_LOG.append(
+        {
+            "step": int(step),
+            "mean_distance": mean_distance,
+            "mean_progress": mean_progress,
+            "mean_alignment": mean_alignment,
+            "mean_required_correction_ratio": mean_correction,
+        }
+    )
+
+
+    return {
+        "distance": mean_distance,
+        "progress": mean_progress,
+        "alignment": mean_alignment,
+        "required_correction": mean_correction,
+        "layer_distance": distance,
+        "layer_progress": progress,
+        "layer_alignment": alignment,
+        "states": states_all,
+    }
+
+
+# =============================================================================
+# 36. COMPASS LOG
+# =============================================================================
+
+def record_compass(
+    step,
+    previous_compass,
+    current_compass,
+    raw_norms,
+):
+
+    cos_initial = []
+
+    cos_previous = []
+
+
+    for L in range(N_LAYERS):
+
+        A0 = (
+            INITIAL_COMPASS[L]
+            .detach()
+            .float()
+            .cpu()
+            .numpy()
+        )
+
+
+        At = (
+            current_compass[L]
+            .detach()
+            .float()
+            .cpu()
+            .numpy()
+        )
+
+
+        Ap = (
+            previous_compass[L]
+            .detach()
+            .float()
+            .cpu()
+            .numpy()
+        )
+
+
+        c0 = safe_cos(
+            A0,
+            At,
+        )
+
+
+        cp = safe_cos(
+            Ap,
+            At,
+        )
+
+
+        cos_initial.append(c0)
+        cos_previous.append(cp)
+
+
+        COMPASS_LOG.append(
+            {
+                "step": int(step),
+                "layer": int(L),
+                "raw_norm": float(
+                    raw_norms[L]
+                ),
+                "cos_initial": float(c0),
+                "cos_previous": float(cp),
+            }
+        )
+
+
+    return (
+        float(np.mean(cos_initial)),
+        float(np.mean(cos_previous)),
+    )
+
+
+# =============================================================================
+# 37. STEP ZERO
+# =============================================================================
+
+step0 = evaluate_validation_motor_off(
+    0
+)
+
+
+if abs(
+    step0["progress"]
+) > 1e-6:
+
+    raise RuntimeError(
+        "Step-0 progress is not zero."
+    )
+
+
+BEST_PROGRESS = step0[
+    "progress"
+]
+
+BEST_DISTANCE = step0[
+    "distance"
+]
+
+BEST_ALIGNMENT = step0[
+    "alignment"
+]
+
+BEST_STEP = 0
+
+
+save_best_adapter(
+    0
+)
+
+
+# =============================================================================
+# 38. CRYSTALLIZATION TRAINING
+# =============================================================================
+
+print(
+    "\n" + "=" * 160
+)
+
+print(
+    "CRYSTALLIZATION TRAINING START"
+)
+
+print(
+    "PER-UPDATE ENDOGENOUS COMPASS REFRESH"
+)
+
+print(
+    "FINAL TEST REMAINS LOCKED"
+)
+
+print(
+    "=" * 160
+)
+
+
+TRAINING_START_DT = (
+    datetime.datetime.now()
+    .astimezone()
+)
+
+TRAINING_START_ISO = (
+    TRAINING_START_DT
+    .isoformat(timespec="seconds")
+)
+
+TRAINING_START_WALL = time.time()
+
+
+print(
+    "Training start:",
+    TRAINING_START_ISO
+)
+
+
+start_power_sampler()
+
+
+update = 0
+
+epoch = 0
+
+
+while update < HARD_MAX_UPDATES:
+
+    epoch += 1
+
+
+    order = list(
+        range(N_TRAIN)
+    )
+
+
+    rng.shuffle(order)
+
+
+    for idx in order:
+
+        if update >= HARD_MAX_UPDATES:
+            break
+
+
+        update += 1
+
+
+        prompt = TRAIN_PROMPTS[
+            idx
+        ]
+
+
+        # -----------------------------------------------------------------
+        # CURRENT ENDOGENOUS PUSULA -> ONE-SHOT SEASC TEACHING TARGET
+        # -----------------------------------------------------------------
+
+        target = current_teacher_target(
+            prompt
+        )
+
+
+        # -----------------------------------------------------------------
+        # NATURAL STUDENT — MOTOR OFF
+        # -----------------------------------------------------------------
+
+        optimizer.zero_grad(
+            set_to_none=True
+        )
+
+
+        (
+            total_loss,
+            geo_loss,
+            preserve_loss,
+        ) = training_forward(
+            prompt,
+            target,
+        )
+
+
+        if not torch.isfinite(
+            total_loss
+        ):
+
+            stop_power_sampler()
+
+            raise RuntimeError(
+                f"Non-finite loss @ {update}"
+            )
+
+
+        total_loss.backward()
+
+
+        grad_norm = (
+            torch.nn.utils
+            .clip_grad_norm_(
+                TRAINABLE_PARAMS,
+                GRAD_CLIP,
+            )
+        )
+
+
+        grad_norm_value = float(
+            torch.as_tensor(
+                grad_norm
+            )
+            .detach()
+            .float()
+            .cpu()
+            .item()
+        )
+
+
+        if not math.isfinite(
+            grad_norm_value
+        ):
+
+            stop_power_sampler()
+
+            raise RuntimeError(
+                f"Non-finite gradient @ {update}"
+            )
+
+
+        optimizer.step()
+
+
+        # -----------------------------------------------------------------
+        # IMMEDIATE ENDOGENOUS COMPASS REFRESH
+        # -----------------------------------------------------------------
+
+        previous_compass = [
+            x.detach()
+            .clone()
+            for x in CURRENT_COMPASS
+        ]
+
+
+        (
+            NEW_COMPASS,
+            NEW_RAW_NORMS,
+        ) = extract_student_compass()
+
+
+        (
+            mean_cos_initial,
+            mean_cos_previous,
+        ) = record_compass(
+            update,
+            previous_compass,
+            NEW_COMPASS,
+            NEW_RAW_NORMS,
+        )
+
+
+        CURRENT_COMPASS = [
+            x.detach()
+            .clone()
+            .to(DEVICE)
+            for x in NEW_COMPASS
+        ]
+
+
+        CURRENT_RAW_NORMS = list(
+            NEW_RAW_NORMS
+        )
+
+
+        elapsed = (
+            time.time()
+            - TRAINING_START_WALL
+        )
+
+
+        TRAIN_LOG.append(
+            {
+                "step": int(update),
+                "epoch": int(epoch),
+
+                "loss_total": float(
+                    total_loss
+                    .detach()
+                    .cpu()
+                    .item()
+                ),
+
+                "loss_geometry": float(
+                    geo_loss
+                    .cpu()
+                    .item()
+                ),
+
+                "loss_preserve_topk_conditional": float(
+                    preserve_loss
+                    .cpu()
+                    .item()
+                ),
+
+                "grad_norm": float(
+                    grad_norm_value
+                ),
+
+                "mean_compass_cos_initial": float(
+                    mean_cos_initial
+                ),
+
+                "mean_compass_cos_previous": float(
+                    mean_cos_previous
+                ),
+
+                "elapsed_seconds": float(
+                    elapsed
+                ),
+            }
+        )
+
+
+        print(
+            f"step={update:04d} | "
+            f"loss={float(total_loss.detach().cpu()):.7f} | "
+            f"geo={float(geo_loss.cpu()):.7f} | "
+            f"presK={float(preserve_loss.cpu()):.7f} | "
+            f"grad={grad_norm_value:.6f} | "
+            f"cos(A0,At)={mean_cos_initial:+.6f} | "
+            f"cos(Aprev,At)={mean_cos_previous:+.6f}"
+        )
+
+
+        del target
+        del total_loss
+
+
+        # =================================================================
+        # VALIDATION-ONLY CLOSED-LOOP EQUILIBRIUM CHECK
+        # =================================================================
+
+        if (
+            update % EVAL_EVERY == 0
+        ):
+
+            metrics = evaluate_validation_motor_off(
+                update
+            )
+
+
+            current_progress = metrics[
+                "progress"
+            ]
+
+            current_distance = metrics[
+                "distance"
+            ]
+
+            current_alignment = metrics[
+                "alignment"
+            ]
+
+
+            new_best = (
+                current_progress
+                > BEST_PROGRESS
+                and
+                current_alignment
+                >= ALIGNMENT_FLOOR
+            )
+
+
+            if new_best:
+
+                BEST_PROGRESS = (
+                    current_progress
+                )
+
+                BEST_DISTANCE = (
+                    current_distance
+                )
+
+                BEST_ALIGNMENT = (
+                    current_alignment
+                )
+
+                BEST_STEP = int(
+                    update
+                )
+
+
+                save_best_adapter(
+                    BEST_STEP
+                )
+
+
+                NO_IMPROVEMENT_COUNT = 0
+
+
+                print(
+                    "\n>>> NEW CRYSTALLIZATION BEST <<<"
+                )
+
+                print(
+                    "step      :",
+                    BEST_STEP
+                )
+
+                print(
+                    "progress  :",
+                    f"{100*BEST_PROGRESS:+.4f}%"
+                )
+
+                print(
+                    "distance  :",
+                    f"{BEST_DISTANCE:.8f}"
+                )
+
+                print(
+                    "alignment :",
+                    f"{BEST_ALIGNMENT:+.8f}"
+                )
+
+
+            else:
+
+                NO_IMPROVEMENT_COUNT += 1
+
+
+                print(
+                    "\nNo new best."
+                )
+
+                print(
+                    "patience:",
+                    f"{NO_IMPROVEMENT_COUNT}/{PATIENCE_EVALS}"
+                )
+
+
+            overshoot = (
+                update
+                >= MIN_UPDATES_BEFORE_STOP
+                and
+                (
+                    BEST_PROGRESS
+                    - current_progress
+                )
+                >= OVERSHOOT_PROGRESS_DROP
+            )
+
+
+            if overshoot:
+
+                STOP_REASON = (
+                    "OVERSHOOT_DETECTED"
+                )
+
+
+                print(
+                    "\n>>> OVERSHOOT DETECTED <<<"
+                )
+
+                print(
+                    "Best progress   :",
+                    f"{100*BEST_PROGRESS:+.4f}%"
+                )
+
+                print(
+                    "Current progress:",
+                    f"{100*current_progress:+.4f}%"
+                )
+
+                break
+
+
+            if (
+                update
+                >= MIN_UPDATES_BEFORE_STOP
+                and
+                NO_IMPROVEMENT_COUNT
+                >= PATIENCE_EVALS
+            ):
+
+                STOP_REASON = (
+                    "VALIDATION_EQUILIBRIUM"
+                )
+
+
+                print(
+                    "\n>>> CRYSTALLIZATION EQUILIBRIUM DETECTED <<<"
+                )
+
+                print(
+                    "BEST STEP:",
+                    BEST_STEP
+                )
+
+                print(
+                    "BEST PROGRESS:",
+                    f"{100*BEST_PROGRESS:+.4f}%"
+                )
+
+                break
+
+
+        if update % 25 == 0:
+
+            gc.collect()
+            torch.cuda.empty_cache()
+
+
+    if STOP_REASON is not None:
+        break
+
+
+if STOP_REASON is None:
+    STOP_REASON = "HARD_MAX_UPDATES"
+
+
+LAST_STEP = int(update)
+
+
+# =============================================================================
+# 39. STOP TRAINING POWER TELEMETRY
+# =============================================================================
+
+stop_power_sampler()
+
+
+TRAINING_END_WALL = time.time()
+
+TRAINING_END_DT = (
+    datetime.datetime.now()
+    .astimezone()
+)
+
+TRAINING_END_ISO = (
+    TRAINING_END_DT
+    .isoformat(timespec="seconds")
+)
+
+
+TRAINING_DURATION_SECONDS = float(
+    TRAINING_END_WALL
+    - TRAINING_START_WALL
+)
+
+
+TRAINING_DURATION_MINUTES = (
+    TRAINING_DURATION_SECONDS
+    / 60.0
+)
+
+
+UPDATES_PER_SECOND = (
+    LAST_STEP
+    / max(
+        TRAINING_DURATION_SECONDS,
+        1e-12,
+    )
+)
+
+
+ENERGY = integrate_energy(
+    POWER_SAMPLES
+)
+
+
+print(
+    "\n" + "=" * 160
+)
+
+print(
+    "TRAINING STOPPED"
+)
+
+print(
+    "=" * 160
+)
+
+print("Training start :", TRAINING_START_ISO)
+print("Training end   :", TRAINING_END_ISO)
+
+print(
+    "Training time  :",
+    f"{TRAINING_DURATION_MINUTES:.3f} minutes"
+)
+
+print(
+    "Updates/sec    :",
+    f"{UPDATES_PER_SECOND:.6f}"
+)
+
+print("Last step      :", LAST_STEP)
+print("Best step      :", BEST_STEP)
+print("Reason         :", STOP_REASON)
+
+print(
+    "Best progress  :",
+    f"{100*BEST_PROGRESS:+.4f}%"
+)
+
+
+if ENERGY["measured"]:
+
+    print(
+        "GPU energy     :",
+        f"{ENERGY['energy_wh']:.4f} Wh "
+        f"({ENERGY['energy_kwh']:.6f} kWh)"
+    )
+
+    print(
+        "Mean GPU power :",
+        f"{ENERGY['mean_power_w']:.2f} W"
+    )
+
+    print(
+        "Peak GPU power :",
+        f"{ENERGY['max_power_w']:.2f} W"
+    )
+
+    print(
+        "Power samples  :",
+        ENERGY["samples"]
+    )
+
+else:
+
+    print(
+        "GPU energy     : NOT MEASURED"
+    )
+
+
+# =============================================================================
+# 40. SAVE POWER TELEMETRY
+# =============================================================================
+
+POWER_CSV = os.path.join(
+    OUT_DIR,
+    "TEST144_R2_GPU_POWER_TELEMETRY.csv",
+)
+
+
+pd.DataFrame(
+    POWER_SAMPLES
+).to_csv(
+    POWER_CSV,
+    index=False,
+)
+
+
+# =============================================================================
+# 41. SAVE LAST BEFORE ROLLBACK
+# =============================================================================
+
+if os.path.exists(LAST_DIR):
+    shutil.rmtree(LAST_DIR)
+
+
+student.save_pretrained(
+    LAST_DIR
+)
+
+
+tokenizer.save_pretrained(
+    LAST_DIR
+)
+
+
+# =============================================================================
+# 42. RELEASE LAST + TRUE ROLLBACK
+# =============================================================================
+
+del optimizer
+del student
+
+gc.collect()
+
+torch.cuda.empty_cache()
+
+
+print(
+    "\nReloading clean base + BEST adapter..."
+)
+
+
+best_base = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    dtype=torch.bfloat16,
+    device_map={"": 0},
+    attn_implementation="sdpa",
+    trust_remote_code=True,
+)
+
+
+student = PeftModel.from_pretrained(
+    best_base,
+    BEST_DIR,
+    is_trainable=False,
+)
+
+
+student.eval()
+
+
+# =============================================================================
+# 43. GENERIC BEST CAPTURE
+# =============================================================================
+
+@torch.inference_mode()
+def capture_best_off(prompt):
+
+    student.eval()
+
+
+    enc = encode_chat(prompt)
+
+
+    out = student(
+        **enc,
+        output_hidden_states=True,
+        use_cache=False,
+        return_dict=True,
+    )
+
+
+    pos = (
+        int(
+            enc["attention_mask"][0]
+            .sum()
+            .item()
+        )
+        - 1
+    )
+
+
+    states = [
+        out.hidden_states[
+            L + 1
+        ][0, pos, :]
+        .detach()
+        .float()
+        .cpu()
+        .clone()
+
+        for L in range(N_LAYERS)
+    ]
+
+
+    del out
+    del enc
+
+
+    return states
+
+
+# =============================================================================
+# 44. BEST VALIDATION RECHECK
+# =============================================================================
+
+BEST_VALIDATION_STATES = []
+
+
+for prompt in VALIDATION_PROMPTS:
+
+    states = capture_best_off(
+        prompt
+    )
+
+
+    BEST_VALIDATION_STATES.append(
+        np.stack(
+            [
+                x.numpy()
+                for x in states
+            ],
+            axis=0,
+        )
+    )
+
+
+BEST_VALIDATION_STATES = np.stack(
+    BEST_VALIDATION_STATES,
+    axis=0,
+)
+
+
+# =============================================================================
+# 45. FINAL TEST IS NOW OPENED FOR FIRST STUDENT EXAM
+# =============================================================================
+
+FINAL_TEST_OPEN_DT = (
+    datetime.datetime.now()
+    .astimezone()
+)
+
+FINAL_TEST_OPEN_ISO = (
+    FINAL_TEST_OPEN_DT
+    .isoformat(timespec="seconds")
+)
+
+
+print(
+    "\n" + "=" * 160
+)
+
+print(
+    "FINAL TEST UNLOCKED"
+)
+
+print(
+    "=" * 160
+)
+
+print(
+    "Final-test opened:",
+    FINAL_TEST_OPEN_ISO
+)
+
+print(
+    "This set was not used for gradients, preservation, "
+    "equilibrium detection, or BEST selection."
+)
+
+
+BEST_FINAL_TEST_STATES = []
+
+BEST_FINAL_TEST_RESPONSES = []
+
+
+for i, prompt in enumerate(
+    FINAL_TEST_PROMPTS,
+    1,
+):
+
+    states = capture_best_off(
+        prompt
+    )
+
+
+    BEST_FINAL_TEST_STATES.append(
+        np.stack(
+            [
+                x.numpy()
+                for x in states
+            ],
+            axis=0,
+        )
+    )
+
+
+    response = generate_response(
+        student,
+        prompt,
+    )
+
+
+    BEST_FINAL_TEST_RESPONSES.append(
+        response
+    )
+
+
+    print(
+        f"FINAL TEST BEST {i:02d}/{N_FINAL_TEST}"
+    )
+
+
+BEST_FINAL_TEST_STATES = np.stack(
+    BEST_FINAL_TEST_STATES,
+    axis=0,
+)
+
+
+# =============================================================================
+# 46. FINAL-TEST GEOMETRY FUNCTION
+# =============================================================================
+
+def compute_geometry(
+    base_refs,
+    target_refs,
+    states_np,
+):
+
+    n_samples = len(
+        base_refs
+    )
+
+
+    distance = np.zeros(
+        N_LAYERS,
+        dtype=np.float64,
+    )
+
+
+    progress = np.zeros(
+        N_LAYERS,
+        dtype=np.float64,
+    )
+
+
+    alignment = np.zeros(
+        N_LAYERS,
+        dtype=np.float64,
+    )
+
+
+    correction = np.zeros(
+        N_LAYERS,
+        dtype=np.float64,
+    )
+
+
+    per_prompt_rows = []
+
+
+    for i in range(n_samples):
+
+        prompt_progress = []
+        prompt_alignment = []
+        prompt_distance = []
+
+
+        for L in range(N_LAYERS):
+
+            B = (
+                base_refs[i][L]
+                .numpy()
+            )
+
+
+            T = (
+                target_refs[i][L]
+                .numpy()
+            )
+
+
+            S = states_np[
+                i,
+                L,
+            ]
+
+
+            D0 = max(
+                np.linalg.norm(
+                    B - T
+                ),
+                1e-12,
+            )
+
+
+            D = np.linalg.norm(
+                S - T
+            )
+
+
+            P = (
+                1.0
+                - D / D0
+            )
+
+
+            C = safe_cos(
+                S - B,
+                T - B,
+            )
+
+
+            distance[L] += D
+            progress[L] += P
+            alignment[L] += C
+            correction[L] += D / D0
+
+
+            prompt_progress.append(P)
+            prompt_alignment.append(C)
+            prompt_distance.append(D)
+
+
+        per_prompt_rows.append(
+            {
+                "prompt_index": int(i + 1),
+                "mean_distance": float(
+                    np.mean(
+                        prompt_distance
+                    )
+                ),
+                "mean_progress": float(
+                    np.mean(
+                        prompt_progress
+                    )
+                ),
+                "mean_alignment": float(
+                    np.mean(
+                        prompt_alignment
+                    )
+                ),
+            }
+        )
+
+
+    distance /= n_samples
+    progress /= n_samples
+    alignment /= n_samples
+    correction /= n_samples
+
+
+    return {
+        "distance": distance,
+        "progress": progress,
+        "alignment": alignment,
+        "correction": correction,
+
+        "mean_distance": float(
+            distance.mean()
+        ),
+
+        "mean_progress": float(
+            progress.mean()
+        ),
+
+        "mean_alignment": float(
+            alignment.mean()
+        ),
+
+        "mean_correction": float(
+            correction.mean()
+        ),
+
+        "per_prompt": per_prompt_rows,
+    }
+
+
+BEST_FINAL_TEST_GEOMETRY = compute_geometry(
+    BASE_FINAL_TEST,
+    T0_FINAL_TEST,
+    BEST_FINAL_TEST_STATES,
+)
+
+
+print(
+    "\nBEST ADAPTER — LOCKED FINAL TEST:"
+)
+
+print(
+    "Progress :",
+    f"{100*BEST_FINAL_TEST_GEOMETRY['mean_progress']:+.4f}%"
+)
+
+print(
+    "Distance :",
+    f"{BEST_FINAL_TEST_GEOMETRY['mean_distance']:.8f}"
+)
+
+print(
+    "Alignment:",
+    f"{BEST_FINAL_TEST_GEOMETRY['mean_alignment']:+.8f}"
+)
+
+
+# =============================================================================
+# 47. MERGE BEST
+# =============================================================================
+
+print(
+    "\n" + "=" * 160
+)
+
+print(
+    "MERGING BEST CRYSTALLIZED STATE"
+)
+
+print(
+    "=" * 160
+)
+
+
+merged = student.merge_and_unload()
+
+merged.eval()
+
+merged.config.use_cache = True
+
+
+del student
+del best_base
+
+gc.collect()
+
+torch.cuda.empty_cache()
+
+
+remaining_lora = [
+    name
+    for name, _
+    in merged.named_modules()
+    if "lora_" in name.lower()
+]
+
+
+if remaining_lora:
+    raise RuntimeError(
+        "LoRA modules remain after merge."
+    )
+
+
+print("LoRA runtime : REMOVED")
+print("SEASC hooks  : NONE")
+print("Motor        : OFF")
+
+
+# =============================================================================
+# 48. MERGED CAPTURE
+# =============================================================================
+
+@torch.inference_mode()
+def capture_merged(prompt):
+
+    enc = encode_chat(prompt)
+
+
+    out = merged(
+        **enc,
+        output_hidden_states=True,
+        use_cache=False,
+        return_dict=True,
+    )
+
+
+    pos = (
+        int(
+            enc["attention_mask"][0]
+            .sum()
+            .item()
+        )
+        - 1
+    )
+
+
+    states = [
+        out.hidden_states[
+            L + 1
+        ][0, pos, :]
+        .detach()
+        .float()
+        .cpu()
+        .clone()
+
+        for L in range(N_LAYERS)
+    ]
+
+
+    del out
+    del enc
+
+
+    return states
+
+
+# =============================================================================
+# 49. MERGE VALIDATION DRIFT
+# =============================================================================
+
+MERGED_VALIDATION_STATES = []
+
+
+for prompt in VALIDATION_PROMPTS:
+
+    states = capture_merged(
+        prompt
+    )
+
+
+    MERGED_VALIDATION_STATES.append(
+        np.stack(
+            [
+                x.numpy()
+                for x in states
+            ],
+            axis=0,
+        )
+    )
+
+
+MERGED_VALIDATION_STATES = np.stack(
+    MERGED_VALIDATION_STATES,
+    axis=0,
+)
+
+
+MERGE_RELATIVE_DRIFT = float(
+    np.linalg.norm(
+        MERGED_VALIDATION_STATES
+        - BEST_VALIDATION_STATES
+    )
+    /
+    max(
+        np.linalg.norm(
+            BEST_VALIDATION_STATES
+        ),
+        1e-12,
+    )
+)
+
+
+if MERGE_RELATIVE_DRIFT <= 0.005:
+
+    MERGE_STATUS = (
+        "TIGHT_EQUIVALENCE"
+    )
+
+elif MERGE_RELATIVE_DRIFT <= 0.015:
+
+    MERGE_STATUS = (
+        "SMALL_BF16_MERGE_DRIFT"
+    )
+
+else:
+
+    MERGE_STATUS = (
+        "MERGE_DRIFT_REQUIRES_REVIEW"
+    )
+
+
+print(
+    "Merge relative hidden drift:",
+    f"{MERGE_RELATIVE_DRIFT:.10e}"
+)
+
+print(
+    "Merge status:",
+    MERGE_STATUS
+)
+
+
+# =============================================================================
+# 50. FINAL MERGED FINAL-TEST EXAM
+# =============================================================================
+
+MERGED_FINAL_TEST_STATES = []
+
+FINAL_MERGED_RESPONSES = []
+
+
+print(
+    "\nRunning FINAL MERGED motor-OFF examination..."
+)
+
+
+for i, prompt in enumerate(
+    FINAL_TEST_PROMPTS,
+    1,
+):
+
+    states = capture_merged(
+        prompt
+    )
+
+
+    MERGED_FINAL_TEST_STATES.append(
+        np.stack(
+            [
+                x.numpy()
+                for x in states
+            ],
+            axis=0,
+        )
+    )
+
+
+    response = generate_response(
+        merged,
+        prompt,
+    )
+
+
+    FINAL_MERGED_RESPONSES.append(
+        response
+    )
+
+
+    print(
+        f"FINAL MERGED {i:02d}/{N_FINAL_TEST}"
+    )
+
+
+MERGED_FINAL_TEST_STATES = np.stack(
+    MERGED_FINAL_TEST_STATES,
+    axis=0,
+)
+
+
+FINAL_TEST_GEOMETRY = compute_geometry(
+    BASE_FINAL_TEST,
+    T0_FINAL_TEST,
+    MERGED_FINAL_TEST_STATES,
+)
+
+
+FINAL_PROGRESS = (
+    FINAL_TEST_GEOMETRY[
+        "mean_progress"
+    ]
+)
+
+FINAL_DISTANCE = (
+    FINAL_TEST_GEOMETRY[
+        "mean_distance"
+    ]
+)
+
+FINAL_ALIGNMENT = (
+    FINAL_TEST_GEOMETRY[
+        "mean_alignment"
+    ]
+)
+
+
+print(
+    "\nFINAL MERGED — LOCKED FINAL TEST:"
+)
+
+print(
+    "Progress :",
+    f"{100*FINAL_PROGRESS:+.4f}%"
+)
+
+print(
+    "Distance :",
+    f"{FINAL_DISTANCE:.8f}"
+)
+
+print(
+    "Alignment:",
+    f"{FINAL_ALIGNMENT:+.8f}"
+)
+
+
+# =============================================================================
+# 51. 24 × BASE / BEST / FINAL HUMAN-READABLE COMPARISON
+# =============================================================================
+
+FINAL_BEHAVIOR_ROWS = []
+
+
+print(
+    "\n" + "=" * 160
+)
+
+print(
+    "24-QUESTION LOCKED FINAL-TEST BEHAVIOR COMPARISON"
+)
+
+print(
+    "=" * 160
+)
+
+
+for i, prompt in enumerate(
+    FINAL_TEST_PROMPTS
+):
+
+    base_text = (
+        BASE_FINAL_TEST_RESPONSES[i]
+    )
+
+    best_text = (
+        BEST_FINAL_TEST_RESPONSES[i]
+    )
+
+    final_text = (
+        FINAL_MERGED_RESPONSES[i]
+    )
+
+
+    geo_row = (
+        FINAL_TEST_GEOMETRY[
+            "per_prompt"
+        ][i]
+    )
+
+
+    row = {
+        "question_number": int(i + 1),
+
+        "prompt": prompt,
+
+        "base_response": base_text,
+
+        "best_crystallized_response": best_text,
+
+        "final_merged_response": final_text,
+
+        "best_changed_from_base": bool(
+            best_text.strip()
+            != base_text.strip()
+        ),
+
+        "final_changed_from_base": bool(
+            final_text.strip()
+            != base_text.strip()
+        ),
+
+        "base_best_lexical_jaccard": float(
+            lexical_jaccard(
+                base_text,
+                best_text,
+            )
+        ),
+
+        "base_final_lexical_jaccard": float(
+            lexical_jaccard(
+                base_text,
+                final_text,
+            )
+        ),
+
+        "best_final_lexical_jaccard": float(
+            lexical_jaccard(
+                best_text,
+                final_text,
+            )
+        ),
+
+        "final_mean_geometry_progress": float(
+            geo_row[
+                "mean_progress"
+            ]
+        ),
+
+        "final_mean_geometry_alignment": float(
+            geo_row[
+                "mean_alignment"
+            ]
+        ),
+
+        "final_mean_geometry_distance": float(
+            geo_row[
+                "mean_distance"
+            ]
+        ),
+    }
+
+
+    FINAL_BEHAVIOR_ROWS.append(
+        row
+    )
+
+
+    print(
+        f"\nQUESTION {i+1:02d}"
+    )
+
+    print(
+        "-" * 160
+    )
+
+    print(prompt)
+
+    print(
+        f"\nBASE {i+1:02d}:"
+    )
+
+    print(base_text)
+
+    print(
+        f"\nCRYSTALLIZED BEST {i+1:02d}:"
+    )
+
+    print(best_text)
+
+    print(
+        f"\nFINAL MERGED {i+1:02d}:"
+    )
+
+    print(final_text)
+
+    print(
+        "\nGEOMETRY:"
+    )
+
+    print(
+        "Progress :",
+        f"{100*geo_row['mean_progress']:+.4f}%"
+    )
+
+    print(
+        "Alignment:",
+        f"{geo_row['mean_alignment']:+.6f}"
+    )
+
+
+# =============================================================================
+# 52. FINAL TIMESTAMP
+# =============================================================================
+
+EXPERIMENT_END_WALL = time.time()
+
+EXPERIMENT_END_DT = (
+    datetime.datetime.now()
+    .astimezone()
+)
+
+EXPERIMENT_END_ISO = (
+    EXPERIMENT_END_DT
+    .isoformat(timespec="seconds")
+)
+
+
+EXPERIMENT_DURATION_SECONDS = float(
+    EXPERIMENT_END_WALL
+    - EXPERIMENT_START_WALL
+)
+
+
+EXPERIMENT_DURATION_MINUTES = (
+    EXPERIMENT_DURATION_SECONDS
+    / 60.0
+)
+
+
+# =============================================================================
+# 53. DATAFRAMES + CSV
+# =============================================================================
+
+TRAIN_CSV = os.path.join(
+    OUT_DIR,
+    "TEST144_R2_training_log.csv",
+)
+
+EVAL_CSV = os.path.join(
+    OUT_DIR,
+    "TEST144_R2_validation_equilibrium_log.csv",
+)
+
+LAYER_CSV = os.path.join(
+    OUT_DIR,
+    "TEST144_R2_validation_layerwise_geometry.csv",
+)
+
+COMPASS_CSV = os.path.join(
+    OUT_DIR,
+    "TEST144_R2_per_update_compass.csv",
+)
+
+FINAL_BEHAVIOR_CSV = os.path.join(
+    OUT_DIR,
+    "TEST144_R2_24_FINAL_QUESTION_COMPARISON.csv",
+)
+
+FINAL_GEOMETRY_CSV = os.path.join(
+    OUT_DIR,
+    "TEST144_R2_24_FINAL_QUESTION_GEOMETRY.csv",
+)
+
+
+pd.DataFrame(
+    TRAIN_LOG
+).to_csv(
+    TRAIN_CSV,
+    index=False,
+)
+
+
+pd.DataFrame(
+    EVAL_LOG
+).to_csv(
+    EVAL_CSV,
+    index=False,
+)
+
+
+pd.DataFrame(
+    LAYER_EVAL_LOG
+).to_csv(
+    LAYER_CSV,
+    index=False,
+)
+
+
+pd.DataFrame(
+    COMPASS_LOG
+).to_csv(
+    COMPASS_CSV,
+    index=False,
+)
+
+
+pd.DataFrame(
+    FINAL_BEHAVIOR_ROWS
+).to_csv(
+    FINAL_BEHAVIOR_CSV,
+    index=False,
+)
+
+
+pd.DataFrame(
+    FINAL_TEST_GEOMETRY[
+        "per_prompt"
+    ]
+).to_csv(
+    FINAL_GEOMETRY_CSV,
+    index=False,
+)
+
+
+# =============================================================================
+# 54. RAW NPZ
+# =============================================================================
+
+BASE_VALIDATION_NP = np.stack(
+    [
+        np.stack(
+            [
+                x.numpy()
+                for x in sample
+            ],
+            axis=0,
+        )
+        for sample in BASE_VALIDATION
+    ],
+    axis=0,
+)
+
+
+T0_VALIDATION_NP = np.stack(
+    [
+        np.stack(
+            [
+                x.numpy()
+                for x in sample
+            ],
+            axis=0,
+        )
+        for sample in T0_VALIDATION
+    ],
+    axis=0,
+)
+
+
+BASE_FINAL_TEST_NP = np.stack(
+    [
+        np.stack(
+            [
+                x.numpy()
+                for x in sample
+            ],
+            axis=0,
+        )
+        for sample in BASE_FINAL_TEST
+    ],
+    axis=0,
+)
+
+
+T0_FINAL_TEST_NP = np.stack(
+    [
+        np.stack(
+            [
+                x.numpy()
+                for x in sample
+            ],
+            axis=0,
+        )
+        for sample in T0_FINAL_TEST
+    ],
+    axis=0,
+)
+
+
+eval_steps = sorted(
+    EVAL_STATES.keys()
+)
+
+
+eval_state_stack = np.stack(
+    [
+        EVAL_STATES[s]
+        for s in eval_steps
+    ],
+    axis=0,
+)
+
+
+NPZ_PATH = os.path.join(
+    OUT_DIR,
+    "TEST144_R2_crystallization_geometry.npz",
+)
+
+
+np.savez_compressed(
+    NPZ_PATH,
+
+    validation_base=BASE_VALIDATION_NP,
+
+    validation_T0=T0_VALIDATION_NP,
+
+    validation_eval_steps=np.asarray(
+        eval_steps,
+        dtype=np.int32,
+    ),
+
+    validation_eval_states=eval_state_stack,
+
+    best_validation_states=(
+        BEST_VALIDATION_STATES
+    ),
+
+    merged_validation_states=(
+        MERGED_VALIDATION_STATES
+    ),
+
+    final_test_base=(
+        BASE_FINAL_TEST_NP
+    ),
+
+    final_test_T0=(
+        T0_FINAL_TEST_NP
+    ),
+
+    best_final_test_states=(
+        BEST_FINAL_TEST_STATES
+    ),
+
+    merged_final_test_states=(
+        MERGED_FINAL_TEST_STATES
+    ),
+
+    initial_compass=np.stack(
+        [
+            x.detach()
+            .float()
+            .cpu()
+            .numpy()
+            for x in INITIAL_COMPASS
+        ],
+        axis=0,
+    ),
+
+    envelope=np.asarray(
+        ENVELOPE,
+        dtype=np.float32,
+    ),
+
+    relative_dose=np.asarray(
+        RELATIVE_DOSE,
+        dtype=np.float32,
+    ),
+)
+
+
+# =============================================================================
+# 55. ENGLISH TECHNICAL STATEMENT
+# =============================================================================
+
+if ENERGY["measured"]:
+
+    ENERGY_SENTENCE = (
+        f"Measured GPU board energy during crystallization training was "
+        f"{ENERGY['energy_wh']:.3f} Wh "
+        f"({ENERGY['energy_kwh']:.6f} kWh), "
+        f"with a time-weighted mean board power of "
+        f"{ENERGY['mean_power_w']:.2f} W and an observed peak of "
+        f"{ENERGY['max_power_w']:.2f} W. "
+        f"This measurement covers GPU board power only and does not represent "
+        f"total host, cooling, networking, or datacenter energy."
+    )
+
+else:
+
+    ENERGY_SENTENCE = (
+        "GPU board energy was not measured because NVIDIA power telemetry "
+        "was unavailable. No energy estimate was substituted."
+    )
+
+
+TECHNICAL_DESCRIPTION = (
+    "AkbasCore 3.0 Crystallization is an endogenous closed-loop "
+    "representation-internalization procedure. The model's own layerwise "
+    "representational geometry is repeatedly measured to reconstruct the "
+    "current semantic compass. AkbasCore then supplies a transient SEASC "
+    "intervention that defines the teaching geometry for one update. "
+    "Gradient-based adaptation attempts to internalize part of that induced "
+    "geometry into the model parameters. The compass is re-extracted after "
+    "every optimizer update. The original A0 compass and original T0 SEASC "
+    "geometry remain immutable scientific references. Training termination "
+    "and BEST-state selection are determined from motor-off validation "
+    "geometry rather than from a predetermined training-step count."
+)
+
+
+PERFORMANCE_STATEMENT = (
+    f"AkbasCore 3.0 completed endogenous closed-loop representation "
+    f"crystallization training on Qwen2.5-7B-Instruct using "
+    f"{GPU_NAME} in {TRAINING_DURATION_MINUTES:.3f} minutes. "
+    f"The automatic motor-off validation controller selected update "
+    f"{BEST_STEP} as the best observed crystallized state; training stopped "
+    f"at update {LAST_STEP} with reason {STOP_REASON}. "
+    f"The untouched final-test set was opened only after BEST-state "
+    f"selection. Final merged motor-off target progress on that locked set "
+    f"was {100*FINAL_PROGRESS:+.4f}% with directional alignment "
+    f"{FINAL_ALIGNMENT:+.6f}. "
+    + ENERGY_SENTENCE
+)
+
+
+# =============================================================================
+# 56. SUMMARY JSON
+# =============================================================================
+
+SUMMARY = {
+    "experiment": (
+        "TEST 144-R2 — AkbasCore 3.0 Crystallization Replication"
+    ),
+
+    "technical_name": (
+        "Endogenous Closed-Loop Representation Crystallization"
+    ),
+
+    "turkish_name": (
+        "Akbaş Motoru ile Kristalizasyon"
+    ),
+
+    "author": (
+        "Akbaş — Independent Researcher"
+    ),
+
+    "model": MODEL_ID,
+
+    "gpu": GPU_NAME,
+
+    "gpu_vram_gb": GPU_VRAM_GB,
+
+    "seed": SEED,
+
+    "experiment_start_iso8601": (
+        EXPERIMENT_START_ISO
+    ),
+
+    "training_start_iso8601": (
+        TRAINING_START_ISO
+    ),
+
+    "training_end_iso8601": (
+        TRAINING_END_ISO
+    ),
+
+    "final_test_open_iso8601": (
+        FINAL_TEST_OPEN_ISO
+    ),
+
+    "experiment_end_iso8601": (
+        EXPERIMENT_END_ISO
+    ),
+
+    "training_duration_seconds": (
+        TRAINING_DURATION_SECONDS
+    ),
+
+    "training_duration_minutes": (
+        TRAINING_DURATION_MINUTES
+    ),
+
+    "experiment_duration_seconds": (
+        EXPERIMENT_DURATION_SECONDS
+    ),
+
+    "experiment_duration_minutes": (
+        EXPERIMENT_DURATION_MINUTES
+    ),
+
+    "updates_per_second": (
+        UPDATES_PER_SECOND
+    ),
+
+    "train_prompts": N_TRAIN,
+
+    "validation_prompts": N_VALIDATION,
+
+    "locked_final_test_prompts": (
+        N_FINAL_TEST
+    ),
+
+    "last_update": LAST_STEP,
+
+    "best_update": BEST_STEP,
+
+    "stop_reason": STOP_REASON,
+
+    "validation_best_progress": (
+        BEST_PROGRESS
+    ),
+
+    "validation_best_distance": (
+        BEST_DISTANCE
+    ),
+
+    "validation_best_alignment": (
+        BEST_ALIGNMENT
+    ),
+
+    "locked_final_test_progress": (
+        FINAL_PROGRESS
+    ),
+
+    "locked_final_test_distance": (
+        FINAL_DISTANCE
+    ),
+
+    "locked_final_test_alignment": (
+        FINAL_ALIGNMENT
+    ),
+
+    "merge_relative_hidden_drift": (
+        MERGE_RELATIVE_DRIFT
+    ),
+
+    "merge_status": (
+        MERGE_STATUS
+    ),
+
+    "gpu_energy_measurement": (
+        ENERGY
+    ),
+
+    "energy_scope": (
+        "GPU board energy only; excludes CPU, host, cooling, networking and facility overhead."
+    ),
+
+    "final_state": {
+        "akbascore_motor": "OFF",
+        "seasc_injection": "OFF",
+        "forward_hooks": "NONE",
+        "lora_runtime": "REMOVED",
+        "best_adaptation": (
+            "MERGED INTO MODEL WEIGHTS"
+        ),
+    },
+
+    "technical_description": (
+        TECHNICAL_DESCRIPTION
+    ),
+
+    "performance_statement": (
+        PERFORMANCE_STATEMENT
+    ),
+}
+
+
+JSON_PATH = os.path.join(
+    OUT_DIR,
+    "TEST144_R2_summary.json",
+)
+
+
+with open(
+    JSON_PATH,
+    "w",
+    encoding="utf-8",
+) as f:
+
+    json.dump(
+        SUMMARY,
+        f,
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+# =============================================================================
+# 57. FULL ENGLISH TECHNICAL REPORT
+# =============================================================================
+
+REPORT_PATH = os.path.join(
+    OUT_DIR,
+    "TEST144_R2_FULL_TECHNICAL_REPORT.txt",
+)
+
+
+with open(
+    REPORT_PATH,
+    "w",
+    encoding="utf-8",
+) as f:
+
+    f.write(
+        "AKBASCORE 3.0 — TEST 144-R2\n"
+    )
+
+    f.write(
+        "ENDOGENOUS CLOSED-LOOP REPRESENTATION CRYSTALLIZATION\n"
+    )
+
+    f.write(
+        "Replication and Locked Final-Test Run\n"
+    )
+
+    f.write(
+        "=" * 130
+        + "\n\n"
+    )
+
+
+    f.write(
+        "Author: Akbaş — Independent Researcher\n"
+    )
+
+    f.write(
+        f"Model: {MODEL_ID}\n"
+    )
+
+    f.write(
+        f"GPU: {GPU_NAME}\n"
+    )
+
+    f.write(
+        f"PyTorch: {torch.__version__}\n"
+    )
+
+    f.write(
+        f"CUDA: {torch.version.cuda}\n"
+    )
+
+    f.write(
+        f"Transformers: {transformers.__version__}\n"
+    )
+
+    f.write(
+        f"PEFT: {peft.__version__}\n\n"
+    )
+
+
+    f.write(
+        "TIMESTAMPS\n"
+    )
+
+    f.write(
+        "-" * 130
+        + "\n"
+    )
+
+    f.write(
+        f"Experiment start : {EXPERIMENT_START_ISO}\n"
+    )
+
+    f.write(
+        f"Training start   : {TRAINING_START_ISO}\n"
+    )
+
+    f.write(
+        f"Training end     : {TRAINING_END_ISO}\n"
+    )
+
+    f.write(
+        f"Final-test open  : {FINAL_TEST_OPEN_ISO}\n"
+    )
+
+    f.write(
+        f"Experiment end   : {EXPERIMENT_END_ISO}\n\n"
+    )
+
+
+    f.write(
+        "DURATION\n"
+    )
+
+    f.write(
+        "-" * 130
+        + "\n"
+    )
+
+    f.write(
+        f"Crystallization training: "
+        f"{TRAINING_DURATION_SECONDS:.3f} s "
+        f"({TRAINING_DURATION_MINUTES:.3f} min)\n"
+    )
+
+    f.write(
+        f"Complete experiment: "
+        f"{EXPERIMENT_DURATION_SECONDS:.3f} s "
+        f"({EXPERIMENT_DURATION_MINUTES:.3f} min)\n"
+    )
+
+    f.write(
+        f"Training throughput: "
+        f"{UPDATES_PER_SECOND:.6f} updates/s\n\n"
+    )
+
+
+    f.write(
+        "TECHNICAL DEFINITION\n"
+    )
+
+    f.write(
+        "-" * 130
+        + "\n"
+    )
+
+    f.write(
+        TECHNICAL_DESCRIPTION
+        + "\n\n"
+    )
+
+
+    f.write(
+        "DATA PARTITION\n"
+    )
+
+    f.write(
+        "-" * 130
+        + "\n"
+    )
+
+    f.write(
+        f"Training prompts: {N_TRAIN}\n"
+    )
+
+    f.write(
+        f"Validation prompts: {N_VALIDATION}\n"
+    )
+
+    f.write(
+        f"Locked final-test prompts: {N_FINAL_TEST}\n"
+    )
+
+    f.write(
+        "The final-test student state was not examined until training "
+        "had terminated and the BEST validation checkpoint had been selected.\n\n"
+    )
+
+
+    f.write(
+        "CRYSTALLIZATION RESULT\n"
+    )
+
+    f.write(
+        "-" * 130
+        + "\n"
+    )
+
+    f.write(
+        f"Last training update: {LAST_STEP}\n"
+    )
+
+    f.write(
+        f"Automatically selected BEST update: {BEST_STEP}\n"
+    )
+
+    f.write(
+        f"Stop reason: {STOP_REASON}\n\n"
+    )
+
+    f.write(
+        f"BEST validation target progress: "
+        f"{100*BEST_PROGRESS:+.6f}%\n"
+    )
+
+    f.write(
+        f"BEST validation target distance: "
+        f"{BEST_DISTANCE:.8f}\n"
+    )
+
+    f.write(
+        f"BEST validation directional alignment: "
+        f"{BEST_ALIGNMENT:+.8f}\n\n"
+    )
+
+
+    f.write(
+        "LOCKED FINAL TEST — FINAL MERGED MOTOR-OFF MODEL\n"
+    )
+
+    f.write(
+        "-" * 130
+        + "\n"
+    )
+
+    f.write(
+        f"Target progress: "
+        f"{100*FINAL_PROGRESS:+.6f}%\n"
+    )
+
+    f.write(
+        f"Target distance: "
+        f"{FINAL_DISTANCE:.8f}\n"
+    )
+
+    f.write(
+        f"Directional alignment: "
+        f"{FINAL_ALIGNMENT:+.8f}\n\n"
+    )
+
+
+    f.write(
+        "MERGE DIAGNOSTIC\n"
+    )
+
+    f.write(
+        "-" * 130
+        + "\n"
+    )
+
+    f.write(
+        f"Relative hidden-state drift: "
+        f"{MERGE_RELATIVE_DRIFT:.10e}\n"
+    )
+
+    f.write(
+        f"Classification: {MERGE_STATUS}\n\n"
+    )
+
+
+    f.write(
+        "ENERGY TELEMETRY\n"
+    )
+
+    f.write(
+        "-" * 130
+        + "\n"
+    )
+
+    f.write(
+        ENERGY_SENTENCE
+        + "\n\n"
+    )
+
+
+    f.write(
+        "PERFORMANCE RECORD\n"
+    )
+
+    f.write(
+        "-" * 130
+        + "\n"
+    )
+
+    f.write(
+        PERFORMANCE_STATEMENT
+        + "\n\n"
+    )
+
+
+    f.write(
+        "FINAL MODEL STATE\n"
+    )
+
+    f.write(
+        "-" * 130
+        + "\n"
+    )
+
+    f.write(
+        "AkbasCore motor : OFF\n"
+    )
+
+    f.write(
+        "SEASC injection : OFF\n"
+    )
+
+    f.write(
+        "Forward hooks   : NONE\n"
+    )
+
+    f.write(
+        "LoRA runtime    : REMOVED\n"
+    )
+
+    f.write(
+        "Best adaptation : MERGED INTO MODEL WEIGHTS\n\n"
+    )
+
+
+    f.write(
+        "IMPORTANT INTERPRETATION LIMIT\n"
+    )
+
+    f.write(
+        "-" * 130
+        + "\n"
+    )
+
+    f.write(
+        "A changed generated response is recorded as behavioral change only. "
+        "It is not automatically classified as more correct, more intelligent, "
+        "or semantically superior. Hidden-state geometry and generated behavior "
+        "are reported separately.\n\n"
+    )
+
+
+    f.write(
+        "24-QUESTION LOCKED FINAL-TEST RECORD\n"
+    )
+
+    f.write(
+        "=" * 130
+        + "\n"
+    )
+
+
+    for row in FINAL_BEHAVIOR_ROWS:
+
+        q = row[
+            "question_number"
+        ]
+
+
+        f.write(
+            f"\nQUESTION {q:02d}\n"
+        )
+
+        f.write(
+            "-" * 130
+            + "\n"
+        )
+
+        f.write(
+            row["prompt"]
+            + "\n\n"
+        )
+
+
+        f.write(
+            f"BASE {q:02d}:\n"
+        )
+
+        f.write(
+            row["base_response"]
+            + "\n\n"
+        )
+
+
+        f.write(
+            f"CRYSTALLIZED BEST {q:02d}:\n"
+        )
+
+        f.write(
+            row[
+                "best_crystallized_response"
+            ]
+            + "\n\n"
+        )
+
+
+        f.write(
+            f"FINAL MERGED {q:02d}:\n"
+        )
+
+        f.write(
+            row[
+                "final_merged_response"
+            ]
+            + "\n\n"
+        )
+
+
+        f.write(
+            f"Motor-OFF geometry progress: "
+            f"{100*row['final_mean_geometry_progress']:+.6f}%\n"
+        )
+
+        f.write(
+            f"Motor-OFF geometry alignment: "
+            f"{row['final_mean_geometry_alignment']:+.8f}\n"
+        )
+
+        f.write(
+            f"Motor-OFF geometry distance: "
+            f"{row['final_mean_geometry_distance']:.8f}\n"
+        )
+
+        f.write(
+            "=" * 130
+            + "\n"
+        )
+
+
+# =============================================================================
+# 58. DEDICATED HUMAN-READABLE 24-QA REPORT
+# =============================================================================
+
+QA_REPORT_PATH = os.path.join(
+    OUT_DIR,
+    "TEST144_R2_24_QUESTION_BEFORE_AFTER.txt",
+)
+
+
+with open(
+    QA_REPORT_PATH,
+    "w",
+    encoding="utf-8",
+) as f:
+
+    f.write(
+        "AKBASCORE 3.0 CRYSTALLIZATION\n"
+    )
+
+    f.write(
+        "24-QUESTION LOCKED FINAL-TEST BEFORE/AFTER RECORD\n"
+    )
+
+    f.write(
+        "=" * 130
+        + "\n\n"
+    )
+
+
+    for row in FINAL_BEHAVIOR_ROWS:
+
+        q = row[
+            "question_number"
+        ]
+
+
+        f.write(
+            f"QUESTION {q:02d}\n"
+        )
+
+        f.write(
+            row["prompt"]
+            + "\n\n"
+        )
+
+
+        f.write(
+            f"BASE {q:02d}\n"
+        )
+
+        f.write(
+            row["base_response"]
+            + "\n\n"
+        )
+
+
+        f.write(
+            f"CRYSTALLIZED {q:02d}\n"
+        )
+
+        f.write(
+            row[
+                "best_crystallized_response"
+            ]
+            + "\n\n"
+        )
+
+
+        f.write(
+            f"FINAL MERGED {q:02d}\n"
+        )
+
+        f.write(
+            row[
+                "final_merged_response"
+            ]
+            + "\n\n"
+        )
+
+
+        f.write(
+            f"GEOMETRY {q:02d}: "
+            f"progress={100*row['final_mean_geometry_progress']:+.4f}% | "
+            f"alignment={row['final_mean_geometry_alignment']:+.6f}\n"
+        )
+
+
+        f.write(
+            "=" * 130
+            + "\n\n"
+        )
+
+
+# =============================================================================
+# 59. JPEG PIPELINE
+# =============================================================================
+
+plt.style.use(
+    "dark_background"
+)
+
+
+JPEG_FILES = []
+
+
+def save_jpeg(
+    fig,
+    filename,
+):
+
+    temp = os.path.join(
+        OUT_DIR,
+        "_temp.png",
+    )
+
+
+    final = os.path.join(
+        OUT_DIR,
+        filename,
+    )
+
+
+    fig.savefig(
+        temp,
+        dpi=220,
+        bbox_inches="tight",
+        facecolor=fig.get_facecolor(),
+    )
+
+
+    plt.close(fig)
+
+
+    with Image.open(temp) as im:
+
+        if im.mode in (
+            "RGBA",
+            "LA",
+        ):
+
+            rgba = im.convert(
+                "RGBA"
+            )
+
+            bg = Image.new(
+                "RGB",
+                rgba.size,
+                (0, 0, 0),
+            )
+
+            bg.paste(
+                rgba,
+                mask=rgba.getchannel("A"),
+            )
+
+            rgb = bg
+
+        else:
+
+            rgb = im.convert(
+                "RGB"
+            )
+
+
+        rgb.save(
+            final,
+            format="JPEG",
+            quality=95,
+            subsampling=0,
+            optimize=False,
+            progressive=False,
+        )
+
+
+    os.remove(temp)
+
+
+    with open(
+        final,
+        "rb",
+    ) as f:
+
+        if f.read(2) != b"\xff\xd8":
+            raise RuntimeError(
+                "Invalid JPEG."
+            )
+
+
+    with Image.open(final) as im:
+        im.verify()
+
+
+    JPEG_FILES.append(
+        final
+    )
+
+
+# =============================================================================
+# 60. JPEG 1 — VALIDATION CRYSTALLIZATION CURVE
+# =============================================================================
+
+eval_df = pd.DataFrame(
+    EVAL_LOG
+)
+
+
+fig = plt.figure(
+    figsize=(16, 8)
+)
+
+
+plt.plot(
+    eval_df["step"],
+    100 * eval_df["mean_progress"],
+    marker="o",
+    linewidth=2.2,
+)
+
+
+plt.axvline(
+    BEST_STEP,
+    linestyle="--",
+    linewidth=1.5,
+    label=f"BEST = {BEST_STEP}",
+)
+
+
+plt.axhline(
+    0,
+    linewidth=0.8,
+    alpha=0.5,
+)
+
+
+plt.xlabel(
+    "Optimizer update"
+)
+
+plt.ylabel(
+    "Immutable T0 target progress (%)"
+)
+
+plt.title(
+    "TEST 144-R2 — AkbasCore 3.0 Crystallization\n"
+    "Validation | Motor OFF"
+)
+
+plt.legend()
+
+plt.grid(
+    alpha=0.2
+)
+
+plt.tight_layout()
+
+
+save_jpeg(
+    fig,
+    "TEST144_R2_01_CRYSTALLIZATION_CURVE.jpg",
+)
+
+
+# =============================================================================
+# 61. JPEG 2 — ALIGNMENT
+# =============================================================================
+
+fig = plt.figure(
+    figsize=(16, 8)
+)
+
+
+plt.plot(
+    eval_df["step"],
+    eval_df["mean_alignment"],
+    marker="o",
+    linewidth=2.2,
+)
+
+
+plt.axvline(
+    BEST_STEP,
+    linestyle="--",
+    linewidth=1.5,
+)
+
+
+plt.ylim(
+    -1.05,
+    1.05,
+)
+
+
+plt.xlabel(
+    "Optimizer update"
+)
+
+plt.ylabel(
+    "Directional alignment"
+)
+
+plt.title(
+    "TEST 144-R2 — Directional Alignment During Crystallization"
+)
+
+plt.grid(
+    alpha=0.2
+)
+
+plt.tight_layout()
+
+
+save_jpeg(
+    fig,
+    "TEST144_R2_02_DIRECTIONAL_ALIGNMENT.jpg",
+)
+
+
+# =============================================================================
+# 62. JPEG 3 — REMAINING CORRECTION
+# =============================================================================
+
+fig = plt.figure(
+    figsize=(16, 8)
+)
+
+
+plt.plot(
+    eval_df["step"],
+    100
+    * eval_df[
+        "mean_required_correction_ratio"
+    ],
+    marker="o",
+    linewidth=2.2,
+)
+
+
+plt.axvline(
+    BEST_STEP,
+    linestyle="--",
+    linewidth=1.5,
+)
+
+
+plt.xlabel(
+    "Optimizer update"
+)
+
+plt.ylabel(
+    "Remaining target distance / original target distance (%)"
+)
+
+plt.title(
+    "TEST 144-R2 — Remaining Geometric Correction"
+)
+
+plt.grid(
+    alpha=0.2
+)
+
+plt.tight_layout()
+
+
+save_jpeg(
+    fig,
+    "TEST144_R2_03_REMAINING_CORRECTION.jpg",
+)
+
+
+# =============================================================================
+# 63. JPEG 4 — COMPASS
+# =============================================================================
+
+compass_df = pd.DataFrame(
+    COMPASS_LOG
+)
+
+
+compass_mean = (
+    compass_df
+    .groupby("step")
+    .agg(
+        mean_cos_initial=(
+            "cos_initial",
+            "mean",
+        ),
+
+        mean_cos_previous=(
+            "cos_previous",
+            "mean",
+        ),
+    )
+    .reset_index()
+)
+
+
+fig = plt.figure(
+    figsize=(16, 8)
+)
+
+
+plt.plot(
+    compass_mean["step"],
+    compass_mean[
+        "mean_cos_initial"
+    ],
+    linewidth=2,
+    label="cos(A0, At)",
+)
+
+
+plt.plot(
+    compass_mean["step"],
+    compass_mean[
+        "mean_cos_previous"
+    ],
+    linewidth=1.5,
+    label="cos(A(t-1), At)",
+)
+
+
+plt.axvline(
+    BEST_STEP,
+    linestyle="--",
+    linewidth=1.5,
+)
+
+
+plt.ylim(
+    -1.05,
+    1.05,
+)
+
+
+plt.xlabel(
+    "Optimizer update"
+)
+
+plt.ylabel(
+    "Mean compass cosine"
+)
+
+plt.title(
+    "TEST 144-R2 — Endogenous Compass Evolution\n"
+    "Compass re-extracted after every optimizer update"
+)
+
+plt.legend()
+
+plt.grid(
+    alpha=0.2
+)
+
+plt.tight_layout()
+
+
+save_jpeg(
+    fig,
+    "TEST144_R2_04_PER_UPDATE_COMPASS.jpg",
+)
+
+
+# =============================================================================
+# 64. JPEG 5 — LAYERWISE BEST VALIDATION
+# =============================================================================
+
+best_layer_df = pd.DataFrame(
+    LAYER_EVAL_LOG
+)
+
+
+best_layer_df = best_layer_df[
+    best_layer_df[
+        "step"
+    ] == BEST_STEP
+]
+
+
+fig = plt.figure(
+    figsize=(16, 8)
+)
+
+
+plt.bar(
+    best_layer_df[
+        "layer"
+    ],
+    100
+    * best_layer_df[
+        "progress"
+    ],
+)
+
+
+plt.axhline(
+    0,
+    linewidth=0.8,
+)
+
+
+plt.xticks(
+    np.arange(N_LAYERS),
+    [
+        f"L{i}"
+        for i in range(N_LAYERS)
+    ],
+)
+
+
+plt.xlabel(
+    "Layer"
+)
+
+plt.ylabel(
+    "Target progress (%)"
+)
+
+plt.title(
+    f"TEST 144-R2 — BEST Validation Geometry\n"
+    f"Step {BEST_STEP} | Motor OFF"
+)
+
+plt.tight_layout()
+
+
+save_jpeg(
+    fig,
+    "TEST144_R2_05_LAYERWISE_BEST.jpg",
+)
+
+
+# =============================================================================
+# 65. JPEG 6 — PCA
+# =============================================================================
+
+PROFILE_INDEX = 0
+PROFILE_LAYER = 14
+
+
+vectors = [
+    BASE_VALIDATION_NP[
+        PROFILE_INDEX,
+        PROFILE_LAYER,
+    ],
+
+    T0_VALIDATION_NP[
+        PROFILE_INDEX,
+        PROFILE_LAYER,
+    ],
+]
+
+
+for step in eval_steps:
+
+    vectors.append(
+        EVAL_STATES[
+            step
+        ][
+            PROFILE_INDEX,
+            PROFILE_LAYER,
+        ]
+    )
+
+
+vectors.append(
+    MERGED_VALIDATION_STATES[
+        PROFILE_INDEX,
+        PROFILE_LAYER,
+    ]
+)
+
+
+vectors = np.stack(
+    vectors,
+    axis=0,
+)
+
+
+pca = PCA(
+    n_components=2,
+    svd_solver="full",
+)
+
+
+xy = pca.fit_transform(
+    vectors
+)
+
+
+fig = plt.figure(
+    figsize=(13, 10)
+)
+
+
+plt.scatter(
+    xy[0, 0],
+    xy[0, 1],
+    s=130,
+    label="Original Vanilla",
+)
+
+
+plt.scatter(
+    xy[1, 0],
+    xy[1, 1],
+    s=190,
+    marker="*",
+    label="Immutable T0",
+)
+
+
+trajectory = xy[
+    2:
+    2 + len(eval_steps)
+]
+
+
+plt.plot(
+    trajectory[:, 0],
+    trajectory[:, 1],
+    marker="o",
+    linewidth=1.8,
+    label="Motor-OFF validation trajectory",
+)
+
+
+for i, step in enumerate(
+    eval_steps
+):
+
+    plt.text(
+        trajectory[i, 0],
+        trajectory[i, 1],
+        f" {step}",
+        fontsize=7,
+    )
+
+
+plt.scatter(
+    xy[-1, 0],
+    xy[-1, 1],
+    marker="s",
+    s=150,
+    label="Final merged BEST",
+)
+
+
+plt.xlabel(
+    f"PC1 "
+    f"({100*pca.explained_variance_ratio_[0]:.2f}%)"
+)
+
+plt.ylabel(
+    f"PC2 "
+    f"({100*pca.explained_variance_ratio_[1]:.2f}%)"
+)
+
+plt.title(
+    f"TEST 144-R2 — Crystallization Trajectory | L{PROFILE_LAYER}\n"
+    "PCA visualization only; exact metrics are high-dimensional"
+)
+
+plt.legend()
+
+plt.tight_layout()
+
+
+save_jpeg(
+    fig,
+    "TEST144_R2_06_PCA_CRYSTALLIZATION.jpg",
+)
+
+
+# =============================================================================
+# 66. JPEG 7 — FULL VECTOR PROFILE — LOCKED FINAL TEST
+# =============================================================================
+
+B = BASE_FINAL_TEST_NP[
+    PROFILE_INDEX,
+    PROFILE_LAYER,
+]
+
+
+T = T0_FINAL_TEST_NP[
+    PROFILE_INDEX,
+    PROFILE_LAYER,
+]
+
+
+F = MERGED_FINAL_TEST_STATES[
+    PROFILE_INDEX,
+    PROFILE_LAYER,
+]
+
+
+fig = plt.figure(
+    figsize=(18, 7)
+)
+
+
+dims = np.arange(
+    HIDDEN_SIZE
+)
+
+
+plt.plot(
+    dims,
+    B,
+    linewidth=0.65,
+    alpha=0.75,
+    label="Vanilla",
+)
+
+
+plt.plot(
+    dims,
+    T,
+    linewidth=0.65,
+    alpha=0.75,
+    label="Immutable SEASC T0",
+)
+
+
+plt.plot(
+    dims,
+    F,
+    linewidth=0.65,
+    alpha=0.75,
+    label="Crystallized merged OFF",
+)
+
+
+plt.xlabel(
+    "Hidden dimension"
+)
+
+plt.ylabel(
+    "Coordinate value"
+)
+
+plt.title(
+    f"TEST 144-R2 — Locked Final Test | L{PROFILE_LAYER} "
+    f"Full {HIDDEN_SIZE}-D Profile"
+)
+
+plt.legend()
+
+plt.tight_layout()
+
+
+save_jpeg(
+    fig,
+    "TEST144_R2_07_FINAL_TEST_FULL_VECTOR_PROFILE.jpg",
+)
+
+
+# =============================================================================
+# 67. JPEG 8 — TOP-50 FINAL TEST COORDINATE CHANGES
+# =============================================================================
+
+change = F - B
+
+
+top50 = np.argsort(
+    np.abs(change)
+)[-50:]
+
+
+top50 = top50[
+    np.argsort(
+        np.abs(
+            change[top50]
+        )
+    )
+]
+
+
+fig = plt.figure(
+    figsize=(15, 11)
+)
+
+
+plt.barh(
+    np.arange(50),
+    change[top50],
+)
+
+
+plt.yticks(
+    np.arange(50),
+    [
+        str(int(x))
+        for x in top50
+    ],
+)
+
+
+plt.axvline(
+    0,
+    linewidth=0.8,
+)
+
+
+plt.xlabel(
+    "Crystallized OFF - Original Vanilla"
+)
+
+plt.ylabel(
+    "Hidden dimension index"
+)
+
+plt.title(
+    f"TEST 144-R2 — Locked Final Test | L{PROFILE_LAYER}\n"
+    "Top-50 Coordinate Changes"
+)
+
+plt.tight_layout()
+
+
+save_jpeg(
+    fig,
+    "TEST144_R2_08_FINAL_TEST_TOP50_COORDINATES.jpg",
+)
+
+
+# =============================================================================
+# 68. JPEG 9 — 24 FINAL QUESTIONS
+# =============================================================================
+
+changed_best = sum(
+    x[
+        "best_changed_from_base"
+    ]
+    for x in FINAL_BEHAVIOR_ROWS
+)
+
+
+changed_final = sum(
+    x[
+        "final_changed_from_base"
+    ]
+    for x in FINAL_BEHAVIOR_ROWS
+)
+
+
+mean_j_best = float(
+    np.mean(
+        [
+            x[
+                "base_best_lexical_jaccard"
+            ]
+            for x in FINAL_BEHAVIOR_ROWS
+        ]
+    )
+)
+
+
+mean_j_final = float(
+    np.mean(
+        [
+            x[
+                "base_final_lexical_jaccard"
+            ]
+            for x in FINAL_BEHAVIOR_ROWS
+        ]
+    )
+)
+
+
+fig = plt.figure(
+    figsize=(12, 8)
+)
+
+
+plt.bar(
+    [
+        "BEST changed\nfrom BASE",
+        "FINAL changed\nfrom BASE",
+    ],
+    [
+        changed_best,
+        changed_final,
+    ],
+)
+
+
+plt.ylim(
+    0,
+    N_FINAL_TEST,
+)
+
+
+plt.ylabel(
+    f"Changed responses / {N_FINAL_TEST}"
+)
+
+plt.title(
+    "TEST 144-R2 — Locked Final-Test Behavioral Change\n"
+    f"BASE↔BEST Jaccard={mean_j_best:.3f} | "
+    f"BASE↔FINAL={mean_j_final:.3f}"
+)
+
+plt.tight_layout()
+
+
+save_jpeg(
+    fig,
+    "TEST144_R2_09_FINAL_TEST_BEHAVIOR_CHANGE.jpg",
+)
+
+
+# =============================================================================
+# 69. JPEG 10 — TRAINING LOSS
+# =============================================================================
+
+train_df = pd.DataFrame(
+    TRAIN_LOG
+)
+
+
+fig = plt.figure(
+    figsize=(16, 8)
+)
+
+
+plt.plot(
+    train_df["step"],
+    train_df["loss_geometry"],
+    linewidth=1.5,
+    label="Geometry loss",
+)
+
+
+plt.axvline(
+    BEST_STEP,
+    linestyle="--",
+    linewidth=1.5,
+    label=f"BEST={BEST_STEP}",
+)
+
+
+plt.yscale(
+    "log"
+)
+
+
+plt.xlabel(
+    "Optimizer update"
+)
+
+plt.ylabel(
+    "Geometry loss (log scale)"
+)
+
+plt.title(
+    "TEST 144-R2 — Training Loss vs Automatically Selected BEST"
+)
+
+plt.legend()
+
+plt.grid(
+    alpha=0.2
+)
+
+plt.tight_layout()
+
+
+save_jpeg(
+    fig,
+    "TEST144_R2_10_LOSS_AND_BEST_POINT.jpg",
+)
+
+
+# =============================================================================
+# 70. JPEG 11 — GPU POWER TELEMETRY
+# =============================================================================
+
+if len(POWER_SAMPLES) >= 2:
+
+    power_df = pd.DataFrame(
+        POWER_SAMPLES
+    )
+
+
+    t0_power = float(
+        power_df[
+            "wall_time"
+        ].iloc[0]
+    )
+
+
+    power_minutes = (
+        power_df[
+            "wall_time"
+        ].to_numpy()
+        - t0_power
+    ) / 60.0
+
+
+    fig = plt.figure(
+        figsize=(16, 8)
+    )
+
+
+    plt.plot(
+        power_minutes,
+        power_df[
+            "power_watts"
+        ],
+        linewidth=1.2,
+    )
+
+
+    plt.xlabel(
+        "Training telemetry time (minutes)"
+    )
+
+    plt.ylabel(
+        "GPU board power (W)"
+    )
+
+
+    title = (
+        "TEST 144-R2 — GPU Board Power During Crystallization"
+    )
+
+
+    if ENERGY["measured"]:
+
+        title += (
+            f"\nIntegrated energy = "
+            f"{ENERGY['energy_wh']:.3f} Wh "
+            f"({ENERGY['energy_kwh']:.6f} kWh)"
+        )
+
+
+    plt.title(
+        title
+    )
+
+    plt.grid(
+        alpha=0.2
+    )
+
+    plt.tight_layout()
+
+
+    save_jpeg(
+        fig,
+        "TEST144_R2_11_GPU_POWER_AND_ENERGY.jpg",
+    )
+
+
+# =============================================================================
+# 71. JPEG 12 — FINAL TEST PER-QUESTION GEOMETRY
+# =============================================================================
+
+q_numbers = np.arange(
+    1,
+    N_FINAL_TEST + 1,
+)
+
+
+q_progress = np.asarray(
+    [
+        100
+        * x[
+            "final_mean_geometry_progress"
+        ]
+        for x in FINAL_BEHAVIOR_ROWS
+    ]
+)
+
+
+fig = plt.figure(
+    figsize=(17, 8)
+)
+
+
+plt.bar(
+    q_numbers,
+    q_progress,
+)
+
+
+plt.axhline(
+    0,
+    linewidth=0.8,
+)
+
+
+plt.xticks(
+    q_numbers
+)
+
+
+plt.xlabel(
+    "Locked final-test question"
+)
+
+plt.ylabel(
+    "Mean target progress across L0-L19 (%)"
+)
+
+plt.title(
+    "TEST 144-R2 — Per-Question Motor-OFF Crystallization\n"
+    "24 previously unopened final-test prompts"
+)
+
+plt.tight_layout()
+
+
+save_jpeg(
+    fig,
+    "TEST144_R2_12_PER_QUESTION_FINAL_TEST_GEOMETRY.jpg",
+)
+
+
+plt.close(
+    "all"
+)
+
+
+# =============================================================================
+# 72. FINAL CONSOLE REPORT
+# =============================================================================
+
+print(
+    "\n" + "=" * 170
+)
+
+print(
+    "TEST 144-R2 — AKBASCORE 3.0 CRYSTALLIZATION COMPLETE"
+)
+
+print(
+    "=" * 170
+)
+
+
+print(
+    "\nTIMESTAMPS"
+)
+
+print(
+    "Experiment start     :",
+    EXPERIMENT_START_ISO
+)
+
+print(
+    "Training start       :",
+    TRAINING_START_ISO
+)
+
+print(
+    "Training end         :",
+    TRAINING_END_ISO
+)
+
+print(
+    "Final-test opened    :",
+    FINAL_TEST_OPEN_ISO
+)
+
+print(
+    "Experiment end       :",
+    EXPERIMENT_END_ISO
+)
+
+
+print(
+    "\nTIME"
+)
+
+print(
+    "Training duration    :",
+    f"{TRAINING_DURATION_MINUTES:.3f} min"
+)
+
+print(
+    "Complete experiment  :",
+    f"{EXPERIMENT_DURATION_MINUTES:.3f} min"
+)
+
+print(
+    "Updates/sec          :",
+    f"{UPDATES_PER_SECOND:.6f}"
+)
+
+
+print(
+    "\nTRAINING"
+)
+
+print(
+    "Last update          :",
+    LAST_STEP
+)
+
+print(
+    "Best update          :",
+    BEST_STEP
+)
+
+print(
+    "Stop reason          :",
+    STOP_REASON
+)
+
+
+print(
+    "\nVALIDATION BEST — MOTOR OFF"
+)
+
+print(
+    "Target progress      :",
+    f"{100*BEST_PROGRESS:+.4f}%"
+)
+
+print(
+    "Target distance      :",
+    f"{BEST_DISTANCE:.8f}"
+)
+
+print(
+    "Direction alignment  :",
+    f"{BEST_ALIGNMENT:+.8f}"
+)
+
+
+print(
+    "\nLOCKED FINAL TEST — FINAL MERGED MOTOR OFF"
+)
+
+print(
+    "Target progress      :",
+    f"{100*FINAL_PROGRESS:+.4f}%"
+)
+
+print(
+    "Target distance      :",
+    f"{FINAL_DISTANCE:.8f}"
+)
+
+print(
+    "Direction alignment  :",
+    f"{FINAL_ALIGNMENT:+.8f}"
+)
+
+
+print(
+    "\nENERGY"
+)
+
+if ENERGY["measured"]:
+
+    print(
+        "Measured GPU energy :",
+        f"{ENERGY['energy_wh']:.4f} Wh"
+    )
+
+    print(
+        "Measured GPU energy :",
+        f"{ENERGY['energy_kwh']:.6f} kWh"
+    )
+
+    print(
+        "Mean board power     :",
+        f"{ENERGY['mean_power_w']:.2f} W"
+    )
+
+    print(
+        "Peak board power     :",
+        f"{ENERGY['max_power_w']:.2f} W"
+    )
+
+    print(
+        "Power samples        :",
+        ENERGY["samples"]
+    )
+
+    print(
+        "Scope                : GPU BOARD ONLY"
+    )
+
+else:
+
+    print(
+        "GPU energy           : NOT MEASURED"
+    )
+
+
+print(
+    "\nMERGE"
+)
+
+print(
+    "Hidden drift         :",
+    f"{MERGE_RELATIVE_DRIFT:.10e}"
+)
+
+print(
+    "Status               :",
+    MERGE_STATUS
+)
+
+
+print(
+    "\nBEHAVIOR — LOCKED FINAL TEST"
+)
+
+print(
+    "BEST changed         :",
+    f"{changed_best}/{N_FINAL_TEST}"
+)
+
+print(
+    "FINAL changed        :",
+    f"{changed_final}/{N_FINAL_TEST}"
+)
+
+print(
+    "BASE/BEST Jaccard    :",
+    f"{mean_j_best:.6f}"
+)
+
+print(
+    "BASE/FINAL Jaccard   :",
+    f"{mean_j_final:.6f}"
+)
+
+
+print(
+    "\nFINAL MODEL"
+)
+
+print(
+    "AkbasCore motor      : OFF"
+)
+
+print(
+    "SEASC injection      : OFF"
+)
+
+print(
+    "Forward hooks        : NONE"
+)
+
+print(
+    "LoRA runtime         : REMOVED"
+)
+
+print(
+    "Best adaptation      : MERGED INTO WEIGHTS"
+)
+
+
+print(
+    "\nPERFORMANCE RECORD"
+)
+
+print(
+    PERFORMANCE_STATEMENT
+)
+
+
+# =============================================================================
+# 73. VERIFY JPEGS
+# =============================================================================
+
+print(
+    "\nJPEG FILES:"
+)
+
+
+for path in JPEG_FILES:
+
+    with Image.open(path) as im:
+
+        print(
+            "OK |",
+            os.path.basename(path),
+            "|",
+            im.format,
+            "|",
+            im.mode,
+            "|",
+            im.size,
+        )
+
+
+# =============================================================================
+# 74. COMPLETE MANIFEST
+# =============================================================================
+
+MANIFEST_PATH = os.path.join(
+    OUT_DIR,
+    "TEST144_R2_MANIFEST.txt",
+)
+
+
+with open(
+    MANIFEST_PATH,
+    "w",
+    encoding="utf-8",
+) as f:
+
+    f.write(
+        "TEST 144-R2 — COMPLETE ARTIFACT MANIFEST\n"
+    )
+
+    f.write(
+        "=" * 120
+        + "\n\n"
+    )
+
+
+    for root, dirs, filenames in os.walk(
+        OUT_DIR
+    ):
+
+        for filename in sorted(
+            filenames
+        ):
+
+            path = os.path.join(
+                root,
+                filename,
+            )
+
+            rel = os.path.relpath(
+                path,
+                OUT_DIR,
+            )
+
+
+            try:
+                size = os.path.getsize(
+                    path
+                )
+            except Exception:
+                size = -1
+
+
+            f.write(
+                f"{rel}\t{size} bytes\n"
+            )
+
+
+# =============================================================================
+# 75. ZIP EVERYTHING
+# =============================================================================
+
+ZIP_BASE = (
+    "/content/"
+    "TEST144_R2_AKBASCORE_3_CRYSTALLIZATION_COMPLETE"
+)
+
+
+ZIP_PATH = shutil.make_archive(
+    ZIP_BASE,
+    "zip",
+    OUT_DIR,
+)
+
+
+print(
+    "\nComplete ZIP:",
+    ZIP_PATH
+)
+
+
+# =============================================================================
+# 76. AUTOMATIC DOWNLOAD
+# =============================================================================
+
+from google.colab import files
+
+
+print(
+    "\nDownloading the three primary records..."
+)
+
+
+files.download(
+    REPORT_PATH
+)
+
+time.sleep(
+    2.0
+)
+
+
+files.download(
+    QA_REPORT_PATH
+)
+
+time.sleep(
+    2.0
+)
+
+
+files.download(
+    ZIP_PATH
+)
+
+
+print(
+    "\n" + "=" * 170
+)
+
+print(
+    "AKBASCORE 3.0 CRYSTALLIZATION REPLICATION FINISHED"
+)
+
+print(
+    "=" * 170
+)
+
+print(
+    f"Training completed in {TRAINING_DURATION_MINUTES:.3f} minutes."
+)
+
+print(
+    f"BEST motor-off validation state: update {BEST_STEP}."
+)
+
+print(
+    f"Locked final-test motor-off progress: "
+    f"{100*FINAL_PROGRESS:+.4f}%."
+)
+
+if ENERGY["measured"]:
+
+    print(
+        f"Measured GPU board energy during crystallization training: "
+        f"{ENERGY['energy_wh']:.3f} Wh "
+        f"({ENERGY['energy_kwh']:.6f} kWh)."
+    )
+
+else:
+
+    print(
+        "GPU board energy: NOT MEASURED."
+    )
+
+print(
+    "Final model state: "
+    "AkbasCore OFF | SEASC OFF | hooks NONE | "
+    "LoRA runtime REMOVED | BEST adaptation MERGED."
+)
+
+print(
+    "=" * 170
+)
