@@ -2,29 +2,48 @@
 # TEST 142 — SEASC VECTOR X-RAY
 # AkbasCore 3.0 — Standardized Evidential Activation-Steering Core
 #
-# FINAL COLAB VERSION
+# CLEAN COLAB / PHONE-JPEG EDITION
 #
-# OUTPUT:
-#   • Full L0-L19 Vanilla vs SEASC measurement
-#   • Vanilla / SEASC raw responses
-#   • L14 full vector profile
-#   • L14 Top-50 coordinate changes
-#   • Common PCA trajectory
-#   • Angular divergence
-#   • Actuator vs accumulated displacement
+# PURPOSE
+#   Same prompt, same frozen Qwen2.5-7B-Instruct:
 #
-# PHONE EXPORT:
-#   • 1 x PDF written report
-#   • 5 x JPG figures
+#       VANILLA  vs  AKBASCORE 3.0 SEASC
+#
+#   Capture the same last-prompt-token coordinate at L0...L19 and measure:
+#
+#       delta_L       = h_SEASC,L - h_VANILLA,L
+#       RelativeDelta = ||delta_L|| / ||h_VANILLA,L||
+#       theta_L       = angle(h_VANILLA,L, h_SEASC,L)
+#       alignment_L   = cos(delta_L, A_L)
+#       ||u_L||       = direct SEASC actuator dose
+#       ||delta_L||   = actually observed accumulated displacement
+#
+# IMPORTANT
+#   - Model weights remain frozen.
+#   - Original SEASC 3.0 ABOVE<->BELOW actuator extraction is retained.
+#   - Original SEASC 3.0 DRA envelope is retained.
+#   - NO new compass.
+#   - NO cosine magnitude gate.
+#   - NO cap.
+#   - NO brake.
+#   - NO radar.
+#   - NO controller.
+#
+# OUTPUT POLICY
+#   - NO plots are rendered in the Colab output.
+#   - All numerical telemetry remains visible as plain text.
+#   - System prompt, user prompt, Vanilla output and SEASC output are printed.
+#   - Five plots are exported as standard RGB baseline JPEG files.
+#   - JPEGs are automatically sent to the browser/phone for download.
+#   - CSV + NPZ remain in /content for optional later use.
 #
 # Akbas — 2026
 # =============================================================================
 
 
-# =============================================================================
-# 0. INSTALL / IMPORT
-# =============================================================================
-
+# -----------------------------------------------------------------------------
+# 0. INSTALL
+# -----------------------------------------------------------------------------
 import sys
 import subprocess
 import os
@@ -49,8 +68,7 @@ for pkg, import_name in [
     ("scikit-learn", "sklearn"),
     ("pandas", "pandas"),
     ("matplotlib", "matplotlib"),
-    ("Pillow", "PIL"),
-    ("reportlab", "reportlab"),
+    ("pillow", "PIL"),
 ]:
     try:
         __import__(import_name)
@@ -59,70 +77,46 @@ for pkg, import_name in [
         pip_install(pkg)
 
 
+# -----------------------------------------------------------------------------
+# IMPORTANT:
+# Force Matplotlib into a NON-INTERACTIVE backend BEFORE pyplot import.
+# This prevents Colab/Jupyter from rendering figures into cell output.
+# -----------------------------------------------------------------------------
+import matplotlib
+matplotlib.use("Agg")
+
 import numpy as np
 import pandas as pd
 import torch
+import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
 from PIL import Image
 from sklearn.decomposition import PCA
-
-from transformers import (
-    AutoTokenizer,
-    AutoModelForCausalLM
-)
-
+from transformers import AutoTokenizer, AutoModelForCausalLM
 from torch.utils.cpp_extension import load_inline
 
-from reportlab.lib.pagesizes import A4, landscape
-from reportlab.lib import colors
-from reportlab.lib.units import cm
 
-from reportlab.platypus import (
-    SimpleDocTemplate,
-    Paragraph,
-    Spacer,
-    Table,
-    TableStyle,
-    PageBreak
-)
-
-from reportlab.lib.styles import (
-    getSampleStyleSheet,
-    ParagraphStyle
-)
-
-from reportlab.lib.enums import TA_CENTER
-
-from google.colab import files
-
+plt.ioff()
 
 warnings.filterwarnings("ignore")
-
-os.environ[
-    "TOKENIZERS_PARALLELISM"
-] = "false"
-
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 if not torch.cuda.is_available():
-
     raise RuntimeError(
         "CUDA GPU bulunamadı.\n"
         "Colab -> Runtime -> Change runtime type -> A100 GPU seçin."
     )
-
 
 DEVICE = torch.device("cuda")
 
 torch.manual_seed(42)
 torch.cuda.manual_seed_all(42)
 
-
 print("=" * 110)
 print("TEST 142 — SEASC VECTOR X-RAY")
 print("AKBASCORE 3.0 — VANILLA vs SEASC HIDDEN-STATE COORDINATE ASSAY")
 print("=" * 110)
-
 print("PyTorch :", torch.__version__)
 print("CUDA    :", torch.version.cuda)
 print("GPU     :", torch.cuda.get_device_name(0))
@@ -136,21 +130,20 @@ MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
 
 N_LAYERS = 20
 
+# Physical first-layer relative dose.
 IVME = 0.10
 
+# Original SEASC 3.0 static DRA constants.
 SONUM = 0.30
 ZIRVE = 0.70
 TABAN = 0.20
 
-MAX_NEW_TOKENS = 180
 REPETITION_PENALTY = 1.15
-
 
 SYSTEM_PROMPT = (
     "You are a concise visual reasoning assistant. "
     "Describe spatial relationships clearly."
 )
-
 
 USER_PROMPT = (
     "A red apple is on the table. "
@@ -158,47 +151,27 @@ USER_PROMPT = (
     "Describe their relative spatial positions precisely."
 )
 
-
-# -----------------------------------------------------------------------------
-# ORIGINAL SEASC 3.0 ABOVE <-> BELOW MATCHED CONTRAST
-# -----------------------------------------------------------------------------
-
+# Original AkbasCore 3.0 SEASC matched contrast:
+# ABOVE <-> BELOW
 POSITIVE = [
-
     "a person standing above a bridge",
-
     "a person positioned above a tower",
-
     "an object located above the roof",
-
     "a bird flying above the mountain",
-
     "a light appearing above the building",
-
     "a person looking from above the valley",
-
     "a structure extending above the wall",
-
     "a signal coming from above the surface",
 ]
 
-
 NEGATIVE = [
-
     "a person standing below a bridge",
-
     "a person positioned below a tower",
-
     "an object located below the roof",
-
     "a bird flying below the mountain",
-
     "a light appearing below the building",
-
     "a person looking from below the valley",
-
     "a structure extending below the wall",
-
     "a signal coming from below the surface",
 ]
 
@@ -208,7 +181,6 @@ NEGATIVE = [
 # =============================================================================
 
 def dra_envelope(layer_idx):
-
     t = float(layer_idx)
 
     kb = (
@@ -218,76 +190,40 @@ def dra_envelope(layer_idx):
         + TABAN
     )
 
-    kb0 = (
-        ZIRVE
-        + TABAN
-    )
+    kb0 = ZIRVE + TABAN
 
     return kb / kb0
 
 
-ENVELOPE = [
-    dra_envelope(L)
-    for L in range(N_LAYERS)
-]
-
-
-RELATIVE_DOSE = [
-    IVME * e
-    for e in ENVELOPE
-]
-
+ENVELOPE = [dra_envelope(L) for L in range(N_LAYERS)]
+RELATIVE_DOSE = [IVME * e for e in ENVELOPE]
 
 print("\nLOCKED SEASC 3.0 CONFIG")
 print("-" * 110)
-
 print("MODEL :", MODEL_ID)
 print("LAYERS: L0-L19")
-
-print(
-    f"IVME={IVME} | "
-    f"SONUM={SONUM} | "
-    f"ZIRVE={ZIRVE} | "
-    f"TABAN={TABAN}"
-)
-
+print(f"IVME={IVME} | SONUM={SONUM} | ZIRVE={ZIRVE} | TABAN={TABAN}")
 print("Concept: ABOVE <-> BELOW")
-
 print("\nStatic normalized DRA envelope:")
 
-
 for L in range(N_LAYERS):
-
     print(
         f"L{L:02d} | "
         f"E={ENVELOPE[L]:.6f} | "
-        f"requested relative dose="
-        f"{100.0 * RELATIVE_DOSE[L]:.3f}%"
+        f"requested relative dose={100.0*RELATIVE_DOSE[L]:.3f}%"
     )
 
 
 # =============================================================================
-# 3. BUILD C++ / CUDA SEASC INJECTION
+# 3. BUILD ORIGINAL-STYLE C++ / CUDA SEASC INJECTION
 # =============================================================================
 
-BUILD_DIR = (
-    "/tmp/akbascore_test142_seasc_xray"
-)
-
+BUILD_DIR = "/tmp/akbascore_test142_seasc_xray"
 
 if os.path.exists(BUILD_DIR):
+    shutil.rmtree(BUILD_DIR, ignore_errors=True)
 
-    shutil.rmtree(
-        BUILD_DIR,
-        ignore_errors=True
-    )
-
-
-os.makedirs(
-    BUILD_DIR,
-    exist_ok=True
-)
-
+os.makedirs(BUILD_DIR, exist_ok=True)
 
 CPP_SOURCE = r"""
 #include <torch/extension.h>
@@ -307,16 +243,11 @@ torch::Tensor seasc_inject(
     TORCH_CHECK(actuator.is_cuda(), "actuator must be CUDA");
     TORCH_CHECK(hidden.dim() == 3, "hidden must be [B,S,H]");
     TORCH_CHECK(actuator.dim() == 1, "actuator must be [H]");
-
     TORCH_CHECK(
         hidden.size(2) == actuator.size(0),
         "hidden size and actuator size mismatch"
     );
-
-    TORCH_CHECK(
-        relative_dose >= 0.0,
-        "relative_dose must be non-negative"
-    );
+    TORCH_CHECK(relative_dose >= 0.0, "relative_dose must be non-negative");
 
     return seasc_inject_cuda(
         hidden,
@@ -326,7 +257,6 @@ torch::Tensor seasc_inject(
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-
     m.def(
         "seasc_inject",
         &seasc_inject,
@@ -334,7 +264,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     );
 }
 """
-
 
 CUDA_SOURCE = r"""
 #include <torch/extension.h>
@@ -353,98 +282,55 @@ __global__ void seasc_inject_kernel(
     int64_t hidden_size,
     float relative_dose
 ) {
-
     int64_t row = blockIdx.x;
+    int64_t j   = blockIdx.y * blockDim.x + threadIdx.x;
 
-    int64_t j =
-        blockIdx.y
-        * blockDim.x
-        + threadIdx.x;
-
-    if (
-        row >= rows
-        || j >= hidden_size
-    )
+    if (row >= rows || j >= hidden_size)
         return;
 
-    float h =
-        static_cast<float>(
-            hidden[
-                row * hidden_size + j
-            ]
-        );
+    float h = static_cast<float>(
+        hidden[row * hidden_size + j]
+    );
 
     float delta =
         relative_dose
         * norms[row]
         * actuator[j];
 
-    hidden[
-        row * hidden_size + j
-    ] =
-        static_cast<scalar_t>(
-            h + delta
-        );
+    hidden[row * hidden_size + j] =
+        static_cast<scalar_t>(h + delta);
 }
-
 
 torch::Tensor seasc_inject_cuda(
     torch::Tensor hidden,
     torch::Tensor actuator,
     double relative_dose
 ) {
+    c10::cuda::CUDAGuard device_guard(hidden.device());
 
-    c10::cuda::CUDAGuard
-        device_guard(
-            hidden.device()
-        );
+    auto out = hidden.contiguous().clone();
 
-    auto out =
-        hidden
-        .contiguous()
-        .clone();
-
-    auto a =
-        actuator
-        .to(
-            hidden.device(),
-            torch::kFloat32
-        )
+    auto a = actuator
+        .to(hidden.device(), torch::kFloat32)
         .contiguous();
 
-    const auto B =
-        out.size(0);
+    const auto B = out.size(0);
+    const auto S = out.size(1);
+    const auto H = out.size(2);
+    const auto rows = B * S;
 
-    const auto S =
-        out.size(1);
-
-    const auto H =
-        out.size(2);
-
-    const auto rows =
-        B * S;
-
-    auto norms =
-        out
+    // norm0 is measured BEFORE intervention, in FP32.
+    auto norms = out
         .reshape({rows, H})
         .to(torch::kFloat32)
         .norm(2, 1)
         .contiguous();
 
     const int threads = 256;
+    const int grid_y = (H + threads - 1) / threads;
 
-    const int grid_y =
-        (H + threads - 1)
-        / threads;
-
-    dim3 grid(
-        rows,
-        grid_y
-    );
-
-    dim3 block(
-        threads
-    );
+    dim3 grid(rows, grid_y);
+    dim3 block(threads);
 
     AT_DISPATCH_FLOATING_TYPES_AND2(
         at::ScalarType::Half,
@@ -452,20 +338,15 @@ torch::Tensor seasc_inject_cuda(
         out.scalar_type(),
         "seasc_inject_cuda",
         [&] {
-
             seasc_inject_kernel<scalar_t>
-                <<<grid,
-                   block,
-                   0,
+                <<<grid, block, 0,
                    at::cuda::getDefaultCUDAStream()>>>(
                     out.data_ptr<scalar_t>(),
                     a.data_ptr<float>(),
                     norms.data_ptr<float>(),
                     rows,
                     H,
-                    static_cast<float>(
-                        relative_dose
-                    )
+                    static_cast<float>(relative_dose)
                 );
         }
     );
@@ -476,145 +357,65 @@ torch::Tensor seasc_inject_cuda(
 }
 """
 
-
-print(
-    "\n[1/10] "
-    "C++ / CUDA SEASC kernel compiling..."
-)
-
+print("\n[1/10] C++ / CUDA SEASC kernel compiling...")
 
 seasc_ext = load_inline(
-
-    name=(
-        "akbascore_test142_"
-        "seasc_xray_ext"
-    ),
-
+    name="akbascore_test142_seasc_xray_ext",
     cpp_sources=CPP_SOURCE,
-
     cuda_sources=CUDA_SOURCE,
-
     functions=None,
-
-    extra_cflags=[
-        "-O3"
-    ],
-
-    extra_cuda_cflags=[
-        "-O3"
-    ],
-
+    extra_cflags=["-O3"],
+    extra_cuda_cflags=["-O3"],
     with_cuda=True,
-
     build_directory=BUILD_DIR,
-
     verbose=False,
 )
 
-
-print(
-    "OK — CUDA kernel compiled."
-)
+print("OK — CUDA kernel compiled.")
 
 
 # =============================================================================
 # 4. LOAD FROZEN QWEN2.5-7B
 # =============================================================================
 
-print(
-    f"\n[2/10] "
-    f"Loading frozen model: "
-    f"{MODEL_ID}"
+print(f"\n[2/10] Loading frozen model: {MODEL_ID}")
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_ID,
+    trust_remote_code=True
 )
-
-
-tokenizer = (
-    AutoTokenizer
-    .from_pretrained(
-        MODEL_ID,
-        trust_remote_code=True
-    )
-)
-
 
 if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
 
-    tokenizer.pad_token = (
-        tokenizer.eos_token
-    )
-
-
-model = (
-    AutoModelForCausalLM
-    .from_pretrained(
-
-        MODEL_ID,
-
-        torch_dtype=torch.bfloat16,
-
-        device_map={
-            "": 0
-        },
-
-        attn_implementation="sdpa",
-
-        trust_remote_code=True,
-    )
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    torch_dtype=torch.bfloat16,
+    device_map={"": 0},
+    attn_implementation="sdpa",
+    trust_remote_code=True,
 )
-
 
 model.eval()
 
-
 for p in model.parameters():
-
     p.requires_grad_(False)
-
 
 layers = model.model.layers
 
-
 if len(layers) < N_LAYERS:
-
     raise RuntimeError(
-        f"Model has only "
-        f"{len(layers)} layers; "
-        f"TEST142 requires at least "
-        f"{N_LAYERS}."
+        f"Model has only {len(layers)} layers; "
+        f"TEST142 requires at least {N_LAYERS}."
     )
 
-
-HIDDEN_SIZE = (
-    model.config.hidden_size
-)
-
+HIDDEN_SIZE = model.config.hidden_size
 
 print("Model ready.")
-
-print(
-    "Decoder layers :",
-    len(layers)
-)
-
-print(
-    "Hidden size    :",
-    HIDDEN_SIZE
-)
-
-print(
-    "dtype          :",
-    next(
-        model.parameters()
-    ).dtype
-)
-
-print(
-    "weights frozen :",
-    all(
-        not p.requires_grad
-        for p in model.parameters()
-    )
-)
+print("Decoder layers :", len(layers))
+print("Hidden size    :", HIDDEN_SIZE)
+print("dtype          :", next(model.parameters()).dtype)
+print("weights frozen :", all(not p.requires_grad for p in model.parameters()))
 
 
 # =============================================================================
@@ -625,141 +426,73 @@ print(
 def mean_hidden_states(texts):
 
     accum = [
-
         torch.zeros(
             HIDDEN_SIZE,
             dtype=torch.float32,
             device=DEVICE
         )
-
         for _ in range(N_LAYERS)
     ]
 
-
-    for text in texts:
+    for i, text in enumerate(texts, 1):
 
         enc = tokenizer(
-
             text,
-
             return_tensors="pt",
-
             add_special_tokens=True,
         )
 
-
         enc = {
-
             k: v.to(DEVICE)
-
-            for k, v
-            in enc.items()
+            for k, v in enc.items()
         }
 
-
         out = model(
-
             **enc,
-
             output_hidden_states=True,
-
             use_cache=False,
-
             return_dict=True,
         )
 
-
         last_token = (
-            int(
-                enc[
-                    "attention_mask"
-                ][0]
-                .sum()
-                .item()
-            )
+            int(enc["attention_mask"][0].sum().item())
             - 1
         )
 
-
         for L in range(N_LAYERS):
 
-            h = (
-                out.hidden_states[
-                    L + 1
-                ][
-                    0,
-                    last_token,
-                    :
-                ]
-            )
+            h = out.hidden_states[L + 1][
+                0,
+                last_token,
+                :
+            ]
 
-            accum[L].add_(
-                h.float()
-            )
-
+            accum[L].add_(h.float())
 
         del out, enc
 
+    n = float(len(texts))
 
-    n = float(
-        len(texts)
-    )
-
-
-    return [
-        x / n
-        for x in accum
-    ]
+    return [x / n for x in accum]
 
 
-print(
-    "\n[3/10] "
-    "Extracting original ABOVE states..."
-)
-
-
-positive_states = (
-    mean_hidden_states(
-        POSITIVE
-    )
-)
-
+print("\n[3/10] Extracting original ABOVE states...")
+positive_states = mean_hidden_states(POSITIVE)
 
 gc.collect()
 torch.cuda.empty_cache()
 
-
-print(
-    "[4/10] "
-    "Extracting original BELOW states..."
-)
-
-
-negative_states = (
-    mean_hidden_states(
-        NEGATIVE
-    )
-)
-
+print("[4/10] Extracting original BELOW states...")
+negative_states = mean_hidden_states(NEGATIVE)
 
 actuators = []
 actuator_raw_norms = []
 
-
-print(
-    "[5/10] "
-    "Building original SEASC "
-    "per-layer actuators..."
-)
-
+print("[5/10] Building original SEASC per-layer actuators...")
 
 for L in range(N_LAYERS):
 
-    diff = (
-        positive_states[L]
-        - negative_states[L]
-    )
-
+    diff = positive_states[L] - negative_states[L]
 
     raw_norm = (
         torch.linalg
@@ -767,41 +500,23 @@ for L in range(N_LAYERS):
         .clamp_min(1e-12)
     )
 
-
     A = (
-        diff
-        / raw_norm
+        diff / raw_norm
     ).to(
-
         device=DEVICE,
-
         dtype=torch.float32
-
     ).contiguous()
 
-
     actuators.append(A)
-
-
-    actuator_raw_norms.append(
-        float(
-            raw_norm.item()
-        )
-    )
-
+    actuator_raw_norms.append(float(raw_norm.item()))
 
     print(
         f"L{L:02d} | "
-        f"raw contrast norm="
-        f"{raw_norm.item():.6f} | "
-        f"unit actuator norm="
-        f"{A.norm().item():.6f}"
+        f"raw contrast norm={raw_norm.item():.6f} | "
+        f"unit actuator norm={A.norm().item():.6f}"
     )
 
-
-del positive_states
-del negative_states
-
+del positive_states, negative_states
 gc.collect()
 torch.cuda.empty_cache()
 
@@ -811,116 +526,115 @@ torch.cuda.empty_cache()
 # =============================================================================
 
 messages = [
-
     {
         "role": "system",
         "content": SYSTEM_PROMPT
     },
-
     {
         "role": "user",
         "content": USER_PROMPT
     }
 ]
 
-
-prompt_text = (
-    tokenizer
-    .apply_chat_template(
-
-        messages,
-
-        tokenize=False,
-
-        add_generation_prompt=True
-    )
+prompt_text = tokenizer.apply_chat_template(
+    messages,
+    tokenize=False,
+    add_generation_prompt=True
 )
 
-
 inputs = tokenizer(
-
     prompt_text,
-
     return_tensors="pt"
 )
 
-
 inputs = {
-
     k: v.to(DEVICE)
-
-    for k, v
-    in inputs.items()
+    for k, v in inputs.items()
 }
 
-
-PROMPT_LENGTH = (
-    inputs[
-        "input_ids"
-    ].shape[1]
-)
-
+PROMPT_LENGTH = inputs["input_ids"].shape[1]
 
 TARGET_TOKEN_POSITION = (
-
-    int(
-        inputs[
-            "attention_mask"
-        ][0]
-        .sum()
-        .item()
-    )
-
+    int(inputs["attention_mask"][0].sum().item())
     - 1
 )
 
-
 target_token_id = int(
+    inputs["input_ids"][0, TARGET_TOKEN_POSITION].item()
+)
 
-    inputs[
-        "input_ids"
-    ][
-        0,
-        TARGET_TOKEN_POSITION
-    ].item()
+target_token_text = tokenizer.decode(
+    [target_token_id],
+    skip_special_tokens=False
 )
 
 
-target_token_text = (
-    tokenizer.decode(
+# -----------------------------------------------------------------------------
+# GENERATION BUDGET
+#
+# No arbitrary 180-token cap.
+#
+# Use the model/tokenizer context limit when it is a sane finite value.
+# Keep one token of safety margin.
+#
+# IMPORTANT:
+# This is only an upper ceiling. Greedy generation stops normally at EOS.
+# -----------------------------------------------------------------------------
 
-        [target_token_id],
+def get_context_limit():
 
-        skip_special_tokens=False
-    )
+    candidates = []
+
+    for value in [
+        getattr(model.config, "max_position_embeddings", None),
+        getattr(tokenizer, "model_max_length", None),
+    ]:
+        try:
+            value = int(value)
+
+            # Some tokenizers expose absurd sentinel values such as 1e30.
+            if 0 < value < 10_000_000:
+                candidates.append(value)
+
+        except Exception:
+            pass
+
+    if candidates:
+        return min(candidates)
+
+    # Conservative fallback only if metadata is unavailable.
+    return 32768
+
+
+CONTEXT_LIMIT = get_context_limit()
+
+MAX_NEW_TOKENS = max(
+    1,
+    CONTEXT_LIMIT - PROMPT_LENGTH - 1
 )
 
 
-print("\nTEST PROMPT")
-print("-" * 110)
+print("\n" + "=" * 110)
+print("TEST INPUT — EXACT PROMPTS")
+print("=" * 110)
 
+print("\n[SYSTEM PROMPT]")
+print(SYSTEM_PROMPT)
+
+print("\n[USER PROMPT]")
 print(USER_PROMPT)
 
-print()
-
+print("\n[INPUT / CAPTURE METADATA]")
+print("Prompt token count       :", PROMPT_LENGTH)
+print("Captured position        :", TARGET_TOKEN_POSITION)
+print("Captured token id        :", target_token_id)
+print("Captured token           :", repr(target_token_text))
+print("Model context limit      :", CONTEXT_LIMIT)
+print("Generation upper ceiling:", MAX_NEW_TOKENS)
+print("Decoding                 : greedy / do_sample=False")
 print(
-    "Prompt token count :",
-    PROMPT_LENGTH
-)
-
-print(
-    "Captured position  :",
-    TARGET_TOKEN_POSITION
-)
-
-print(
-    "Captured token id  :",
-    target_token_id
-)
-
-print(
-    "Captured token     :",
-    repr(target_token_text)
+    "Generation stop rule     : EOS or context ceiling, "
+    "whichever occurs first"
 )
 
 
@@ -931,116 +645,65 @@ print(
 @torch.inference_mode()
 def capture_vanilla_prefill():
 
-    captured = (
-        [None]
-        * N_LAYERS
-    )
-
+    captured = [None] * N_LAYERS
     handles = []
-
 
     def make_hook(L):
 
-        def hook(
-            module,
-            args,
-            output
-        ):
+        def hook(module, args, output):
 
             hidden = (
-
                 output[0]
-
-                if isinstance(
-                    output,
-                    tuple
-                )
-
+                if isinstance(output, tuple)
                 else output
             )
 
-
             captured[L] = (
-
                 hidden[
                     0,
                     TARGET_TOKEN_POSITION,
                     :
                 ]
-
                 .detach()
-
                 .float()
-
                 .cpu()
-
                 .clone()
             )
 
-
             return None
-
 
         return hook
 
-
     for L in range(N_LAYERS):
-
         handles.append(
-
-            layers[L]
-            .register_forward_hook(
+            layers[L].register_forward_hook(
                 make_hook(L)
             )
         )
 
-
     try:
-
         _ = model(
-
             **inputs,
-
             use_cache=False,
-
             return_dict=True,
         )
 
-
     finally:
-
         for h in handles:
-
             h.remove()
 
-
-    if any(
-        x is None
-        for x in captured
-    ):
-
+    if any(x is None for x in captured):
         raise RuntimeError(
-            "Vanilla coordinate "
-            "capture incomplete."
+            "Vanilla coordinate capture incomplete."
         )
-
 
     return captured
 
 
-print(
-    "\n[6/10] "
-    "Capturing VANILLA "
-    "L0-L19 coordinates..."
-)
-
-
+print("\n[6/10] Capturing VANILLA L0-L19 coordinates...")
 V = capture_vanilla_prefill()
 
-
-print(
-    "OK — Vanilla coordinates captured."
-)
+print("OK — Vanilla coordinates captured.")
 
 
 # =============================================================================
@@ -1050,224 +713,116 @@ print(
 @torch.inference_mode()
 def capture_seasc_prefill():
 
-    pre = (
-        [None]
-        * N_LAYERS
-    )
+    pre = [None] * N_LAYERS
+    post = [None] * N_LAYERS
+    direct_u = [None] * N_LAYERS
 
-    post = (
-        [None]
-        * N_LAYERS
-    )
-
-    direct_u = (
-        [None]
-        * N_LAYERS
-    )
-
-
-    requested_u_norm = (
-        [None]
-        * N_LAYERS
-    )
-
-    realized_u_norm = (
-        [None]
-        * N_LAYERS
-    )
-
+    requested_u_norm = [None] * N_LAYERS
+    realized_u_norm = [None] * N_LAYERS
 
     handles = []
 
-
     def make_hook(L):
 
-        def hook(
-            module,
-            args,
-            output
-        ):
+        def hook(module, args, output):
 
             hidden = (
-
                 output[0]
-
-                if isinstance(
-                    output,
-                    tuple
-                )
-
+                if isinstance(output, tuple)
                 else output
             )
 
-
             pre_vec = (
-
                 hidden[
                     0,
                     TARGET_TOKEN_POSITION,
                     :
                 ]
-
                 .detach()
-
                 .float()
-
                 .cpu()
-
                 .clone()
             )
 
-
             norm0 = float(
-
-                torch.linalg
-                .vector_norm(
-
+                torch.linalg.vector_norm(
                     hidden[
                         0,
                         TARGET_TOKEN_POSITION,
                         :
                     ].float()
-                )
-
-                .item()
+                ).item()
             )
 
-
-            rho = float(
-                RELATIVE_DOSE[L]
-            )
-
+            rho = float(RELATIVE_DOSE[L])
 
             requested_u_norm[L] = (
+                rho * norm0
+            )
+
+            steered = seasc_ext.seasc_inject(
+                hidden,
+                actuators[L],
                 rho
-                * norm0
             )
-
-
-            steered = (
-                seasc_ext
-                .seasc_inject(
-
-                    hidden,
-
-                    actuators[L],
-
-                    rho
-                )
-            )
-
 
             post_vec = (
-
                 steered[
                     0,
                     TARGET_TOKEN_POSITION,
                     :
                 ]
-
                 .detach()
-
                 .float()
-
                 .cpu()
-
                 .clone()
             )
 
-
-            u_vec = (
-                post_vec
-                - pre_vec
-            )
-
+            u_vec = post_vec - pre_vec
 
             pre[L] = pre_vec
             post[L] = post_vec
             direct_u[L] = u_vec
 
-
             realized_u_norm[L] = float(
-
-                torch.linalg
-                .vector_norm(
+                torch.linalg.vector_norm(
                     u_vec
-                )
-
-                .item()
+                ).item()
             )
 
-
-            if isinstance(
-                output,
-                tuple
-            ):
-
-                return (
-                    steered,
-                ) + output[1:]
-
+            if isinstance(output, tuple):
+                return (steered,) + output[1:]
 
             return steered
 
-
         return hook
 
-
     for L in range(N_LAYERS):
-
         handles.append(
-
-            layers[L]
-            .register_forward_hook(
+            layers[L].register_forward_hook(
                 make_hook(L)
             )
         )
 
-
     try:
-
         _ = model(
-
             **inputs,
-
             use_cache=False,
-
             return_dict=True,
         )
 
-
     finally:
-
         for h in handles:
-
             h.remove()
 
-
     if (
-
-        any(
-            x is None
-            for x in pre
-        )
-
-        or any(
-            x is None
-            for x in post
-        )
-
-        or any(
-            x is None
-            for x in direct_u
-        )
+        any(x is None for x in pre)
+        or any(x is None for x in post)
+        or any(x is None for x in direct_u)
     ):
-
         raise RuntimeError(
-            "SEASC coordinate "
-            "capture incomplete."
+            "SEASC coordinate capture incomplete."
         )
-
 
     return (
         pre,
@@ -1278,12 +833,7 @@ def capture_seasc_prefill():
     )
 
 
-print(
-    "\n[7/10] "
-    "Capturing SEASC "
-    "L0-L19 coordinates..."
-)
-
+print("\n[7/10] Capturing SEASC L0-L19 coordinates...")
 
 (
     PRE_S,
@@ -1291,54 +841,28 @@ print(
     U,
     REQUESTED_U_NORM,
     REALIZED_U_NORM,
-
 ) = capture_seasc_prefill()
 
-
-print(
-    "OK — SEASC coordinates captured."
-)
+print("OK — SEASC coordinates captured.")
 
 
 # =============================================================================
 # 9. COMPUTE X-RAY METRICS
 # =============================================================================
 
-def safe_cos(
-    a,
-    b,
-    eps=1e-12
-):
+def safe_cos(a, b, eps=1e-12):
 
     a = a.float()
     b = b.float()
 
-    na = (
-        torch.linalg
-        .vector_norm(a)
-    )
+    na = torch.linalg.vector_norm(a)
+    nb = torch.linalg.vector_norm(b)
 
-    nb = (
-        torch.linalg
-        .vector_norm(b)
-    )
+    denom = (na * nb).clamp_min(eps)
 
-    denom = (
-        na * nb
-    ).clamp_min(eps)
-
-
-    c = (
-        torch.dot(
-            a,
-            b
-        )
-        / denom
-    )
-
+    c = torch.dot(a, b) / denom
 
     return float(
-
         torch.clamp(
             c,
             -1.0,
@@ -1350,345 +874,172 @@ def safe_cos(
 rows = []
 DELTA = []
 
-
 for L in range(N_LAYERS):
 
     hv = V[L].float()
-
     hs = S[L].float()
+    delta = hs - hv
 
-    delta = (
-        hs - hv
-    )
-
-
-    DELTA.append(
-        delta
-    )
-
+    DELTA.append(delta)
 
     norm_v = float(
-
-        torch.linalg
-        .vector_norm(hv)
-        .item()
+        torch.linalg.vector_norm(hv).item()
     )
-
 
     norm_s = float(
-
-        torch.linalg
-        .vector_norm(hs)
-        .item()
+        torch.linalg.vector_norm(hs).item()
     )
-
 
     norm_delta = float(
-
-        torch.linalg
-        .vector_norm(delta)
-        .item()
+        torch.linalg.vector_norm(delta).item()
     )
-
 
     relative_delta = (
-
-        norm_delta
-        / max(
-            norm_v,
-            1e-12
-        )
+        norm_delta / max(norm_v, 1e-12)
     )
 
-
-    cos_vs = safe_cos(
-        hv,
-        hs
-    )
-
+    cos_vs = safe_cos(hv, hs)
 
     theta_rad = math.acos(
-
-        max(
-            -1.0,
-
-            min(
-                1.0,
-                cos_vs
-            )
-        )
+        max(-1.0, min(1.0, cos_vs))
     )
 
+    theta_deg = math.degrees(theta_rad)
 
-    theta_deg = math.degrees(
-        theta_rad
-    )
-
-
-    A_cpu = (
-
-        actuators[L]
-
-        .detach()
-
-        .float()
-
-        .cpu()
-    )
-
+    A_cpu = actuators[L].detach().float().cpu()
 
     delta_A_cos = safe_cos(
-
         delta,
-
         A_cpu
     )
-
 
     u_A_cos = safe_cos(
-
         U[L],
-
         A_cpu
     )
 
-
     pre_s_norm = float(
-
-        torch.linalg
-        .vector_norm(
+        torch.linalg.vector_norm(
             PRE_S[L]
-        )
-
-        .item()
+        ).item()
     )
-
 
     realized_direct_rel = (
-
         REALIZED_U_NORM[L]
-
-        / max(
-            pre_s_norm,
-            1e-12
-        )
+        / max(pre_s_norm, 1e-12)
     )
 
-
     rows.append({
-
-        "Layer":
-            f"L{L:02d}",
-
-        "E(L)":
-            ENVELOPE[L],
-
-        "RequestedDose":
-            RELATIVE_DOSE[L],
-
-        "||hV||":
-            norm_v,
-
-        "||hS||":
-            norm_s,
-
-        "||u|| requested":
-            REQUESTED_U_NORM[L],
-
-        "||u|| realized":
-            REALIZED_U_NORM[L],
-
-        "u/pre_rel":
-            realized_direct_rel,
-
-        "||delta||":
-            norm_delta,
-
-        "RelativeDelta":
-            relative_delta,
-
-        "cos(V,S)":
-            cos_vs,
-
-        "theta_rad":
-            theta_rad,
-
-        "theta_deg":
-            theta_deg,
-
-        "cos(delta,A)":
-            delta_A_cos,
-
-        "cos(u,A)":
-            u_A_cos,
+        "Layer": f"L{L:02d}",
+        "E(L)": ENVELOPE[L],
+        "RequestedDose": RELATIVE_DOSE[L],
+        "||hV||": norm_v,
+        "||hS||": norm_s,
+        "||u|| requested": REQUESTED_U_NORM[L],
+        "||u|| realized": REALIZED_U_NORM[L],
+        "u/pre_rel": realized_direct_rel,
+        "||delta||": norm_delta,
+        "RelativeDelta": relative_delta,
+        "cos(V,S)": cos_vs,
+        "theta_rad": theta_rad,
+        "theta_deg": theta_deg,
+        "cos(delta,A)": delta_A_cos,
+        "cos(u,A)": u_A_cos,
     })
 
 
-df = pd.DataFrame(
-    rows
-)
+df = pd.DataFrame(rows)
 
 
 # =============================================================================
-# 10. GENERATE VANILLA / SEASC RESPONSES
+# 10. GENERATE VANILLA AND SEASC RESPONSES
+#
+# Greedy / deterministic:
+#   do_sample=False
+#
+# No small artificial output cap.
+# Generation may continue until EOS or available model context is exhausted.
 # =============================================================================
 
 @torch.inference_mode()
-def generate_response(
-    steering=False
-):
+def generate_response(steering=False):
 
     handles = []
-
 
     if steering:
 
         def make_hook(L):
 
-            def hook(
-                module,
-                args,
-                output
-            ):
+            def hook(module, args, output):
 
                 hidden = (
-
                     output[0]
-
-                    if isinstance(
-                        output,
-                        tuple
-                    )
-
+                    if isinstance(output, tuple)
                     else output
                 )
-
 
                 rho = float(
                     RELATIVE_DOSE[L]
                 )
 
-
-                steered = (
-
-                    seasc_ext
-                    .seasc_inject(
-
-                        hidden,
-
-                        actuators[L],
-
-                        rho
-                    )
+                steered = seasc_ext.seasc_inject(
+                    hidden,
+                    actuators[L],
+                    rho
                 )
 
-
-                if isinstance(
-                    output,
-                    tuple
-                ):
-
-                    return (
-                        steered,
-                    ) + output[1:]
-
+                if isinstance(output, tuple):
+                    return (steered,) + output[1:]
 
                 return steered
 
-
             return hook
 
-
         for L in range(N_LAYERS):
-
             handles.append(
-
-                layers[L]
-                .register_forward_hook(
+                layers[L].register_forward_hook(
                     make_hook(L)
                 )
             )
 
-
     try:
 
         out_ids = model.generate(
-
             **inputs,
-
             max_new_tokens=MAX_NEW_TOKENS,
-
             do_sample=False,
-
-            repetition_penalty=(
-                REPETITION_PENALTY
-            ),
-
+            repetition_penalty=REPETITION_PENALTY,
             use_cache=True,
-
-            pad_token_id=(
-                tokenizer.pad_token_id
-            ),
-
-            eos_token_id=(
-                tokenizer.eos_token_id
-            ),
+            pad_token_id=tokenizer.pad_token_id,
+            eos_token_id=tokenizer.eos_token_id,
         )
-
 
     finally:
 
         for h in handles:
-
             h.remove()
-
 
     generated_ids = out_ids[
         0,
         PROMPT_LENGTH:
     ]
 
-
     text = tokenizer.decode(
-
         generated_ids,
-
         skip_special_tokens=True
-
     ).strip()
 
-
-    return (
-        text,
-        generated_ids
-        .detach()
-        .cpu()
-    )
+    return text, generated_ids.detach().cpu()
 
 
-print(
-    "\n[8/10] "
-    "Generating VANILLA response..."
+print("\n[8/10] Generating VANILLA response...")
+vanilla_text, vanilla_ids = generate_response(
+    steering=False
 )
 
-
-vanilla_text, vanilla_ids = (
-    generate_response(
-        steering=False
-    )
-)
-
-
-print(
-    "[9/10] "
-    "Generating SEASC response..."
-)
-
-
-seasc_text, seasc_ids = (
-    generate_response(
-        steering=True
-    )
+print("[9/10] Generating SEASC response...")
+seasc_text, seasc_ids = generate_response(
+    steering=True
 )
 
 
@@ -1699,87 +1050,51 @@ seasc_text, seasc_ids = (
 def lexical_tokens(text):
 
     return re.findall(
-
         r"\b[\w'-]+\b",
-
         text.lower(),
-
         flags=re.UNICODE
     )
 
 
-def lexical_jaccard(
-    a,
-    b
-):
+def lexical_jaccard(a, b):
 
-    A = set(
-        lexical_tokens(a)
-    )
-
-    B = set(
-        lexical_tokens(b)
-    )
-
+    A = set(lexical_tokens(a))
+    B = set(lexical_tokens(b))
 
     if not A and not B:
-
         return 1.0
 
-
     return (
-
         len(A & B)
-
-        / max(
-            len(A | B),
-            1
-        )
+        / max(len(A | B), 1)
     )
 
 
 output_changed = (
-
     vanilla_text.strip()
-
-    !=
-
-    seasc_text.strip()
+    != seasc_text.strip()
 )
-
 
 lex_overlap = lexical_jaccard(
-
     vanilla_text,
-
     seasc_text
 )
-
 
 vanilla_token_count = int(
     vanilla_ids.numel()
 )
 
-
 seasc_token_count = int(
     seasc_ids.numel()
 )
 
-
 physical_dose_sum = float(
-
-    np.sum(
-        REQUESTED_U_NORM
-    )
+    np.sum(REQUESTED_U_NORM)
 )
 
-
 physical_dose_rss = float(
-
     np.sqrt(
-
         np.sum(
-
             np.square(
                 REQUESTED_U_NORM
             )
@@ -1787,144 +1102,177 @@ physical_dose_rss = float(
     )
 )
 
-
 final_rep_displacement = float(
-
-    torch.linalg
-    .vector_norm(
+    torch.linalg.vector_norm(
         DELTA[-1]
-    )
-
-    .item()
+    ).item()
 )
 
-
 final_rep_relative = float(
-
     final_rep_displacement
-
     / max(
-
-        torch.linalg
-        .vector_norm(
+        torch.linalg.vector_norm(
             V[-1]
-        )
-        .item(),
-
+        ).item(),
         1e-12
     )
 )
 
 
 # =============================================================================
-# 12. TERMINAL TABLE
+# 12. PRINT MARKDOWN TABLE
 # =============================================================================
 
+print("\n" + "=" * 150)
+print("TEST 142 — L0-L19 SEASC VECTOR X-RAY MEASUREMENT TABLE")
+print("=" * 150)
+
 print(
-    "\n"
-    + "=" * 150
+    "| Layer | E(L) | Req Dose | ||hV|| | ||hS|| | "
+    "||u|| req | ||u|| real | ||delta|| | RelDelta | "
+    "theta rad | theta deg | cos(delta,A) | cos(u,A) |"
 )
 
 print(
-    "TEST 142 — L0-L19 "
-    "SEASC VECTOR X-RAY "
-    "MEASUREMENT TABLE"
+    "|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
+    "---:|---:|---:|---:|"
 )
-
-print(
-    "=" * 150
-)
-
-
-print(
-    "| Layer | E(L) | Req Dose | "
-    "||hV|| | ||hS|| | "
-    "||u|| req | ||u|| real | "
-    "||delta|| | RelDelta | "
-    "theta rad | theta deg | "
-    "cos(delta,A) | cos(u,A) |"
-)
-
-
-print(
-    "|---:|---:|---:|---:|---:|"
-    "---:|---:|---:|---:|---:|"
-    "---:|---:|---:|"
-)
-
 
 for _, r in df.iterrows():
 
     print(
-
         f"| {r['Layer']} "
-
         f"| {r['E(L)']:.6f} "
-
         f"| {100*r['RequestedDose']:.3f}% "
-
         f"| {r['||hV||']:.6f} "
-
         f"| {r['||hS||']:.6f} "
-
         f"| {r['||u|| requested']:.6f} "
-
         f"| {r['||u|| realized']:.6f} "
-
         f"| {r['||delta||']:.6f} "
-
         f"| {100*r['RelativeDelta']:.3f}% "
-
         f"| {r['theta_rad']:.6f} "
-
         f"| {r['theta_deg']:.3f}° "
-
         f"| {r['cos(delta,A)']:+.6f} "
-
         f"| {r['cos(u,A)']:+.6f} |"
     )
 
 
 # =============================================================================
-# 13. VISUAL 1A — L14 FULL VECTOR PROFILE
+# 13. SILENT VISUAL EXPORT CONFIGURATION
+#
+# Absolutely no plt.show().
+# Every figure is explicitly closed after saving.
+# PNG is only an internal temporary rendering format.
+# Final user files are re-encoded as ordinary RGB baseline JPEG.
+# =============================================================================
+
+plt.style.use("dark_background")
+
+TEMP_PNG_FILES = []
+FINAL_JPG_FILES = []
+
+
+def save_figure_silently_as_jpeg(
+    fig,
+    temp_png_path,
+    final_jpg_path,
+    dpi=220
+):
+    """
+    1) Render figure silently to temporary PNG.
+    2) Close figure immediately so Colab cannot display it.
+    3) Flatten/convert to ordinary 8-bit RGB.
+    4) Re-encode as non-progressive baseline JPEG.
+    5) Verify JPEG signature and Pillow decode.
+    6) Delete temporary PNG.
+    """
+
+    fig.savefig(
+        temp_png_path,
+        dpi=dpi,
+        bbox_inches="tight",
+        facecolor=fig.get_facecolor()
+    )
+
+    plt.close(fig)
+
+    with Image.open(temp_png_path) as im:
+
+        # Flatten transparency if present.
+        if im.mode in ("RGBA", "LA") or (
+            im.mode == "P"
+            and "transparency" in im.info
+        ):
+
+            rgba = im.convert("RGBA")
+
+            background = Image.new(
+                "RGB",
+                rgba.size,
+                (0, 0, 0)
+            )
+
+            background.paste(
+                rgba,
+                mask=rgba.getchannel("A")
+            )
+
+            rgb = background
+
+        else:
+            rgb = im.convert("RGB")
+
+        # Explicit ordinary RGB JPEG.
+        rgb.save(
+            final_jpg_path,
+            format="JPEG",
+            quality=95,
+            subsampling=0,
+            optimize=False,
+            progressive=False,
+            dpi=(96, 96),
+        )
+
+    # Verify standard JPEG SOI signature.
+    with open(final_jpg_path, "rb") as f:
+        signature = f.read(3)
+
+    if not (
+        len(signature) == 3
+        and signature[0] == 0xFF
+        and signature[1] == 0xD8
+        and signature[2] == 0xFF
+    ):
+        raise RuntimeError(
+            f"JPEG signature verification failed: {final_jpg_path}"
+        )
+
+    # Verify that a normal image decoder can reopen it.
+    with Image.open(final_jpg_path) as check:
+        check.verify()
+
+    if os.path.exists(temp_png_path):
+        os.remove(temp_png_path)
+
+    FINAL_JPG_FILES.append(final_jpg_path)
+
+
+# =============================================================================
+# 14. VISUAL 1A — L14 FULL 3584-D VECTOR PROFILE
 # =============================================================================
 
 L_PROFILE = 14
 
+v14 = V[L_PROFILE].numpy()
+s14 = S[L_PROFILE].numpy()
+d14 = DELTA[L_PROFILE].numpy()
 
-v14 = (
-    V[L_PROFILE]
-    .numpy()
-)
-
-
-s14 = (
-    S[L_PROFILE]
-    .numpy()
-)
-
-
-d14 = (
-    DELTA[L_PROFILE]
-    .numpy()
-)
-
-
-dims = np.arange(
-    HIDDEN_SIZE
-)
-
-
-plt.style.use(
-    "dark_background"
-)
-
+dims = np.arange(HIDDEN_SIZE)
 
 fig = plt.figure(
     figsize=(18, 7),
     dpi=170
 )
-
 
 plt.plot(
     dims,
@@ -1934,7 +1282,6 @@ plt.plot(
     label="Vanilla hV"
 )
 
-
 plt.plot(
     dims,
     s14,
@@ -1943,84 +1290,50 @@ plt.plot(
     label="SEASC hS"
 )
 
-
 plt.axhline(
     0.0,
     linewidth=0.6,
     alpha=0.5
 )
 
-
 plt.title(
-    f"TEST 142 — L{L_PROFILE} "
-    f"Full {HIDDEN_SIZE}-D Vector Profile\n"
-    "Same prompt token: "
-    "Vanilla vs AkbasCore 3.0 SEASC"
+    f"TEST 142 — L{L_PROFILE} Full {HIDDEN_SIZE}-D Vector Profile\n"
+    "Same prompt token: Vanilla vs AkbasCore 3.0 SEASC"
 )
 
-
-plt.xlabel(
-    "Hidden dimension index"
-)
-
-
-plt.ylabel(
-    "Coordinate value"
-)
-
-
+plt.xlabel("Hidden dimension index")
+plt.ylabel("Coordinate value")
 plt.legend()
 plt.tight_layout()
 
+TMP1A = "/content/_test142_01_tmp.png"
+JPG1A = "/content/TEST142_01_L14_FULL_VECTOR_PROFILE.jpg"
 
-PLOT1A = (
-    "/content/"
-    "test142_vector_profile_"
-    "L14_full.png"
+save_figure_silently_as_jpeg(
+    fig,
+    TMP1A,
+    JPG1A
 )
-
-
-plt.savefig(
-    PLOT1A,
-    dpi=220,
-    bbox_inches="tight"
-)
-
-
-plt.show()
-plt.close(fig)
 
 
 # =============================================================================
-# 14. VISUAL 1B — L14 TOP-50
+# 15. VISUAL 1B — L14 TOP-50 ABSOLUTE CHANGES
 # =============================================================================
 
-TOP_K = min(
-    50,
-    HIDDEN_SIZE
-)
-
+TOP_K = min(50, HIDDEN_SIZE)
 
 top_idx = np.argsort(
     np.abs(d14)
 )[-TOP_K:]
 
+top_idx = np.sort(top_idx)
 
-top_idx = np.sort(
-    top_idx
-)
-
-
-x = np.arange(
-    TOP_K
-)
-
+x = np.arange(TOP_K)
 
 fig = plt.figure(
     figsize=(18, 8),
     dpi=170
 )
-
 
 plt.plot(
     x,
@@ -2031,7 +1344,6 @@ plt.plot(
     label="Vanilla hV"
 )
 
-
 plt.plot(
     x,
     s14[top_idx],
@@ -2041,7 +1353,6 @@ plt.plot(
     label="SEASC hS"
 )
 
-
 plt.bar(
     x,
     d14[top_idx],
@@ -2049,17 +1360,12 @@ plt.bar(
     label="delta = hS - hV"
 )
 
-
 plt.xticks(
     x,
-    [
-        str(i)
-        for i in top_idx
-    ],
+    [str(i) for i in top_idx],
     rotation=90,
     fontsize=7
 )
-
 
 plt.axhline(
     0.0,
@@ -2067,109 +1373,59 @@ plt.axhline(
     alpha=0.5
 )
 
-
 plt.title(
-    f"TEST 142 — L{L_PROFILE} "
-    f"Top-{TOP_K} Changed Hidden Dimensions\n"
+    f"TEST 142 — L{L_PROFILE} Top-{TOP_K} Changed Hidden Dimensions\n"
     "Selected by |SEASC - Vanilla|"
 )
 
-
-plt.xlabel(
-    "Original hidden dimension index"
-)
-
-
-plt.ylabel(
-    "Coordinate value / displacement"
-)
-
-
+plt.xlabel("Original hidden dimension index")
+plt.ylabel("Coordinate value / displacement")
 plt.legend()
 plt.tight_layout()
 
+TMP1B = "/content/_test142_02_tmp.png"
+JPG1B = "/content/TEST142_02_L14_TOP50_CHANGES.jpg"
 
-PLOT1B = (
-    "/content/"
-    "test142_vector_profile_"
-    "L14_top50.png"
+save_figure_silently_as_jpeg(
+    fig,
+    TMP1B,
+    JPG1B
 )
-
-
-plt.savefig(
-    PLOT1B,
-    dpi=220,
-    bbox_inches="tight"
-)
-
-
-plt.show()
-plt.close(fig)
 
 
 # =============================================================================
-# 15. VISUAL 2 — COMMON PCA TRAJECTORY
+# 16. VISUAL 2 — COMMON PCA TRAJECTORY
 # =============================================================================
 
 V_np = np.stack(
-    [
-        x.numpy()
-        for x in V
-    ],
+    [x.numpy() for x in V],
     axis=0
 )
-
 
 S_np = np.stack(
-    [
-        x.numpy()
-        for x in S
-    ],
+    [x.numpy() for x in S],
     axis=0
 )
-
 
 joint = np.concatenate(
-    [
-        V_np,
-        S_np
-    ],
+    [V_np, S_np],
     axis=0
 )
-
 
 pca = PCA(
     n_components=2,
     svd_solver="full"
 )
 
+joint_2d = pca.fit_transform(joint)
 
-joint_2d = (
-    pca.fit_transform(
-        joint
-    )
-)
-
-
-V_2d = (
-    joint_2d[
-        :N_LAYERS
-    ]
-)
-
-
-S_2d = (
-    joint_2d[
-        N_LAYERS:
-    ]
-)
-
+V_2d = joint_2d[:N_LAYERS]
+S_2d = joint_2d[N_LAYERS:]
 
 fig = plt.figure(
     figsize=(13, 10),
     dpi=170
 )
-
 
 plt.plot(
     V_2d[:, 0],
@@ -2179,7 +1435,6 @@ plt.plot(
     label="Vanilla trajectory"
 )
 
-
 plt.plot(
     S_2d[:, 0],
     S_2d[:, 1],
@@ -2187,7 +1442,6 @@ plt.plot(
     linewidth=2.0,
     label="SEASC trajectory"
 )
-
 
 for L in range(N_LAYERS):
 
@@ -2208,14 +1462,12 @@ for L in range(N_LAYERS):
         )
     )
 
-
     plt.text(
         V_2d[L, 0],
         V_2d[L, 1],
         f"V{L}",
         fontsize=7
     )
-
 
     plt.text(
         S_2d[L, 0],
@@ -2224,75 +1476,47 @@ for L in range(N_LAYERS):
         fontsize=7
     )
 
-
 plt.title(
-    "TEST 142 — Vanilla vs SEASC "
-    "20-Layer Hidden-State Trajectory\n"
+    "TEST 142 — Vanilla vs SEASC 20-Layer Hidden-State Trajectory\n"
     f"Common PCA projection | "
     f"PC1+PC2 explained variance = "
     f"{100*pca.explained_variance_ratio_.sum():.2f}%"
 )
 
-
 plt.xlabel(
-    f"PC1 "
-    f"({100*pca.explained_variance_ratio_[0]:.2f}% variance)"
+    f"PC1 ({100*pca.explained_variance_ratio_[0]:.2f}% variance)"
 )
-
 
 plt.ylabel(
-    f"PC2 "
-    f"({100*pca.explained_variance_ratio_[1]:.2f}% variance)"
+    f"PC2 ({100*pca.explained_variance_ratio_[1]:.2f}% variance)"
 )
-
 
 plt.legend()
 plt.tight_layout()
 
+TMP2 = "/content/_test142_03_tmp.png"
+JPG2 = "/content/TEST142_03_20_LAYER_PCA_TRAJECTORY.jpg"
 
-PLOT2 = (
-    "/content/"
-    "test142_trajectory_pca.png"
+save_figure_silently_as_jpeg(
+    fig,
+    TMP2,
+    JPG2
 )
-
-
-plt.savefig(
-    PLOT2,
-    dpi=220,
-    bbox_inches="tight"
-)
-
-
-plt.show()
-plt.close(fig)
 
 
 # =============================================================================
-# 16. VISUAL 3 — ANGULAR DIVERGENCE
+# 17. VISUAL 3 — ANGULAR DIVERGENCE
 # =============================================================================
 
-layer_ids = np.arange(
-    N_LAYERS
-)
+layer_ids = np.arange(N_LAYERS)
 
-
-theta_deg = (
-    df["theta_deg"]
-    .to_numpy()
-)
-
-
-theta_rad = (
-    df["theta_rad"]
-    .to_numpy()
-)
-
+theta_deg = df["theta_deg"].to_numpy()
+theta_rad = df["theta_rad"].to_numpy()
 
 fig = plt.figure(
     figsize=(15, 7),
     dpi=170
 )
-
 
 plt.plot(
     layer_ids,
@@ -2301,38 +1525,22 @@ plt.plot(
     linewidth=2.0
 )
 
-
 plt.xticks(
     layer_ids,
-    [
-        f"L{i}"
-        for i in layer_ids
-    ]
+    [f"L{i}" for i in layer_ids]
 )
 
-
-plt.xlabel(
-    "Decoder layer"
-)
-
-
-plt.ylabel(
-    "Vanilla ↔ SEASC "
-    "angular divergence (degrees)"
-)
-
+plt.xlabel("Decoder layer")
+plt.ylabel("Vanilla ↔ SEASC angular divergence (degrees)")
 
 plt.title(
     "TEST 142 — Angular Divergence Across Depth\n"
-    "Exact high-dimensional angle "
-    "between hV and hS"
+    "Exact high-dimensional angle between hV and hS"
 )
-
 
 plt.grid(
     alpha=0.18
 )
-
 
 for L in range(N_LAYERS):
 
@@ -2345,60 +1553,30 @@ for L in range(N_LAYERS):
         va="bottom"
     )
 
-
 plt.tight_layout()
 
+TMP3 = "/content/_test142_04_tmp.png"
+JPG3 = "/content/TEST142_04_ANGULAR_DIVERGENCE.jpg"
 
-PLOT3 = (
-    "/content/"
-    "test142_angular_divergence.png"
+save_figure_silently_as_jpeg(
+    fig,
+    TMP3,
+    JPG3
 )
-
-
-plt.savefig(
-    PLOT3,
-    dpi=220,
-    bbox_inches="tight"
-)
-
-
-plt.show()
-plt.close(fig)
 
 
 # =============================================================================
-# 17. VISUAL 4 — ACTUATOR VS DISPLACEMENT
+# 18. VISUAL 4 — ACTUATOR VS OBSERVED DISPLACEMENT
 # =============================================================================
 
-u_norm = (
-    df[
-        "||u|| realized"
-    ]
-    .to_numpy()
-)
-
-
-delta_norm = (
-    df[
-        "||delta||"
-    ]
-    .to_numpy()
-)
-
-
-align = (
-    df[
-        "cos(delta,A)"
-    ]
-    .to_numpy()
-)
-
+u_norm = df["||u|| realized"].to_numpy()
+delta_norm = df["||delta||"].to_numpy()
+align = df["cos(delta,A)"].to_numpy()
 
 fig, ax1 = plt.subplots(
     figsize=(16, 8),
     dpi=170
 )
-
 
 ax1.plot(
     layer_ids,
@@ -2408,7 +1586,6 @@ ax1.plot(
     label="Direct actuator ||u_L||"
 )
 
-
 ax1.plot(
     layer_ids,
     delta_norm,
@@ -2417,37 +1594,19 @@ ax1.plot(
     label="Observed accumulated ||delta_L||"
 )
 
+ax1.set_xlabel("Decoder layer")
+ax1.set_ylabel("L2 norm")
 
-ax1.set_xlabel(
-    "Decoder layer"
-)
-
-
-ax1.set_ylabel(
-    "L2 norm"
-)
-
-
-ax1.set_xticks(
-    layer_ids
-)
-
-
+ax1.set_xticks(layer_ids)
 ax1.set_xticklabels(
-    [
-        f"L{i}"
-        for i in layer_ids
-    ]
+    [f"L{i}" for i in layer_ids]
 )
-
 
 ax1.grid(
     alpha=0.18
 )
 
-
 ax2 = ax1.twinx()
-
 
 ax2.plot(
     layer_ids,
@@ -2458,28 +1617,17 @@ ax2.plot(
     label="cos(delta_L, A_L)"
 )
 
-
 ax2.set_ylabel(
-    "Directional alignment "
-    "cos(delta, A)"
+    "Directional alignment cos(delta, A)"
 )
-
 
 ax2.set_ylim(
     -1.05,
     1.05
 )
 
-
-lines1, labels1 = (
-    ax1.get_legend_handles_labels()
-)
-
-
-lines2, labels2 = (
-    ax2.get_legend_handles_labels()
-)
-
+lines1, labels1 = ax1.get_legend_handles_labels()
+lines2, labels2 = ax2.get_legend_handles_labels()
 
 ax1.legend(
     lines1 + lines2,
@@ -2487,140 +1635,105 @@ ax1.legend(
     loc="best"
 )
 
-
 plt.title(
-    "TEST 142 — Direct SEASC Actuator "
-    "vs Observed System Displacement\n"
-    "Injection magnitude separated from "
-    "accumulated representation change"
+    "TEST 142 — Direct SEASC Actuator vs Observed System Displacement\n"
+    "Injection magnitude is separated from accumulated representation change"
 )
-
 
 fig.tight_layout()
 
+TMP4 = "/content/_test142_05_tmp.png"
+JPG4 = "/content/TEST142_05_ACTUATOR_VS_DISPLACEMENT.jpg"
 
-PLOT4 = (
-    "/content/"
-    "test142_actuator_vs_displacement.png"
+save_figure_silently_as_jpeg(
+    fig,
+    TMP4,
+    JPG4
 )
 
-
-plt.savefig(
-    PLOT4,
-    dpi=220,
-    bbox_inches="tight"
-)
-
-
-plt.show()
-plt.close(fig)
+# Defensive close: absolutely no live figures remain.
+plt.close("all")
 
 
 # =============================================================================
-# 18. RAW RESPONSES
+# 19. EXACT PROMPT + RAW RESPONSE COMPARISON
+#
+# This section is intentionally plain text so it can be copied directly
+# from Colab into a GitHub .log / documentation file.
 # =============================================================================
 
-print(
-    "\n"
-    + "=" * 150
-)
+print("\n" + "=" * 150)
+print("TEST 142 — EXACT INPUT AND RAW MODEL OUTPUTS")
+print("=" * 150)
 
-print(
-    "VANILLA RESPONSE"
-)
+print("\n" + "-" * 150)
+print("SYSTEM PROMPT")
+print("-" * 150)
+print(SYSTEM_PROMPT)
 
-print(
-    "=" * 150
-)
+print("\n" + "-" * 150)
+print("USER PROMPT / TEST QUESTION")
+print("-" * 150)
+print(USER_PROMPT)
 
-print(
-    vanilla_text
-)
+print("\n" + "-" * 150)
+print("VANILLA RESPONSE — UNSTEERED")
+print("-" * 150)
+print(vanilla_text)
 
-
-print(
-    "\n"
-    + "=" * 150
-)
-
-print(
-    "AKBASCORE 3.0 SEASC RESPONSE"
-)
-
-print(
-    "=" * 150
-)
-
-print(
-    seasc_text
-)
+print("\n" + "-" * 150)
+print("AKBASCORE 3.0 SEASC RESPONSE — STEERED")
+print("-" * 150)
+print(seasc_text)
 
 
 # =============================================================================
-# 19. OBJECTIVE SUMMARY
+# 20. OBJECTIVE SUMMARY
 # =============================================================================
 
-print(
-    "\n"
-    + "=" * 150
-)
-
-print(
-    "TEST 142 — OBJECTIVE SUMMARY"
-)
-
-print(
-    "=" * 150
-)
-
+print("\n" + "=" * 150)
+print("TEST 142 — OBJECTIVE SUMMARY")
+print("=" * 150)
 
 print(
     f"Output changed                    : "
     f"{'YES' if output_changed else 'NO'}"
 )
 
-
 print(
     f"Vanilla generated token count    : "
     f"{vanilla_token_count}"
 )
-
 
 print(
     f"SEASC generated token count      : "
     f"{seasc_token_count}"
 )
 
-
 print(
     f"Lexical overlap (word Jaccard)   : "
     f"{lex_overlap:.6f}"
 )
-
 
 print(
     f"SEASC physical dose SUM          : "
     f"{physical_dose_sum:.6f}"
 )
 
-
 print(
     f"SEASC physical dose RSS          : "
     f"{physical_dose_rss:.6f}"
 )
-
 
 print(
     f"Final L19 displacement ||delta|| : "
     f"{final_rep_displacement:.6f}"
 )
 
-
 print(
     f"Final L19 relative displacement  : "
     f"{100*final_rep_relative:.4f}%"
 )
-
 
 print(
     f"Final L19 angular divergence     : "
@@ -2628,40 +1741,26 @@ print(
     f"({df.iloc[-1]['theta_rad']:.6f} rad)"
 )
 
-
 print(
     f"Final L19 cos(delta,A_L)         : "
     f"{df.iloc[-1]['cos(delta,A)']:+.6f}"
 )
-
 
 print(
     f"Mean cos(delta,A_L), L0-L19      : "
     f"{df['cos(delta,A)'].mean():+.6f}"
 )
 
-
 print(
     f"Mean relative displacement       : "
     f"{100*df['RelativeDelta'].mean():.4f}%"
 )
 
-
-max_idx = int(
-    df[
-        "theta_deg"
-    ]
-    .to_numpy()
-    .argmax()
-)
-
-
 print(
     f"Maximum angular divergence       : "
-    f"{df.iloc[max_idx]['theta_deg']:.6f} deg "
-    f"at {df.iloc[max_idx]['Layer']}"
+    f"{df['theta_deg'].max():.6f} deg "
+    f"at {df.iloc[df['theta_deg'].argmax()]['Layer']}"
 )
-
 
 print(
     f"PCA PC1+PC2 visual variance      : "
@@ -2670,49 +1769,22 @@ print(
 
 
 # =============================================================================
-# 20. L14 COORDINATE X-RAY
+# 21. L14 COORDINATE X-RAY — FIRST 16 + TOP-16 CHANGED DIMENSIONS
 # =============================================================================
 
-top16 = np.argsort(
-    np.abs(d14)
-)[-16:][::-1]
+print("\n" + "=" * 150)
+print(f"L{L_PROFILE} COORDINATE X-RAY")
+print("=" * 150)
 
-
-print(
-    "\n"
-    + "=" * 150
-)
-
-print(
-    f"L{L_PROFILE} COORDINATE X-RAY"
-)
-
-print(
-    "=" * 150
-)
-
-
-print(
-    "\nFirst 16 dimensions:"
-)
-
-
+print("\nFirst 16 dimensions:")
 print(
     "| Dim | Vanilla | SEASC | delta |"
 )
-
-
 print(
     "|---:|---:|---:|---:|"
 )
 
-
-for j in range(
-    min(
-        16,
-        HIDDEN_SIZE
-    )
-):
+for j in range(min(16, HIDDEN_SIZE)):
 
     print(
         f"| {j} "
@@ -2722,27 +1794,19 @@ for j in range(
     )
 
 
+top16 = np.argsort(
+    np.abs(d14)
+)[-16:][::-1]
+
+print("\nTop-16 absolute coordinate changes:")
 print(
-    "\nTop-16 absolute "
-    "coordinate changes:"
+    "| Rank | Dim | Vanilla | SEASC | delta | |delta| |"
 )
-
-
-print(
-    "| Rank | Dim | Vanilla | "
-    "SEASC | delta | |delta| |"
-)
-
-
 print(
     "|---:|---:|---:|---:|---:|---:|"
 )
 
-
-for rank, j in enumerate(
-    top16,
-    1
-):
+for rank, j in enumerate(top16, 1):
 
     print(
         f"| {rank} "
@@ -2755,78 +1819,45 @@ for rank, j in enumerate(
 
 
 # =============================================================================
-# 21. SAVE RAW SCIENTIFIC DATA
+# 22. SAVE NUMERICAL DATA
 # =============================================================================
 
-CSV_PATH = (
-    "/content/"
-    "test142_seasc_vector_xray_metrics.csv"
-)
-
+CSV_PATH = "/content/test142_seasc_vector_xray_metrics.csv"
 
 df.to_csv(
     CSV_PATH,
     index=False
 )
 
-
-NPZ_PATH = (
-    "/content/"
-    "test142_seasc_vector_xray_coordinates.npz"
-)
-
+NPZ_PATH = "/content/test142_seasc_vector_xray_coordinates.npz"
 
 np.savez_compressed(
-
     NPZ_PATH,
-
     vanilla=V_np,
-
     seasc=S_np,
-
     delta=np.stack(
-        [
-            x.numpy()
-            for x in DELTA
-        ],
+        [x.numpy() for x in DELTA],
         axis=0
     ),
-
     seasc_pre=np.stack(
-        [
-            x.numpy()
-            for x in PRE_S
-        ],
+        [x.numpy() for x in PRE_S],
         axis=0
     ),
-
     direct_u=np.stack(
-        [
-            x.numpy()
-            for x in U
-        ],
+        [x.numpy() for x in U],
         axis=0
     ),
-
     actuators=np.stack(
         [
-            a
-            .detach()
-            .float()
-            .cpu()
-            .numpy()
-
-            for a
-            in actuators
+            a.detach().float().cpu().numpy()
+            for a in actuators
         ],
         axis=0
     ),
-
     envelope=np.asarray(
         ENVELOPE,
         dtype=np.float32
     ),
-
     relative_dose=np.asarray(
         RELATIVE_DOSE,
         dtype=np.float32
@@ -2835,1220 +1866,98 @@ np.savez_compressed(
 
 
 # =============================================================================
-# 22. CONVERT ALL FIGURES TO PHONE-FRIENDLY JPG
+# 23. INTERPRETATION GUARDRAILS
 # =============================================================================
 
-print(
-    "\n[10/10] "
-    "Creating phone-friendly JPG files..."
-)
-
-
-JPG1 = (
-    "/content/"
-    "TEST142_01_L14_FULL_VECTOR_PROFILE.jpg"
-)
-
-
-JPG2 = (
-    "/content/"
-    "TEST142_02_L14_TOP50_CHANGES.jpg"
-)
-
-
-JPG3 = (
-    "/content/"
-    "TEST142_03_20_LAYER_PCA_TRAJECTORY.jpg"
-)
-
-
-JPG4 = (
-    "/content/"
-    "TEST142_04_ANGULAR_DIVERGENCE.jpg"
-)
-
-
-JPG5 = (
-    "/content/"
-    "TEST142_05_ACTUATOR_VS_DISPLACEMENT.jpg"
-)
-
-
-PNG_JPG_PAIRS = [
-
-    (
-        PLOT1A,
-        JPG1
-    ),
-
-    (
-        PLOT1B,
-        JPG2
-    ),
-
-    (
-        PLOT2,
-        JPG3
-    ),
-
-    (
-        PLOT3,
-        JPG4
-    ),
-
-    (
-        PLOT4,
-        JPG5
-    ),
-]
-
-
-def convert_png_to_jpg(
-    png_path,
-    jpg_path
-):
-
-    if not os.path.isfile(
-        png_path
-    ):
-
-        raise FileNotFoundError(
-            png_path
-        )
-
-
-    with Image.open(
-        png_path
-    ) as img:
-
-        if img.mode in (
-            "RGBA",
-            "LA"
-        ):
-
-            rgba = img.convert(
-                "RGBA"
-            )
-
-            background = Image.new(
-                "RGB",
-                rgba.size,
-                (0, 0, 0)
-            )
-
-            background.paste(
-                rgba,
-                mask=rgba.getchannel(
-                    "A"
-                )
-            )
-
-            final_img = background
-
-        else:
-
-            final_img = (
-                img.convert(
-                    "RGB"
-                )
-            )
-
-
-        final_img.save(
-
-            jpg_path,
-
-            format="JPEG",
-
-            quality=96,
-
-            subsampling=0,
-
-            optimize=True
-        )
-
-
-for png_path, jpg_path in PNG_JPG_PAIRS:
-
-    convert_png_to_jpg(
-        png_path,
-        jpg_path
-    )
-
-    print(
-        "JPG OK ->",
-        os.path.basename(
-            jpg_path
-        )
-    )
-
-
-# =============================================================================
-# 23. CREATE PHONE-FRIENDLY PDF REPORT
-# =============================================================================
-
-PDF_PATH = (
-    "/content/"
-    "TEST142_SEASC_VECTOR_XRAY_REPORT.pdf"
-)
-
-
-styles = (
-    getSampleStyleSheet()
-)
-
-
-title_style = ParagraphStyle(
-
-    "Test142Title",
-
-    parent=styles[
-        "Title"
-    ],
-
-    fontName="Helvetica-Bold",
-
-    fontSize=18,
-
-    leading=22,
-
-    alignment=TA_CENTER,
-
-    spaceAfter=14,
-)
-
-
-heading_style = ParagraphStyle(
-
-    "Test142Heading",
-
-    parent=styles[
-        "Heading2"
-    ],
-
-    fontName="Helvetica-Bold",
-
-    fontSize=12,
-
-    leading=15,
-
-    spaceBefore=10,
-
-    spaceAfter=7,
-)
-
-
-body_style = ParagraphStyle(
-
-    "Test142Body",
-
-    parent=styles[
-        "BodyText"
-    ],
-
-    fontName="Helvetica",
-
-    fontSize=9,
-
-    leading=12,
-
-    spaceAfter=5,
-)
-
-
-small_style = ParagraphStyle(
-
-    "Test142Small",
-
-    parent=styles[
-        "BodyText"
-    ],
-
-    fontName="Helvetica",
-
-    fontSize=7,
-
-    leading=9,
-)
-
-
-doc = SimpleDocTemplate(
-
-    PDF_PATH,
-
-    pagesize=landscape(A4),
-
-    rightMargin=1.0 * cm,
-
-    leftMargin=1.0 * cm,
-
-    topMargin=1.0 * cm,
-
-    bottomMargin=1.0 * cm,
-
-    title=(
-        "TEST 142 — "
-        "SEASC VECTOR X-RAY"
-    ),
-
-    author="Akbas",
-)
-
-
-story = []
-
-
-story.append(
-
-    Paragraph(
-        "TEST 142 — SEASC VECTOR X-RAY",
-        title_style
-    )
-)
-
-
-story.append(
-
-    Paragraph(
-        "AkbasCore 3.0 — Vanilla vs SEASC "
-        "Hidden-State Coordinate Assay",
-        heading_style
-    )
-)
-
-
-story.append(
-    Spacer(
-        1,
-        0.25 * cm
-    )
-)
-
-
-# -----------------------------------------------------------------------------
-# CONFIG
-# -----------------------------------------------------------------------------
-
-story.append(
-
-    Paragraph(
-        "Experimental Configuration",
-        heading_style
-    )
-)
-
-
-config_data = [
-
-    ["Parameter", "Value"],
-
-    ["Model", MODEL_ID],
-
-    ["Hidden size", str(HIDDEN_SIZE)],
-
-    [
-        "Tested layers",
-        f"L0-L{N_LAYERS-1}"
-    ],
-
-    [
-        "Model dtype",
-        str(
-            next(
-                model.parameters()
-            ).dtype
-        )
-    ],
-
-    [
-        "Weights frozen",
-        str(
-            all(
-                not p.requires_grad
-                for p
-                in model.parameters()
-            )
-        )
-    ],
-
-    ["IVME", str(IVME)],
-
-    ["SONUM", str(SONUM)],
-
-    ["ZIRVE", str(ZIRVE)],
-
-    ["TABAN", str(TABAN)],
-
-    [
-        "Concept axis",
-        "ABOVE <-> BELOW"
-    ],
-]
-
-
-config_table = Table(
-
-    config_data,
-
-    colWidths=[
-        5 * cm,
-        17 * cm
-    ]
-)
-
-
-config_table.setStyle(
-
-    TableStyle([
-
-        (
-            "BACKGROUND",
-            (0, 0),
-            (-1, 0),
-            colors.lightgrey
-        ),
-
-        (
-            "FONTNAME",
-            (0, 0),
-            (-1, 0),
-            "Helvetica-Bold"
-        ),
-
-        (
-            "GRID",
-            (0, 0),
-            (-1, -1),
-            0.4,
-            colors.grey
-        ),
-
-        (
-            "FONTSIZE",
-            (0, 0),
-            (-1, -1),
-            8
-        ),
-
-        (
-            "VALIGN",
-            (0, 0),
-            (-1, -1),
-            "TOP"
-        ),
-    ])
-)
-
-
-story.append(
-    config_table
-)
-
-
-story.append(
-    Spacer(
-        1,
-        0.35 * cm
-    )
-)
-
-
-# -----------------------------------------------------------------------------
-# PROMPT
-# -----------------------------------------------------------------------------
-
-story.append(
-
-    Paragraph(
-        "Test Prompt",
-        heading_style
-    )
-)
-
-
-story.append(
-
-    Paragraph(
-        USER_PROMPT,
-        body_style
-    )
-)
-
-
-story.append(
-
-    Paragraph(
-        f"Prompt tokens: {PROMPT_LENGTH} "
-        f"| Captured position: "
-        f"{TARGET_TOKEN_POSITION} "
-        f"| Captured token ID: "
-        f"{target_token_id}",
-        body_style
-    )
-)
-
-
-# -----------------------------------------------------------------------------
-# MEASUREMENT TABLE
-# -----------------------------------------------------------------------------
-
-story.append(
-
-    Paragraph(
-        "L0-L19 Vector X-Ray Measurements",
-        heading_style
-    )
-)
-
-
-table_data = [[
-
-    "Layer",
-
-    "E(L)",
-
-    "Dose %",
-
-    "||hV||",
-
-    "||hS||",
-
-    "||u||",
-
-    "||delta||",
-
-    "RelDelta %",
-
-    "theta deg",
-
-    "cos(delta,A)",
-
-    "cos(u,A)",
-]]
-
-
-for _, r in df.iterrows():
-
-    table_data.append([
-
-        r["Layer"],
-
-        f"{r['E(L)']:.4f}",
-
-        f"{100*r['RequestedDose']:.3f}",
-
-        f"{r['||hV||']:.4f}",
-
-        f"{r['||hS||']:.4f}",
-
-        f"{r['||u|| realized']:.4f}",
-
-        f"{r['||delta||']:.4f}",
-
-        f"{100*r['RelativeDelta']:.3f}",
-
-        f"{r['theta_deg']:.3f}",
-
-        f"{r['cos(delta,A)']:+.4f}",
-
-        f"{r['cos(u,A)']:+.4f}",
-    ])
-
-
-measurement_table = Table(
-
-    table_data,
-
-    repeatRows=1,
-
-    colWidths=[
-        1.3*cm,
-        1.4*cm,
-        1.5*cm,
-        1.7*cm,
-        1.7*cm,
-        1.7*cm,
-        1.8*cm,
-        1.8*cm,
-        1.8*cm,
-        2.1*cm,
-        1.8*cm,
-    ]
-)
-
-
-measurement_table.setStyle(
-
-    TableStyle([
-
-        (
-            "BACKGROUND",
-            (0, 0),
-            (-1, 0),
-            colors.lightgrey
-        ),
-
-        (
-            "FONTNAME",
-            (0, 0),
-            (-1, 0),
-            "Helvetica-Bold"
-        ),
-
-        (
-            "GRID",
-            (0, 0),
-            (-1, -1),
-            0.25,
-            colors.grey
-        ),
-
-        (
-            "FONTSIZE",
-            (0, 0),
-            (-1, -1),
-            6.5
-        ),
-
-        (
-            "ALIGN",
-            (0, 0),
-            (-1, -1),
-            "CENTER"
-        ),
-
-        (
-            "VALIGN",
-            (0, 0),
-            (-1, -1),
-            "MIDDLE"
-        ),
-    ])
-)
-
-
-story.append(
-    measurement_table
-)
-
-
-story.append(
-    PageBreak()
-)
-
-
-# -----------------------------------------------------------------------------
-# RESPONSES
-# -----------------------------------------------------------------------------
-
-story.append(
-
-    Paragraph(
-        "Vanilla Response",
-        heading_style
-    )
-)
-
-
-story.append(
-
-    Paragraph(
-        vanilla_text
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;"),
-        body_style
-    )
-)
-
-
-story.append(
-    Spacer(
-        1,
-        0.3 * cm
-    )
-)
-
-
-story.append(
-
-    Paragraph(
-        "AkbasCore 3.0 SEASC Response",
-        heading_style
-    )
-)
-
-
-story.append(
-
-    Paragraph(
-        seasc_text
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;"),
-        body_style
-    )
-)
-
-
-# -----------------------------------------------------------------------------
-# OBJECTIVE SUMMARY
-# -----------------------------------------------------------------------------
-
-story.append(
-
-    Paragraph(
-        "Objective Summary",
-        heading_style
-    )
-)
-
-
-summary_data = [
-
-    [
-        "Output changed",
-        (
-            "YES"
-            if output_changed
-            else "NO"
-        )
-    ],
-
-    [
-        "Vanilla token count",
-        str(
-            vanilla_token_count
-        )
-    ],
-
-    [
-        "SEASC token count",
-        str(
-            seasc_token_count
-        )
-    ],
-
-    [
-        "Lexical overlap",
-        f"{lex_overlap:.6f}"
-    ],
-
-    [
-        "SEASC physical dose SUM",
-        f"{physical_dose_sum:.6f}"
-    ],
-
-    [
-        "SEASC physical dose RSS",
-        f"{physical_dose_rss:.6f}"
-    ],
-
-    [
-        "Final L19 displacement",
-        f"{final_rep_displacement:.6f}"
-    ],
-
-    [
-        "Final L19 relative displacement",
-        f"{100*final_rep_relative:.4f}%"
-    ],
-
-    [
-        "Final L19 angular divergence",
-        (
-            f"{df.iloc[-1]['theta_deg']:.6f} deg"
-        )
-    ],
-
-    [
-        "Final L19 cos(delta,A)",
-        (
-            f"{df.iloc[-1]['cos(delta,A)']:+.6f}"
-        )
-    ],
-
-    [
-        "Mean cos(delta,A)",
-        (
-            f"{df['cos(delta,A)'].mean():+.6f}"
-        )
-    ],
-
-    [
-        "Mean relative displacement",
-        (
-            f"{100*df['RelativeDelta'].mean():.4f}%"
-        )
-    ],
-
-    [
-        "Maximum angular divergence",
-        (
-            f"{df.iloc[max_idx]['theta_deg']:.6f} deg "
-            f"at {df.iloc[max_idx]['Layer']}"
-        )
-    ],
-
-    [
-        "PCA PC1+PC2 variance",
-        (
-            f"{100*pca.explained_variance_ratio_.sum():.4f}%"
-        )
-    ],
-]
-
-
-summary_table = Table(
-
-    summary_data,
-
-    colWidths=[
-        8 * cm,
-        10 * cm
-    ]
-)
-
-
-summary_table.setStyle(
-
-    TableStyle([
-
-        (
-            "GRID",
-            (0, 0),
-            (-1, -1),
-            0.35,
-            colors.grey
-        ),
-
-        (
-            "FONTNAME",
-            (0, 0),
-            (0, -1),
-            "Helvetica-Bold"
-        ),
-
-        (
-            "FONTSIZE",
-            (0, 0),
-            (-1, -1),
-            8
-        ),
-
-        (
-            "VALIGN",
-            (0, 0),
-            (-1, -1),
-            "TOP"
-        ),
-    ])
-)
-
-
-story.append(
-    summary_table
-)
-
-
-# -----------------------------------------------------------------------------
-# L14 TOP CHANGES
-# -----------------------------------------------------------------------------
-
-story.append(
-
-    Paragraph(
-        "L14 Top-16 Absolute Coordinate Changes",
-        heading_style
-    )
-)
-
-
-l14_data = [[
-
-    "Rank",
-    "Dim",
-    "Vanilla",
-    "SEASC",
-    "Delta",
-    "|Delta|",
-]]
-
-
-for rank, j in enumerate(
-    top16,
-    1
-):
-
-    l14_data.append([
-
-        str(rank),
-
-        str(j),
-
-        f"{v14[j]:+.7f}",
-
-        f"{s14[j]:+.7f}",
-
-        f"{d14[j]:+.7f}",
-
-        f"{abs(d14[j]):.7f}",
-    ])
-
-
-l14_table = Table(
-
-    l14_data,
-
-    repeatRows=1,
-
-    colWidths=[
-        2*cm,
-        2*cm,
-        3*cm,
-        3*cm,
-        3*cm,
-        3*cm,
-    ]
-)
-
-
-l14_table.setStyle(
-
-    TableStyle([
-
-        (
-            "BACKGROUND",
-            (0, 0),
-            (-1, 0),
-            colors.lightgrey
-        ),
-
-        (
-            "FONTNAME",
-            (0, 0),
-            (-1, 0),
-            "Helvetica-Bold"
-        ),
-
-        (
-            "GRID",
-            (0, 0),
-            (-1, -1),
-            0.35,
-            colors.grey
-        ),
-
-        (
-            "FONTSIZE",
-            (0, 0),
-            (-1, -1),
-            8
-        ),
-
-        (
-            "ALIGN",
-            (0, 0),
-            (-1, -1),
-            "CENTER"
-        ),
-    ])
-)
-
-
-story.append(
-    l14_table
-)
-
-
-story.append(
-    Spacer(
-        1,
-        0.4 * cm
-    )
-)
-
-
-# -----------------------------------------------------------------------------
-# INTERPRETATION GUARDRAILS
-# -----------------------------------------------------------------------------
-
-story.append(
-
-    Paragraph(
-        "Interpretation Guardrails",
-        heading_style
-    )
-)
-
-
-guardrails = [
-
-    "1. delta_L is the observed Vanilla-vs-SEASC representation displacement.",
-
-    "2. u_L is the direct actuator applied at layer L.",
-
-    "3. u_L and delta_L are not generally identical because earlier interventions are transported through subsequent transformer blocks.",
-
-    "4. cos(delta_L, A_L) measures directional alignment between the observed displacement and the current layer's extracted SEASC actuator.",
-
-    "5. PCA is only a two-dimensional visualization. Exact distances and angles are calculated in the full hidden-dimensional space.",
-
-    "6. Large coordinate changes do not by themselves identify individual concept neurons.",
-
-    "7. Output change does not establish increased intelligence or improved factual correctness.",
-
-    "8. TEST 142 is a mechanistic X-ray of the frozen SEASC 3.0 intervention.",
-]
-
-
-for line in guardrails:
-
-    story.append(
-        Paragraph(
-            line,
-            body_style
-        )
-    )
-
-
-doc.build(
-    story
-)
-
-
-print(
-    "\nPDF OK ->",
-    PDF_PATH
-)
-
-
-# =============================================================================
-# 24. FINAL FILE INTEGRITY CHECK
-# =============================================================================
-
-PHONE_FILES = [
-
-    PDF_PATH,
-
-    JPG1,
-    JPG2,
-    JPG3,
-    JPG4,
-    JPG5,
-]
-
-
-print(
-    "\n"
-    + "=" * 150
-)
-
-
-print(
-    "TEST 142 — FINAL PHONE FILE CHECK"
-)
-
-
-print(
-    "=" * 150
-)
-
-
-for path in PHONE_FILES:
-
-    if not os.path.isfile(
-        path
-    ):
-
-        raise RuntimeError(
-            f"Missing output: "
-            f"{path}"
-        )
-
-
-    size_bytes = (
-        os.path.getsize(
-            path
-        )
-    )
-
-
-    if size_bytes <= 0:
-
-        raise RuntimeError(
-            f"Empty output: "
-            f"{path}"
-        )
-
-
-    print(
-        f"[OK] "
-        f"{os.path.basename(path):60s} "
-        f"{size_bytes/(1024**2):8.3f} MB"
-    )
-
-
-# Verify JPG files can actually be reopened.
-
-for jpg_path in [
-
-    JPG1,
-    JPG2,
-    JPG3,
-    JPG4,
-    JPG5,
-]:
-
-    with Image.open(
-        jpg_path
-    ) as test_img:
-
-        test_img.verify()
-
-
-print(
-    "\nJPG integrity: PASS"
-)
-
-
-# Verify PDF header.
-
-with open(
-    PDF_PATH,
-    "rb"
-) as f:
-
-    pdf_header = (
-        f.read(5)
-    )
-
-
-if pdf_header != b"%PDF-":
-
-    raise RuntimeError(
-        "PDF integrity check failed."
-    )
-
-
-print(
-    "PDF integrity: PASS"
-)
-
-
-print(
-    "\nAll phone outputs verified: "
-    "6/6"
-)
-
-
-# =============================================================================
-# 25. AUTOMATIC PHONE DOWNLOAD
-# =============================================================================
-
-print(
-    "\n"
-    + "=" * 150
-)
-
-
-print(
-    "TEST 142 — PHONE DOWNLOAD"
-)
-
-
-print(
-    "=" * 150
-)
-
-
-print(
-    "\n[1/6] PDF REPORT"
-)
-
-files.download(
-    PDF_PATH
-)
-
-time.sleep(2)
-
-
-for i, jpg_path in enumerate(
-
-    [
-        JPG1,
-        JPG2,
-        JPG3,
-        JPG4,
-        JPG5,
-    ],
-
-    start=2
-):
-
-    print(
-        f"\n[{i}/6] JPG -> "
-        f"{os.path.basename(jpg_path)}"
-    )
-
-    files.download(
-        jpg_path
-    )
-
-    time.sleep(2)
-
-
-# =============================================================================
-# 26. COMPLETE
-# =============================================================================
-
-print(
-    "\n"
-    + "=" * 150
-)
-
-
-print(
-    "TEST 142 COMPLETE"
-)
-
-
-print(
-    "=" * 150
-)
-
+print("\n" + "=" * 150)
+print("INTERPRETATION GUARDRAILS")
+print("=" * 150)
 
 print("""
-TELEFONA AYRI AYRI GÖNDERİLDİ:
-
-YAZILI DÖKÜMAN
---------------------------------------------------
-TEST142_SEASC_VECTOR_XRAY_REPORT.pdf
-
-
-FOTOĞRAFLAR
---------------------------------------------------
-TEST142_01_L14_FULL_VECTOR_PROFILE.jpg
-
-TEST142_02_L14_TOP50_CHANGES.jpg
-
-TEST142_03_20_LAYER_PCA_TRAJECTORY.jpg
-
-TEST142_04_ANGULAR_DIVERGENCE.jpg
-
-TEST142_05_ACTUATOR_VS_DISPLACEMENT.jpg
-
-
-PDF:
-  Telefonun normal PDF görüntüleyicisinde açılır.
-
-JPG:
-  Galeri / Google Fotoğraflar / Dosyalar
-  uygulamasından doğrudan açılır.
-
-Ayrıca bilimsel ham veriler Colab /content altında korunur:
-  test142_seasc_vector_xray_metrics.csv
-  test142_seasc_vector_xray_coordinates.npz
-
-ZIP oluşturulmaz.
+1. delta_L is the observed Vanilla-vs-SEASC representation displacement.
+2. u_L is the direct actuator applied at layer L.
+3. u_L != delta_L in general because earlier interventions are transported
+   through subsequent transformer blocks.
+4. cos(delta_L, A_L) tells whether the observed displacement points toward
+   the CURRENT layer's extracted SEASC actuator direction.
+5. PCA is only a 2D visualization. Exact distances and angles are computed
+   in the full hidden-dimensional space.
+6. Large coordinate changes do NOT by themselves identify individual
+   'concept neurons'.
+7. Output change does NOT imply increased intelligence or improved factual
+   correctness.
+8. TEST142 is a mechanistic X-ray of the existing frozen SEASC 3.0 motor;
+   it does not alter the compass, DRA envelope, or controller architecture.
 """)
+
+
+# =============================================================================
+# 24. VERIFY PHONE-COMPATIBLE JPEG EXPORTS
+# =============================================================================
+
+print("=" * 150)
+print("TEST 142 — JPEG EXPORT VERIFICATION")
+print("=" * 150)
+
+for path in FINAL_JPG_FILES:
+
+    size_mb = os.path.getsize(path) / (1024 * 1024)
+
+    with Image.open(path) as img:
+        fmt = img.format
+        mode = img.mode
+        width, height = img.size
+
+    print(
+        f"OK | {os.path.basename(path)} | "
+        f"{fmt} | {mode} | "
+        f"{width}x{height} | "
+        f"{size_mb:.3f} MB"
+    )
+
+print()
+print("All plots were generated silently.")
+print("No plot was rendered into the Colab cell output.")
+print("Final image encoding: standard 8-bit RGB, non-progressive JPEG.")
+print("CSV and NPZ remain available in /content.")
+print()
+
+
+# =============================================================================
+# 25. COMPLETE
+# =============================================================================
+
+print("=" * 150)
+print("TEST 142 COMPLETE")
+print("=" * 150)
+
+
+# =============================================================================
+# 26. AUTOMATIC PHONE DOWNLOAD
+#
+# IMPORTANT:
+# files.download() triggers browser downloads.
+# It does NOT intentionally display the JPEG itself in notebook output.
+# A short delay helps mobile browsers process consecutive downloads.
+# =============================================================================
+
+from google.colab import files
+
+print("\nSending 5 standard JPEG files to browser/phone download...")
+
+DOWNLOAD_FILES = [
+    JPG1A,
+    JPG1B,
+    JPG2,
+    JPG3,
+    JPG4,
+]
+
+for path in DOWNLOAD_FILES:
+    files.download(path)
+    time.sleep(2.0)
+
+print(
+    "\nDownload requests sent. "
+    "The Colab output above remains text-only."
+)
