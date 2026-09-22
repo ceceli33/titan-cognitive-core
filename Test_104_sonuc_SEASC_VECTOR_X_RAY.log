@@ -1,5 +1,4 @@
- ninja ...
-Installing reportlab ...
+ Installing ninja ...
 ==============================================================================================================
 TEST 142 — SEASC VECTOR X-RAY
 AKBASCORE 3.0 — VANILLA vs SEASC HIDDEN-STATE COORDINATE ASSAY
@@ -41,46 +40,10 @@ L19 | E=0.239658 | requested relative dose=2.397%
 OK — CUDA kernel compiled.
 
 [2/10] Loading frozen model: Qwen/Qwen2.5-7B-Instruct
-
-config.json: 100%
-
- 663/663 [00:00<00:00, 81.9kB/s]
 Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
 WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
-
-tokenizer_config.json: 100%
-
- 7.30k/7.30k [00:00<00:00, 660kB/s]
-vocab.json: 100%
-
- 2.78M/2.78M [00:00<00:00, 81.6MB/s]
-merges.txt: 100%
-
- 1.67M/1.67M [00:00<00:00, 68.5MB/s]
-tokenizer.json: 100%
-
- 7.03M/7.03M [00:00<00:00, 127MB/s]
-[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
-
-model.safetensors.index.json: 100%
-
- 27.8k/27.8k [00:00<00:00, 3.12MB/s]
-Download complete: : 
-
- 13.1GB,  396MB/s  
-Reconstruction complete: 100%
-
- 15.2GB / 15.2GB,  610MB/s  
-Fetching 4 files: 100%
-
- 4/4 [00:39<00:00,  6.03s/it]
-Loading weights: 100%
-
- 339/339 [00:03<00:00, 99.71it/s]
-generation_config.json: 100%
-
- 243/243 [00:00<00:00, 28.3kB/s]
-Model ready.
+config.json: 100% 663/663 [00:00<00:00, 77.4kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 771kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 82.3MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 68.8MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 129MB/s][transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.63MB/s]Download complete: :  13.1GB,  762MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  281MB/s  Fetching 4 files: 100% 4/4 [00:43<00:00,  8.12s/it]Loading weights: 100% 339/339 [00:03<00:00, 100.44it/s]generation_config.json: 100% 243/243 [00:00<00:00, 29.4kB/s]Model ready.
 Decoder layers : 28
 Hidden size    : 3584
 dtype          : torch.bfloat16
@@ -110,14 +73,25 @@ L17 | raw contrast norm=15.771996 | unit actuator norm=1.000000
 L18 | raw contrast norm=16.026615 | unit actuator norm=1.000000
 L19 | raw contrast norm=17.407801 | unit actuator norm=1.000000
 
-TEST PROMPT
---------------------------------------------------------------------------------------------------------------
+==============================================================================================================
+TEST INPUT — EXACT PROMPTS
+==============================================================================================================
+
+[SYSTEM PROMPT]
+You are a concise visual reasoning assistant. Describe spatial relationships clearly.
+
+[USER PROMPT]
 A red apple is on the table. A green pear is positioned to its right. Describe their relative spatial positions precisely.
 
-Prompt token count : 50
-Captured position  : 49
-Captured token id  : 198
-Captured token     : '\n'
+[INPUT / CAPTURE METADATA]
+Prompt token count       : 50
+Captured position        : 49
+Captured token id        : 198
+Captured token           : '\n'
+Model context limit      : 32768
+Generation upper ceiling: 32717
+Decoding                 : greedy / do_sample=False
+Generation stop rule     : EOS or context ceiling, whichever occurs first
 
 [6/10] Capturing VANILLA L0-L19 coordinates...
 OK — Vanilla coordinates captured.
@@ -152,8 +126,76 @@ TEST 142 — L0-L19 SEASC VECTOR X-RAY MEASUREMENT TABLE
 | L16 | 0.259348 | 2.593% | 65.759163 | 67.888138 | 1.756069 | 1.756068 | 23.213232 | 35.300% | 0.347707 | 19.922° | +0.335185 | +0.998573 |
 | L17 | 0.251148 | 2.511% | 71.743942 | 72.982277 | 1.828737 | 1.829040 | 26.611616 | 37.092% | 0.369462 | 21.169° | +0.321878 | +0.998515 |
 | L18 | 0.244705 | 2.447% | 80.123543 | 77.984764 | 1.900907 | 1.913783 | 29.937210 | 37.364% | 0.380040 | 21.775° | +0.313427 | +0.995266 |
-| L19 | 0.239658 | 2.397% | 94.281143 | 89.932236 | 2.150403 | 2.151612 | 34.792812 | 36.903% | 0.377116 | 21.607° | +0.313656 | +0.998359 
+| L19 | 0.239658 | 2.397% | 94.281143 | 89.932236 | 2.150403 | 2.151612 | 34.792812 | 36.903% | 0.377116 | 21.607° | +0.313656 | +0.998359 |
 
+======================================================================================================================================================
+TEST 142 — EXACT INPUT AND RAW MODEL OUTPUTS
+======================================================================================================================================================
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+SYSTEM PROMPT
+------------------------------------------------------------------------------------------------------------------------------------------------------
+You are a concise visual reasoning assistant. Describe spatial relationships clearly.
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+USER PROMPT / TEST QUESTION
+------------------------------------------------------------------------------------------------------------------------------------------------------
+A red apple is on the table. A green pear is positioned to its right. Describe their relative spatial positions precisely.
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+VANILLA RESPONSE — UNSTEERED
+------------------------------------------------------------------------------------------------------------------------------------------------------
+The red apple and the green pear are placed side by side on the same horizontal plane, which in this case is the table surface. The green pear is positioned to the immediate right of the red apple, indicating that if you were looking at the arrangement from above or directly frontally, the green pear would be next to the red apple with no space between them along the x-axis (horizontal direction).
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+AKBASCORE 3.0 SEASC RESPONSE — STEERED
+------------------------------------------------------------------------------------------------------------------------------------------------------
+The green pear is placed to the immediate right of the red apple, which is located on the table. Therefore, the red apple is directly in front of the green pear when viewed from the side where the table is situated.
+
+======================================================================================================================================================
+TEST 142 — OBJECTIVE SUMMARY
+======================================================================================================================================================
+Output changed                    : YES
+Vanilla generated token count    : 81
+SEASC generated token count      : 46
+Lexical overlap (word Jaccard)   : 0.315789
+SEASC physical dose SUM          : 33.728078
+SEASC physical dose RSS          : 7.607313
+Final L19 displacement ||delta|| : 34.792812
+Final L19 relative displacement  : 36.9033%
+Final L19 angular divergence     : 21.607179 deg (0.377116 rad)
+Final L19 cos(delta,A_L)         : +0.313656
+Mean cos(delta,A_L), L0-L19      : +0.452398
+Mean relative displacement       : 30.3725%
+Maximum angular divergence       : 21.807910 deg at L08
+PCA PC1+PC2 visual variance      : 71.7572%
+
+======================================================================================================================================================
+L14 COORDINATE X-RAY
+======================================================================================================================================================
+
+First 16 dimensions:
+| Dim | Vanilla | SEASC | delta |
+|---:|---:|---:|---:|
+| 0 | +0.2851562 | +0.2949219 | +0.0097656 |
+| 1 | +0.2441406 | +0.0659180 | -0.1782227 |
+| 2 | -0.1191406 | +0.0429688 | +0.1621094 |
+| 3 | -0.1962891 | +0.0546875 | +0.2509766 |
+| 4 | -0.6054688 | -0.7968750 | -0.1914062 |
+| 5 | +0.7187500 | +0.5820312 | -0.1367188 |
+| 6 | -0.2812500 | -0.1640625 | +0.1171875 |
+| 7 | -0.3730469 | -0.4199219 | -0.0468750 |
+| 8 | -1.6093750 | -1.8203125 | -0.2109375 |
+| 9 | -1.1328125 | -0.6328125 | +0.5000000 |
+| 10 | -0.0556641 | +0.0561523 | +0.1118164 |
+| 11 | -0.2167969 | -0.6992188 | -0.4824219 |
+| 12 | +0.5625000 | +0.6171875 | +0.0546875 |
+| 13 | +0.4921875 | +0.7851562 | +0.2929688 |
+| 14 | +0.3984375 | +0.1386719 | -0.2597656 |
+| 15 | -0.6171875 | -0.1904297 | +0.4267578 |
+
+Top-16 absolute coordinate changes:
+| Rank | Dim | Vanilla | SEASC | delta | |delta| |
 |---:|---:|---:|---:|---:|---:|
 | 1 | 3197 | -0.8828125 | -2.4375000 | -1.5546875 | 1.5546875 |
 | 2 | 2940 | -2.7656250 | -1.3281250 | +1.4375000 | 1.4375000 |
@@ -172,22 +214,43 @@ TEST 142 — L0-L19 SEASC VECTOR X-RAY MEASUREMENT TABLE
 | 15 | 2275 | -1.2343750 | -2.4062500 | -1.1718750 | 1.1718750 |
 | 16 | 3579 | -0.6757812 | +0.4648438 | +1.1406250 | 1.1406250 |
 
-[10/10] Creating phone-friendly JPG files...
-JPG OK -> TEST142_01_L14_FULL_VECTOR_PROFILE.jpg
-JPG OK -> TEST142_02_L14_TOP50_CHANGES.jpg
-JPG OK -> TEST142_03_20_LAYER_PCA_TRAJECTORY.jpg
-JPG OK -> TEST142_04_ANGULAR_DIVERGENCE.jpg
-JPG OK -> TEST142_05_ACTUATOR_VS_DISPLACEMENT.jpg
+======================================================================================================================================================
+INTERPRETATION GUARDRAILS
+======================================================================================================================================================
 
-PDF OK -> /content/TEST142_SEASC_VECTOR_XRAY_REPORT.pdf
+1. delta_L is the observed Vanilla-vs-SEASC representation displacement.
+2. u_L is the direct actuator applied at layer L.
+3. u_L != delta_L in general because earlier interventions are transported
+   through subsequent transformer blocks.
+4. cos(delta_L, A_L) tells whether the observed displacement points toward
+   the CURRENT layer's extracted SEASC actuator direction.
+5. PCA is only a 2D visualization. Exact distances and angles are computed
+   in the full hidden-dimensional space.
+6. Large coordinate changes do NOT by themselves identify individual
+   'concept neurons'.
+7. Output change does NOT imply increased intelligence or improved factual
+   correctness.
+8. TEST142 is a mechanistic X-ray of the existing frozen SEASC 3.0 motor;
+   it does not alter the compass, DRA envelope, or controller architecture.
 
 ======================================================================================================================================================
-TEST 142 — FINAL PHONE FILE CHECK
+TEST 142 — JPEG EXPORT VERIFICATION
 ======================================================================================================================================================
-[OK] TEST142_SEASC_VECTOR_XRAY_REPORT.pdf                            0.010 MB
-[OK] TEST142_01_L14_FULL_VECTOR_PROFILE.jpg                          0.452 MB
-[OK] TEST142_02_L14_TOP50_CHANGES.jpg                                0.581 MB
-[OK] TEST142_03_20_LAYER_PCA_TRAJECTORY.jpg                          0.326 MB
-[OK] TEST142_04_ANGULAR_DIVERGENCE.jpg                               0.324 MB
-[OK] TEST142_05_ACTUATOR_VS_DISPLACEMENT.jpg                         0.455 MB
+OK | TEST142_01_L14_FULL_VECTOR_PROFILE.jpg | JPEG | RGB | 3935x1515 | 0.523 MB
+OK | TEST142_02_L14_TOP50_CHANGES.jpg | JPEG | RGB | 3935x1737 | 0.671 MB
+OK | TEST142_03_20_LAYER_PCA_TRAJECTORY.jpg | JPEG | RGB | 2835x2175 | 0.409 MB
+OK | TEST142_04_ANGULAR_DIVERGENCE.jpg | JPEG | RGB | 3275x1515 | 0.427 MB
+OK | TEST142_05_ACTUATOR_VS_DISPLACEMENT.jpg | JPEG | RGB | 3493x1735 | 0.569 MB
 
+All plots were generated silently.
+No plot was rendered into the Colab cell output.
+Final image encoding: standard 8-bit RGB, non-progressive JPEG.
+CSV and NPZ remain available in /content.
+
+======================================================================================================================================================
+TEST 142 COMPLETE
+======================================================================================================================================================
+
+Sending 5 standard JPEG files to browser/phone download...
+
+Download requests sent. The Colab output above remains text-only.
