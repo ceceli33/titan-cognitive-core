@@ -1,0 +1,5127 @@
+# =============================================================================
+# TEST 144 — AKBASCORE CRYSTALLIZATION
+# "AKBAŞ MOTORU İLE KRİSTALİZASYON"
+#
+# ENDOGENOUS PER-UPDATE COMPASS REFRESH
+# + IMMUTABLE ORIGINAL SEASC REFERENCE
+# + MOTOR-OFF HELD-OUT EQUILIBRIUM DETECTOR
+# + BEST-STATE ROLLBACK
+# + BEHAVIORAL BEFORE/BEST/FINAL COMPARISON
+# + COMPLETE FORENSIC LOGGING
+#
+# Model : Qwen/Qwen2.5-7B-Instruct
+# GPU   : A100 40GB
+# Author: Akbaş
+#
+# CORE PRINCIPLE
+# -----------------------------------------------------------------------------
+# M_t
+#   -> extract endogenous compass A_t
+#   -> build SEASC teaching target with A_t
+#   -> ONE optimizer update
+#   -> M_(t+1)
+#   -> re-extract A_(t+1)
+#   -> ...
+#
+# BUT:
+#
+# A0 and original T0 NEVER MOVE.
+#
+# Current A_t controls teaching.
+# Immutable T0 controls scientific evaluation.
+#
+# Training stops automatically when held-out motor-OFF geometry ceases to
+# improve. The best observed state is restored before final merge/exam.
+# =============================================================================
+
+
+# =============================================================================
+# 0. ENVIRONMENT — REMOVE ONLY INCOMPATIBLE OPTIONAL TORCHAO
+# =============================================================================
+
+import sys
+import os
+import subprocess
+import importlib.metadata as md
+
+
+print("=" * 150)
+print("TEST 144 — AKBASCORE CRYSTALLIZATION")
+print("ENVIRONMENT PREPARATION")
+print("=" * 150)
+
+
+def pkg_version(name):
+    try:
+        return md.version(name)
+    except Exception:
+        return "NOT INSTALLED"
+
+
+print("Python       :", sys.version.split()[0])
+print("PyTorch pkg  :", pkg_version("torch"))
+print("Transformers :", pkg_version("transformers"))
+print("PEFT         :", pkg_version("peft"))
+print("Pillow       :", pkg_version("Pillow"))
+print("torchao      :", pkg_version("torchao"))
+
+
+try:
+    _torchao = md.version("torchao")
+except md.PackageNotFoundError:
+    _torchao = None
+
+
+if _torchao is not None:
+
+    print(f"\nRemoving optional incompatible torchao {_torchao}...")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "uninstall",
+            "-y",
+            "torchao",
+        ],
+        text=True,
+        capture_output=True,
+    )
+
+    print(result.stdout)
+
+    for name in list(sys.modules.keys()):
+        if name == "torchao" or name.startswith("torchao."):
+            del sys.modules[name]
+
+
+try:
+    _remaining = md.version("torchao")
+except md.PackageNotFoundError:
+    _remaining = None
+
+
+if _remaining is not None:
+    raise RuntimeError(
+        "torchao could not be removed. "
+        "Restart runtime and execute this same complete cell."
+    )
+
+
+print("torchao      : NOT INSTALLED — PASS")
+
+
+# =============================================================================
+# 1. IMPORTS
+# =============================================================================
+
+import gc
+import math
+import time
+import json
+import random
+import shutil
+import warnings
+import copy
+
+import numpy as np
+import pandas as pd
+
+import torch
+import torch.nn.functional as F
+
+import matplotlib
+matplotlib.use("Agg")
+
+import matplotlib.pyplot as plt
+
+from PIL import Image
+from sklearn.decomposition import PCA
+
+import transformers
+import peft
+
+from transformers import (
+    AutoTokenizer,
+    AutoModelForCausalLM,
+)
+
+from peft import (
+    LoraConfig,
+    get_peft_model,
+)
+
+
+plt.ioff()
+warnings.filterwarnings("ignore")
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+
+# =============================================================================
+# 2. ENVIRONMENT LOCK
+# =============================================================================
+
+print("\n" + "=" * 150)
+print("ENVIRONMENT LOCK")
+print("=" * 150)
+
+print("PyTorch      :", torch.__version__)
+print("Transformers :", transformers.__version__)
+print("PEFT         :", peft.__version__)
+print("CUDA         :", torch.version.cuda)
+
+if not torch.cuda.is_available():
+    raise RuntimeError("CUDA GPU required.")
+
+DEVICE = torch.device("cuda")
+
+print("GPU          :", torch.cuda.get_device_name(0))
+
+props = torch.cuda.get_device_properties(0)
+
+print(
+    "VRAM         :",
+    f"{props.total_memory / 1024**3:.2f} GB"
+)
+
+
+# =============================================================================
+# 3. REPRODUCIBILITY
+# =============================================================================
+
+SEED = 42
+
+random.seed(SEED)
+np.random.seed(SEED)
+
+torch.manual_seed(SEED)
+torch.cuda.manual_seed_all(SEED)
+
+torch.backends.cuda.matmul.allow_tf32 = True
+
+
+# =============================================================================
+# 4. LOCKED EXPERIMENT CONFIGURATION
+# =============================================================================
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+
+N_LAYERS = 20
+
+HARD_MAX_UPDATES = 2000
+
+
+# -----------------------------------------------------------------------------
+# DRA / SEASC — EXACT SAME DOSE LAW
+# -----------------------------------------------------------------------------
+
+IVME = 0.10
+
+SONUM = 0.30
+ZIRVE = 0.70
+TABAN = 0.20
+
+
+# -----------------------------------------------------------------------------
+# Training
+# -----------------------------------------------------------------------------
+
+LEARNING_RATE = 2.0e-5
+
+LAMBDA_GEOMETRY = 1.0
+LAMBDA_PRESERVE = 0.05
+
+GRAD_CLIP = 1.0
+
+LORA_R = 8
+LORA_ALPHA = 16
+LORA_DROPOUT = 0.0
+
+MAX_TRAIN_TOKENS = 128
+
+PRESERVE_TOP_K = 256
+
+
+# -----------------------------------------------------------------------------
+# Dataset
+# -----------------------------------------------------------------------------
+
+N_TRAIN = 64
+N_HELDOUT = 24
+
+
+# -----------------------------------------------------------------------------
+# CLOSED-LOOP EQUILIBRIUM DETECTOR
+#
+# IMPORTANT:
+# We do NOT encode "250 is optimum".
+# The system must discover its own best checkpoint.
+#
+# Full held-out exam every 10 optimizer updates.
+# -----------------------------------------------------------------------------
+
+EVAL_EVERY = 10
+
+MIN_UPDATES_BEFORE_STOP = 50
+
+
+# Improvement smaller than this counts as effectively flat.
+MIN_PROGRESS_IMPROVEMENT = 0.0025     # 0.25 percentage point
+
+MIN_DISTANCE_IMPROVEMENT = 0.0025     # 0.25% relative
+
+MIN_ALIGNMENT_IMPROVEMENT = 0.0010
+
+
+# Number of consecutive evaluations without a new best state.
+PATIENCE_EVALS = 5
+
+
+# Strong overshoot guard.
+# If progress falls this far below the best observed progress,
+# we do not continue wasting updates.
+OVERSHOOT_PROGRESS_DROP = 0.05        # 5 percentage points
+
+
+# Alignment must remain meaningful.
+ALIGNMENT_FLOOR = 0.0
+
+
+# -----------------------------------------------------------------------------
+# Compass refresh
+#
+# User requirement:
+# AFTER EVERY TRAINING QUESTION / UPDATE.
+# -----------------------------------------------------------------------------
+
+COMPASS_REFRESH_EVERY = 1
+
+
+# -----------------------------------------------------------------------------
+# Behavioral generation
+# We generate responses only at:
+# BASE / every NEW BEST / FINAL
+# to avoid generation becoming the training controller.
+# -----------------------------------------------------------------------------
+
+REPETITION_PENALTY = 1.15
+
+
+SYSTEM_PROMPT = (
+    "You are a concise visual reasoning assistant. "
+    "Describe spatial relationships clearly."
+)
+
+
+OUT_DIR = "/content/test144_akbascore_crystallization"
+
+BEST_DIR = os.path.join(
+    OUT_DIR,
+    "BEST_ADAPTER",
+)
+
+LAST_DIR = os.path.join(
+    OUT_DIR,
+    "LAST_ADAPTER",
+)
+
+os.makedirs(
+    OUT_DIR,
+    exist_ok=True,
+)
+
+
+# =============================================================================
+# 5. DRA ENVELOPE
+# =============================================================================
+
+def dra_envelope(layer_idx):
+
+    t = float(layer_idx)
+
+    x = (
+        ZIRVE
+        * math.exp(-SONUM * t)
+        * (1.0 + SONUM * t)
+        + TABAN
+    )
+
+    return x / (ZIRVE + TABAN)
+
+
+ENVELOPE = [
+    dra_envelope(L)
+    for L in range(N_LAYERS)
+]
+
+
+RELATIVE_DOSE = [
+    IVME * x
+    for x in ENVELOPE
+]
+
+
+print("\n" + "=" * 150)
+print("LOCKED SEASC")
+print("=" * 150)
+
+for L in range(N_LAYERS):
+
+    print(
+        f"L{L:02d} | "
+        f"E={ENVELOPE[L]:.6f} | "
+        f"dose={100*RELATIVE_DOSE[L]:.3f}%"
+    )
+
+
+# =============================================================================
+# 6. ORIGINAL ABOVE <-> BELOW COMPASS CORPUS
+# =============================================================================
+
+POSITIVE = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+
+NEGATIVE = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+
+# =============================================================================
+# 7. PROMPT CORPUS
+# =============================================================================
+
+OBJECTS_A = [
+    "red apple",
+    "blue cup",
+    "small lamp",
+    "wooden box",
+    "green pear",
+    "silver key",
+    "yellow ball",
+    "black book",
+]
+
+
+OBJECTS_B = [
+    "white plate",
+    "glass bottle",
+    "brown chair",
+    "metal tray",
+    "purple vase",
+    "orange cone",
+    "grey stone",
+    "blue notebook",
+]
+
+
+SURFACES = [
+    "table",
+    "desk",
+    "shelf",
+    "platform",
+    "counter",
+]
+
+
+RELATIONS = [
+    "above",
+    "below",
+]
+
+
+def make_prompt(a, b, surface, relation):
+
+    return (
+        f"A {b} is on the {surface}. "
+        f"The {a} is positioned {relation} the {b}. "
+        f"Describe their relative spatial positions precisely."
+    )
+
+
+all_prompts = []
+
+
+for a in OBJECTS_A:
+    for b in OBJECTS_B:
+        for surface in SURFACES:
+            for relation in RELATIONS:
+
+                all_prompts.append(
+                    make_prompt(
+                        a,
+                        b,
+                        surface,
+                        relation,
+                    )
+                )
+
+
+rng = random.Random(SEED)
+
+rng.shuffle(all_prompts)
+
+
+HELDOUT_PROMPTS = all_prompts[:N_HELDOUT]
+
+TRAIN_PROMPTS = all_prompts[
+    N_HELDOUT:
+    N_HELDOUT + N_TRAIN
+]
+
+
+assert len(TRAIN_PROMPTS) == N_TRAIN
+assert len(HELDOUT_PROMPTS) == N_HELDOUT
+
+
+print("\nTrain prompts   :", N_TRAIN)
+print("Held-out prompts:", N_HELDOUT)
+
+
+# =============================================================================
+# 8. TOKENIZER
+# =============================================================================
+
+print("\n[1] Loading tokenizer...")
+
+
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_ID,
+    trust_remote_code=True,
+)
+
+
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+
+def encode_chat(prompt):
+
+    messages = [
+        {
+            "role": "system",
+            "content": SYSTEM_PROMPT,
+        },
+        {
+            "role": "user",
+            "content": prompt,
+        },
+    ]
+
+
+    text = tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True,
+    )
+
+
+    enc = tokenizer(
+        text,
+        return_tensors="pt",
+        truncation=True,
+        max_length=MAX_TRAIN_TOKENS,
+    )
+
+
+    return {
+        k: v.to(DEVICE)
+        for k, v in enc.items()
+    }
+
+
+# =============================================================================
+# 9. LOAD IMMUTABLE BASE
+# =============================================================================
+
+print("\n[2] Loading immutable base...")
+
+
+base = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    dtype=torch.bfloat16,
+    device_map={"": 0},
+    attn_implementation="sdpa",
+    trust_remote_code=True,
+)
+
+
+base.eval()
+
+
+for p in base.parameters():
+    p.requires_grad_(False)
+
+
+HIDDEN_SIZE = int(
+    base.config.hidden_size
+)
+
+
+MODEL_LAYER_COUNT = len(
+    base.model.layers
+)
+
+
+print("Hidden size :", HIDDEN_SIZE)
+print("Layers      :", MODEL_LAYER_COUNT)
+
+
+# =============================================================================
+# 10. GENERIC COMPASS EXTRACTION
+# =============================================================================
+
+@torch.inference_mode()
+def extract_compass(model):
+
+    was_training = model.training
+
+    model.eval()
+
+
+    pos_acc = [
+        torch.zeros(
+            HIDDEN_SIZE,
+            device=DEVICE,
+            dtype=torch.float32,
+        )
+        for _ in range(N_LAYERS)
+    ]
+
+
+    neg_acc = [
+        torch.zeros(
+            HIDDEN_SIZE,
+            device=DEVICE,
+            dtype=torch.float32,
+        )
+        for _ in range(N_LAYERS)
+    ]
+
+
+    for texts, accum in [
+        (POSITIVE, pos_acc),
+        (NEGATIVE, neg_acc),
+    ]:
+
+        for text in texts:
+
+            enc = tokenizer(
+                text,
+                return_tensors="pt",
+                add_special_tokens=True,
+            )
+
+
+            enc = {
+                k: v.to(DEVICE)
+                for k, v in enc.items()
+            }
+
+
+            out = model(
+                **enc,
+                output_hidden_states=True,
+                use_cache=False,
+                return_dict=True,
+            )
+
+
+            pos = (
+                int(
+                    enc["attention_mask"][0]
+                    .sum()
+                    .item()
+                )
+                - 1
+            )
+
+
+            for L in range(N_LAYERS):
+
+                accum[L].add_(
+                    out.hidden_states[
+                        L + 1
+                    ][0, pos, :]
+                    .float()
+                )
+
+
+            del out
+            del enc
+
+
+    compass = []
+    raw_norms = []
+
+
+    for L in range(N_LAYERS):
+
+        diff = (
+            pos_acc[L] / len(POSITIVE)
+            -
+            neg_acc[L] / len(NEGATIVE)
+        )
+
+
+        norm = diff.norm().clamp_min(1e-12)
+
+
+        compass.append(
+            (diff / norm)
+            .detach()
+            .float()
+            .clone()
+        )
+
+
+        raw_norms.append(
+            float(norm.item())
+        )
+
+
+    if was_training:
+        model.train()
+
+
+    return compass, raw_norms
+
+
+# =============================================================================
+# 11. INITIAL IMMUTABLE COMPASS A0
+# =============================================================================
+
+print("\n[3] Extracting immutable A0...")
+
+
+INITIAL_COMPASS, INITIAL_RAW_NORMS = (
+    extract_compass(base)
+)
+
+
+REFERENCE_TEST142_RAW = np.array([
+    1.601886,
+    1.974164,
+    2.814075,
+    7.407696,
+    7.282032,
+    7.441541,
+    8.020885,
+    11.543870,
+    14.744291,
+    13.090476,
+    13.293571,
+    13.848494,
+    14.509543,
+    15.025572,
+    14.570271,
+    15.216175,
+    15.280499,
+    15.771996,
+    16.026615,
+    17.407801,
+])
+
+
+raw_error = float(
+    np.max(
+        np.abs(
+            np.asarray(INITIAL_RAW_NORMS)
+            - REFERENCE_TEST142_RAW
+        )
+    )
+)
+
+
+for L in range(N_LAYERS):
+
+    print(
+        f"L{L:02d} | "
+        f"raw={INITIAL_RAW_NORMS[L]:.6f}"
+    )
+
+
+print(
+    "Max TEST142 raw-norm deviation:",
+    f"{raw_error:.8f}"
+)
+
+
+# =============================================================================
+# 12. SEASC ACTUATOR
+# =============================================================================
+
+def seasc_tensor(
+    hidden,
+    compass_vector,
+    rho,
+):
+
+    norm0 = (
+        hidden.float()
+        .norm(
+            p=2,
+            dim=-1,
+            keepdim=True,
+        )
+    )
+
+
+    A = compass_vector.to(
+        hidden.device,
+        dtype=torch.float32,
+    )
+
+
+    delta = (
+        float(rho)
+        * norm0
+        * A.view(1, 1, -1)
+    )
+
+
+    return (
+        hidden.float()
+        + delta
+    ).to(hidden.dtype)
+
+
+# =============================================================================
+# 13. NATURAL CAPTURE
+# =============================================================================
+
+@torch.inference_mode()
+def capture_natural(
+    model,
+    prompt,
+):
+
+    was_training = model.training
+
+    model.eval()
+
+
+    enc = encode_chat(prompt)
+
+
+    out = model(
+        **enc,
+        output_hidden_states=True,
+        use_cache=False,
+        return_dict=True,
+    )
+
+
+    pos = (
+        int(
+            enc["attention_mask"][0]
+            .sum()
+            .item()
+        )
+        - 1
+    )
+
+
+    states = [
+        out.hidden_states[
+            L + 1
+        ][0, pos, :]
+        .detach()
+        .float()
+        .cpu()
+        .clone()
+
+        for L in range(N_LAYERS)
+    ]
+
+
+    del out
+    del enc
+
+
+    if was_training:
+        model.train()
+
+
+    return states
+
+
+# =============================================================================
+# 14. GENERIC SEASC CAPTURE
+# =============================================================================
+
+@torch.inference_mode()
+def capture_seasc(
+    model,
+    decoder_layers,
+    prompt,
+    compass,
+):
+
+    was_training = model.training
+
+    model.eval()
+
+
+    enc = encode_chat(prompt)
+
+
+    pos = (
+        int(
+            enc["attention_mask"][0]
+            .sum()
+            .item()
+        )
+        - 1
+    )
+
+
+    captured = [None] * N_LAYERS
+
+    handles = []
+
+
+    def make_hook(L):
+
+        def hook(module, args, output):
+
+            hidden = (
+                output[0]
+                if isinstance(output, tuple)
+                else output
+            )
+
+
+            steered = seasc_tensor(
+                hidden,
+                compass[L],
+                RELATIVE_DOSE[L],
+            )
+
+
+            captured[L] = (
+                steered[0, pos, :]
+                .detach()
+                .float()
+                .cpu()
+                .clone()
+            )
+
+
+            if isinstance(output, tuple):
+                return (steered,) + output[1:]
+
+            return steered
+
+        return hook
+
+
+    for L in range(N_LAYERS):
+
+        handles.append(
+            decoder_layers[L]
+            .register_forward_hook(
+                make_hook(L)
+            )
+        )
+
+
+    try:
+
+        _ = model(
+            **enc,
+            use_cache=False,
+            return_dict=True,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+
+    if was_training:
+        model.train()
+
+
+    del enc
+
+
+    if any(x is None for x in captured):
+        raise RuntimeError(
+            "SEASC capture incomplete."
+        )
+
+
+    return captured
+
+
+# =============================================================================
+# 15. IMMUTABLE HELD-OUT REFERENCE:
+# B = ORIGINAL VANILLA
+# T0 = ORIGINAL BASE + INITIAL SEASC
+# =============================================================================
+
+print(
+    "\n[4] Building immutable held-out reference..."
+)
+
+
+BASE_HELDOUT = []
+
+T0_HELDOUT = []
+
+
+for i, prompt in enumerate(
+    HELDOUT_PROMPTS,
+    1,
+):
+
+    B = capture_natural(
+        base,
+        prompt,
+    )
+
+
+    T = capture_seasc(
+        base,
+        base.model.layers,
+        prompt,
+        INITIAL_COMPASS,
+    )
+
+
+    BASE_HELDOUT.append(B)
+    T0_HELDOUT.append(T)
+
+
+    print(
+        f"Heldout {i:02d}/{N_HELDOUT}"
+    )
+
+
+# =============================================================================
+# 16. BASE BEHAVIORAL RESPONSES
+# =============================================================================
+
+@torch.inference_mode()
+def generate_response(
+    model,
+    prompt,
+):
+
+    was_training = model.training
+
+    model.eval()
+
+
+    enc = encode_chat(prompt)
+
+
+    prompt_len = int(
+        enc["input_ids"].shape[1]
+    )
+
+
+    context_limit = int(
+        getattr(
+            model.config,
+            "max_position_embeddings",
+            32768,
+        )
+    )
+
+
+    ceiling = max(
+        1,
+        context_limit
+        - prompt_len
+        - 1,
+    )
+
+
+    ids = model.generate(
+        **enc,
+        max_new_tokens=ceiling,
+        do_sample=False,
+        repetition_penalty=REPETITION_PENALTY,
+        use_cache=True,
+        pad_token_id=tokenizer.pad_token_id,
+        eos_token_id=tokenizer.eos_token_id,
+    )
+
+
+    generated = ids[
+        0,
+        prompt_len:
+    ]
+
+
+    text = tokenizer.decode(
+        generated,
+        skip_special_tokens=True,
+    ).strip()
+
+
+    if was_training:
+        model.train()
+
+
+    return text
+
+
+print(
+    "\n[5] Recording BASE held-out responses..."
+)
+
+
+BASE_RESPONSES = []
+
+
+for i, prompt in enumerate(
+    HELDOUT_PROMPTS,
+    1,
+):
+
+    response = generate_response(
+        base,
+        prompt,
+    )
+
+
+    BASE_RESPONSES.append(response)
+
+
+    print(
+        f"Behavior BASE {i:02d}/{N_HELDOUT}"
+    )
+
+
+# =============================================================================
+# 17. PRESERVATION CACHE
+# =============================================================================
+
+print(
+    "\n[6] Building conditional top-K preservation cache..."
+)
+
+
+@torch.inference_mode()
+def base_topk(prompt):
+
+    enc = encode_chat(prompt)
+
+
+    out = base(
+        **enc,
+        use_cache=False,
+        return_dict=True,
+    )
+
+
+    pos = (
+        int(
+            enc["attention_mask"][0]
+            .sum()
+            .item()
+        )
+        - 1
+    )
+
+
+    logits = (
+        out.logits[0, pos, :]
+        .detach()
+        .float()
+    )
+
+
+    values, indices = torch.topk(
+        logits,
+        k=min(
+            PRESERVE_TOP_K,
+            logits.numel(),
+        ),
+    )
+
+
+    result = {
+        "indices": (
+            indices
+            .cpu()
+            .to(torch.int32)
+        ),
+
+        "logits": (
+            values
+            .cpu()
+            .to(torch.float16)
+        ),
+    }
+
+
+    del out
+    del enc
+
+
+    return result
+
+
+PRESERVE_CACHE = {}
+
+
+for i, prompt in enumerate(
+    TRAIN_PROMPTS,
+    1,
+):
+
+    PRESERVE_CACHE[prompt] = (
+        base_topk(prompt)
+    )
+
+
+    if i % 8 == 0:
+        print(
+            f"{i}/{N_TRAIN}"
+        )
+
+
+# =============================================================================
+# 18. RELEASE BASE
+# =============================================================================
+
+del base
+
+gc.collect()
+
+torch.cuda.empty_cache()
+
+
+print(
+    "\nBase released | GPU allocated:",
+    f"{torch.cuda.memory_allocated()/1024**3:.3f} GB"
+)
+
+
+# =============================================================================
+# 19. LOAD STUDENT
+# =============================================================================
+
+print("\n[7] Loading student...")
+
+
+student = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    dtype=torch.bfloat16,
+    device_map={"": 0},
+    attn_implementation="sdpa",
+    trust_remote_code=True,
+)
+
+
+student.config.use_cache = False
+
+
+if hasattr(
+    student,
+    "gradient_checkpointing_disable",
+):
+    student.gradient_checkpointing_disable()
+
+
+# =============================================================================
+# 20. LoRA
+# =============================================================================
+
+lora_config = LoraConfig(
+    r=LORA_R,
+    lora_alpha=LORA_ALPHA,
+    lora_dropout=LORA_DROPOUT,
+    bias="none",
+    task_type="CAUSAL_LM",
+    target_modules=[
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+    ],
+)
+
+
+student = get_peft_model(
+    student,
+    lora_config,
+)
+
+
+student.print_trainable_parameters()
+
+
+# =============================================================================
+# 21. DECODER LAYERS
+# =============================================================================
+
+def resolve_layers():
+
+    candidates = [
+        lambda: (
+            student
+            .base_model
+            .model
+            .model
+            .layers
+        ),
+
+        lambda: (
+            student
+            .base_model
+            .model
+            .model
+            .model
+            .layers
+        ),
+
+        lambda: (
+            student
+            .model
+            .model
+            .layers
+        ),
+    ]
+
+
+    for getter in candidates:
+
+        try:
+
+            layers = getter()
+
+            if len(layers) >= N_LAYERS:
+                return layers
+
+        except Exception:
+            pass
+
+
+    raise RuntimeError(
+        "Student decoder layers unresolved."
+    )
+
+
+STUDENT_LAYERS = resolve_layers()
+
+
+# =============================================================================
+# 22. OPTIMIZER
+# =============================================================================
+
+TRAINABLE_PARAMS = [
+    p
+    for p in student.parameters()
+    if p.requires_grad
+]
+
+
+optimizer = torch.optim.AdamW(
+    TRAINABLE_PARAMS,
+    lr=LEARNING_RATE,
+    betas=(0.9, 0.95),
+    weight_decay=0.01,
+)
+
+
+# =============================================================================
+# 23. REAL AUTOGRAD X-RAY
+# =============================================================================
+
+print(
+    "\n" + "=" * 150
+)
+
+print(
+    "REAL QWEN-7B AUTOGRAD X-RAY"
+)
+
+print(
+    "=" * 150
+)
+
+
+student.train()
+
+optimizer.zero_grad(
+    set_to_none=True
+)
+
+
+enc = encode_chat(
+    TRAIN_PROMPTS[0]
+)
+
+
+pos = (
+    int(
+        enc["attention_mask"][0]
+        .sum()
+        .item()
+    )
+    - 1
+)
+
+
+out = student(
+    **enc,
+    output_hidden_states=True,
+    use_cache=False,
+    return_dict=True,
+)
+
+
+probe_layers = [
+    0,
+    5,
+    10,
+    15,
+    19,
+]
+
+
+terms = []
+
+
+for L in probe_layers:
+
+    h = out.hidden_states[
+        L + 1
+    ][0, pos, :]
+
+
+    print(
+        f"L{L:02d} | "
+        f"requires_grad={h.requires_grad} | "
+        f"grad_fn={type(h.grad_fn).__name__ if h.grad_fn else 'NONE'}"
+    )
+
+
+    if not h.requires_grad:
+        raise RuntimeError(
+            "Autograd X-ray failed."
+        )
+
+
+    terms.append(
+        h.float()
+        .square()
+        .mean()
+    )
+
+
+probe_loss = torch.stack(
+    terms
+).mean()
+
+
+probe_loss.backward()
+
+
+grad_norm_sq = 0.0
+grad_tensors = 0
+
+
+for p in TRAINABLE_PARAMS:
+
+    if p.grad is not None:
+
+        g = p.grad.detach().float()
+
+        if not torch.isfinite(g).all():
+            raise RuntimeError(
+                "Non-finite autograd probe gradient."
+            )
+
+        grad_tensors += 1
+
+        grad_norm_sq += float(
+            g.square()
+            .sum()
+            .cpu()
+            .item()
+        )
+
+
+probe_grad_norm = math.sqrt(
+    grad_norm_sq
+)
+
+
+if (
+    grad_tensors == 0
+    or probe_grad_norm <= 0
+):
+
+    raise RuntimeError(
+        "Autograd X-ray failed."
+    )
+
+
+print(
+    "Global LoRA grad norm:",
+    f"{probe_grad_norm:.8e}"
+)
+
+print("AUTOGRAD X-RAY : PASS")
+
+
+optimizer.zero_grad(
+    set_to_none=True
+)
+
+
+del out
+del enc
+del terms
+del probe_loss
+
+gc.collect()
+
+torch.cuda.empty_cache()
+
+
+# =============================================================================
+# 24. CURRENT COMPASS
+# =============================================================================
+
+CURRENT_COMPASS = [
+    x.detach()
+    .clone()
+    .to(DEVICE)
+    for x in INITIAL_COMPASS
+]
+
+
+CURRENT_RAW_NORMS = list(
+    INITIAL_RAW_NORMS
+)
+
+
+# =============================================================================
+# 25. STUDENT COMPASS EXTRACTION
+# =============================================================================
+
+@torch.inference_mode()
+def extract_student_compass():
+
+    was_training = student.training
+
+    student.eval()
+
+
+    pos_acc = [
+        torch.zeros(
+            HIDDEN_SIZE,
+            device=DEVICE,
+            dtype=torch.float32,
+        )
+        for _ in range(N_LAYERS)
+    ]
+
+
+    neg_acc = [
+        torch.zeros(
+            HIDDEN_SIZE,
+            device=DEVICE,
+            dtype=torch.float32,
+        )
+        for _ in range(N_LAYERS)
+    ]
+
+
+    for texts, accum in [
+        (POSITIVE, pos_acc),
+        (NEGATIVE, neg_acc),
+    ]:
+
+        for text in texts:
+
+            enc = tokenizer(
+                text,
+                return_tensors="pt",
+                add_special_tokens=True,
+            )
+
+
+            enc = {
+                k: v.to(DEVICE)
+                for k, v in enc.items()
+            }
+
+
+            out = student(
+                **enc,
+                output_hidden_states=True,
+                use_cache=False,
+                return_dict=True,
+            )
+
+
+            pos = (
+                int(
+                    enc["attention_mask"][0]
+                    .sum()
+                    .item()
+                )
+                - 1
+            )
+
+
+            for L in range(N_LAYERS):
+
+                accum[L].add_(
+                    out.hidden_states[
+                        L + 1
+                    ][0, pos, :]
+                    .float()
+                )
+
+
+            del out
+            del enc
+
+
+    compass = []
+    raw = []
+
+
+    for L in range(N_LAYERS):
+
+        diff = (
+            pos_acc[L] / len(POSITIVE)
+            -
+            neg_acc[L] / len(NEGATIVE)
+        )
+
+
+        norm = diff.norm().clamp_min(1e-12)
+
+
+        compass.append(
+            (diff / norm)
+            .detach()
+            .float()
+            .clone()
+        )
+
+
+        raw.append(
+            float(norm.item())
+        )
+
+
+    if was_training:
+        student.train()
+
+
+    return compass, raw
+
+
+# =============================================================================
+# 26. ONE-PROMPT CURRENT SEASC TEACHER TARGET
+#
+# IMPORTANT:
+# This target is used for ONE training question only.
+#
+# After optimizer.step():
+# Pusula is re-extracted.
+# =============================================================================
+
+@torch.inference_mode()
+def current_teacher_target(prompt):
+
+    was_training = student.training
+
+    student.eval()
+
+
+    enc = encode_chat(prompt)
+
+
+    pos = (
+        int(
+            enc["attention_mask"][0]
+            .sum()
+            .item()
+        )
+        - 1
+    )
+
+
+    captured = [None] * N_LAYERS
+
+    handles = []
+
+
+    def make_hook(L):
+
+        def hook(module, args, output):
+
+            hidden = (
+                output[0]
+                if isinstance(output, tuple)
+                else output
+            )
+
+
+            steered = seasc_tensor(
+                hidden,
+                CURRENT_COMPASS[L],
+                RELATIVE_DOSE[L],
+            )
+
+
+            captured[L] = (
+                steered[0, pos, :]
+                .detach()
+                .to(
+                    device="cpu",
+                    dtype=torch.float16,
+                )
+                .clone()
+            )
+
+
+            if isinstance(output, tuple):
+                return (steered,) + output[1:]
+
+            return steered
+
+        return hook
+
+
+    for L in range(N_LAYERS):
+
+        handles.append(
+            STUDENT_LAYERS[L]
+            .register_forward_hook(
+                make_hook(L)
+            )
+        )
+
+
+    try:
+
+        _ = student(
+            **enc,
+            use_cache=False,
+            return_dict=True,
+        )
+
+    finally:
+
+        for h in handles:
+            h.remove()
+
+
+    if was_training:
+        student.train()
+
+
+    del enc
+
+
+    if any(x is None for x in captured):
+        raise RuntimeError(
+            "Teacher target incomplete."
+        )
+
+
+    return torch.stack(
+        captured,
+        dim=0,
+    )
+
+
+# =============================================================================
+# 27. NATURAL TRAINING FORWARD — MOTOR OFF
+# =============================================================================
+
+def training_forward(
+    prompt,
+    target_cpu,
+):
+
+    student.train()
+
+
+    enc = encode_chat(prompt)
+
+
+    pos = (
+        int(
+            enc["attention_mask"][0]
+            .sum()
+            .item()
+        )
+        - 1
+    )
+
+
+    out = student(
+        **enc,
+        output_hidden_states=True,
+        use_cache=False,
+        return_dict=True,
+    )
+
+
+    geo = []
+
+
+    for L in range(N_LAYERS):
+
+        h = (
+            out.hidden_states[
+                L + 1
+            ][0, pos, :]
+            .float()
+        )
+
+
+        target = (
+            target_cpu[L]
+            .to(
+                DEVICE,
+                dtype=torch.float32,
+            )
+        )
+
+
+        scale2 = (
+            target.square()
+            .sum()
+            .detach()
+            .clamp_min(1e-6)
+        )
+
+
+        geo.append(
+            (h - target)
+            .square()
+            .sum()
+            / scale2
+        )
+
+
+    geometry_loss = torch.stack(
+        geo
+    ).mean()
+
+
+    logits = (
+        out.logits[
+            0,
+            pos,
+            :
+        ].float()
+    )
+
+
+    cache = PRESERVE_CACHE[
+        prompt
+    ]
+
+
+    indices = (
+        cache["indices"]
+        .to(
+            DEVICE,
+            dtype=torch.long,
+        )
+    )
+
+
+    base_logits = (
+        cache["logits"]
+        .to(
+            DEVICE,
+            dtype=torch.float32,
+        )
+    )
+
+
+    current_logits = logits[
+        indices
+    ]
+
+
+    preserve_loss = F.kl_div(
+        F.log_softmax(
+            current_logits,
+            dim=-1,
+        ),
+        F.softmax(
+            base_logits,
+            dim=-1,
+        ),
+        reduction="sum",
+    )
+
+
+    total = (
+        LAMBDA_GEOMETRY
+        * geometry_loss
+        +
+        LAMBDA_PRESERVE
+        * preserve_loss
+    )
+
+
+    del out
+    del enc
+
+
+    return (
+        total,
+        geometry_loss.detach(),
+        preserve_loss.detach(),
+    )
+
+
+# =============================================================================
+# 28. MOTOR-OFF STUDENT CAPTURE
+# =============================================================================
+
+@torch.inference_mode()
+def capture_student_off(prompt):
+
+    was_training = student.training
+
+    student.eval()
+
+
+    enc = encode_chat(prompt)
+
+
+    out = student(
+        **enc,
+        output_hidden_states=True,
+        use_cache=False,
+        return_dict=True,
+    )
+
+
+    pos = (
+        int(
+            enc["attention_mask"][0]
+            .sum()
+            .item()
+        )
+        - 1
+    )
+
+
+    states = [
+        out.hidden_states[
+            L + 1
+        ][0, pos, :]
+        .detach()
+        .float()
+        .cpu()
+        .clone()
+
+        for L in range(N_LAYERS)
+    ]
+
+
+    del out
+    del enc
+
+
+    if was_training:
+        student.train()
+
+
+    return states
+
+
+# =============================================================================
+# 29. MATH HELPERS
+# =============================================================================
+
+def safe_cos(a, b):
+
+    a = np.asarray(
+        a,
+        dtype=np.float64,
+    )
+
+    b = np.asarray(
+        b,
+        dtype=np.float64,
+    )
+
+
+    na = np.linalg.norm(a)
+    nb = np.linalg.norm(b)
+
+
+    if na < 1e-12 or nb < 1e-12:
+        return 0.0
+
+
+    return float(
+        np.clip(
+            np.dot(a, b)
+            / (na * nb),
+            -1.0,
+            1.0,
+        )
+    )
+
+
+# =============================================================================
+# 30. LOG STRUCTURES
+# =============================================================================
+
+TRAIN_LOG = []
+
+EVAL_LOG = []
+
+LAYER_EVAL_LOG = []
+
+COMPASS_LOG = []
+
+BEHAVIOR_LOG = []
+
+EVAL_STATES = {}
+
+BEST_RESPONSES = None
+
+BEST_STEP = 0
+
+BEST_PROGRESS = -float("inf")
+BEST_DISTANCE = float("inf")
+BEST_ALIGNMENT = -float("inf")
+
+BEST_SCORE = None
+
+NO_IMPROVEMENT_COUNT = 0
+
+STOP_REASON = None
+
+
+# =============================================================================
+# 31. SAVE / RESTORE BEST ADAPTER
+# =============================================================================
+
+def save_best_adapter(step):
+
+    if os.path.exists(BEST_DIR):
+        shutil.rmtree(BEST_DIR)
+
+
+    os.makedirs(
+        BEST_DIR,
+        exist_ok=True,
+    )
+
+
+    student.save_pretrained(
+        BEST_DIR
+    )
+
+
+    tokenizer.save_pretrained(
+        BEST_DIR
+    )
+
+
+    with open(
+        os.path.join(
+            BEST_DIR,
+            "best_step.json",
+        ),
+        "w",
+        encoding="utf-8",
+    ) as f:
+
+        json.dump(
+            {
+                "step": int(step)
+            },
+            f,
+            indent=2,
+        )
+
+
+# =============================================================================
+# 32. MOTOR-OFF HELD-OUT EVALUATION
+# =============================================================================
+
+def evaluate_motor_off(step):
+
+    print(
+        "\n" + "=" * 150
+    )
+
+    print(
+        f"CRYSTALLIZATION X-RAY @ STEP {step}"
+    )
+
+    print(
+        "HELD-OUT | SEASC OFF | NO INJECTION"
+    )
+
+    print(
+        "=" * 150
+    )
+
+
+    states_all = []
+
+
+    distance = np.zeros(
+        N_LAYERS,
+        dtype=np.float64,
+    )
+
+
+    progress = np.zeros(
+        N_LAYERS,
+        dtype=np.float64,
+    )
+
+
+    alignment = np.zeros(
+        N_LAYERS,
+        dtype=np.float64,
+    )
+
+
+    correction_ratio = np.zeros(
+        N_LAYERS,
+        dtype=np.float64,
+    )
+
+
+    for i, prompt in enumerate(
+        HELDOUT_PROMPTS
+    ):
+
+        current = capture_student_off(
+            prompt
+        )
+
+
+        current_np = np.stack(
+            [
+                x.numpy()
+                for x in current
+            ],
+            axis=0,
+        )
+
+
+        states_all.append(
+            current_np
+        )
+
+
+        for L in range(N_LAYERS):
+
+            B = BASE_HELDOUT[
+                i
+            ][L].numpy()
+
+
+            T = T0_HELDOUT[
+                i
+            ][L].numpy()
+
+
+            S = current_np[L]
+
+
+            target_vector = T - B
+
+            learned_vector = S - B
+
+
+            D0 = max(
+                np.linalg.norm(
+                    B - T
+                ),
+                1e-12,
+            )
+
+
+            D = np.linalg.norm(
+                S - T
+            )
+
+
+            distance[L] += D
+
+            progress[L] += (
+                1.0 - D / D0
+            )
+
+
+            alignment[L] += safe_cos(
+                learned_vector,
+                target_vector,
+            )
+
+
+            correction_ratio[L] += (
+                D / D0
+            )
+
+
+    distance /= N_HELDOUT
+    progress /= N_HELDOUT
+    alignment /= N_HELDOUT
+    correction_ratio /= N_HELDOUT
+
+
+    states_all = np.stack(
+        states_all,
+        axis=0,
+    )
+
+
+    EVAL_STATES[
+        int(step)
+    ] = states_all
+
+
+    mean_distance = float(
+        distance.mean()
+    )
+
+
+    mean_progress = float(
+        progress.mean()
+    )
+
+
+    mean_alignment = float(
+        alignment.mean()
+    )
+
+
+    mean_correction = float(
+        correction_ratio.mean()
+    )
+
+
+    print(
+        "Mean target distance :",
+        f"{mean_distance:.8f}"
+    )
+
+    print(
+        "Mean target progress :",
+        f"{100*mean_progress:+.4f}%"
+    )
+
+    print(
+        "Mean alignment       :",
+        f"{mean_alignment:+.8f}"
+    )
+
+    print(
+        "Required correction  :",
+        f"{100*mean_correction:.4f}% of original dose-distance"
+    )
+
+
+    for L in range(N_LAYERS):
+
+        print(
+            f"L{L:02d} | "
+            f"D={distance[L]:.6f} | "
+            f"P={100*progress[L]:+.3f}% | "
+            f"C={alignment[L]:+.6f} | "
+            f"R={100*correction_ratio[L]:.3f}%"
+        )
+
+
+        LAYER_EVAL_LOG.append(
+            {
+                "step": int(step),
+                "layer": int(L),
+                "distance": float(
+                    distance[L]
+                ),
+                "progress": float(
+                    progress[L]
+                ),
+                "alignment": float(
+                    alignment[L]
+                ),
+                "required_correction_ratio": float(
+                    correction_ratio[L]
+                ),
+            }
+        )
+
+
+    EVAL_LOG.append(
+        {
+            "step": int(step),
+            "mean_distance": mean_distance,
+            "mean_progress": mean_progress,
+            "mean_alignment": mean_alignment,
+            "mean_required_correction_ratio": mean_correction,
+        }
+    )
+
+
+    return {
+        "distance": mean_distance,
+        "progress": mean_progress,
+        "alignment": mean_alignment,
+        "required_correction": mean_correction,
+        "layer_distance": distance,
+        "layer_progress": progress,
+        "layer_alignment": alignment,
+        "states": states_all,
+    }
+
+
+# =============================================================================
+# 33. COMPASS FORENSIC LOG
+# =============================================================================
+
+def record_compass(
+    step,
+    previous_compass,
+    current_compass,
+    raw_norms,
+):
+
+    cos_initial = []
+
+    cos_previous = []
+
+
+    for L in range(N_LAYERS):
+
+        A0 = (
+            INITIAL_COMPASS[L]
+            .detach()
+            .float()
+            .cpu()
+            .numpy()
+        )
+
+
+        At = (
+            current_compass[L]
+            .detach()
+            .float()
+            .cpu()
+            .numpy()
+        )
+
+
+        Ap = (
+            previous_compass[L]
+            .detach()
+            .float()
+            .cpu()
+            .numpy()
+        )
+
+
+        c0 = safe_cos(
+            A0,
+            At,
+        )
+
+
+        cp = safe_cos(
+            Ap,
+            At,
+        )
+
+
+        cos_initial.append(c0)
+        cos_previous.append(cp)
+
+
+        COMPASS_LOG.append(
+            {
+                "step": int(step),
+                "layer": int(L),
+                "raw_norm": float(
+                    raw_norms[L]
+                ),
+                "cos_initial": float(c0),
+                "cos_previous": float(cp),
+            }
+        )
+
+
+    return (
+        float(np.mean(cos_initial)),
+        float(np.mean(cos_previous)),
+    )
+
+
+# =============================================================================
+# 34. BEHAVIORAL SNAPSHOT
+# =============================================================================
+
+def behavioral_snapshot(
+    label,
+    step,
+):
+
+    print(
+        "\n" + "-" * 150
+    )
+
+    print(
+        f"BEHAVIOR SNAPSHOT — {label} — STEP {step}"
+    )
+
+    print(
+        "-" * 150
+    )
+
+
+    responses = []
+
+
+    for i, prompt in enumerate(
+        HELDOUT_PROMPTS
+    ):
+
+        response = generate_response(
+            student,
+            prompt,
+        )
+
+
+        responses.append(
+            response
+        )
+
+
+        base_response = (
+            BASE_RESPONSES[i]
+        )
+
+
+        changed = (
+            response.strip()
+            != base_response.strip()
+        )
+
+
+        BEHAVIOR_LOG.append(
+            {
+                "label": label,
+                "step": int(step),
+                "prompt_index": int(i),
+                "prompt": prompt,
+                "base_response": base_response,
+                "current_response": response,
+                "changed_from_base": bool(
+                    changed
+                ),
+            }
+        )
+
+
+        print(
+            f"[{i:02d}] changed={changed}"
+        )
+
+
+    return responses
+
+
+# =============================================================================
+# 35. STEP ZERO
+# =============================================================================
+
+step0 = evaluate_motor_off(
+    0
+)
+
+
+if abs(
+    step0["progress"]
+) > 1e-6:
+
+    raise RuntimeError(
+        "Step-0 progress is not zero."
+    )
+
+
+BEST_PROGRESS = step0[
+    "progress"
+]
+
+BEST_DISTANCE = step0[
+    "distance"
+]
+
+BEST_ALIGNMENT = step0[
+    "alignment"
+]
+
+BEST_STEP = 0
+
+
+save_best_adapter(
+    0
+)
+
+
+# =============================================================================
+# 36. TRAINING LOOP
+#
+# IMPORTANT:
+# EACH UPDATE:
+#
+# 1. use current endogenous compass
+# 2. create ONE teacher target
+# 3. natural motor-OFF student forward
+# 4. update LoRA
+# 5. re-extract compass immediately
+#
+# The Pusula therefore follows the model after every question.
+# =============================================================================
+
+print(
+    "\n" + "=" * 150
+)
+
+print(
+    "CRYSTALLIZATION TRAINING START"
+)
+
+print(
+    "PER-UPDATE ENDOGENOUS COMPASS REFRESH"
+)
+
+print(
+    "=" * 150
+)
+
+
+start_time = time.time()
+
+update = 0
+
+epoch = 0
+
+
+while update < HARD_MAX_UPDATES:
+
+    epoch += 1
+
+
+    order = list(
+        range(N_TRAIN)
+    )
+
+
+    rng.shuffle(order)
+
+
+    for idx in order:
+
+        if update >= HARD_MAX_UPDATES:
+            break
+
+
+        update += 1
+
+
+        prompt = TRAIN_PROMPTS[
+            idx
+        ]
+
+
+        # -----------------------------------------------------------------
+        # CURRENT PUSULA -> ONE-SHOT TEACHER TARGET
+        # -----------------------------------------------------------------
+
+        target = current_teacher_target(
+            prompt
+        )
+
+
+        # -----------------------------------------------------------------
+        # MOTOR OFF NATURAL LEARNING
+        # -----------------------------------------------------------------
+
+        optimizer.zero_grad(
+            set_to_none=True
+        )
+
+
+        (
+            total_loss,
+            geo_loss,
+            preserve_loss,
+        ) = training_forward(
+            prompt,
+            target,
+        )
+
+
+        if not torch.isfinite(
+            total_loss
+        ):
+
+            raise RuntimeError(
+                f"Non-finite loss @ {update}"
+            )
+
+
+        total_loss.backward()
+
+
+        grad_norm = (
+            torch.nn.utils
+            .clip_grad_norm_(
+                TRAINABLE_PARAMS,
+                GRAD_CLIP,
+            )
+        )
+
+
+        grad_norm_value = float(
+            torch.as_tensor(
+                grad_norm
+            )
+            .detach()
+            .float()
+            .cpu()
+            .item()
+        )
+
+
+        if not math.isfinite(
+            grad_norm_value
+        ):
+
+            raise RuntimeError(
+                f"Non-finite gradient @ {update}"
+            )
+
+
+        optimizer.step()
+
+
+        # -----------------------------------------------------------------
+        # IMMEDIATE PUSULA REFRESH
+        # -----------------------------------------------------------------
+
+        previous_compass = [
+            x.detach()
+            .clone()
+            for x in CURRENT_COMPASS
+        ]
+
+
+        (
+            NEW_COMPASS,
+            NEW_RAW_NORMS,
+        ) = extract_student_compass()
+
+
+        (
+            mean_cos_initial,
+            mean_cos_previous,
+        ) = record_compass(
+            update,
+            previous_compass,
+            NEW_COMPASS,
+            NEW_RAW_NORMS,
+        )
+
+
+        CURRENT_COMPASS = [
+            x.detach()
+            .clone()
+            .to(DEVICE)
+            for x in NEW_COMPASS
+        ]
+
+
+        CURRENT_RAW_NORMS = list(
+            NEW_RAW_NORMS
+        )
+
+
+        elapsed = (
+            time.time()
+            - start_time
+        )
+
+
+        TRAIN_LOG.append(
+            {
+                "step": int(update),
+                "epoch": int(epoch),
+
+                "loss_total": float(
+                    total_loss
+                    .detach()
+                    .cpu()
+                    .item()
+                ),
+
+                "loss_geometry": float(
+                    geo_loss
+                    .cpu()
+                    .item()
+                ),
+
+                "loss_preserve_topk_conditional": float(
+                    preserve_loss
+                    .cpu()
+                    .item()
+                ),
+
+                "grad_norm": float(
+                    grad_norm_value
+                ),
+
+                "mean_compass_cos_initial": float(
+                    mean_cos_initial
+                ),
+
+                "mean_compass_cos_previous": float(
+                    mean_cos_previous
+                ),
+
+                "elapsed_seconds": float(
+                    elapsed
+                ),
+            }
+        )
+
+
+        print(
+            f"step={update:04d} | "
+            f"loss={float(total_loss.detach().cpu()):.7f} | "
+            f"geo={float(geo_loss.cpu()):.7f} | "
+            f"presK={float(preserve_loss.cpu()):.7f} | "
+            f"grad={grad_norm_value:.6f} | "
+            f"cos(A0,At)={mean_cos_initial:+.6f} | "
+            f"cos(Aprev,At)={mean_cos_previous:+.6f}"
+        )
+
+
+        del target
+        del total_loss
+
+
+        # =================================================================
+        # CLOSED-LOOP HELD-OUT EQUILIBRIUM CHECK
+        # =================================================================
+
+        if (
+            update % EVAL_EVERY == 0
+        ):
+
+            metrics = evaluate_motor_off(
+                update
+            )
+
+
+            current_progress = metrics[
+                "progress"
+            ]
+
+            current_distance = metrics[
+                "distance"
+            ]
+
+            current_alignment = metrics[
+                "alignment"
+            ]
+
+
+            # -------------------------------------------------------------
+            # NEW BEST DECISION
+            #
+            # Primary criterion:
+            # immutable-target progress.
+            #
+            # Distance and alignment are retained as supporting metrics.
+            # -------------------------------------------------------------
+
+            progress_gain = (
+                current_progress
+                - BEST_PROGRESS
+            )
+
+
+            relative_distance_gain = (
+                (
+                    BEST_DISTANCE
+                    - current_distance
+                )
+                / max(
+                    BEST_DISTANCE,
+                    1e-12,
+                )
+            )
+
+
+            alignment_gain = (
+                current_alignment
+                - BEST_ALIGNMENT
+            )
+
+
+            new_best = (
+                current_progress
+                > BEST_PROGRESS
+                and
+                current_alignment
+                >= ALIGNMENT_FLOOR
+            )
+
+
+            if new_best:
+
+                BEST_PROGRESS = (
+                    current_progress
+                )
+
+                BEST_DISTANCE = (
+                    current_distance
+                )
+
+                BEST_ALIGNMENT = (
+                    current_alignment
+                )
+
+                BEST_STEP = int(
+                    update
+                )
+
+
+                save_best_adapter(
+                    BEST_STEP
+                )
+
+
+                NO_IMPROVEMENT_COUNT = 0
+
+
+                print(
+                    "\n>>> NEW CRYSTALLIZATION BEST <<<"
+                )
+
+                print(
+                    "step      :",
+                    BEST_STEP
+                )
+
+                print(
+                    "progress  :",
+                    f"{100*BEST_PROGRESS:+.4f}%"
+                )
+
+                print(
+                    "distance  :",
+                    f"{BEST_DISTANCE:.8f}"
+                )
+
+                print(
+                    "alignment :",
+                    f"{BEST_ALIGNMENT:+.8f}"
+                )
+
+
+            else:
+
+                meaningful_change = (
+                    abs(progress_gain)
+                    >= MIN_PROGRESS_IMPROVEMENT
+                    or
+                    abs(relative_distance_gain)
+                    >= MIN_DISTANCE_IMPROVEMENT
+                    or
+                    abs(alignment_gain)
+                    >= MIN_ALIGNMENT_IMPROVEMENT
+                )
+
+
+                # No new best means this evaluation consumes patience.
+                NO_IMPROVEMENT_COUNT += 1
+
+
+                print(
+                    "\nNo new best."
+                )
+
+                print(
+                    "patience:",
+                    f"{NO_IMPROVEMENT_COUNT}/{PATIENCE_EVALS}"
+                )
+
+
+            # -------------------------------------------------------------
+            # OVERSHOOT GUARD
+            # -------------------------------------------------------------
+
+            overshoot = (
+                update
+                >= MIN_UPDATES_BEFORE_STOP
+                and
+                (
+                    BEST_PROGRESS
+                    - current_progress
+                )
+                >= OVERSHOOT_PROGRESS_DROP
+            )
+
+
+            if overshoot:
+
+                STOP_REASON = (
+                    "OVERSHOOT_DETECTED"
+                )
+
+
+                print(
+                    "\n>>> OVERSHOOT DETECTED <<<"
+                )
+
+                print(
+                    "Best progress   :",
+                    f"{100*BEST_PROGRESS:+.4f}%"
+                )
+
+                print(
+                    "Current progress:",
+                    f"{100*current_progress:+.4f}%"
+                )
+
+                print(
+                    "Returning to BEST state."
+                )
+
+                break
+
+
+            # -------------------------------------------------------------
+            # PLATEAU / EQUILIBRIUM
+            # -------------------------------------------------------------
+
+            if (
+                update
+                >= MIN_UPDATES_BEFORE_STOP
+                and
+                NO_IMPROVEMENT_COUNT
+                >= PATIENCE_EVALS
+            ):
+
+                STOP_REASON = (
+                    "HELDOUT_EQUILIBRIUM"
+                )
+
+
+                print(
+                    "\n>>> CRYSTALLIZATION EQUILIBRIUM DETECTED <<<"
+                )
+
+                print(
+                    "BEST STEP:",
+                    BEST_STEP
+                )
+
+                print(
+                    "BEST PROGRESS:",
+                    f"{100*BEST_PROGRESS:+.4f}%"
+                )
+
+                print(
+                    "BEST ALIGNMENT:",
+                    f"{BEST_ALIGNMENT:+.8f}"
+                )
+
+                break
+
+
+        if update % 25 == 0:
+
+            gc.collect()
+            torch.cuda.empty_cache()
+
+
+    if STOP_REASON is not None:
+        break
+
+
+if STOP_REASON is None:
+    STOP_REASON = "HARD_MAX_UPDATES"
+
+
+LAST_STEP = int(update)
+
+
+# =============================================================================
+# 37. SAVE LAST STATE BEFORE ROLLBACK
+# =============================================================================
+
+if os.path.exists(LAST_DIR):
+    shutil.rmtree(LAST_DIR)
+
+
+student.save_pretrained(
+    LAST_DIR
+)
+
+
+tokenizer.save_pretrained(
+    LAST_DIR
+)
+
+
+print(
+    "\n" + "=" * 150
+)
+
+print(
+    "TRAINING STOPPED"
+)
+
+print(
+    "=" * 150
+)
+
+print("Last step :", LAST_STEP)
+print("Best step :", BEST_STEP)
+print("Reason    :", STOP_REASON)
+
+print(
+    "Best progress:",
+    f"{100*BEST_PROGRESS:+.4f}%"
+)
+
+print(
+    "Best alignment:",
+    f"{BEST_ALIGNMENT:+.8f}"
+)
+
+
+# =============================================================================
+# 38. RELEASE LAST STUDENT AND RELOAD CLEAN BEST STATE
+#
+# This is a TRUE rollback.
+# Optimizer is no longer needed.
+# =============================================================================
+
+del optimizer
+del student
+
+gc.collect()
+
+torch.cuda.empty_cache()
+
+
+print(
+    "\nReloading clean base + BEST adapter..."
+)
+
+
+best_base = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    dtype=torch.bfloat16,
+    device_map={"": 0},
+    attn_implementation="sdpa",
+    trust_remote_code=True,
+)
+
+
+from peft import PeftModel
+
+
+student = PeftModel.from_pretrained(
+    best_base,
+    BEST_DIR,
+    is_trainable=False,
+)
+
+
+student.eval()
+
+
+# =============================================================================
+# 39. BEST BEHAVIORAL SNAPSHOT
+# =============================================================================
+
+BEST_RESPONSES = behavioral_snapshot(
+    "BEST",
+    BEST_STEP,
+)
+
+
+# =============================================================================
+# 40. BEST MOTOR-OFF GEOMETRY RECHECK
+# =============================================================================
+
+def capture_best_off(prompt):
+
+    student.eval()
+
+
+    enc = encode_chat(prompt)
+
+
+    out = student(
+        **enc,
+        output_hidden_states=True,
+        use_cache=False,
+        return_dict=True,
+    )
+
+
+    pos = (
+        int(
+            enc["attention_mask"][0]
+            .sum()
+            .item()
+        )
+        - 1
+    )
+
+
+    states = [
+        out.hidden_states[
+            L + 1
+        ][0, pos, :]
+        .detach()
+        .float()
+        .cpu()
+        .clone()
+
+        for L in range(N_LAYERS)
+    ]
+
+
+    del out
+    del enc
+
+
+    return states
+
+
+BEST_RELOADED_STATES = []
+
+
+for prompt in HELDOUT_PROMPTS:
+
+    states = capture_best_off(
+        prompt
+    )
+
+
+    BEST_RELOADED_STATES.append(
+        np.stack(
+            [
+                x.numpy()
+                for x in states
+            ],
+            axis=0,
+        )
+    )
+
+
+BEST_RELOADED_STATES = np.stack(
+    BEST_RELOADED_STATES,
+    axis=0,
+)
+
+
+# =============================================================================
+# 41. MERGE BEST — DO NOT ABORT ON SMALL BF16 DRIFT
+# =============================================================================
+
+print(
+    "\n" + "=" * 150
+)
+
+print(
+    "MERGING BEST CRYSTALLIZED STATE"
+)
+
+print(
+    "=" * 150
+)
+
+
+merged = student.merge_and_unload()
+
+merged.eval()
+
+merged.config.use_cache = True
+
+
+del student
+del best_base
+
+gc.collect()
+
+torch.cuda.empty_cache()
+
+
+remaining_lora = [
+    name
+    for name, _
+    in merged.named_modules()
+    if "lora_" in name.lower()
+]
+
+
+if remaining_lora:
+    raise RuntimeError(
+        "LoRA modules remain after merge."
+    )
+
+
+print("LoRA runtime : REMOVED")
+print("SEASC hooks  : NONE")
+print("Motor        : OFF")
+
+
+# =============================================================================
+# 42. MERGED CAPTURE
+# =============================================================================
+
+@torch.inference_mode()
+def capture_merged(prompt):
+
+    enc = encode_chat(prompt)
+
+
+    out = merged(
+        **enc,
+        output_hidden_states=True,
+        use_cache=False,
+        return_dict=True,
+    )
+
+
+    pos = (
+        int(
+            enc["attention_mask"][0]
+            .sum()
+            .item()
+        )
+        - 1
+    )
+
+
+    states = [
+        out.hidden_states[
+            L + 1
+        ][0, pos, :]
+        .detach()
+        .float()
+        .cpu()
+        .clone()
+
+        for L in range(N_LAYERS)
+    ]
+
+
+    del out
+    del enc
+
+
+    return states
+
+
+MERGED_STATES = []
+
+
+for prompt in HELDOUT_PROMPTS:
+
+    states = capture_merged(
+        prompt
+    )
+
+
+    MERGED_STATES.append(
+        np.stack(
+            [
+                x.numpy()
+                for x in states
+            ],
+            axis=0,
+        )
+    )
+
+
+MERGED_STATES = np.stack(
+    MERGED_STATES,
+    axis=0,
+)
+
+
+MERGE_RELATIVE_DRIFT = float(
+    np.linalg.norm(
+        MERGED_STATES
+        - BEST_RELOADED_STATES
+    )
+    /
+    max(
+        np.linalg.norm(
+            BEST_RELOADED_STATES
+        ),
+        1e-12,
+    )
+)
+
+
+print(
+    "Merge relative hidden drift:",
+    f"{MERGE_RELATIVE_DRIFT:.10e}"
+)
+
+
+# Diagnostic classification only.
+# It NEVER destroys the completed experiment.
+
+if MERGE_RELATIVE_DRIFT <= 0.005:
+
+    MERGE_STATUS = "TIGHT_EQUIVALENCE"
+
+elif MERGE_RELATIVE_DRIFT <= 0.015:
+
+    MERGE_STATUS = (
+        "SMALL_BF16_MERGE_DRIFT"
+    )
+
+else:
+
+    MERGE_STATUS = (
+        "MERGE_DRIFT_REQUIRES_REVIEW"
+    )
+
+
+print(
+    "Merge status:",
+    MERGE_STATUS
+)
+
+
+# =============================================================================
+# 43. FINAL MERGED GEOMETRY
+# =============================================================================
+
+merged_distance = np.zeros(
+    N_LAYERS
+)
+
+merged_progress = np.zeros(
+    N_LAYERS
+)
+
+merged_alignment = np.zeros(
+    N_LAYERS
+)
+
+
+for i in range(N_HELDOUT):
+
+    for L in range(N_LAYERS):
+
+        B = BASE_HELDOUT[
+            i
+        ][L].numpy()
+
+
+        T = T0_HELDOUT[
+            i
+        ][L].numpy()
+
+
+        S = MERGED_STATES[
+            i,
+            L,
+        ]
+
+
+        D0 = max(
+            np.linalg.norm(
+                B - T
+            ),
+            1e-12,
+        )
+
+
+        D = np.linalg.norm(
+            S - T
+        )
+
+
+        merged_distance[L] += D
+
+        merged_progress[L] += (
+            1.0 - D / D0
+        )
+
+        merged_alignment[L] += safe_cos(
+            S - B,
+            T - B,
+        )
+
+
+merged_distance /= N_HELDOUT
+merged_progress /= N_HELDOUT
+merged_alignment /= N_HELDOUT
+
+
+FINAL_PROGRESS = float(
+    merged_progress.mean()
+)
+
+FINAL_DISTANCE = float(
+    merged_distance.mean()
+)
+
+FINAL_ALIGNMENT = float(
+    merged_alignment.mean()
+)
+
+
+print(
+    "\nFINAL MERGED MOTOR-OFF:"
+)
+
+print(
+    "Progress :",
+    f"{100*FINAL_PROGRESS:+.4f}%"
+)
+
+print(
+    "Distance :",
+    f"{FINAL_DISTANCE:.8f}"
+)
+
+print(
+    "Alignment:",
+    f"{FINAL_ALIGNMENT:+.8f}"
+)
+
+
+# =============================================================================
+# 44. FINAL BEHAVIORAL RESPONSES
+# =============================================================================
+
+print(
+    "\nRecording FINAL merged responses..."
+)
+
+
+FINAL_RESPONSES = []
+
+
+for i, prompt in enumerate(
+    HELDOUT_PROMPTS
+):
+
+    response = generate_response(
+        merged,
+        prompt,
+    )
+
+
+    FINAL_RESPONSES.append(
+        response
+    )
+
+
+    BEHAVIOR_LOG.append(
+        {
+            "label": "FINAL_MERGED",
+            "step": int(BEST_STEP),
+            "prompt_index": int(i),
+            "prompt": prompt,
+            "base_response": BASE_RESPONSES[i],
+            "current_response": response,
+            "changed_from_base": bool(
+                response.strip()
+                != BASE_RESPONSES[i].strip()
+            ),
+        }
+    )
+
+
+# =============================================================================
+# 45. BEHAVIORAL COMPARISON TABLE
+# =============================================================================
+
+BEHAVIOR_ROWS = []
+
+
+for i, prompt in enumerate(
+    HELDOUT_PROMPTS
+):
+
+    base_text = BASE_RESPONSES[i]
+
+    best_text = BEST_RESPONSES[i]
+
+    final_text = FINAL_RESPONSES[i]
+
+
+    base_tokens = set(
+        base_text.lower().split()
+    )
+
+    best_tokens = set(
+        best_text.lower().split()
+    )
+
+    final_tokens = set(
+        final_text.lower().split()
+    )
+
+
+    def jaccard(a, b):
+
+        if not a and not b:
+            return 1.0
+
+        return (
+            len(a & b)
+            / max(
+                len(a | b),
+                1,
+            )
+        )
+
+
+    BEHAVIOR_ROWS.append(
+        {
+            "prompt_index": i,
+
+            "prompt": prompt,
+
+            "base_response": base_text,
+
+            "best_response": best_text,
+
+            "final_merged_response": final_text,
+
+            "best_changed_from_base": (
+                best_text.strip()
+                != base_text.strip()
+            ),
+
+            "final_changed_from_base": (
+                final_text.strip()
+                != base_text.strip()
+            ),
+
+            "base_best_lexical_jaccard": (
+                jaccard(
+                    base_tokens,
+                    best_tokens,
+                )
+            ),
+
+            "base_final_lexical_jaccard": (
+                jaccard(
+                    base_tokens,
+                    final_tokens,
+                )
+            ),
+
+            "best_final_lexical_jaccard": (
+                jaccard(
+                    best_tokens,
+                    final_tokens,
+                )
+            ),
+        }
+    )
+
+
+# =============================================================================
+# 46. SAVE CSV LOGS
+# =============================================================================
+
+TRAIN_CSV = os.path.join(
+    OUT_DIR,
+    "TEST144_training_log.csv",
+)
+
+
+EVAL_CSV = os.path.join(
+    OUT_DIR,
+    "TEST144_equilibrium_log.csv",
+)
+
+
+LAYER_CSV = os.path.join(
+    OUT_DIR,
+    "TEST144_layerwise_geometry.csv",
+)
+
+
+COMPASS_CSV = os.path.join(
+    OUT_DIR,
+    "TEST144_per_update_compass.csv",
+)
+
+
+BEHAVIOR_CSV = os.path.join(
+    OUT_DIR,
+    "TEST144_behavior_comparison.csv",
+)
+
+
+pd.DataFrame(
+    TRAIN_LOG
+).to_csv(
+    TRAIN_CSV,
+    index=False,
+)
+
+
+pd.DataFrame(
+    EVAL_LOG
+).to_csv(
+    EVAL_CSV,
+    index=False,
+)
+
+
+pd.DataFrame(
+    LAYER_EVAL_LOG
+).to_csv(
+    LAYER_CSV,
+    index=False,
+)
+
+
+pd.DataFrame(
+    COMPASS_LOG
+).to_csv(
+    COMPASS_CSV,
+    index=False,
+)
+
+
+pd.DataFrame(
+    BEHAVIOR_ROWS
+).to_csv(
+    BEHAVIOR_CSV,
+    index=False,
+)
+
+
+# =============================================================================
+# 47. NPZ — RAW GEOMETRY
+# =============================================================================
+
+BASE_NP = np.stack(
+    [
+        np.stack(
+            [
+                x.numpy()
+                for x in sample
+            ],
+            axis=0,
+        )
+        for sample in BASE_HELDOUT
+    ],
+    axis=0,
+)
+
+
+T0_NP = np.stack(
+    [
+        np.stack(
+            [
+                x.numpy()
+                for x in sample
+            ],
+            axis=0,
+        )
+        for sample in T0_HELDOUT
+    ],
+    axis=0,
+)
+
+
+eval_steps = sorted(
+    EVAL_STATES.keys()
+)
+
+
+eval_state_stack = np.stack(
+    [
+        EVAL_STATES[s]
+        for s in eval_steps
+    ],
+    axis=0,
+)
+
+
+NPZ_PATH = os.path.join(
+    OUT_DIR,
+    "TEST144_crystallization_geometry.npz",
+)
+
+
+np.savez_compressed(
+    NPZ_PATH,
+
+    base=BASE_NP,
+
+    immutable_T0=T0_NP,
+
+    eval_steps=np.asarray(
+        eval_steps,
+        dtype=np.int32,
+    ),
+
+    eval_states=eval_state_stack,
+
+    best_reloaded_states=(
+        BEST_RELOADED_STATES
+    ),
+
+    merged_states=(
+        MERGED_STATES
+    ),
+
+    initial_compass=np.stack(
+        [
+            x.detach()
+            .float()
+            .cpu()
+            .numpy()
+            for x in INITIAL_COMPASS
+        ],
+        axis=0,
+    ),
+
+    final_merged_progress=(
+        merged_progress
+    ),
+
+    final_merged_alignment=(
+        merged_alignment
+    ),
+
+    final_merged_distance=(
+        merged_distance
+    ),
+
+    envelope=np.asarray(
+        ENVELOPE,
+        dtype=np.float32,
+    ),
+
+    relative_dose=np.asarray(
+        RELATIVE_DOSE,
+        dtype=np.float32,
+    ),
+)
+
+
+# =============================================================================
+# 48. SUMMARY JSON
+# =============================================================================
+
+SUMMARY = {
+    "experiment": (
+        "TEST 144 — AkbasCore Crystallization"
+    ),
+
+    "turkish_name": (
+        "Akbaş Motoru ile Kristalizasyon"
+    ),
+
+    "model": MODEL_ID,
+
+    "seed": SEED,
+
+    "training_mode": (
+        "Per-update endogenous compass refresh"
+    ),
+
+    "scientific_anchor": (
+        "Immutable original Base + A0 SEASC target T0"
+    ),
+
+    "evaluation_mode": (
+        "Held-out / motor OFF"
+    ),
+
+    "hard_max_updates": (
+        HARD_MAX_UPDATES
+    ),
+
+    "last_update": (
+        LAST_STEP
+    ),
+
+    "best_update": (
+        BEST_STEP
+    ),
+
+    "stop_reason": (
+        STOP_REASON
+    ),
+
+    "best_progress": (
+        BEST_PROGRESS
+    ),
+
+    "best_distance": (
+        BEST_DISTANCE
+    ),
+
+    "best_alignment": (
+        BEST_ALIGNMENT
+    ),
+
+    "final_merged_progress": (
+        FINAL_PROGRESS
+    ),
+
+    "final_merged_distance": (
+        FINAL_DISTANCE
+    ),
+
+    "final_merged_alignment": (
+        FINAL_ALIGNMENT
+    ),
+
+    "merge_relative_hidden_drift": (
+        MERGE_RELATIVE_DRIFT
+    ),
+
+    "merge_status": (
+        MERGE_STATUS
+    ),
+
+    "behavior_prompts": (
+        N_HELDOUT
+    ),
+
+    "behavior_changed_best": int(
+        sum(
+            x[
+                "best_changed_from_base"
+            ]
+            for x in BEHAVIOR_ROWS
+        )
+    ),
+
+    "behavior_changed_final": int(
+        sum(
+            x[
+                "final_changed_from_base"
+            ]
+            for x in BEHAVIOR_ROWS
+        )
+    ),
+
+    "motor_final_state": (
+        "OFF"
+    ),
+
+    "runtime_adapter_final_state": (
+        "REMOVED / MERGED"
+    ),
+}
+
+
+JSON_PATH = os.path.join(
+    OUT_DIR,
+    "TEST144_summary.json",
+)
+
+
+with open(
+    JSON_PATH,
+    "w",
+    encoding="utf-8",
+) as f:
+
+    json.dump(
+        SUMMARY,
+        f,
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+# =============================================================================
+# 49. FULL TEXT REPORT
+# =============================================================================
+
+REPORT_PATH = os.path.join(
+    OUT_DIR,
+    "TEST144_FULL_REPORT.txt",
+)
+
+
+with open(
+    REPORT_PATH,
+    "w",
+    encoding="utf-8",
+) as f:
+
+    f.write(
+        "TEST 144 — AKBASCORE CRYSTALLIZATION\n"
+    )
+
+    f.write(
+        "AKBAŞ MOTORU İLE KRİSTALİZASYON\n"
+    )
+
+    f.write(
+        "=" * 120
+        + "\n\n"
+    )
+
+
+    f.write(
+        f"Model: {MODEL_ID}\n"
+    )
+
+    f.write(
+        f"Last update: {LAST_STEP}\n"
+    )
+
+    f.write(
+        f"Best update: {BEST_STEP}\n"
+    )
+
+    f.write(
+        f"Stop reason: {STOP_REASON}\n\n"
+    )
+
+
+    f.write(
+        f"Best progress: "
+        f"{100*BEST_PROGRESS:+.6f}%\n"
+    )
+
+    f.write(
+        f"Best alignment: "
+        f"{BEST_ALIGNMENT:+.8f}\n"
+    )
+
+    f.write(
+        f"Best distance: "
+        f"{BEST_DISTANCE:.8f}\n\n"
+    )
+
+
+    f.write(
+        f"Final merged progress: "
+        f"{100*FINAL_PROGRESS:+.6f}%\n"
+    )
+
+    f.write(
+        f"Final merged alignment: "
+        f"{FINAL_ALIGNMENT:+.8f}\n"
+    )
+
+    f.write(
+        f"Merge drift: "
+        f"{MERGE_RELATIVE_DRIFT:.10e}\n"
+    )
+
+    f.write(
+        f"Merge status: "
+        f"{MERGE_STATUS}\n\n"
+    )
+
+
+    f.write(
+        "BEHAVIORAL COMPARISON\n"
+    )
+
+    f.write(
+        "=" * 120
+        + "\n"
+    )
+
+
+    for row in BEHAVIOR_ROWS:
+
+        f.write(
+            f"\nPROMPT {row['prompt_index']}\n"
+        )
+
+        f.write(
+            row["prompt"]
+            + "\n\n"
+        )
+
+        f.write(
+            "BASE:\n"
+            + row["base_response"]
+            + "\n\n"
+        )
+
+        f.write(
+            "BEST CRYSTALLIZED:\n"
+            + row["best_response"]
+            + "\n\n"
+        )
+
+        f.write(
+            "FINAL MERGED:\n"
+            + row["final_merged_response"]
+            + "\n"
+        )
+
+        f.write(
+            "-" * 120
+            + "\n"
+        )
+
+
+# =============================================================================
+# 50. JPEG PIPELINE
+# =============================================================================
+
+plt.style.use(
+    "dark_background"
+)
+
+
+JPEG_FILES = []
+
+
+def save_jpeg(
+    fig,
+    filename,
+):
+
+    temp = os.path.join(
+        OUT_DIR,
+        "_temp.png",
+    )
+
+
+    final = os.path.join(
+        OUT_DIR,
+        filename,
+    )
+
+
+    fig.savefig(
+        temp,
+        dpi=220,
+        bbox_inches="tight",
+        facecolor=fig.get_facecolor(),
+    )
+
+
+    plt.close(fig)
+
+
+    with Image.open(temp) as im:
+
+        if im.mode in (
+            "RGBA",
+            "LA",
+        ):
+
+            rgba = im.convert(
+                "RGBA"
+            )
+
+            bg = Image.new(
+                "RGB",
+                rgba.size,
+                (0, 0, 0),
+            )
+
+            bg.paste(
+                rgba,
+                mask=rgba.getchannel("A"),
+            )
+
+            rgb = bg
+
+        else:
+
+            rgb = im.convert("RGB")
+
+
+        rgb.save(
+            final,
+            format="JPEG",
+            quality=95,
+            subsampling=0,
+            optimize=False,
+            progressive=False,
+        )
+
+
+    os.remove(temp)
+
+
+    with open(
+        final,
+        "rb",
+    ) as f:
+
+        if f.read(2) != b"\xff\xd8":
+            raise RuntimeError(
+                "Invalid JPEG."
+            )
+
+
+    with Image.open(final) as im:
+        im.verify()
+
+
+    JPEG_FILES.append(final)
+
+
+# =============================================================================
+# 51. JPEG 1 — CRYSTALLIZATION CURVE
+# =============================================================================
+
+eval_df = pd.DataFrame(
+    EVAL_LOG
+)
+
+
+fig = plt.figure(
+    figsize=(16, 8)
+)
+
+
+plt.plot(
+    eval_df["step"],
+    100 * eval_df["mean_progress"],
+    marker="o",
+    linewidth=2.2,
+)
+
+
+plt.axvline(
+    BEST_STEP,
+    linestyle="--",
+    linewidth=1.5,
+    label=f"BEST = {BEST_STEP}",
+)
+
+
+plt.axhline(
+    0,
+    linewidth=0.8,
+    alpha=0.5,
+)
+
+
+plt.xlabel(
+    "Optimizer update"
+)
+
+plt.ylabel(
+    "Immutable T0 target progress (%)"
+)
+
+plt.title(
+    "TEST 144 — AkbasCore Crystallization Curve\n"
+    "Held-out | Motor OFF"
+)
+
+plt.legend()
+
+plt.grid(alpha=0.2)
+
+plt.tight_layout()
+
+
+save_jpeg(
+    fig,
+    "TEST144_01_CRYSTALLIZATION_CURVE.jpg",
+)
+
+
+# =============================================================================
+# 52. JPEG 2 — ALIGNMENT CURVE
+# =============================================================================
+
+fig = plt.figure(
+    figsize=(16, 8)
+)
+
+
+plt.plot(
+    eval_df["step"],
+    eval_df["mean_alignment"],
+    marker="o",
+    linewidth=2.2,
+)
+
+
+plt.axvline(
+    BEST_STEP,
+    linestyle="--",
+    linewidth=1.5,
+)
+
+
+plt.ylim(
+    -1.05,
+    1.05,
+)
+
+
+plt.xlabel(
+    "Optimizer update"
+)
+
+plt.ylabel(
+    "Directional alignment"
+)
+
+plt.title(
+    "TEST 144 — Directional Alignment During Crystallization"
+)
+
+plt.grid(alpha=0.2)
+
+plt.tight_layout()
+
+
+save_jpeg(
+    fig,
+    "TEST144_02_DIRECTIONAL_ALIGNMENT.jpg",
+)
+
+
+# =============================================================================
+# 53. JPEG 3 — REQUIRED CORRECTION
+# =============================================================================
+
+fig = plt.figure(
+    figsize=(16, 8)
+)
+
+
+plt.plot(
+    eval_df["step"],
+    100
+    * eval_df[
+        "mean_required_correction_ratio"
+    ],
+    marker="o",
+    linewidth=2.2,
+)
+
+
+plt.axvline(
+    BEST_STEP,
+    linestyle="--",
+    linewidth=1.5,
+)
+
+
+plt.xlabel(
+    "Optimizer update"
+)
+
+plt.ylabel(
+    "Remaining target distance / original target distance (%)"
+)
+
+plt.title(
+    "TEST 144 — Remaining Geometric Correction\n"
+    "Lower is closer to immutable T0"
+)
+
+plt.grid(alpha=0.2)
+
+plt.tight_layout()
+
+
+save_jpeg(
+    fig,
+    "TEST144_03_REMAINING_CORRECTION.jpg",
+)
+
+
+# =============================================================================
+# 54. JPEG 4 — PER-UPDATE COMPASS DRIFT
+# =============================================================================
+
+compass_df = pd.DataFrame(
+    COMPASS_LOG
+)
+
+
+compass_mean = (
+    compass_df
+    .groupby("step")
+    .agg(
+        mean_cos_initial=(
+            "cos_initial",
+            "mean",
+        ),
+
+        mean_cos_previous=(
+            "cos_previous",
+            "mean",
+        ),
+    )
+    .reset_index()
+)
+
+
+fig = plt.figure(
+    figsize=(16, 8)
+)
+
+
+plt.plot(
+    compass_mean["step"],
+    compass_mean[
+        "mean_cos_initial"
+    ],
+    linewidth=2,
+    label="cos(A0, At)",
+)
+
+
+plt.plot(
+    compass_mean["step"],
+    compass_mean[
+        "mean_cos_previous"
+    ],
+    linewidth=1.5,
+    label="cos(A(t-1), At)",
+)
+
+
+plt.axvline(
+    BEST_STEP,
+    linestyle="--",
+    linewidth=1.5,
+)
+
+
+plt.ylim(
+    -1.05,
+    1.05,
+)
+
+
+plt.xlabel(
+    "Optimizer update"
+)
+
+plt.ylabel(
+    "Mean compass cosine"
+)
+
+plt.title(
+    "TEST 144 — Endogenous Compass Evolution\n"
+    "Pusula refreshed after every question"
+)
+
+plt.legend()
+
+plt.grid(alpha=0.2)
+
+plt.tight_layout()
+
+
+save_jpeg(
+    fig,
+    "TEST144_04_PER_UPDATE_COMPASS.jpg",
+)
+
+
+# =============================================================================
+# 55. JPEG 5 — LAYERWISE FINAL/BEST INTERNALIZATION
+# =============================================================================
+
+best_layer_df = (
+    pd.DataFrame(
+        LAYER_EVAL_LOG
+    )
+)
+
+
+best_layer_df = (
+    best_layer_df[
+        best_layer_df[
+            "step"
+        ] == BEST_STEP
+    ]
+)
+
+
+fig = plt.figure(
+    figsize=(16, 8)
+)
+
+
+plt.bar(
+    best_layer_df[
+        "layer"
+    ],
+    100
+    * best_layer_df[
+        "progress"
+    ],
+)
+
+
+plt.axhline(
+    0,
+    linewidth=0.8,
+)
+
+
+plt.xticks(
+    np.arange(N_LAYERS),
+    [
+        f"L{i}"
+        for i in range(N_LAYERS)
+    ],
+)
+
+
+plt.xlabel(
+    "Layer"
+)
+
+plt.ylabel(
+    "Target progress (%)"
+)
+
+plt.title(
+    f"TEST 144 — BEST Crystallized Layerwise Geometry\n"
+    f"Step {BEST_STEP} | Motor OFF"
+)
+
+plt.tight_layout()
+
+
+save_jpeg(
+    fig,
+    "TEST144_05_LAYERWISE_BEST.jpg",
+)
+
+
+# =============================================================================
+# 56. JPEG 6 — COMMON PCA TRAJECTORY
+# =============================================================================
+
+PROFILE_INDEX = 0
+PROFILE_LAYER = 14
+
+
+vectors = [
+    BASE_NP[
+        PROFILE_INDEX,
+        PROFILE_LAYER,
+    ],
+
+    T0_NP[
+        PROFILE_INDEX,
+        PROFILE_LAYER,
+    ],
+]
+
+
+for step in eval_steps:
+
+    vectors.append(
+        EVAL_STATES[
+            step
+        ][
+            PROFILE_INDEX,
+            PROFILE_LAYER,
+        ]
+    )
+
+
+vectors.append(
+    MERGED_STATES[
+        PROFILE_INDEX,
+        PROFILE_LAYER,
+    ]
+)
+
+
+vectors = np.stack(
+    vectors,
+    axis=0,
+)
+
+
+pca = PCA(
+    n_components=2,
+    svd_solver="full",
+)
+
+
+xy = pca.fit_transform(
+    vectors
+)
+
+
+fig = plt.figure(
+    figsize=(13, 10)
+)
+
+
+plt.scatter(
+    xy[0, 0],
+    xy[0, 1],
+    s=130,
+    label="Original Vanilla",
+)
+
+
+plt.scatter(
+    xy[1, 0],
+    xy[1, 1],
+    s=190,
+    marker="*",
+    label="Immutable T0",
+)
+
+
+trajectory = xy[
+    2:
+    2 + len(eval_steps)
+]
+
+
+plt.plot(
+    trajectory[:, 0],
+    trajectory[:, 1],
+    marker="o",
+    linewidth=1.8,
+    label="Motor-OFF trajectory",
+)
+
+
+for i, step in enumerate(
+    eval_steps
+):
+
+    plt.text(
+        trajectory[i, 0],
+        trajectory[i, 1],
+        f" {step}",
+        fontsize=7,
+    )
+
+
+plt.scatter(
+    xy[-1, 0],
+    xy[-1, 1],
+    marker="s",
+    s=150,
+    label="Final merged BEST",
+)
+
+
+plt.xlabel(
+    f"PC1 "
+    f"({100*pca.explained_variance_ratio_[0]:.2f}%)"
+)
+
+plt.ylabel(
+    f"PC2 "
+    f"({100*pca.explained_variance_ratio_[1]:.2f}%)"
+)
+
+plt.title(
+    f"TEST 144 — Crystallization Trajectory | L{PROFILE_LAYER}\n"
+    "PCA is visualization only; exact metrics are high-dimensional"
+)
+
+plt.legend()
+
+plt.tight_layout()
+
+
+save_jpeg(
+    fig,
+    "TEST144_06_PCA_CRYSTALLIZATION.jpg",
+)
+
+
+# =============================================================================
+# 57. JPEG 7 — FULL 3584-D PROFILE
+# =============================================================================
+
+B = BASE_NP[
+    PROFILE_INDEX,
+    PROFILE_LAYER,
+]
+
+
+T = T0_NP[
+    PROFILE_INDEX,
+    PROFILE_LAYER,
+]
+
+
+F = MERGED_STATES[
+    PROFILE_INDEX,
+    PROFILE_LAYER,
+]
+
+
+fig = plt.figure(
+    figsize=(18, 7)
+)
+
+
+dims = np.arange(
+    HIDDEN_SIZE
+)
+
+
+plt.plot(
+    dims,
+    B,
+    linewidth=0.65,
+    alpha=0.75,
+    label="Vanilla",
+)
+
+
+plt.plot(
+    dims,
+    T,
+    linewidth=0.65,
+    alpha=0.75,
+    label="Immutable SEASC T0",
+)
+
+
+plt.plot(
+    dims,
+    F,
+    linewidth=0.65,
+    alpha=0.75,
+    label="Crystallized merged OFF",
+)
+
+
+plt.xlabel(
+    "Hidden dimension"
+)
+
+plt.ylabel(
+    "Coordinate value"
+)
+
+plt.title(
+    f"TEST 144 — L{PROFILE_LAYER} Full {HIDDEN_SIZE}-D Profile"
+)
+
+plt.legend()
+
+plt.tight_layout()
+
+
+save_jpeg(
+    fig,
+    "TEST144_07_FULL_VECTOR_PROFILE.jpg",
+)
+
+
+# =============================================================================
+# 58. JPEG 8 — TOP 50 COORDINATE CHANGES
+# =============================================================================
+
+change = F - B
+
+
+top50 = np.argsort(
+    np.abs(change)
+)[-50:]
+
+
+top50 = top50[
+    np.argsort(
+        np.abs(
+            change[top50]
+        )
+    )
+]
+
+
+fig = plt.figure(
+    figsize=(15, 11)
+)
+
+
+plt.barh(
+    np.arange(50),
+    change[top50],
+)
+
+
+plt.yticks(
+    np.arange(50),
+    [
+        str(int(x))
+        for x in top50
+    ],
+)
+
+
+plt.axvline(
+    0,
+    linewidth=0.8,
+)
+
+
+plt.xlabel(
+    "Crystallized OFF - Original Vanilla"
+)
+
+plt.ylabel(
+    "Hidden dimension index"
+)
+
+plt.title(
+    f"TEST 144 — L{PROFILE_LAYER} Top-50 Coordinate Changes\n"
+    "Coordinates are not interpreted as individual concept neurons"
+)
+
+plt.tight_layout()
+
+
+save_jpeg(
+    fig,
+    "TEST144_08_TOP50_COORDINATES.jpg",
+)
+
+
+# =============================================================================
+# 59. JPEG 9 — BEHAVIORAL CHANGE SUMMARY
+# =============================================================================
+
+changed_best = sum(
+    x[
+        "best_changed_from_base"
+    ]
+    for x in BEHAVIOR_ROWS
+)
+
+
+changed_final = sum(
+    x[
+        "final_changed_from_base"
+    ]
+    for x in BEHAVIOR_ROWS
+)
+
+
+mean_j_best = float(
+    np.mean(
+        [
+            x[
+                "base_best_lexical_jaccard"
+            ]
+            for x in BEHAVIOR_ROWS
+        ]
+    )
+)
+
+
+mean_j_final = float(
+    np.mean(
+        [
+            x[
+                "base_final_lexical_jaccard"
+            ]
+            for x in BEHAVIOR_ROWS
+        ]
+    )
+)
+
+
+fig = plt.figure(
+    figsize=(12, 8)
+)
+
+
+labels = [
+    "BEST changed\nfrom BASE",
+    "FINAL changed\nfrom BASE",
+]
+
+
+values = [
+    changed_best,
+    changed_final,
+]
+
+
+plt.bar(
+    labels,
+    values,
+)
+
+
+plt.ylim(
+    0,
+    N_HELDOUT,
+)
+
+
+plt.ylabel(
+    f"Changed held-out responses / {N_HELDOUT}"
+)
+
+plt.title(
+    "TEST 144 — Behavioral Output Change Summary\n"
+    f"Mean lexical Jaccard: BASE↔BEST={mean_j_best:.3f} | "
+    f"BASE↔FINAL={mean_j_final:.3f}"
+)
+
+plt.tight_layout()
+
+
+save_jpeg(
+    fig,
+    "TEST144_09_BEHAVIOR_CHANGE.jpg",
+)
+
+
+# =============================================================================
+# 60. JPEG 10 — LOSS + BEST POINT
+# =============================================================================
+
+train_df = pd.DataFrame(
+    TRAIN_LOG
+)
+
+
+fig = plt.figure(
+    figsize=(16, 8)
+)
+
+
+plt.plot(
+    train_df["step"],
+    train_df["loss_geometry"],
+    linewidth=1.5,
+    label="Geometry loss",
+)
+
+
+plt.axvline(
+    BEST_STEP,
+    linestyle="--",
+    linewidth=1.5,
+    label=f"BEST={BEST_STEP}",
+)
+
+
+plt.yscale("log")
+
+
+plt.xlabel(
+    "Optimizer update"
+)
+
+plt.ylabel(
+    "Geometry loss (log scale)"
+)
+
+plt.title(
+    "TEST 144 — Training Loss vs Crystallization Best Point"
+)
+
+plt.legend()
+
+plt.grid(
+    alpha=0.2
+)
+
+plt.tight_layout()
+
+
+save_jpeg(
+    fig,
+    "TEST144_10_LOSS_AND_BEST_POINT.jpg",
+)
+
+
+plt.close("all")
+
+
+# =============================================================================
+# 61. FINAL CONSOLE REPORT
+# =============================================================================
+
+print(
+    "\n" + "=" * 160
+)
+
+print(
+    "TEST 144 — AKBASCORE CRYSTALLIZATION COMPLETE"
+)
+
+print(
+    "=" * 160
+)
+
+
+print(
+    "\nTRAINING:"
+)
+
+print(
+    "Last update          :",
+    LAST_STEP
+)
+
+print(
+    "Best update          :",
+    BEST_STEP
+)
+
+print(
+    "Stop reason          :",
+    STOP_REASON
+)
+
+
+print(
+    "\nBEST MOTOR-OFF:"
+)
+
+print(
+    "Target progress      :",
+    f"{100*BEST_PROGRESS:+.4f}%"
+)
+
+print(
+    "Target distance      :",
+    f"{BEST_DISTANCE:.8f}"
+)
+
+print(
+    "Direction alignment  :",
+    f"{BEST_ALIGNMENT:+.8f}"
+)
+
+
+print(
+    "\nFINAL MERGED MOTOR-OFF:"
+)
+
+print(
+    "Target progress      :",
+    f"{100*FINAL_PROGRESS:+.4f}%"
+)
+
+print(
+    "Target distance      :",
+    f"{FINAL_DISTANCE:.8f}"
+)
+
+print(
+    "Direction alignment  :",
+    f"{FINAL_ALIGNMENT:+.8f}"
+)
+
+print(
+    "Merge hidden drift   :",
+    f"{MERGE_RELATIVE_DRIFT:.10e}"
+)
+
+print(
+    "Merge status         :",
+    MERGE_STATUS
+)
+
+
+print(
+    "\nBEHAVIOR:"
+)
+
+print(
+    "BEST changed responses:",
+    f"{changed_best}/{N_HELDOUT}"
+)
+
+print(
+    "FINAL changed responses:",
+    f"{changed_final}/{N_HELDOUT}"
+)
+
+print(
+    "BASE/BEST mean Jaccard:",
+    f"{mean_j_best:.6f}"
+)
+
+print(
+    "BASE/FINAL mean Jaccard:",
+    f"{mean_j_final:.6f}"
+)
+
+
+print(
+    "\nFINAL MODEL:"
+)
+
+print(
+    "AkbasCore motor      : OFF"
+)
+
+print(
+    "SEASC injection      : OFF"
+)
+
+print(
+    "Forward hooks        : NONE"
+)
+
+print(
+    "LoRA runtime         : REMOVED"
+)
+
+print(
+    "Best adaptation      : MERGED INTO WEIGHTS"
+)
+
+
+print(
+    "\nFILES:"
+)
+
+print(
+    TRAIN_CSV
+)
+
+print(
+    EVAL_CSV
+)
+
+print(
+    LAYER_CSV
+)
+
+print(
+    COMPASS_CSV
+)
+
+print(
+    BEHAVIOR_CSV
+)
+
+print(
+    NPZ_PATH
+)
+
+print(
+    JSON_PATH
+)
+
+print(
+    REPORT_PATH
+)
+
+
+# =============================================================================
+# 62. VERIFY + AUTOMATIC JPEG DOWNLOAD
+# =============================================================================
+
+print(
+    "\nJPEG FILES:"
+)
+
+
+for path in JPEG_FILES:
+
+    with Image.open(path) as im:
+
+        print(
+            "OK |",
+            os.path.basename(path),
+            "|",
+            im.format,
+            "|",
+            im.mode,
+            "|",
+            im.size,
+        )
+
+
+from google.colab import files
+
+
+print(
+    "\nDownloading crystallization figures..."
+)
+
+
+for path in JPEG_FILES:
+
+    files.download(path)
+
+    time.sleep(2.0)
+
+
+print(
+    "\n" + "=" * 160
+)
+
+print(
+    "AKBASCORE CRYSTALLIZATION FINISHED"
+)
+
+print(
+    "The reported BEST point was selected by held-out motor-OFF geometry,"
+)
+
+print(
+    "not by a preselected training-step count."
+)
+
+print(
+    "=" * 160
+)
