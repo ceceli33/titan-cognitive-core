@@ -4902,3 +4902,3678 @@ def print_cross_summary(
 #
 # Paste PART 2 DIRECTLY BELOW THIS LINE.
 # =============================================================================
+# =============================================================================
+# 16. CRYSTALLIZATION ENGINE
+# =============================================================================
+
+def crystallize(
+    student,branch_name,crystal_name,train_prompts,
+    positive,negative,immutable_compass,
+    primary_validation_prompts,primary_val_base,primary_val_target,
+    secondary_name,secondary_validation_prompts,
+    secondary_val_base,secondary_val_target,
+    secondary_baseline_metrics=None,seed_offset=0,
+    enable_parameter_xray=False,
+):
+    print("\n"+"#"*150)
+    print(f"CRYSTALLIZATION — {branch_name} — {crystal_name}")
+    print("#"*150)
+
+    reseed(seed_offset)
+
+    current_compass,current_raw=extract_compass(
+        student,positive,negative
+    )
+
+    params=[p for p in student.parameters() if p.requires_grad]
+
+    if not params:
+        raise RuntimeError("No trainable parameters.")
+
+    optimizer=torch.optim.AdamW(
+        params,
+        lr=LEARNING_RATE,
+        betas=(0.9,0.95),
+        weight_decay=0.01
+    )
+
+    autograd_xray(
+        student,
+        train_prompts[0],
+        branch_name
+    )
+
+    best_dir=os.path.join(
+        ADAPTER_DIR,
+        f"{branch_name}_BEST"
+    )
+
+    if os.path.exists(best_dir):
+        shutil.rmtree(best_dir)
+
+    os.makedirs(best_dir,exist_ok=True)
+
+    primary_states=capture_prompt_set(
+        student,
+        primary_validation_prompts
+    )
+
+    secondary_states=capture_prompt_set(
+        student,
+        secondary_validation_prompts
+    )
+
+    primary0=evaluate_against_reference(
+        primary_states,
+        primary_val_base,
+        primary_val_target
+    )
+
+    secondary0=evaluate_against_reference(
+        secondary_states,
+        secondary_val_base,
+        secondary_val_target
+    )
+
+    if secondary_baseline_metrics is None:
+        secondary_baseline_metrics=cpu_metric_copy(
+            secondary0
+        )
+
+    autopsy0=compass_space_autopsy(
+        primary_states,
+        primary_val_base,
+        A0_COMPASS,
+        B0_COMPASS
+    )
+
+    print_cross_summary(
+        branch_name,
+        0,
+        crystal_name,
+        primary0,
+        secondary_name,
+        secondary0,
+        secondary_baseline_metrics,
+        autopsy0
+    )
+
+    if PRINT_FULL_LAYER_TABLE_EVERY_EVAL:
+        print_layer_table(
+            branch_name,
+            primary0,
+            secondary0,
+            secondary_baseline_metrics
+        )
+
+    # -------------------------------------------------------------------------
+    # TEST 146 — STEP 0 PARAMETER-SPACE X-RAY
+    # Diagnostic only. No gradient is modified.
+    # -------------------------------------------------------------------------
+
+    if enable_parameter_xray:
+        run_parameter_xray(
+            student=student,
+            branch=branch_name,
+            step=0,
+            preserve_name=secondary_name,
+            acquire_name=crystal_name,
+            preserve_prompts=secondary_validation_prompts,
+            preserve_targets_np=secondary_val_target,
+            acquire_prompts=primary_validation_prompts,
+            acquire_targets_np=primary_val_target,
+        )
+
+    best_progress=primary0["progress"]
+    best_distance=primary0["distance"]
+    best_alignment=primary0["alignment"]
+
+    best_step=0
+    no_improvement=0
+    stop_reason=None
+
+    student.save_pretrained(best_dir)
+    tokenizer.save_pretrained(best_dir)
+
+    del primary_states,secondary_states
+
+    start=time.time()
+    update=0
+    epoch=0
+
+    local_rng=random.Random(
+        SEED+seed_offset
+    )
+
+    while update<HARD_MAX_UPDATES:
+
+        epoch+=1
+
+        order=list(
+            range(len(train_prompts))
+        )
+
+        local_rng.shuffle(order)
+
+        for idx in order:
+
+            if update>=HARD_MAX_UPDATES:
+                break
+
+            update+=1
+
+            prompt=train_prompts[idx]
+
+            target=current_teacher_target(
+                student,
+                prompt,
+                current_compass
+            )
+
+            optimizer.zero_grad(
+                set_to_none=True
+            )
+
+            total_loss,geo_loss,preserve_loss=training_forward(
+                student,
+                prompt,
+                target
+            )
+
+            if not torch.isfinite(total_loss):
+                raise RuntimeError(
+                    f"Non-finite loss "
+                    f"{branch_name} "
+                    f"step {update}"
+                )
+
+            total_loss.backward()
+
+            grad_norm=torch.nn.utils.clip_grad_norm_(
+                params,
+                GRAD_CLIP
+            )
+
+            grad_value=float(
+                torch.as_tensor(
+                    grad_norm
+                ).detach().float().cpu()
+            )
+
+            if not math.isfinite(
+                grad_value
+            ):
+                raise RuntimeError(
+                    "Non-finite gradient."
+                )
+
+            optimizer.step()
+
+            previous_compass=[
+                x.detach().clone()
+                for x in current_compass
+            ]
+
+            new_compass,new_raw=extract_compass(
+                student,
+                positive,
+                negative
+            )
+
+            ci=[]
+            cp=[]
+
+            for L in range(N_LAYERS):
+
+                init=immutable_compass[L].numpy()
+
+                prev=(
+                    previous_compass[L]
+                    .detach()
+                    .float()
+                    .cpu()
+                    .numpy()
+                )
+
+                new=(
+                    new_compass[L]
+                    .detach()
+                    .float()
+                    .cpu()
+                    .numpy()
+                )
+
+                c0=safe_cos(
+                    init,
+                    new
+                )
+
+                cprev=safe_cos(
+                    prev,
+                    new
+                )
+
+                ci.append(c0)
+                cp.append(cprev)
+
+                COMPASS_LOG.append({
+                    "branch":branch_name,
+                    "crystal":crystal_name,
+                    "step":update,
+                    "layer":L,
+                    "raw_norm":new_raw[L],
+                    "cos_immutable_initial":c0,
+                    "cos_previous":cprev,
+                })
+
+            del previous_compass,current_compass
+
+            current_compass=[
+                x.detach().clone().to(DEVICE)
+                for x in new_compass
+            ]
+
+            del new_compass
+
+            mean_ci=float(
+                np.mean(ci)
+            )
+
+            mean_cp=float(
+                np.mean(cp)
+            )
+
+            TRAIN_LOG.append({
+                "branch":branch_name,
+                "crystal":crystal_name,
+                "step":update,
+                "epoch":epoch,
+                "loss_total":
+                    float(total_loss.detach().cpu()),
+                "loss_geometry":
+                    float(geo_loss.cpu()),
+                "loss_preserve":
+                    float(preserve_loss.cpu()),
+                "grad_norm":
+                    grad_value,
+                "mean_compass_cos_initial":
+                    mean_ci,
+                "mean_compass_cos_previous":
+                    mean_cp,
+                "elapsed_seconds":
+                    time.time()-start,
+            })
+
+            print(
+                f"{branch_name:12s} | "
+                f"step={update:04d} | "
+                f"loss="
+                f"{float(total_loss.detach().cpu()):.7f} | "
+                f"geo="
+                f"{float(geo_loss.cpu()):.7f} | "
+                f"presK="
+                f"{float(preserve_loss.cpu()):.7f} | "
+                f"grad={grad_value:.6f} | "
+                f"cos(init,t)={mean_ci:+.6f} | "
+                f"cos(prev,t)={mean_cp:+.6f}"
+            )
+
+            del target,total_loss,geo_loss,preserve_loss
+
+            if update%EVAL_EVERY==0:
+
+                primary_states=capture_prompt_set(
+                    student,
+                    primary_validation_prompts
+                )
+
+                secondary_states=capture_prompt_set(
+                    student,
+                    secondary_validation_prompts
+                )
+
+                primary=evaluate_against_reference(
+                    primary_states,
+                    primary_val_base,
+                    primary_val_target
+                )
+
+                secondary=evaluate_against_reference(
+                    secondary_states,
+                    secondary_val_base,
+                    secondary_val_target
+                )
+
+                autopsy=compass_space_autopsy(
+                    primary_states,
+                    primary_val_base,
+                    A0_COMPASS,
+                    B0_COMPASS
+                )
+
+                print_cross_summary(
+                    branch_name,
+                    update,
+                    crystal_name,
+                    primary,
+                    secondary_name,
+                    secondary,
+                    secondary_baseline_metrics,
+                    autopsy
+                )
+
+                if PRINT_FULL_LAYER_TABLE_EVERY_EVAL:
+                    print_layer_table(
+                        branch_name,
+                        primary,
+                        secondary,
+                        secondary_baseline_metrics
+                    )
+
+                EVAL_LOG.append({
+                    "branch":branch_name,
+                    "crystal":crystal_name,
+                    "step":update,
+
+                    "primary_progress":
+                        primary["progress"],
+
+                    "primary_distance":
+                        primary["distance"],
+
+                    "primary_alignment":
+                        primary["alignment"],
+
+                    "primary_projection":
+                        primary["projection"],
+
+                    "secondary_progress":
+                        secondary["progress"],
+
+                    "secondary_alignment":
+                        secondary["alignment"],
+
+                    "secondary_projection":
+                        secondary["projection"],
+
+                    "secondary_interference":
+                        secondary["progress"]-
+                        secondary_baseline_metrics[
+                            "progress"
+                        ],
+
+                    "autopsy_coef_A":
+                        autopsy["coef_A"],
+
+                    "autopsy_coef_B":
+                        autopsy["coef_B"],
+
+                    "autopsy_residual":
+                        autopsy[
+                            "residual_fraction"
+                        ],
+                })
+
+                for L in range(N_LAYERS):
+
+                    LAYER_LOG.append({
+                        "branch":branch_name,
+                        "crystal":crystal_name,
+                        "step":update,
+                        "layer":L,
+
+                        "primary_progress":
+                            primary[
+                                "layer_progress"
+                            ][L],
+
+                        "primary_alignment":
+                            primary[
+                                "layer_alignment"
+                            ][L],
+
+                        "primary_projection":
+                            primary[
+                                "layer_projection"
+                            ][L],
+
+                        "secondary_progress":
+                            secondary[
+                                "layer_progress"
+                            ][L],
+
+                        "secondary_alignment":
+                            secondary[
+                                "layer_alignment"
+                            ][L],
+
+                        "secondary_projection":
+                            secondary[
+                                "layer_projection"
+                            ][L],
+
+                        "secondary_interference":
+                            secondary[
+                                "layer_progress"
+                            ][L]-
+                            secondary_baseline_metrics[
+                                "layer_progress"
+                            ][L],
+
+                        "autopsy_coef_A":
+                            autopsy[
+                                "layer_coef_A"
+                            ][L],
+
+                        "autopsy_coef_B":
+                            autopsy[
+                                "layer_coef_B"
+                            ][L],
+
+                        "autopsy_residual":
+                            autopsy[
+                                "layer_residual"
+                            ][L],
+                    })
+
+                # -------------------------------------------------------------
+                # TEST 146 PARAMETER-SPACE X-RAY
+                # Every 10 steps.
+                # No backward modification.
+                # No projection.
+                # No optimizer intervention.
+                # -------------------------------------------------------------
+
+                if (
+                    enable_parameter_xray
+                    and
+                    update%XRAY_EVERY==0
+                ):
+
+                    run_parameter_xray(
+                        student=student,
+                        branch=branch_name,
+                        step=update,
+                        preserve_name=secondary_name,
+                        acquire_name=crystal_name,
+                        preserve_prompts=
+                            secondary_validation_prompts,
+                        preserve_targets_np=
+                            secondary_val_target,
+                        acquire_prompts=
+                            primary_validation_prompts,
+                        acquire_targets_np=
+                            primary_val_target,
+                    )
+
+                current_progress=primary[
+                    "progress"
+                ]
+
+                current_distance=primary[
+                    "distance"
+                ]
+
+                current_alignment=primary[
+                    "alignment"
+                ]
+
+                progress_gain=(
+                    current_progress-
+                    best_progress
+                )
+
+                relative_distance_gain=(
+                    (
+                        best_distance-
+                        current_distance
+                    )/
+                    max(
+                        best_distance,
+                        1e-12
+                    )
+                )
+
+                alignment_gain=(
+                    current_alignment-
+                    best_alignment
+                )
+
+                new_best=(
+                    current_progress>
+                    best_progress
+                    and
+                    current_alignment>=
+                    ALIGNMENT_FLOOR
+                )
+
+                if new_best:
+
+                    best_progress=current_progress
+                    best_distance=current_distance
+                    best_alignment=current_alignment
+                    best_step=update
+
+                    if os.path.exists(
+                        best_dir
+                    ):
+                        shutil.rmtree(
+                            best_dir
+                        )
+
+                    student.save_pretrained(
+                        best_dir
+                    )
+
+                    tokenizer.save_pretrained(
+                        best_dir
+                    )
+
+                    no_improvement=0
+
+                    print(
+                        f">>> NEW BEST | "
+                        f"{branch_name} | "
+                        f"step={best_step} | "
+                        f"progress="
+                        f"{100*best_progress:+.6f}%"
+                    )
+
+                else:
+
+                    meaningful_change=(
+                        abs(progress_gain)>=
+                        MIN_PROGRESS_IMPROVEMENT
+                        or
+                        abs(
+                            relative_distance_gain
+                        )>=
+                        MIN_DISTANCE_IMPROVEMENT
+                        or
+                        abs(alignment_gain)>=
+                        MIN_ALIGNMENT_IMPROVEMENT
+                    )
+
+                    no_improvement+=1
+
+                    print(
+                        f"No new best | "
+                        f"patience="
+                        f"{no_improvement}/"
+                        f"{PATIENCE_EVALS} | "
+                        f"ΔP="
+                        f"{100*progress_gain:+.5f} pp | "
+                        f"movement="
+                        f"{meaningful_change}"
+                    )
+
+                overshoot=(
+                    update>=
+                    MIN_UPDATES_BEFORE_STOP
+                    and
+                    best_progress-
+                    current_progress>=
+                    OVERSHOOT_PROGRESS_DROP
+                )
+
+                del primary_states
+                del secondary_states
+                del autopsy
+
+                if overshoot:
+
+                    stop_reason=(
+                        "OVERSHOOT_DETECTED"
+                    )
+
+                    print(
+                        f">>> OVERSHOOT | "
+                        f"best="
+                        f"{100*best_progress:+.6f}% | "
+                        f"current="
+                        f"{100*current_progress:+.6f}% | "
+                        f"rollback BEST"
+                    )
+
+                    break
+
+                if (
+                    update>=
+                    MIN_UPDATES_BEFORE_STOP
+                    and
+                    no_improvement>=
+                    PATIENCE_EVALS
+                ):
+
+                    stop_reason=(
+                        "HELDOUT_EQUILIBRIUM"
+                    )
+
+                    print(
+                        ">>> HELDOUT EQUILIBRIUM"
+                    )
+
+                    break
+
+            if update%25==0:
+                cuda_cleanup(
+                    f"{branch_name} "
+                    f"step {update}"
+                )
+
+        if stop_reason is not None:
+            break
+
+    if stop_reason is None:
+        stop_reason=(
+            "HARD_MAX_UPDATES"
+        )
+
+    print(
+        f"\n{branch_name} STOP | "
+        f"last={update} | "
+        f"best={best_step} | "
+        f"reason={stop_reason} | "
+        f"progress="
+        f"{100*best_progress:+.6f}%"
+    )
+
+    optimizer.zero_grad(
+        set_to_none=True
+    )
+
+    del optimizer
+    del params
+    del current_compass
+    del current_raw
+
+    cuda_cleanup(
+        f"{branch_name} "
+        "training objects released"
+    )
+
+    return {
+        "best_dir":
+            best_dir,
+
+        "best_step":
+            best_step,
+
+        "last_step":
+            int(update),
+
+        "stop_reason":
+            stop_reason,
+
+        "best_progress":
+            float(best_progress),
+
+        "best_distance":
+            float(best_distance),
+
+        "best_alignment":
+            float(best_alignment),
+
+        "initial_primary":
+            cpu_metric_copy(primary0),
+
+        "initial_secondary":
+            cpu_metric_copy(secondary0),
+
+        "secondary_baseline":
+            cpu_metric_copy(
+                secondary_baseline_metrics
+            ),
+    }
+
+
+# =============================================================================
+# 17. MERGE DRIFT — ONE MODEL ONLY
+# =============================================================================
+
+def merge_drift_check_base(
+    adapter_dir,
+    prompts,
+    label
+):
+    print(
+        f"\nMERGE DRIFT — {label}"
+    )
+
+    parent=load_base_model()
+
+    adapter=PeftModel.from_pretrained(
+        parent,
+        adapter_dir,
+        is_trainable=False
+    )
+
+    adapter.eval()
+
+    before=capture_prompt_set(
+        adapter,
+        prompts
+    )
+
+    merged=adapter.merge_and_unload()
+
+    merged.eval()
+    merged.config.use_cache=False
+
+    after=capture_prompt_set(
+        merged,
+        prompts
+    )
+
+    drift=float(
+        np.linalg.norm(
+            after-before
+        )/
+        max(
+            np.linalg.norm(before),
+            1e-12
+        )
+    )
+
+    status=(
+        "TIGHT_EQUIVALENCE"
+        if drift<=0.005
+        else
+        "SMALL_BF16_MERGE_DRIFT"
+        if drift<=0.015
+        else
+        "MERGE_DRIFT_REQUIRES_REVIEW"
+    )
+
+    MERGE_LOG.append({
+        "stage":label,
+        "relative_hidden_drift":
+            drift,
+        "status":status
+    })
+
+    print(
+        f"{label} "
+        f"drift={drift:.10e} | "
+        f"{status}"
+    )
+
+    del before,after,adapter,parent
+
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    return merged,drift,status
+
+
+def merge_drift_check_sequential(
+    first_adapter,
+    second_adapter,
+    prompts,
+    label
+):
+    print(
+        f"\nMERGE DRIFT — {label}"
+    )
+
+    parent=load_base_model()
+
+    p1=PeftModel.from_pretrained(
+        parent,
+        first_adapter,
+        is_trainable=False
+    )
+
+    p1.eval()
+
+    parent=p1.merge_and_unload()
+    parent.eval()
+
+    del p1
+
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    p2=PeftModel.from_pretrained(
+        parent,
+        second_adapter,
+        is_trainable=False
+    )
+
+    p2.eval()
+
+    before=capture_prompt_set(
+        p2,
+        prompts
+    )
+
+    merged=p2.merge_and_unload()
+
+    merged.eval()
+    merged.config.use_cache=False
+
+    after=capture_prompt_set(
+        merged,
+        prompts
+    )
+
+    drift=float(
+        np.linalg.norm(
+            after-before
+        )/
+        max(
+            np.linalg.norm(before),
+            1e-12
+        )
+    )
+
+    status=(
+        "TIGHT_EQUIVALENCE"
+        if drift<=0.005
+        else
+        "SMALL_BF16_MERGE_DRIFT"
+        if drift<=0.015
+        else
+        "MERGE_DRIFT_REQUIRES_REVIEW"
+    )
+
+    MERGE_LOG.append({
+        "stage":label,
+        "relative_hidden_drift":
+            drift,
+        "status":status
+    })
+
+    print(
+        f"{label} "
+        f"drift={drift:.10e} | "
+        f"{status}"
+    )
+
+    del before,after,p2,parent
+
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    return merged,drift,status
+
+
+# =============================================================================
+# 18. STAGE 1 — BASE -> A
+# =============================================================================
+
+print("\n"+"="*150)
+print("STAGE 1/4 — BASE -> A")
+print("="*150)
+
+assert_vram_for_new_model(
+    "STAGE 1"
+)
+
+student_A=create_lora_student()
+
+A_RESULT=crystallize(
+    student_A,
+    "A_ONLY",
+    "A",
+    A_TRAIN,
+
+    A_POSITIVE,
+    A_NEGATIVE,
+    A0_COMPASS,
+
+    A_VALIDATION,
+    A_VAL_BASE_NP,
+    A_VAL_T0_NP,
+
+    "B",
+    B_VALIDATION,
+    B_VAL_BASE_NP,
+    B_VAL_T0_NP,
+
+    None,
+    10,
+
+    enable_parameter_xray=False,
+)
+
+del student_A
+
+cuda_cleanup(
+    "STAGE 1 student deleted"
+)
+
+A_MERGED,\
+A_MERGE_DRIFT,\
+A_MERGE_STATUS=merge_drift_check_base(
+    A_RESULT["best_dir"],
+    A_VALIDATION,
+    "A_ONLY"
+)
+
+A_ONLY_A_VAL_STATES=capture_prompt_set(
+    A_MERGED,
+    A_VALIDATION
+)
+
+A_ONLY_B_VAL_STATES=capture_prompt_set(
+    A_MERGED,
+    B_VALIDATION
+)
+
+A_ONLY_A_VAL=evaluate_against_reference(
+    A_ONLY_A_VAL_STATES,
+    A_VAL_BASE_NP,
+    A_VAL_T0_NP
+)
+
+A_ONLY_B_VAL=evaluate_against_reference(
+    A_ONLY_B_VAL_STATES,
+    B_VAL_BASE_NP,
+    B_VAL_T0_NP
+)
+
+A_ONLY_A_VAL=cpu_metric_copy(
+    A_ONLY_A_VAL
+)
+
+A_ONLY_B_VAL=cpu_metric_copy(
+    A_ONLY_B_VAL
+)
+
+print(
+    f"A-only merged | "
+    f"A="
+    f"{100*A_ONLY_A_VAL['progress']:+.6f}% | "
+    f"B="
+    f"{100*A_ONLY_B_VAL['progress']:+.6f}%"
+)
+
+del A_ONLY_A_VAL_STATES
+del A_ONLY_B_VAL_STATES
+
+
+# =============================================================================
+# 19. STAGE 2 — A -> B
+# =============================================================================
+
+print("\n"+"="*150)
+print("STAGE 2/4 — A -> B")
+print("="*150)
+
+student_AB=attach_new_lora(
+    A_MERGED,
+    "default"
+)
+
+A_MERGED=None
+
+AB_RESULT=crystallize(
+    student_AB,
+    "A_TO_B",
+    "B",
+    B_TRAIN,
+
+    B_POSITIVE,
+    B_NEGATIVE,
+    B0_COMPASS,
+
+    B_VALIDATION,
+    B_VAL_BASE_NP,
+    B_VAL_T0_NP,
+
+    "A",
+    A_VALIDATION,
+    A_VAL_BASE_NP,
+    A_VAL_T0_NP,
+
+    A_ONLY_A_VAL,
+    20,
+
+    enable_parameter_xray=True,
+)
+
+del student_AB
+
+cuda_cleanup(
+    "STAGE 2 student deleted"
+)
+
+AB_MERGED,\
+AB_MERGE_DRIFT,\
+AB_MERGE_STATUS=merge_drift_check_sequential(
+    A_RESULT["best_dir"],
+    AB_RESULT["best_dir"],
+    B_VALIDATION,
+    "A_TO_B"
+)
+
+AB_VAL_A_STATES=capture_prompt_set(
+    AB_MERGED,
+    A_VALIDATION
+)
+
+AB_VAL_B_STATES=capture_prompt_set(
+    AB_MERGED,
+    B_VALIDATION
+)
+
+AB_VAL_A=evaluate_against_reference(
+    AB_VAL_A_STATES,
+    A_VAL_BASE_NP,
+    A_VAL_T0_NP
+)
+
+AB_VAL_B=evaluate_against_reference(
+    AB_VAL_B_STATES,
+    B_VAL_BASE_NP,
+    B_VAL_T0_NP
+)
+
+print(
+    f"A->B merged validation | "
+    f"A={100*AB_VAL_A['progress']:+.6f}% | "
+    f"B={100*AB_VAL_B['progress']:+.6f}%"
+)
+
+del AB_VAL_A_STATES
+del AB_VAL_B_STATES
+
+del AB_MERGED
+AB_MERGED=None
+
+cuda_cleanup(
+    "STAGE 2 AB model fully destroyed"
+)
+
+assert_vram_for_new_model(
+    "PRE-STAGE-3 HARD BARRIER"
+)
+
+
+# =============================================================================
+# 20. STAGE 3 — BASE -> B
+# =============================================================================
+
+print("\n"+"="*150)
+print("STAGE 3/4 — BASE -> B")
+print("="*150)
+
+student_B=create_lora_student()
+
+B_RESULT=crystallize(
+    student_B,
+    "B_ONLY",
+    "B",
+    B_TRAIN,
+
+    B_POSITIVE,
+    B_NEGATIVE,
+    B0_COMPASS,
+
+    B_VALIDATION,
+    B_VAL_BASE_NP,
+    B_VAL_T0_NP,
+
+    "A",
+    A_VALIDATION,
+    A_VAL_BASE_NP,
+    A_VAL_T0_NP,
+
+    None,
+    30,
+
+    enable_parameter_xray=False,
+)
+
+del student_B
+
+cuda_cleanup(
+    "STAGE 3 student deleted"
+)
+
+B_MERGED,\
+B_MERGE_DRIFT,\
+B_MERGE_STATUS=merge_drift_check_base(
+    B_RESULT["best_dir"],
+    B_VALIDATION,
+    "B_ONLY"
+)
+
+B_ONLY_B_VAL_STATES=capture_prompt_set(
+    B_MERGED,
+    B_VALIDATION
+)
+
+B_ONLY_A_VAL_STATES=capture_prompt_set(
+    B_MERGED,
+    A_VALIDATION
+)
+
+B_ONLY_B_VAL=evaluate_against_reference(
+    B_ONLY_B_VAL_STATES,
+    B_VAL_BASE_NP,
+    B_VAL_T0_NP
+)
+
+B_ONLY_A_VAL=evaluate_against_reference(
+    B_ONLY_A_VAL_STATES,
+    A_VAL_BASE_NP,
+    A_VAL_T0_NP
+)
+
+B_ONLY_B_VAL=cpu_metric_copy(
+    B_ONLY_B_VAL
+)
+
+B_ONLY_A_VAL=cpu_metric_copy(
+    B_ONLY_A_VAL
+)
+
+print(
+    f"B-only merged | "
+    f"B={100*B_ONLY_B_VAL['progress']:+.6f}% | "
+    f"A={100*B_ONLY_A_VAL['progress']:+.6f}%"
+)
+
+del B_ONLY_B_VAL_STATES
+del B_ONLY_A_VAL_STATES
+
+
+# =============================================================================
+# 21. STAGE 4 — B -> A
+# =============================================================================
+
+print("\n"+"="*150)
+print("STAGE 4/4 — B -> A")
+print("="*150)
+
+student_BA=attach_new_lora(
+    B_MERGED,
+    "default"
+)
+
+B_MERGED=None
+
+BA_RESULT=crystallize(
+    student_BA,
+    "B_TO_A",
+    "A",
+    A_TRAIN,
+
+    A_POSITIVE,
+    A_NEGATIVE,
+    A0_COMPASS,
+
+    A_VALIDATION,
+    A_VAL_BASE_NP,
+    A_VAL_T0_NP,
+
+    "B",
+    B_VALIDATION,
+    B_VAL_BASE_NP,
+    B_VAL_T0_NP,
+
+    B_ONLY_B_VAL,
+    40,
+
+    enable_parameter_xray=True,
+)
+
+del student_BA
+
+cuda_cleanup(
+    "STAGE 4 student deleted"
+)
+
+BA_MERGED,\
+BA_MERGE_DRIFT,\
+BA_MERGE_STATUS=merge_drift_check_sequential(
+    B_RESULT["best_dir"],
+    BA_RESULT["best_dir"],
+    A_VALIDATION,
+    "B_TO_A"
+)
+
+del BA_MERGED
+BA_MERGED=None
+
+cuda_cleanup(
+    "STAGE 4 BA model fully destroyed"
+)
+
+assert_vram_for_new_model(
+    "PRE-FINAL HARD BARRIER"
+)
+
+
+# =============================================================================
+# 22. FINAL EXAM — ONE MODEL AT A TIME
+# =============================================================================
+
+def final_exam_model(
+    model,
+    label
+):
+    print(
+        "\n"+"-"*150
+    )
+
+    print(
+        "FINAL EXAM —",
+        label
+    )
+
+    print(
+        "-"*150
+    )
+
+    A_states=capture_prompt_set(
+        model,
+        A_FINAL
+    )
+
+    B_states=capture_prompt_set(
+        model,
+        B_FINAL
+    )
+
+    A_metrics=evaluate_against_reference(
+        A_states,
+        A_FINAL_BASE_NP,
+        A_FINAL_T0_NP
+    )
+
+    B_metrics=evaluate_against_reference(
+        B_states,
+        B_FINAL_BASE_NP,
+        B_FINAL_T0_NP
+    )
+
+    A_autopsy=compass_space_autopsy(
+        A_states,
+        A_FINAL_BASE_NP,
+        A0_COMPASS,
+        B0_COMPASS
+    )
+
+    B_autopsy=compass_space_autopsy(
+        B_states,
+        B_FINAL_BASE_NP,
+        A0_COMPASS,
+        B0_COMPASS
+    )
+
+    print(
+        f"A="
+        f"{100*A_metrics['progress']:+.6f}% | "
+        f"B="
+        f"{100*B_metrics['progress']:+.6f}% | "
+        f"A-align="
+        f"{A_metrics['alignment']:+.7f} | "
+        f"B-align="
+        f"{B_metrics['alignment']:+.7f}"
+    )
+
+    for L in range(N_LAYERS):
+
+        FINAL_LOG.append({
+            "state":label,
+            "layer":L,
+
+            "A_progress":
+                A_metrics[
+                    "layer_progress"
+                ][L],
+
+            "A_alignment":
+                A_metrics[
+                    "layer_alignment"
+                ][L],
+
+            "A_projection":
+                A_metrics[
+                    "layer_projection"
+                ][L],
+
+            "B_progress":
+                B_metrics[
+                    "layer_progress"
+                ][L],
+
+            "B_alignment":
+                B_metrics[
+                    "layer_alignment"
+                ][L],
+
+            "B_projection":
+                B_metrics[
+                    "layer_projection"
+                ][L],
+
+            "A_autopsy_coef_A":
+                A_autopsy[
+                    "layer_coef_A"
+                ][L],
+
+            "A_autopsy_coef_B":
+                A_autopsy[
+                    "layer_coef_B"
+                ][L],
+
+            "A_autopsy_residual":
+                A_autopsy[
+                    "layer_residual"
+                ][L],
+
+            "B_autopsy_coef_A":
+                B_autopsy[
+                    "layer_coef_A"
+                ][L],
+
+            "B_autopsy_coef_B":
+                B_autopsy[
+                    "layer_coef_B"
+                ][L],
+
+            "B_autopsy_residual":
+                B_autopsy[
+                    "layer_residual"
+                ][L],
+        })
+
+    return {
+        "A_states":
+            A_states.copy(),
+
+        "B_states":
+            B_states.copy(),
+
+        "A":
+            cpu_metric_copy(
+                A_metrics
+            ),
+
+        "B":
+            cpu_metric_copy(
+                B_metrics
+            ),
+
+        "A_autopsy":
+            cpu_metric_copy(
+                A_autopsy
+            ),
+
+        "B_autopsy":
+            cpu_metric_copy(
+                B_autopsy
+            ),
+    }
+
+
+def jaccard_text(a,b):
+
+    A=set(
+        a.lower().split()
+    )
+
+    B=set(
+        b.lower().split()
+    )
+
+    return (
+        1.0
+        if not A and not B
+        else
+        len(A&B)/
+        max(
+            len(A|B),
+            1
+        )
+    )
+
+
+def behavioral_final_exam(
+    model,
+    label
+):
+    changed_A=0
+    changed_B=0
+
+    jA=[]
+    jB=[]
+
+    for i,prompt in enumerate(
+        A_FINAL
+    ):
+
+        response=generate_response(
+            model,
+            prompt
+        )
+
+        base_response=(
+            BASE_A_FINAL_RESPONSES[i]
+        )
+
+        changed=(
+            response.strip()!=
+            base_response.strip()
+        )
+
+        jac=jaccard_text(
+            response,
+            base_response
+        )
+
+        changed_A+=int(changed)
+        jA.append(jac)
+
+        BEHAVIOR_LOG.append({
+            "state":label,
+            "crystal_set":"A",
+            "prompt_index":i,
+            "prompt":prompt,
+            "base_response":
+                base_response,
+            "response":
+                response,
+            "changed":
+                changed,
+            "lexical_jaccard":
+                jac,
+        })
+
+    for i,prompt in enumerate(
+        B_FINAL
+    ):
+
+        response=generate_response(
+            model,
+            prompt
+        )
+
+        base_response=(
+            BASE_B_FINAL_RESPONSES[i]
+        )
+
+        changed=(
+            response.strip()!=
+            base_response.strip()
+        )
+
+        jac=jaccard_text(
+            response,
+            base_response
+        )
+
+        changed_B+=int(changed)
+        jB.append(jac)
+
+        BEHAVIOR_LOG.append({
+            "state":label,
+            "crystal_set":"B",
+            "prompt_index":i,
+            "prompt":prompt,
+            "base_response":
+                base_response,
+            "response":
+                response,
+            "changed":
+                changed,
+            "lexical_jaccard":
+                jac,
+        })
+
+    result={
+        "A_changed":
+            changed_A,
+
+        "B_changed":
+            changed_B,
+
+        "A_mean_jaccard":
+            float(np.mean(jA)),
+
+        "B_mean_jaccard":
+            float(np.mean(jB)),
+    }
+
+    print(
+        f"{label} behavior | "
+        f"A changed="
+        f"{changed_A}/{N_FINAL} "
+        f"J="
+        f"{result['A_mean_jaccard']:.6f} | "
+        f"B changed="
+        f"{changed_B}/{N_FINAL} "
+        f"J="
+        f"{result['B_mean_jaccard']:.6f}"
+    )
+
+    return result
+
+
+model=load_merged_from_base(
+    A_RESULT["best_dir"],
+    "A_ONLY_FINAL"
+)
+
+A_ONLY_FINAL=final_exam_model(
+    model,
+    "A_ONLY"
+)
+
+del model
+
+cuda_cleanup(
+    "FINAL A-only destroyed"
+)
+
+
+model=load_merged_from_base(
+    B_RESULT["best_dir"],
+    "B_ONLY_FINAL"
+)
+
+B_ONLY_FINAL=final_exam_model(
+    model,
+    "B_ONLY"
+)
+
+del model
+
+cuda_cleanup(
+    "FINAL B-only destroyed"
+)
+
+
+model=load_sequential_merged(
+    A_RESULT["best_dir"],
+    AB_RESULT["best_dir"],
+    "AB_FINAL"
+)
+
+AB_FINAL=final_exam_model(
+    model,
+    "A_TO_B"
+)
+
+AB_BEHAVIOR=behavioral_final_exam(
+    model,
+    "A_TO_B"
+)
+
+del model
+
+cuda_cleanup(
+    "FINAL AB destroyed"
+)
+
+
+model=load_sequential_merged(
+    B_RESULT["best_dir"],
+    BA_RESULT["best_dir"],
+    "BA_FINAL"
+)
+
+BA_FINAL=final_exam_model(
+    model,
+    "B_TO_A"
+)
+
+BA_BEHAVIOR=behavioral_final_exam(
+    model,
+    "B_TO_A"
+)
+
+del model
+
+cuda_cleanup(
+    "FINAL BA destroyed"
+)
+
+
+# =============================================================================
+# 23. INTERFERENCE / ORDER EFFECT
+# =============================================================================
+
+I_A_FROM_B=(
+    AB_FINAL["A"]["progress"]-
+    A_ONLY_FINAL["A"]["progress"]
+)
+
+I_B_FROM_A=(
+    BA_FINAL["B"]["progress"]-
+    B_ONLY_FINAL["B"]["progress"]
+)
+
+A_GAIN_IN_BA=(
+    BA_FINAL["A"]["progress"]-
+    B_ONLY_FINAL["A"]["progress"]
+)
+
+B_GAIN_IN_AB=(
+    AB_FINAL["B"]["progress"]-
+    A_ONLY_FINAL["B"]["progress"]
+)
+
+A_LAYER_INTERFERENCE=(
+    AB_FINAL["A"]["layer_progress"]-
+    A_ONLY_FINAL["A"]["layer_progress"]
+)
+
+B_LAYER_INTERFERENCE=(
+    BA_FINAL["B"]["layer_progress"]-
+    B_ONLY_FINAL["B"]["layer_progress"]
+)
+
+AB_ORDER_STACK=np.concatenate(
+    [
+        AB_FINAL["A_states"],
+        AB_FINAL["B_states"]
+    ],
+    axis=0
+)
+
+BA_ORDER_STACK=np.concatenate(
+    [
+        BA_FINAL["A_states"],
+        BA_FINAL["B_states"]
+    ],
+    axis=0
+)
+
+BASE_ORDER_STACK=np.concatenate(
+    [
+        A_FINAL_BASE_NP,
+        B_FINAL_BASE_NP
+    ],
+    axis=0
+)
+
+ORDER_DISTANCE_RAW=float(
+    np.linalg.norm(
+        AB_ORDER_STACK-
+        BA_ORDER_STACK
+    )
+)
+
+ORDER_DISTANCE_NORMALIZED=float(
+    ORDER_DISTANCE_RAW/
+    max(
+        np.linalg.norm(
+            BASE_ORDER_STACK
+        ),
+        1e-12
+    )
+)
+
+ORDER_LAYER=np.zeros(
+    N_LAYERS
+)
+
+for L in range(N_LAYERS):
+
+    ORDER_LAYER[L]=(
+        np.linalg.norm(
+            AB_ORDER_STACK[:,L,:]-
+            BA_ORDER_STACK[:,L,:]
+        )/
+        max(
+            np.linalg.norm(
+                BASE_ORDER_STACK[:,L,:]
+            ),
+            1e-12
+        )
+    )
+
+
+print(
+    "\n"+"="*165
+)
+
+print(
+    "FINAL LAYERWISE INTERFERENCE MATRIX"
+)
+
+print(
+    "="*165
+)
+
+print(
+    "Layer | A-only P% | "
+    "A after B P% | I[A<-B]pp | "
+    "B-only P% | B after A P% | "
+    "I[B<-A]pp | Order%"
+)
+
+for L in range(N_LAYERS):
+
+    print(
+        f"L{L:02d} | "
+        f"{100*A_ONLY_FINAL['A']['layer_progress'][L]:+10.4f} | "
+        f"{100*AB_FINAL['A']['layer_progress'][L]:+12.4f} | "
+        f"{100*A_LAYER_INTERFERENCE[L]:+11.4f} | "
+        f"{100*B_ONLY_FINAL['B']['layer_progress'][L]:+10.4f} | "
+        f"{100*BA_FINAL['B']['layer_progress'][L]:+12.4f} | "
+        f"{100*B_LAYER_INTERFERENCE[L]:+11.4f} | "
+        f"{100*ORDER_LAYER[L]:10.5f}"
+    )
+
+    INTERFERENCE_LOG.append({
+        "layer":L,
+
+        "A_only_progress":
+            A_ONLY_FINAL[
+                "A"
+            ][
+                "layer_progress"
+            ][L],
+
+        "A_after_B_progress":
+            AB_FINAL[
+                "A"
+            ][
+                "layer_progress"
+            ][L],
+
+        "I_A_from_B":
+            A_LAYER_INTERFERENCE[L],
+
+        "B_only_progress":
+            B_ONLY_FINAL[
+                "B"
+            ][
+                "layer_progress"
+            ][L],
+
+        "B_after_A_progress":
+            BA_FINAL[
+                "B"
+            ][
+                "layer_progress"
+            ][L],
+
+        "I_B_from_A":
+            B_LAYER_INTERFERENCE[L],
+
+        "order_distance_normalized":
+            ORDER_LAYER[L],
+    })
+
+
+# =============================================================================
+# 24. TEST 146 — GRADIENT / REPRESENTATION CORRELATION
+# =============================================================================
+
+XRAY_CORRELATION_LOG=[]
+
+
+def nearest_layer_interference(
+    branch,
+    layer
+):
+    if branch=="A_TO_B":
+        return float(
+            A_LAYER_INTERFERENCE[layer]
+        )
+
+    if branch=="B_TO_A":
+        return float(
+            B_LAYER_INTERFERENCE[layer]
+        )
+
+    return float("nan")
+
+
+def correlation_report(
+    branch
+):
+    rows=[]
+
+    for row in GRAD_XRAY_LAYER_LOG:
+
+        if row["branch"]!=branch:
+            continue
+
+        layer=int(
+            row["layer"]
+        )
+
+        rep_interference=(
+            nearest_layer_interference(
+                branch,
+                layer
+            )
+        )
+
+        rows.append({
+            "branch":
+                branch,
+
+            "step":
+                int(row["step"]),
+
+            "layer":
+                layer,
+
+            "gradient_cosine":
+                float(row["cosine"]),
+
+            "gradient_dot":
+                float(row["dot"]),
+
+            "gradient_projection_ratio":
+                float(
+                    row[
+                        "projection_ratio"
+                    ]
+                ),
+
+            "gradient_conflict":
+                bool(
+                    row["conflict"]
+                ),
+
+            "final_representation_interference":
+                rep_interference,
+        })
+
+    XRAY_CORRELATION_LOG.extend(
+        rows
+    )
+
+    if len(rows)<2:
+
+        return {
+            "n":len(rows),
+            "pearson_cos_vs_final_interference":
+                float("nan"),
+            "negative_dot_fraction":
+                float("nan"),
+        }
+
+    x=np.asarray(
+        [
+            r["gradient_cosine"]
+            for r in rows
+        ],
+        dtype=np.float64
+    )
+
+    y=np.asarray(
+        [
+            r[
+                "final_representation_interference"
+            ]
+            for r in rows
+        ],
+        dtype=np.float64
+    )
+
+    if (
+        np.std(x)<1e-12
+        or
+        np.std(y)<1e-12
+    ):
+        corr=float("nan")
+    else:
+        corr=float(
+            np.corrcoef(
+                x,
+                y
+            )[0,1]
+        )
+
+    neg_fraction=float(
+        np.mean(
+            [
+                r["gradient_dot"]<0
+                for r in rows
+            ]
+        )
+    )
+
+    print(
+        "\nTEST 146 CORRELATION —",
+        branch
+    )
+
+    print(
+        "N layer-step pairs:",
+        len(rows)
+    )
+
+    print(
+        "Pearson "
+        "gradient cosine vs "
+        "final representation interference:",
+        f"{corr:+.8f}"
+    )
+
+    print(
+        "Negative gradient-dot fraction:",
+        f"{100*neg_fraction:.4f}%"
+    )
+
+    print(
+        "NOTE: exploratory correlation; "
+        "not a causal estimate."
+    )
+
+    return {
+        "n":
+            len(rows),
+
+        "pearson_cos_vs_final_interference":
+            corr,
+
+        "negative_dot_fraction":
+            neg_fraction,
+    }
+
+
+XRAY_AB_CORRELATION=correlation_report(
+    "A_TO_B"
+)
+
+XRAY_BA_CORRELATION=correlation_report(
+    "B_TO_A"
+)
+
+
+# =============================================================================
+# 25. TEST 146 — FORENSIC RANKING
+# =============================================================================
+
+def forensic_ranking(
+    branch,
+    top_n=20
+):
+    rows=[
+        r
+        for r in GRAD_XRAY_LAYER_LOG
+        if r["branch"]==branch
+    ]
+
+    rows=sorted(
+        rows,
+        key=lambda r:r["cosine"]
+    )
+
+    print(
+        "\n"+"="*145
+    )
+
+    print(
+        f"TEST 146 — "
+        f"{branch} — "
+        f"{top_n} MOST NEGATIVE "
+        f"LAYER/STEP GRADIENT RELATIONS"
+    )
+
+    print(
+        "="*145
+    )
+
+    for r in rows[:top_n]:
+
+        layer=int(
+            r["layer"]
+        )
+
+        rep=nearest_layer_interference(
+            branch,
+            layer
+        )
+
+        print(
+            f"step={int(r['step']):04d} | "
+            f"L{layer:02d} | "
+            f"cos={r['cosine']:+.8f} | "
+            f"dot={r['dot']:+.8e} | "
+            f"|cos|={r['projection_ratio']:.8f} | "
+            f"final_repr_I="
+            f"{100*rep:+.6f} pp"
+        )
+
+
+forensic_ranking(
+    "A_TO_B"
+)
+
+forensic_ranking(
+    "B_TO_A"
+)
+
+
+# =============================================================================
+# 26. TEST 146 — MODULE CONFLICT SUMMARY
+# =============================================================================
+
+MODULE_CONFLICT_SUMMARY=[]
+
+for branch in [
+    "A_TO_B",
+    "B_TO_A"
+]:
+
+    print(
+        "\n"+"="*120
+    )
+
+    print(
+        "TEST 146 MODULE SUMMARY —",
+        branch
+    )
+
+    print(
+        "="*120
+    )
+
+    for module_name in XRAY_MODULES:
+
+        rows=[
+            r
+            for r in GRAD_XRAY_LOG
+            if
+            r["branch"]==branch
+            and
+            r["module"]==module_name
+        ]
+
+        if not rows:
+            continue
+
+        mean_cos=float(
+            np.mean(
+                [
+                    r["cosine"]
+                    for r in rows
+                ]
+            )
+        )
+
+        negative_fraction=float(
+            np.mean(
+                [
+                    r["dot"]<0
+                    for r in rows
+                ]
+            )
+        )
+
+        mean_projection=float(
+            np.mean(
+                [
+                    r[
+                        "projection_ratio"
+                    ]
+                    for r in rows
+                ]
+            )
+        )
+
+        MODULE_CONFLICT_SUMMARY.append({
+            "branch":
+                branch,
+
+            "module":
+                module_name,
+
+            "mean_cosine":
+                mean_cos,
+
+            "negative_dot_fraction":
+                negative_fraction,
+
+            "mean_projection_ratio":
+                mean_projection,
+
+            "n":
+                len(rows),
+        })
+
+        print(
+            f"{module_name:8s} | "
+            f"mean cos="
+            f"{mean_cos:+.8f} | "
+            f"negative dot="
+            f"{100*negative_fraction:7.3f}% | "
+            f"mean |cos|="
+            f"{mean_projection:.8f} | "
+            f"N={len(rows)}"
+        )
+
+
+# =============================================================================
+# 27. SAVE CSV
+# =============================================================================
+
+tables={
+    "TEST146_training_log.csv":
+        TRAIN_LOG,
+
+    "TEST146_validation_log.csv":
+        EVAL_LOG,
+
+    "TEST146_layerwise_validation.csv":
+        LAYER_LOG,
+
+    "TEST146_compass_evolution.csv":
+        COMPASS_LOG,
+
+    "TEST146_initial_AB_geometry.csv":
+        INITIAL_AB_ROWS,
+
+    "TEST146_final_interference_matrix.csv":
+        INTERFERENCE_LOG,
+
+    "TEST146_final_geometry.csv":
+        FINAL_LOG,
+
+    "TEST146_merge_diagnostics.csv":
+        MERGE_LOG,
+
+    "TEST146_behavior.csv":
+        BEHAVIOR_LOG,
+
+    "TEST146_gradient_xray_module.csv":
+        GRAD_XRAY_LOG,
+
+    "TEST146_gradient_xray_layer.csv":
+        GRAD_XRAY_LAYER_LOG,
+
+    "TEST146_gradient_xray_global.csv":
+        GRAD_XRAY_GLOBAL_LOG,
+
+    "TEST146_gradient_vs_interference.csv":
+        XRAY_CORRELATION_LOG,
+
+    "TEST146_module_conflict_summary.csv":
+        MODULE_CONFLICT_SUMMARY,
+}
+
+for filename,data in tables.items():
+
+    pd.DataFrame(
+        data
+    ).to_csv(
+        os.path.join(
+            CSV_DIR,
+            filename
+        ),
+        index=False
+    )
+
+
+# =============================================================================
+# 28. NPZ
+# =============================================================================
+
+NPZ_PATH=os.path.join(
+    NPZ_DIR,
+    "TEST146_parameter_space_xray_geometry.npz"
+)
+
+np.savez_compressed(
+    NPZ_PATH,
+
+    A0_compass=np.stack(
+        [
+            x.numpy()
+            for x in A0_COMPASS
+        ],
+        axis=0
+    ),
+
+    B0_compass=np.stack(
+        [
+            x.numpy()
+            for x in B0_COMPASS
+        ],
+        axis=0
+    ),
+
+    initial_AB_cos=
+        initial_ab_cos,
+
+    envelope=np.asarray(
+        ENVELOPE,
+        dtype=np.float32
+    ),
+
+    relative_dose=np.asarray(
+        RELATIVE_DOSE,
+        dtype=np.float32
+    ),
+
+    A_final_base=
+        A_FINAL_BASE_NP,
+
+    A_final_T0=
+        A_FINAL_T0_NP,
+
+    B_final_base=
+        B_FINAL_BASE_NP,
+
+    B_final_T0=
+        B_FINAL_T0_NP,
+
+    A_only_A_states=
+        A_ONLY_FINAL[
+            "A_states"
+        ],
+
+    A_only_B_states=
+        A_ONLY_FINAL[
+            "B_states"
+        ],
+
+    B_only_A_states=
+        B_ONLY_FINAL[
+            "A_states"
+        ],
+
+    B_only_B_states=
+        B_ONLY_FINAL[
+            "B_states"
+        ],
+
+    AB_A_states=
+        AB_FINAL[
+            "A_states"
+        ],
+
+    AB_B_states=
+        AB_FINAL[
+            "B_states"
+        ],
+
+    BA_A_states=
+        BA_FINAL[
+            "A_states"
+        ],
+
+    BA_B_states=
+        BA_FINAL[
+            "B_states"
+        ],
+
+    A_layer_interference=
+        A_LAYER_INTERFERENCE,
+
+    B_layer_interference=
+        B_LAYER_INTERFERENCE,
+
+    order_layer=
+        ORDER_LAYER,
+)
+
+
+# =============================================================================
+# 29. SUMMARY
+# =============================================================================
+
+EXPERIMENT_END_UTC=(
+    datetime.now(
+        timezone.utc
+    ).isoformat()
+)
+
+SUMMARY={
+    "experiment":
+        "TEST 146 — AkbasCore Parameter-Space Interference X-Ray",
+
+    "model":
+        MODEL_ID,
+
+    "seed":
+        SEED,
+
+    "vram_architecture":
+        "single-live-7B-model",
+
+    "motor":{
+        "status":
+            "LOCKED / UNMODIFIED",
+
+        "layers":
+            "L0-L19",
+
+        "ivme":
+            IVME,
+
+        "sonum":
+            SONUM,
+
+        "zirve":
+            ZIRVE,
+
+        "taban":
+            TABAN,
+
+        "brake":
+            False,
+
+        "cosine_gate":
+            False,
+
+        "radar":
+            False,
+
+        "gram_schmidt_actuator":
+            False,
+
+        "anti_interference_controller":
+            False,
+    },
+
+    "test146_parameter_xray":{
+        "diagnostic_only":
+            True,
+
+        "gradient_modified":
+            False,
+
+        "projection_applied":
+            False,
+
+        "xray_every":
+            XRAY_EVERY,
+
+        "probe_count_per_crystal":
+            XRAY_N_PROBES,
+
+        "modules":
+            list(
+                XRAY_MODULES
+            ),
+
+        "A_to_B":
+            XRAY_AB_CORRELATION,
+
+        "B_to_A":
+            XRAY_BA_CORRELATION,
+    },
+
+    "xray_interpretation":{
+        "gradient_pair":
+            "preservation geometry-loss gradient versus acquisition geometry-loss gradient",
+
+        "negative_dot":
+            "conflict indicator under simple descent geometry; not a causality proof",
+
+        "optimizer_warning":
+            "AdamW actual parameter step is not identical to raw negative acquisition gradient",
+
+        "projection_ratio":
+            "absolute cosine magnitude",
+
+        "correlation_warning":
+            "gradient-versus-final-interference correlation is exploratory and repeated layer-step observations are not independent",
+    },
+
+    "data":{
+        "train_per_crystal":
+            N_TRAIN,
+
+        "validation_per_crystal":
+            N_VALIDATION,
+
+        "final_per_crystal":
+            N_FINAL,
+
+        "final_student_metrics_used_for_training":
+            False,
+
+        "final_student_metrics_used_for_selection":
+            False,
+    },
+
+    "initial_compass_geometry":{
+        "mean_cos_A_B":
+            float(
+                initial_ab_cos.mean()
+            ),
+
+        "min_cos_A_B":
+            float(
+                initial_ab_cos.min()
+            ),
+
+        "max_cos_A_B":
+            float(
+                initial_ab_cos.max()
+            ),
+    },
+
+    "A_only":{
+        "best_step":
+            A_RESULT[
+                "best_step"
+            ],
+
+        "stop_reason":
+            A_RESULT[
+                "stop_reason"
+            ],
+
+        "final_A_progress":
+            A_ONLY_FINAL[
+                "A"
+            ][
+                "progress"
+            ],
+
+        "cross_B_progress":
+            A_ONLY_FINAL[
+                "B"
+            ][
+                "progress"
+            ],
+
+        "merge_drift":
+            A_MERGE_DRIFT,
+
+        "merge_status":
+            A_MERGE_STATUS,
+    },
+
+    "B_only":{
+        "best_step":
+            B_RESULT[
+                "best_step"
+            ],
+
+        "stop_reason":
+            B_RESULT[
+                "stop_reason"
+            ],
+
+        "final_B_progress":
+            B_ONLY_FINAL[
+                "B"
+            ][
+                "progress"
+            ],
+
+        "cross_A_progress":
+            B_ONLY_FINAL[
+                "A"
+            ][
+                "progress"
+            ],
+
+        "merge_drift":
+            B_MERGE_DRIFT,
+
+        "merge_status":
+            B_MERGE_STATUS,
+    },
+
+    "A_to_B":{
+        "best_step_B":
+            AB_RESULT[
+                "best_step"
+            ],
+
+        "stop_reason":
+            AB_RESULT[
+                "stop_reason"
+            ],
+
+        "final_A_progress":
+            AB_FINAL[
+                "A"
+            ][
+                "progress"
+            ],
+
+        "final_B_progress":
+            AB_FINAL[
+                "B"
+            ][
+                "progress"
+            ],
+
+        "I_A_from_B":
+            I_A_FROM_B,
+
+        "B_gain_relative_to_A_only":
+            B_GAIN_IN_AB,
+
+        "merge_drift":
+            AB_MERGE_DRIFT,
+
+        "merge_status":
+            AB_MERGE_STATUS,
+    },
+
+    "B_to_A":{
+        "best_step_A":
+            BA_RESULT[
+                "best_step"
+            ],
+
+        "stop_reason":
+            BA_RESULT[
+                "stop_reason"
+            ],
+
+        "final_A_progress":
+            BA_FINAL[
+                "A"
+            ][
+                "progress"
+            ],
+
+        "final_B_progress":
+            BA_FINAL[
+                "B"
+            ][
+                "progress"
+            ],
+
+        "I_B_from_A":
+            I_B_FROM_A,
+
+        "A_gain_relative_to_B_only":
+            A_GAIN_IN_BA,
+
+        "merge_drift":
+            BA_MERGE_DRIFT,
+
+        "merge_status":
+            BA_MERGE_STATUS,
+    },
+
+    "order_effect":{
+        "AB_vs_BA_raw_distance":
+            ORDER_DISTANCE_RAW,
+
+        "AB_vs_BA_normalized_distance":
+            ORDER_DISTANCE_NORMALIZED,
+    },
+
+    "behavior":{
+        "interpretation_warning":
+            "Changed output is not correctness.",
+
+        "AB":
+            AB_BEHAVIOR,
+
+        "BA":
+            BA_BEHAVIOR,
+    },
+
+    "final_runtime_state":{
+        "motor":
+            "OFF",
+
+        "seasc_injection":
+            "OFF",
+
+        "forward_hooks":
+            "NONE",
+
+        "runtime_lora":
+            "REMOVED / MERGED",
+    },
+
+    "start_utc":
+        EXPERIMENT_START_UTC,
+
+    "end_utc":
+        EXPERIMENT_END_UTC,
+}
+
+with open(
+    os.path.join(
+        JSON_DIR,
+        "TEST146_summary.json"
+    ),
+    "w",
+    encoding="utf-8"
+) as f:
+
+    json.dump(
+        SUMMARY,
+        f,
+        ensure_ascii=False,
+        indent=2
+    )
+
+
+# =============================================================================
+# 30. REPORT
+# =============================================================================
+
+REPORT_PATH=os.path.join(
+    REPORT_DIR,
+    "TEST146_FULL_REPORT.txt"
+)
+
+with open(
+    REPORT_PATH,
+    "w",
+    encoding="utf-8"
+) as f:
+
+    f.write(
+        "TEST 146 — AKBASCORE PARAMETER-SPACE INTERFERENCE X-RAY\n"
+    )
+
+    f.write(
+        "="*120+"\n\n"
+    )
+
+    f.write(
+        f"Model: {MODEL_ID}\n"
+    )
+
+    f.write(
+        "Crystal-A: ABOVE <-> BELOW\n"
+    )
+
+    f.write(
+        "Crystal-B: BEFORE <-> AFTER\n"
+    )
+
+    f.write(
+        "SEASC 3.0: LOCKED / UNMODIFIED\n"
+    )
+
+    f.write(
+        "X-ray: DIAGNOSTIC ONLY\n"
+    )
+
+    f.write(
+        "Gradient projection: NONE\n"
+    )
+
+    f.write(
+        "Gradient intervention: NONE\n"
+    )
+
+    f.write(
+        f"XRAY_N_PROBES: {XRAY_N_PROBES}\n"
+    )
+
+    f.write(
+        f"XRAY_EVERY: {XRAY_EVERY}\n\n"
+    )
+
+    f.write(
+        "INITIAL COMPASS GEOMETRY\n"
+    )
+
+    f.write(
+        f"Mean cos(A,B): "
+        f"{initial_ab_cos.mean():+.8f}\n"
+    )
+
+    f.write(
+        f"Min cos(A,B): "
+        f"{initial_ab_cos.min():+.8f}\n"
+    )
+
+    f.write(
+        f"Max cos(A,B): "
+        f"{initial_ab_cos.max():+.8f}\n\n"
+    )
+
+    f.write(
+        "FINAL STATES\n"
+    )
+
+    f.write(
+        f"A-only A: "
+        f"{100*A_ONLY_FINAL['A']['progress']:+.6f}%\n"
+    )
+
+    f.write(
+        f"B-only B: "
+        f"{100*B_ONLY_FINAL['B']['progress']:+.6f}%\n"
+    )
+
+    f.write(
+        f"A->B A: "
+        f"{100*AB_FINAL['A']['progress']:+.6f}%\n"
+    )
+
+    f.write(
+        f"A->B B: "
+        f"{100*AB_FINAL['B']['progress']:+.6f}%\n"
+    )
+
+    f.write(
+        f"B->A A: "
+        f"{100*BA_FINAL['A']['progress']:+.6f}%\n"
+    )
+
+    f.write(
+        f"B->A B: "
+        f"{100*BA_FINAL['B']['progress']:+.6f}%\n\n"
+    )
+
+    f.write(
+        f"I[A <- B]: "
+        f"{100*I_A_FROM_B:+.6f} pp\n"
+    )
+
+    f.write(
+        f"I[B <- A]: "
+        f"{100*I_B_FROM_A:+.6f} pp\n"
+    )
+
+    f.write(
+        f"AB vs BA normalized hidden distance: "
+        f"{ORDER_DISTANCE_NORMALIZED:.10e}\n\n"
+    )
+
+    f.write(
+        "PARAMETER-SPACE X-RAY\n"
+    )
+
+    f.write(
+        f"A->B Pearson gradient cosine vs "
+        f"final interference: "
+        f"{XRAY_AB_CORRELATION['pearson_cos_vs_final_interference']:+.8f}\n"
+    )
+
+    f.write(
+        f"A->B negative-dot fraction: "
+        f"{XRAY_AB_CORRELATION['negative_dot_fraction']:.8f}\n"
+    )
+
+    f.write(
+        f"B->A Pearson gradient cosine vs "
+        f"final interference: "
+        f"{XRAY_BA_CORRELATION['pearson_cos_vs_final_interference']:+.8f}\n"
+    )
+
+    f.write(
+        f"B->A negative-dot fraction: "
+        f"{XRAY_BA_CORRELATION['negative_dot_fraction']:.8f}\n\n"
+    )
+
+    f.write(
+        "INTERPRETATION WARNING\n"
+    )
+
+    f.write(
+        "Negative gradient dot product is a conflict indicator "
+        "for simple descent geometry, not a causal proof.\n"
+    )
+
+    f.write(
+        "AdamW actual parameter updates are not identical to "
+        "raw negative acquisition gradients.\n"
+    )
+
+    f.write(
+        "Gradient/final-interference correlations are exploratory.\n\n"
+    )
+
+    f.write(
+        "MERGE DIAGNOSTICS\n"
+    )
+
+    for row in MERGE_LOG:
+
+        f.write(
+            f"{row['stage']}: "
+            f"{row['relative_hidden_drift']:.10e} | "
+            f"{row['status']}\n"
+        )
+
+    f.write(
+        "\nFINAL RUNTIME\n"
+    )
+
+    f.write(
+        "Motor: OFF\n"
+        "SEASC: OFF\n"
+        "Hooks: NONE\n"
+        "LoRA: MERGED\n"
+    )
+
+
+# =============================================================================
+# 31. TEST 146 FIGURES
+# =============================================================================
+
+plt.style.use(
+    "dark_background"
+)
+
+
+def save_jpeg(
+    fig,
+    filename
+):
+    temp=os.path.join(
+        FIG_DIR,
+        "_temp.png"
+    )
+
+    final=os.path.join(
+        FIG_DIR,
+        filename
+    )
+
+    fig.savefig(
+        temp,
+        dpi=220,
+        bbox_inches="tight",
+        facecolor=fig.get_facecolor()
+    )
+
+    plt.close(fig)
+
+    with Image.open(
+        temp
+    ) as im:
+
+        if im.mode in (
+            "RGBA",
+            "LA"
+        ):
+
+            rgba=im.convert(
+                "RGBA"
+            )
+
+            bg=Image.new(
+                "RGB",
+                rgba.size,
+                (0,0,0)
+            )
+
+            bg.paste(
+                rgba,
+                mask=rgba.getchannel(
+                    "A"
+                )
+            )
+
+            rgb=bg
+
+        else:
+
+            rgb=im.convert(
+                "RGB"
+            )
+
+        rgb.save(
+            final,
+            format="JPEG",
+            quality=95,
+            subsampling=0,
+            optimize=False,
+            progressive=False
+        )
+
+    os.remove(
+        temp
+    )
+
+    with open(
+        final,
+        "rb"
+    ) as f:
+
+        if f.read(2)!=b"\xff\xd8":
+            raise RuntimeError(
+                "Invalid JPEG."
+            )
+
+    JPEG_FILES.append(
+        final
+    )
+
+
+def gradient_conflict_heatmap(
+    branch,
+    filename
+):
+    rows=[
+        r
+        for r in GRAD_XRAY_LAYER_LOG
+        if r["branch"]==branch
+    ]
+
+    if not rows:
+        return
+
+    steps=sorted(
+        set(
+            int(r["step"])
+            for r in rows
+        )
+    )
+
+    matrix=np.full(
+        (
+            len(steps),
+            N_LAYERS
+        ),
+        np.nan,
+        dtype=np.float64
+    )
+
+    step_index={
+        s:i
+        for i,s in enumerate(steps)
+    }
+
+    for r in rows:
+
+        matrix[
+            step_index[
+                int(r["step"])
+            ],
+            int(r["layer"])
+        ]=float(
+            r["cosine"]
+        )
+
+    fig=plt.figure(
+        figsize=(18,9)
+    )
+
+    im=plt.imshow(
+        matrix,
+        aspect="auto",
+        interpolation="nearest",
+        vmin=-1,
+        vmax=1,
+        cmap="coolwarm"
+    )
+
+    plt.colorbar(
+        im,
+        label="cos(g_preserve, g_acquire)"
+    )
+
+    plt.xticks(
+        np.arange(
+            N_LAYERS
+        ),
+        [
+            f"L{x:02d}"
+            for x in range(
+                N_LAYERS
+            )
+        ],
+        rotation=45
+    )
+
+    plt.yticks(
+        np.arange(
+            len(steps)
+        ),
+        [
+            str(s)
+            for s in steps
+        ]
+    )
+
+    plt.xlabel(
+        "Layer"
+    )
+
+    plt.ylabel(
+        "Training step"
+    )
+
+    plt.title(
+        f"TEST 146 — "
+        f"{branch} — "
+        f"Parameter-Space Gradient Conflict"
+    )
+
+    plt.tight_layout()
+
+    save_jpeg(
+        fig,
+        filename
+    )
+
+
+def module_layer_heatmap(
+    branch,
+    filename
+):
+    matrix=np.full(
+        (
+            len(XRAY_MODULES),
+            N_LAYERS
+        ),
+        np.nan,
+        dtype=np.float64
+    )
+
+    for mi,module_name in enumerate(
+        XRAY_MODULES
+    ):
+
+        for L in range(
+            N_LAYERS
+        ):
+
+            rows=[
+                r
+                for r in GRAD_XRAY_LOG
+                if
+                r["branch"]==branch
+                and
+                r["module"]==module_name
+                and
+                int(r["layer"])==L
+            ]
+
+            if rows:
+
+                matrix[mi,L]=float(
+                    np.mean(
+                        [
+                            r["cosine"]
+                            for r in rows
+                        ]
+                    )
+                )
+
+    fig=plt.figure(
+        figsize=(18,6)
+    )
+
+    im=plt.imshow(
+        matrix,
+        aspect="auto",
+        interpolation="nearest",
+        vmin=-1,
+        vmax=1,
+        cmap="coolwarm"
+    )
+
+    plt.colorbar(
+        im,
+        label="Mean cos(g_preserve, g_acquire)"
+    )
+
+    plt.xticks(
+        np.arange(
+            N_LAYERS
+        ),
+        [
+            f"L{x:02d}"
+            for x in range(
+                N_LAYERS
+            )
+        ],
+        rotation=45
+    )
+
+    plt.yticks(
+        np.arange(
+            len(XRAY_MODULES)
+        ),
+        XRAY_MODULES
+    )
+
+    plt.xlabel(
+        "Layer"
+    )
+
+    plt.ylabel(
+        "Projection module"
+    )
+
+    plt.title(
+        f"TEST 146 — "
+        f"{branch} — "
+        f"Mean Module/Layer Gradient Geometry"
+    )
+
+    plt.tight_layout()
+
+    save_jpeg(
+        fig,
+        filename
+    )
+
+
+gradient_conflict_heatmap(
+    "A_TO_B",
+    "TEST146_GRADIENT_CONFLICT_A_TO_B.jpg"
+)
+
+gradient_conflict_heatmap(
+    "B_TO_A",
+    "TEST146_GRADIENT_CONFLICT_B_TO_A.jpg"
+)
+
+module_layer_heatmap(
+    "A_TO_B",
+    "TEST146_MODULE_LAYER_A_TO_B.jpg"
+)
+
+module_layer_heatmap(
+    "B_TO_A",
+    "TEST146_MODULE_LAYER_B_TO_A.jpg"
+)
+
+
+fig=plt.figure(
+    figsize=(16,8)
+)
+
+plt.plot(
+    np.arange(
+        N_LAYERS
+    ),
+    initial_ab_cos,
+    marker="o",
+    linewidth=2
+)
+
+plt.axhline(
+    0,
+    linewidth=.8
+)
+
+plt.ylim(
+    -1.05,
+    1.05
+)
+
+plt.xticks(
+    np.arange(
+        N_LAYERS
+    )
+)
+
+plt.xlabel(
+    "Layer"
+)
+
+plt.ylabel(
+    "cos(A_L, B_L)"
+)
+
+plt.title(
+    "TEST 146 — Natural A/B Compass Geometry"
+)
+
+plt.grid(
+    alpha=.2
+)
+
+plt.tight_layout()
+
+save_jpeg(
+    fig,
+    "TEST146_INITIAL_AB_COMPASS.jpg"
+)
+
+
+fig=plt.figure(
+    figsize=(17,8)
+)
+
+x=np.arange(
+    N_LAYERS
+)
+
+plt.plot(
+    x,
+    100*A_LAYER_INTERFERENCE,
+    marker="o",
+    label="I[A <- B]"
+)
+
+plt.plot(
+    x,
+    100*B_LAYER_INTERFERENCE,
+    marker="s",
+    label="I[B <- A]"
+)
+
+plt.axhline(
+    0,
+    linewidth=.8
+)
+
+plt.xticks(
+    x
+)
+
+plt.xlabel(
+    "Layer"
+)
+
+plt.ylabel(
+    "Interference (percentage points)"
+)
+
+plt.title(
+    "TEST 146 — Layerwise Representation Interference"
+)
+
+plt.legend()
+
+plt.grid(
+    alpha=.2
+)
+
+plt.tight_layout()
+
+save_jpeg(
+    fig,
+    "TEST146_LAYERWISE_REPRESENTATION_INTERFERENCE.jpg"
+)
+
+plt.close(
+    "all"
+)
+
+
+# =============================================================================
+# 32. FINAL SCIENTIFIC REPORT
+# =============================================================================
+
+print(
+    "\n"+"="*170
+)
+
+print(
+    "TEST 146 — FINAL SCIENTIFIC REPORT"
+)
+
+print(
+    "="*170
+)
+
+
+print(
+    "\nINITIAL GEOMETRY"
+)
+
+print(
+    f"Mean cos(A,B) : "
+    f"{initial_ab_cos.mean():+.8f}"
+)
+
+print(
+    f"Min           : "
+    f"L{int(np.argmin(initial_ab_cos)):02d} "
+    f"{initial_ab_cos.min():+.8f}"
+)
+
+print(
+    f"Max           : "
+    f"L{int(np.argmax(initial_ab_cos)):02d} "
+    f"{initial_ab_cos.max():+.8f}"
+)
+
+
+print(
+    "\nSINGLE CRYSTAL"
+)
+
+print(
+    f"A-only A : "
+    f"{100*A_ONLY_FINAL['A']['progress']:+.6f}%"
+)
+
+print(
+    f"A-only B : "
+    f"{100*A_ONLY_FINAL['B']['progress']:+.6f}%"
+)
+
+print(
+    f"B-only B : "
+    f"{100*B_ONLY_FINAL['B']['progress']:+.6f}%"
+)
+
+print(
+    f"B-only A : "
+    f"{100*B_ONLY_FINAL['A']['progress']:+.6f}%"
+)
+
+
+print(
+    "\nA -> B"
+)
+
+print(
+    f"A final       : "
+    f"{100*AB_FINAL['A']['progress']:+.6f}%"
+)
+
+print(
+    f"B final       : "
+    f"{100*AB_FINAL['B']['progress']:+.6f}%"
+)
+
+print(
+    f"I[A <- B]     : "
+    f"{100*I_A_FROM_B:+.6f} pp"
+)
+
+print(
+    f"B gain        : "
+    f"{100*B_GAIN_IN_AB:+.6f} pp"
+)
+
+
+print(
+    "\nB -> A"
+)
+
+print(
+    f"A final       : "
+    f"{100*BA_FINAL['A']['progress']:+.6f}%"
+)
+
+print(
+    f"B final       : "
+    f"{100*BA_FINAL['B']['progress']:+.6f}%"
+)
+
+print(
+    f"I[B <- A]     : "
+    f"{100*I_B_FROM_A:+.6f} pp"
+)
+
+print(
+    f"A gain        : "
+    f"{100*A_GAIN_IN_BA:+.6f} pp"
+)
+
+
+print(
+    "\nPARAMETER-SPACE X-RAY"
+)
+
+print(
+    "Diagnostic only : YES"
+)
+
+print(
+    "Gradient modified: NO"
+)
+
+print(
+    "Projection       : NO"
+)
+
+print(
+    "XRAY probes      :",
+    XRAY_N_PROBES
+)
+
+print(
+    "XRAY every       :",
+    XRAY_EVERY
+)
+
+
+print(
+    "\nA -> B X-RAY"
+)
+
+print(
+    "Pearson cos vs final interference :",
+    f"{XRAY_AB_CORRELATION['pearson_cos_vs_final_interference']:+.8f}"
+)
+
+print(
+    "Negative-dot fraction             :",
+    f"{100*XRAY_AB_CORRELATION['negative_dot_fraction']:.6f}%"
+)
+
+
+print(
+    "\nB -> A X-RAY"
+)
+
+print(
+    "Pearson cos vs final interference :",
+    f"{XRAY_BA_CORRELATION['pearson_cos_vs_final_interference']:+.8f}"
+)
+
+print(
+    "Negative-dot fraction             :",
+    f"{100*XRAY_BA_CORRELATION['negative_dot_fraction']:.6f}%"
+)
+
+
+print(
+    "\nORDER"
+)
+
+print(
+    f"Raw distance  : "
+    f"{ORDER_DISTANCE_RAW:.8f}"
+)
+
+print(
+    f"Normalized    : "
+    f"{100*ORDER_DISTANCE_NORMALIZED:.6f}%"
+)
+
+worst_order=int(
+    np.argmax(
+        ORDER_LAYER
+    )
+)
+
+print(
+    f"Max layer     : "
+    f"L{worst_order:02d} "
+    f"{100*ORDER_LAYER[worst_order]:.6f}%"
+)
+
+
+worst_A=int(
+    np.argmin(
+        A_LAYER_INTERFERENCE
+    )
+)
+
+best_A=int(
+    np.argmax(
+        A_LAYER_INTERFERENCE
+    )
+)
+
+worst_B=int(
+    np.argmin(
+        B_LAYER_INTERFERENCE
+    )
+)
+
+best_B=int(
+    np.argmax(
+        B_LAYER_INTERFERENCE
+    )
+)
+
+
+print(
+    "\nREPRESENTATION INTERFERENCE HOTSPOTS"
+)
+
+print(
+    f"A strongest loss : "
+    f"L{worst_A:02d} "
+    f"{100*A_LAYER_INTERFERENCE[worst_A]:+.6f} pp"
+)
+
+print(
+    f"A strongest gain : "
+    f"L{best_A:02d} "
+    f"{100*A_LAYER_INTERFERENCE[best_A]:+.6f} pp"
+)
+
+print(
+    f"B strongest loss : "
+    f"L{worst_B:02d} "
+    f"{100*B_LAYER_INTERFERENCE[worst_B]:+.6f} pp"
+)
+
+print(
+    f"B strongest gain : "
+    f"L{best_B:02d} "
+    f"{100*B_LAYER_INTERFERENCE[best_B]:+.6f} pp"
+)
+
+
+print(
+    "\nMERGE FORENSICS"
+)
+
+for row in MERGE_LOG:
+
+    print(
+        f"{row['stage']:12s} | "
+        f"{row['relative_hidden_drift']:.10e} | "
+        f"{row['status']}"
+    )
+
+
+print(
+    "\nBEHAVIOR"
+)
+
+print(
+    f"A->B | "
+    f"A changed "
+    f"{AB_BEHAVIOR['A_changed']}/{N_FINAL} | "
+    f"B changed "
+    f"{AB_BEHAVIOR['B_changed']}/{N_FINAL}"
+)
+
+print(
+    f"B->A | "
+    f"A changed "
+    f"{BA_BEHAVIOR['A_changed']}/{N_FINAL} | "
+    f"B changed "
+    f"{BA_BEHAVIOR['B_changed']}/{N_FINAL}"
+)
+
+print(
+    "changed != correct"
+)
+
+
+print(
+    "\nSCIENTIFIC CAUTION"
+)
+
+print(
+    "Negative cos(g_preserve, g_acquire) "
+    "is a gradient-field conflict indicator."
+)
+
+print(
+    "It is not by itself proof of causal parameter interference."
+)
+
+print(
+    "AdamW actual optimizer steps are not identical "
+    "to raw -gradient directions."
+)
+
+print(
+    "Gradient/final-interference correlation is exploratory."
+)
+
+
+print(
+    "\nFINAL RUNTIME"
+)
+
+print(
+    "Motor       : OFF"
+)
+
+print(
+    "SEASC       : OFF"
+)
+
+print(
+    "Hooks       : NONE"
+)
+
+print(
+    "LoRA        : REMOVED / MERGED"
+)
+
+print(
+    "Final test selection use: NO"
+)
+
+memory_report(
+    "end of scientific experiment"
+)
+
+
+# =============================================================================
+# 33. ARCHIVE
+# =============================================================================
+
+ZIP_BASE=(
+    "/content/"
+    "TEST146_AKBASCORE_PARAMETER_XRAY_COMPLETE"
+)
+
+ZIP_PATH=shutil.make_archive(
+    ZIP_BASE,
+    "zip",
+    OUT_DIR
+)
+
+print(
+    "\nZIP:",
+    ZIP_PATH
+)
+
+for root,dirs,files_in_dir in os.walk(
+    OUT_DIR
+):
+
+    for filename in sorted(
+        files_in_dir
+    ):
+
+        print(
+            os.path.join(
+                root,
+                filename
+            )
+        )
+
+
+from google.colab import files
+
+files.download(
+    ZIP_PATH
+)
+
+
+print(
+    "\n"+"="*170
+)
+
+print(
+    "TEST 146 COMPLETE"
+)
+
+print(
+    "="*170
+)
