@@ -1,0 +1,2397 @@
+# =============================================================================
+# TEST 145 — AKBASCORE DUAL-CRYSTAL INTERFERENCE MATRIX
+# VRAM-SAFE / SINGLE-LIVE-7B-MODEL ARCHITECTURE
+# A = ABOVE <-> BELOW | B = BEFORE <-> AFTER
+# Qwen2.5-7B-Instruct | A100 40 GB
+# =============================================================================
+
+import sys, os, gc, math, time, json, random, shutil, warnings, subprocess
+import importlib.metadata as md
+from datetime import datetime, timezone
+
+# =============================================================================
+# 0. ENVIRONMENT
+# =============================================================================
+
+print("=" * 150)
+print("TEST 145 — AKBASCORE DUAL-CRYSTAL INTERFERENCE MATRIX — VRAM SAFE")
+print("=" * 150)
+
+def pkg_version(name):
+    try:
+        return md.version(name)
+    except Exception:
+        return "NOT INSTALLED"
+
+try:
+    _torchao = md.version("torchao")
+except md.PackageNotFoundError:
+    _torchao = None
+
+if _torchao is not None:
+    print(f"Removing torchao {_torchao}...")
+    r = subprocess.run(
+        [sys.executable, "-m", "pip", "uninstall", "-y", "torchao"],
+        text=True, capture_output=True
+    )
+    print(r.stdout)
+    for name in list(sys.modules):
+        if name == "torchao" or name.startswith("torchao."):
+            del sys.modules[name]
+
+try:
+    md.version("torchao")
+    raise RuntimeError("torchao could not be removed. Restart runtime and rerun.")
+except md.PackageNotFoundError:
+    pass
+
+import numpy as np
+import pandas as pd
+import torch
+import torch.nn.functional as F
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from PIL import Image
+
+import transformers
+import peft
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from peft import LoraConfig, get_peft_model, PeftModel
+
+warnings.filterwarnings("ignore")
+plt.ioff()
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+if not torch.cuda.is_available():
+    raise RuntimeError("CUDA GPU required.")
+
+DEVICE = torch.device("cuda")
+GB = 1024 ** 3
+
+print("Python       :", sys.version.split()[0])
+print("PyTorch      :", torch.__version__)
+print("Transformers :", transformers.__version__)
+print("PEFT         :", peft.__version__)
+print("CUDA         :", torch.version.cuda)
+print("GPU          :", torch.cuda.get_device_name(0))
+print("VRAM         :", f"{torch.cuda.get_device_properties(0).total_memory/GB:.2f} GB")
+
+
+# =============================================================================
+# 1. REPRODUCIBILITY / CONFIG
+# =============================================================================
+
+SEED = 42
+
+def reseed(offset=0):
+    s = SEED + int(offset)
+    random.seed(s)
+    np.random.seed(s)
+    torch.manual_seed(s)
+    torch.cuda.manual_seed_all(s)
+
+reseed()
+torch.backends.cuda.matmul.allow_tf32 = True
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+N_LAYERS = 20
+HARD_MAX_UPDATES = 2000
+
+IVME = 0.10
+SONUM = 0.30
+ZIRVE = 0.70
+TABAN = 0.20
+
+LEARNING_RATE = 2e-5
+LAMBDA_GEOMETRY = 1.0
+LAMBDA_PRESERVE = 0.05
+GRAD_CLIP = 1.0
+
+LORA_R = 8
+LORA_ALPHA = 16
+LORA_DROPOUT = 0.0
+
+MAX_TRAIN_TOKENS = 128
+PRESERVE_TOP_K = 256
+
+N_TRAIN = 64
+N_VALIDATION = 24
+N_FINAL = 24
+
+EVAL_EVERY = 10
+MIN_UPDATES_BEFORE_STOP = 50
+MIN_PROGRESS_IMPROVEMENT = 0.0025
+MIN_DISTANCE_IMPROVEMENT = 0.0025
+MIN_ALIGNMENT_IMPROVEMENT = 0.0010
+PATIENCE_EVALS = 5
+OVERSHOOT_PROGRESS_DROP = 0.05
+ALIGNMENT_FLOOR = 0.0
+
+REPETITION_PENALTY = 1.15
+MAX_BEHAVIOR_NEW_TOKENS = 160
+
+SYSTEM_PROMPT = (
+    "You are a concise reasoning assistant. "
+    "Describe the requested relationship clearly and precisely."
+)
+
+PRINT_FULL_LAYER_TABLE_EVERY_EVAL = True
+
+OUT_DIR = "/content/test145_akbascore_dual_crystal"
+FIG_DIR = f"{OUT_DIR}/FIGURES"
+CSV_DIR = f"{OUT_DIR}/CSV"
+JSON_DIR = f"{OUT_DIR}/JSON"
+REPORT_DIR = f"{OUT_DIR}/REPORT"
+NPZ_DIR = f"{OUT_DIR}/NPZ"
+ADAPTER_DIR = f"{OUT_DIR}/ADAPTERS"
+
+for d in [OUT_DIR, FIG_DIR, CSV_DIR, JSON_DIR, REPORT_DIR, NPZ_DIR, ADAPTER_DIR]:
+    os.makedirs(d, exist_ok=True)
+
+EXPERIMENT_START_UTC = datetime.now(timezone.utc).isoformat()
+
+
+# =============================================================================
+# 2. VRAM LIFECYCLE
+# =============================================================================
+
+def gpu_mem():
+    return {
+        "allocated": torch.cuda.memory_allocated()/GB,
+        "reserved": torch.cuda.memory_reserved()/GB,
+        "max_allocated": torch.cuda.max_memory_allocated()/GB,
+    }
+
+def memory_report(label):
+    m = gpu_mem()
+    print(
+        f"[VRAM] {label:<34} | "
+        f"allocated={m['allocated']:.3f} GB | "
+        f"reserved={m['reserved']:.3f} GB | "
+        f"peak={m['max_allocated']:.3f} GB"
+    )
+
+def cuda_cleanup(label="cleanup"):
+    gc.collect()
+    torch.cuda.empty_cache()
+    try:
+        torch.cuda.ipc_collect()
+    except Exception:
+        pass
+    gc.collect()
+    memory_report(label)
+
+def destroy_model(model, label):
+    if model is not None:
+        try:
+            model.eval()
+        except Exception:
+            pass
+        del model
+    cuda_cleanup(label)
+
+def assert_vram_for_new_model(label, max_allocated_gb=2.5):
+    cuda_cleanup(f"{label} — barrier")
+    alloc = torch.cuda.memory_allocated()/GB
+    if alloc > max_allocated_gb:
+        print(
+            f"WARNING: {alloc:.3f} GB remains allocated before a new 7B load. "
+            "Checking for stale references is recommended."
+        )
+
+def cpu_metric_copy(m):
+    out = {}
+    for k, v in m.items():
+        if isinstance(v, np.ndarray):
+            out[k] = v.copy()
+        elif isinstance(v, np.generic):
+            out[k] = v.item()
+        else:
+            out[k] = v
+    return out
+
+
+# =============================================================================
+# 3. LOCKED DRA
+# =============================================================================
+
+def dra_envelope(L):
+    t = float(L)
+    x = ZIRVE * math.exp(-SONUM*t) * (1.0 + SONUM*t) + TABAN
+    return x / (ZIRVE + TABAN)
+
+ENVELOPE = [dra_envelope(L) for L in range(N_LAYERS)]
+RELATIVE_DOSE = [IVME*x for x in ENVELOPE]
+
+print("\nLOCKED SEASC 3.0 — NO BRAKE | NO GATE | NO RADAR | NO GRAM-SCHMIDT")
+for L in range(N_LAYERS):
+    print(
+        f"L{L:02d} | E={ENVELOPE[L]:.6f} | "
+        f"physical relative dose={100*RELATIVE_DOSE[L]:.3f}%"
+    )
+
+
+# =============================================================================
+# 4. COMPASS CORPORA
+# =============================================================================
+
+A_POSITIVE = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+A_NEGATIVE = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+B_POSITIVE = [
+    "an event occurring before a meeting",
+    "a signal appearing before an alarm",
+    "a person arriving before a ceremony",
+    "a light turning on before a sound",
+    "a message arriving before a response",
+    "a vehicle stopping before a departure",
+    "a door opening before an announcement",
+    "a bell ringing before a performance",
+]
+B_NEGATIVE = [
+    "an event occurring after a meeting",
+    "a signal appearing after an alarm",
+    "a person arriving after a ceremony",
+    "a light turning on after a sound",
+    "a message arriving after a response",
+    "a vehicle stopping after a departure",
+    "a door opening after an announcement",
+    "a bell ringing after a performance",
+]
+
+
+# =============================================================================
+# 5. DATA
+# =============================================================================
+
+SPATIAL_A = [
+    "red apple","blue cup","small lamp","wooden box",
+    "green pear","silver key","yellow ball","black book"
+]
+SPATIAL_B = [
+    "white plate","glass bottle","brown chair","metal tray",
+    "purple vase","orange cone","grey stone","blue notebook"
+]
+SURFACES = ["table","desk","shelf","platform","counter"]
+SPATIAL_RELATIONS = ["above","below"]
+
+def make_spatial_prompt(a,b,surface,relation):
+    return (
+        f"A {b} is on the {surface}. "
+        f"The {a} is positioned {relation} the {b}. "
+        f"Describe their relative spatial positions precisely."
+    )
+
+TEMPORAL_EVENTS_A = [
+    "red light turns on","small bell rings","door opens","vehicle stops",
+    "message appears","camera flashes","alarm sounds","screen changes"
+]
+TEMPORAL_EVENTS_B = [
+    "meeting begins","music starts","announcement plays","train departs",
+    "reply arrives","recording starts","worker enters","timer ends"
+]
+TEMPORAL_CONTEXTS = [
+    "during the recorded sequence","in the observed timeline",
+    "during the experiment","in the event log","during the demonstration"
+]
+TEMPORAL_RELATIONS = ["before","after"]
+
+def make_temporal_prompt(a,b,context,relation):
+    return (
+        f"{context.capitalize()}, the {a} {relation} the {b}. "
+        f"Describe the relative temporal order of the two events precisely."
+    )
+
+all_A_prompts = [
+    make_spatial_prompt(a,b,s,r)
+    for a in SPATIAL_A for b in SPATIAL_B
+    for s in SURFACES for r in SPATIAL_RELATIONS
+]
+all_B_prompts = [
+    make_temporal_prompt(a,b,c,r)
+    for a in TEMPORAL_EVENTS_A for b in TEMPORAL_EVENTS_B
+    for c in TEMPORAL_CONTEXTS for r in TEMPORAL_RELATIONS
+]
+
+random.Random(SEED).shuffle(all_A_prompts)
+random.Random(SEED+1000).shuffle(all_B_prompts)
+
+def split_prompts(items):
+    n = N_TRAIN + N_VALIDATION + N_FINAL
+    if len(items) < n:
+        raise RuntimeError("Insufficient prompt corpus.")
+    return (
+        items[:N_TRAIN],
+        items[N_TRAIN:N_TRAIN+N_VALIDATION],
+        items[N_TRAIN+N_VALIDATION:n]
+    )
+
+A_TRAIN,A_VALIDATION,A_FINAL = split_prompts(all_A_prompts)
+B_TRAIN,B_VALIDATION,B_FINAL = split_prompts(all_B_prompts)
+
+print(
+    f"\nA TRAIN={len(A_TRAIN)} VAL={len(A_VALIDATION)} FINAL={len(A_FINAL)}"
+)
+print(
+    f"B TRAIN={len(B_TRAIN)} VAL={len(B_VALIDATION)} FINAL={len(B_FINAL)}"
+)
+
+
+# =============================================================================
+# 6. TOKENIZER / MODEL
+# =============================================================================
+
+tokenizer = AutoTokenizer.from_pretrained(MODEL_ID, trust_remote_code=True)
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+def encode_chat(prompt):
+    text = tokenizer.apply_chat_template(
+        [
+            {"role":"system","content":SYSTEM_PROMPT},
+            {"role":"user","content":prompt},
+        ],
+        tokenize=False,
+        add_generation_prompt=True,
+    )
+    enc = tokenizer(
+        text, return_tensors="pt",
+        truncation=True, max_length=MAX_TRAIN_TOKENS
+    )
+    return {k:v.to(DEVICE) for k,v in enc.items()}
+
+def load_base_model():
+    assert_vram_for_new_model("before 7B load")
+    model = AutoModelForCausalLM.from_pretrained(
+        MODEL_ID,
+        dtype=torch.bfloat16,
+        device_map={"":0},
+        attn_implementation="sdpa",
+        trust_remote_code=True,
+    )
+    model.config.use_cache = False
+    memory_report("7B loaded")
+    return model
+
+def resolve_layers(model):
+    candidates = [
+        lambda:model.model.layers,
+        lambda:model.model.model.layers,
+        lambda:model.base_model.model.model.layers,
+        lambda:model.base_model.model.model.model.layers,
+        lambda:model.model.model.model.layers,
+    ]
+    for getter in candidates:
+        try:
+            layers = getter()
+            if len(layers) >= N_LAYERS:
+                return layers
+        except Exception:
+            pass
+    raise RuntimeError("Decoder layers could not be resolved.")
+
+
+# =============================================================================
+# 7. MATH
+# =============================================================================
+
+def safe_cos(a,b):
+    a=np.asarray(a,dtype=np.float64)
+    b=np.asarray(b,dtype=np.float64)
+    na=np.linalg.norm(a); nb=np.linalg.norm(b)
+    if na<1e-12 or nb<1e-12:
+        return 0.0
+    return float(np.clip(np.dot(a,b)/(na*nb),-1,1))
+
+def vector_projection_coefficient(d,t):
+    d=np.asarray(d,dtype=np.float64)
+    t=np.asarray(t,dtype=np.float64)
+    den=float(np.dot(t,t))
+    return 0.0 if den<1e-12 else float(np.dot(d,t)/den)
+
+def two_vector_decomposition(d,a,b):
+    d=np.asarray(d,dtype=np.float64)
+    a=np.asarray(a,dtype=np.float64)
+    b=np.asarray(b,dtype=np.float64)
+    G=np.array([[np.dot(a,a),np.dot(a,b)],[np.dot(b,a),np.dot(b,b)]])
+    rhs=np.array([np.dot(a,d),np.dot(b,d)])
+    coeff=np.linalg.pinv(G)@rhs
+    recon=coeff[0]*a+coeff[1]*b
+    residual=d-recon
+    dn=max(np.linalg.norm(d),1e-12)
+    return {
+        "coef_A":float(coeff[0]),
+        "coef_B":float(coeff[1]),
+        "residual_fraction":float(np.linalg.norm(residual)/dn),
+        "reconstruction_fraction":float(np.linalg.norm(recon)/dn),
+    }
+
+
+# =============================================================================
+# 8. COMPASS / MOTOR / CAPTURE
+# =============================================================================
+
+HIDDEN_SIZE = None
+
+@torch.inference_mode()
+def extract_compass(model,positive,negative):
+    was_training=model.training
+    model.eval()
+
+    pos_acc=[
+        torch.zeros(HIDDEN_SIZE,device=DEVICE,dtype=torch.float32)
+        for _ in range(N_LAYERS)
+    ]
+    neg_acc=[
+        torch.zeros(HIDDEN_SIZE,device=DEVICE,dtype=torch.float32)
+        for _ in range(N_LAYERS)
+    ]
+
+    for texts,accum in [(positive,pos_acc),(negative,neg_acc)]:
+        for text in texts:
+            enc=tokenizer(text,return_tensors="pt",add_special_tokens=True)
+            enc={k:v.to(DEVICE) for k,v in enc.items()}
+            out=model(
+                **enc,output_hidden_states=True,
+                use_cache=False,return_dict=True
+            )
+            p=int(enc["attention_mask"][0].sum().item())-1
+            for L in range(N_LAYERS):
+                accum[L].add_(out.hidden_states[L+1][0,p,:].float())
+            del out,enc
+
+    compass=[]; raw=[]
+    for L in range(N_LAYERS):
+        diff=pos_acc[L]/len(positive)-neg_acc[L]/len(negative)
+        n=diff.norm().clamp_min(1e-12)
+        compass.append((diff/n).detach().float().clone())
+        raw.append(float(n.item()))
+
+    del pos_acc,neg_acc
+    if was_training:
+        model.train()
+    return compass,raw
+
+def seasc_tensor(hidden,compass_vector,rho):
+    norm0=hidden.float().norm(p=2,dim=-1,keepdim=True)
+    A=compass_vector.to(hidden.device,dtype=torch.float32)
+    delta=float(rho)*norm0*A.view(1,1,-1)
+    return (hidden.float()+delta).to(hidden.dtype)
+
+@torch.inference_mode()
+def capture_natural(model,prompt):
+    was_training=model.training
+    model.eval()
+    enc=encode_chat(prompt)
+    out=model(
+        **enc,output_hidden_states=True,
+        use_cache=False,return_dict=True
+    )
+    p=int(enc["attention_mask"][0].sum().item())-1
+    states=[
+        out.hidden_states[L+1][0,p,:].detach().float().cpu().clone()
+        for L in range(N_LAYERS)
+    ]
+    del out,enc
+    if was_training:
+        model.train()
+    return states
+
+@torch.inference_mode()
+def capture_seasc(model,prompt,compass):
+    was_training=model.training
+    model.eval()
+    layers=resolve_layers(model)
+    enc=encode_chat(prompt)
+    p=int(enc["attention_mask"][0].sum().item())-1
+    captured=[None]*N_LAYERS
+    handles=[]
+
+    def make_hook(L):
+        def hook(module,args,output):
+            hidden=output[0] if isinstance(output,tuple) else output
+            steered=seasc_tensor(hidden,compass[L],RELATIVE_DOSE[L])
+            captured[L]=steered[0,p,:].detach().float().cpu().clone()
+            return (steered,)+output[1:] if isinstance(output,tuple) else steered
+        return hook
+
+    for L in range(N_LAYERS):
+        handles.append(layers[L].register_forward_hook(make_hook(L)))
+
+    try:
+        _=model(**enc,use_cache=False,return_dict=True)
+    finally:
+        for h in handles:
+            h.remove()
+
+    del enc
+    if was_training:
+        model.train()
+
+    if any(x is None for x in captured):
+        raise RuntimeError("SEASC capture incomplete.")
+    return captured
+
+@torch.inference_mode()
+def capture_model_off(model,prompt):
+    was_training=model.training
+    model.eval()
+    enc=encode_chat(prompt)
+    out=model(
+        **enc,output_hidden_states=True,
+        use_cache=False,return_dict=True
+    )
+    p=int(enc["attention_mask"][0].sum().item())-1
+    states=np.stack([
+        out.hidden_states[L+1][0,p,:]
+        .detach().float().cpu().numpy().copy()
+        for L in range(N_LAYERS)
+    ],axis=0)
+    del out,enc
+    if was_training:
+        model.train()
+    return states
+
+def capture_prompt_set(model,prompts):
+    return np.stack([capture_model_off(model,p) for p in prompts],axis=0)
+
+
+# =============================================================================
+# 9. IMMUTABLE BASE REFERENCES
+# =============================================================================
+
+print("\n[1] Loading immutable BASE")
+base=load_base_model()
+base.eval()
+for p in base.parameters():
+    p.requires_grad_(False)
+
+HIDDEN_SIZE=int(base.config.hidden_size)
+print("Hidden size :",HIDDEN_SIZE)
+print("Layers      :",len(resolve_layers(base)))
+
+print("\n[2] Extracting A0/B0")
+A0_COMPASS,A0_RAW=extract_compass(base,A_POSITIVE,A_NEGATIVE)
+B0_COMPASS,B0_RAW=extract_compass(base,B_POSITIVE,B_NEGATIVE)
+
+# Critical VRAM fix:
+# immutable compasses are evaluation constants and do not need permanent GPU residency.
+A0_COMPASS_CPU=[x.detach().float().cpu().clone() for x in A0_COMPASS]
+B0_COMPASS_CPU=[x.detach().float().cpu().clone() for x in B0_COMPASS]
+del A0_COMPASS,B0_COMPASS
+A0_COMPASS=A0_COMPASS_CPU
+B0_COMPASS=B0_COMPASS_CPU
+
+INITIAL_AB_ROWS=[]
+initial_ab_cos=[]
+
+print("\nINITIAL A/B COMPASS GEOMETRY")
+for L in range(N_LAYERS):
+    A=A0_COMPASS[L].numpy()
+    B=B0_COMPASS[L].numpy()
+    c=safe_cos(A,B)
+    initial_ab_cos.append(c)
+    INITIAL_AB_ROWS.append({
+        "layer":L,"A_raw_norm":A0_RAW[L],
+        "B_raw_norm":B0_RAW[L],"cos_A_B":c
+    })
+    print(
+        f"L{L:02d} | |Araw|={A0_RAW[L]:9.5f} | "
+        f"|Braw|={B0_RAW[L]:9.5f} | cos(A,B)={c:+.7f}"
+    )
+
+initial_ab_cos=np.asarray(initial_ab_cos,dtype=np.float64)
+
+def build_reference(model,prompts,compass,label):
+    natural=[]; target=[]
+    print(f"\nBuilding {label}...")
+    for i,prompt in enumerate(prompts,1):
+        natural.append(capture_natural(model,prompt))
+        target.append(capture_seasc(model,prompt,compass))
+        print(f"{label} {i:02d}/{len(prompts)}")
+    return natural,target
+
+A_VAL_BASE,A_VAL_T0=build_reference(
+    base,A_VALIDATION,A0_COMPASS,"A_VALIDATION"
+)
+B_VAL_BASE,B_VAL_T0=build_reference(
+    base,B_VALIDATION,B0_COMPASS,"B_VALIDATION"
+)
+A_FINAL_BASE,A_FINAL_T0=build_reference(
+    base,A_FINAL,A0_COMPASS,"A_FINAL_LOCKED"
+)
+B_FINAL_BASE,B_FINAL_T0=build_reference(
+    base,B_FINAL,B0_COMPASS,"B_FINAL_LOCKED"
+)
+
+@torch.inference_mode()
+def base_topk(model,prompt):
+    enc=encode_chat(prompt)
+    out=model(**enc,use_cache=False,return_dict=True)
+    p=int(enc["attention_mask"][0].sum().item())-1
+    logits=out.logits[0,p,:].detach().float()
+    values,indices=torch.topk(logits,k=min(PRESERVE_TOP_K,logits.numel()))
+    result={
+        "indices":indices.cpu().to(torch.int32),
+        "logits":values.cpu().to(torch.float16),
+    }
+    del out,enc
+    return result
+
+print("\n[3] Preservation cache")
+ALL_TRAIN_UNIQUE=list(dict.fromkeys(A_TRAIN+B_TRAIN))
+PRESERVE_CACHE={}
+for i,prompt in enumerate(ALL_TRAIN_UNIQUE,1):
+    PRESERVE_CACHE[prompt]=base_topk(base,prompt)
+    if i%8==0 or i==len(ALL_TRAIN_UNIQUE):
+        print(f"{i}/{len(ALL_TRAIN_UNIQUE)}")
+
+@torch.inference_mode()
+def generate_response(model,prompt):
+    was_training=model.training
+    model.eval()
+    enc=encode_chat(prompt)
+    plen=int(enc["input_ids"].shape[1])
+    ids=model.generate(
+        **enc,max_new_tokens=MAX_BEHAVIOR_NEW_TOKENS,
+        do_sample=False,repetition_penalty=REPETITION_PENALTY,
+        use_cache=True,pad_token_id=tokenizer.pad_token_id,
+        eos_token_id=tokenizer.eos_token_id,
+    )
+    text=tokenizer.decode(ids[0,plen:],skip_special_tokens=True).strip()
+    del enc,ids
+    if was_training:
+        model.train()
+    return text
+
+print("\n[4] BASE final behavior")
+BASE_A_FINAL_RESPONSES=[]
+for i,p in enumerate(A_FINAL,1):
+    BASE_A_FINAL_RESPONSES.append(generate_response(base,p))
+    print(f"BASE A {i:02d}/{N_FINAL}")
+
+BASE_B_FINAL_RESPONSES=[]
+for i,p in enumerate(B_FINAL,1):
+    BASE_B_FINAL_RESPONSES.append(generate_response(base,p))
+    print(f"BASE B {i:02d}/{N_FINAL}")
+
+def states_to_np(samples):
+    return np.stack([
+        np.stack([x.numpy() for x in sample],axis=0)
+        for sample in samples
+    ],axis=0)
+
+A_VAL_BASE_NP=states_to_np(A_VAL_BASE)
+A_VAL_T0_NP=states_to_np(A_VAL_T0)
+B_VAL_BASE_NP=states_to_np(B_VAL_BASE)
+B_VAL_T0_NP=states_to_np(B_VAL_T0)
+A_FINAL_BASE_NP=states_to_np(A_FINAL_BASE)
+A_FINAL_T0_NP=states_to_np(A_FINAL_T0)
+B_FINAL_BASE_NP=states_to_np(B_FINAL_BASE)
+B_FINAL_T0_NP=states_to_np(B_FINAL_T0)
+
+del A_VAL_BASE,A_VAL_T0,B_VAL_BASE,B_VAL_T0
+del A_FINAL_BASE,A_FINAL_T0,B_FINAL_BASE,B_FINAL_T0
+del base
+cuda_cleanup("immutable BASE released")
+
+
+# =============================================================================
+# 10. LOGS
+# =============================================================================
+
+TRAIN_LOG=[]
+EVAL_LOG=[]
+LAYER_LOG=[]
+COMPASS_LOG=[]
+INTERFERENCE_LOG=[]
+FINAL_LOG=[]
+MERGE_LOG=[]
+BEHAVIOR_LOG=[]
+JPEG_FILES=[]
+
+
+# =============================================================================
+# 11. MODEL / ADAPTER HELPERS
+# =============================================================================
+
+def lora_config():
+    return LoraConfig(
+        r=LORA_R,lora_alpha=LORA_ALPHA,lora_dropout=LORA_DROPOUT,
+        bias="none",task_type="CAUSAL_LM",
+        target_modules=["q_proj","k_proj","v_proj","o_proj"],
+    )
+
+def create_lora_student():
+    model=load_base_model()
+    if hasattr(model,"gradient_checkpointing_disable"):
+        model.gradient_checkpointing_disable()
+    return get_peft_model(model,lora_config())
+
+def attach_new_lora(model,adapter_name="default"):
+    return get_peft_model(model,lora_config(),adapter_name=adapter_name)
+
+def load_merged_from_base(adapter_dir,label):
+    print(f"\nMERGE: {label}")
+    parent=load_base_model()
+    peft_model=PeftModel.from_pretrained(
+        parent,adapter_dir,is_trainable=False
+    )
+    peft_model.eval()
+    merged=peft_model.merge_and_unload()
+    merged.eval()
+    merged.config.use_cache=False
+    remaining=[
+        n for n,_ in merged.named_modules()
+        if "lora_" in n.lower()
+    ]
+    if remaining:
+        raise RuntimeError(f"LoRA remains after {label}.")
+    del peft_model,parent
+    gc.collect()
+    torch.cuda.empty_cache()
+    return merged
+
+def load_sequential_merged(first_adapter,second_adapter,label):
+    """
+    Reconstruct:
+        HF BASE -> first adapter merge -> second adapter merge
+    At no point is a second full 7B base loaded.
+    """
+    print(f"\nSEQUENTIAL RECONSTRUCTION: {label}")
+    model=load_base_model()
+
+    p1=PeftModel.from_pretrained(
+        model,first_adapter,is_trainable=False
+    )
+    p1.eval()
+    model=p1.merge_and_unload()
+    model.eval()
+    del p1
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    p2=PeftModel.from_pretrained(
+        model,second_adapter,is_trainable=False
+    )
+    p2.eval()
+    model=p2.merge_and_unload()
+    model.eval()
+    model.config.use_cache=False
+    del p2
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    remaining=[
+        n for n,_ in model.named_modules()
+        if "lora_" in n.lower()
+    ]
+    if remaining:
+        raise RuntimeError(f"LoRA remains after {label}.")
+    return model
+
+
+# =============================================================================
+# 12. METRICS
+# =============================================================================
+
+def evaluate_against_reference(states,base_np,target_np):
+    n=states.shape[0]
+    distance=np.zeros(N_LAYERS)
+    progress=np.zeros(N_LAYERS)
+    alignment=np.zeros(N_LAYERS)
+    correction=np.zeros(N_LAYERS)
+    projection=np.zeros(N_LAYERS)
+
+    for i in range(n):
+        for L in range(N_LAYERS):
+            B=base_np[i,L]
+            T=target_np[i,L]
+            S=states[i,L]
+            t=T-B
+            d=S-B
+            D0=max(np.linalg.norm(t),1e-12)
+            D=np.linalg.norm(S-T)
+            distance[L]+=D
+            progress[L]+=1.0-D/D0
+            alignment[L]+=safe_cos(d,t)
+            correction[L]+=D/D0
+            projection[L]+=vector_projection_coefficient(d,t)
+
+    for x in [distance,progress,alignment,correction,projection]:
+        x/=n
+
+    return {
+        "distance":float(distance.mean()),
+        "progress":float(progress.mean()),
+        "alignment":float(alignment.mean()),
+        "correction":float(correction.mean()),
+        "projection":float(projection.mean()),
+        "layer_distance":distance,
+        "layer_progress":progress,
+        "layer_alignment":alignment,
+        "layer_correction":correction,
+        "layer_projection":projection,
+    }
+
+def compass_space_autopsy(states,base_np,compass_A,compass_B):
+    Acoef=np.zeros(N_LAYERS)
+    Bcoef=np.zeros(N_LAYERS)
+    residual=np.zeros(N_LAYERS)
+    Acos=np.zeros(N_LAYERS)
+    Bcos=np.zeros(N_LAYERS)
+
+    for i in range(states.shape[0]):
+        for L in range(N_LAYERS):
+            d=states[i,L]-base_np[i,L]
+            A=compass_A[L].numpy()
+            B=compass_B[L].numpy()
+            dec=two_vector_decomposition(d,A,B)
+            Acoef[L]+=dec["coef_A"]
+            Bcoef[L]+=dec["coef_B"]
+            residual[L]+=dec["residual_fraction"]
+            Acos[L]+=safe_cos(d,A)
+            Bcos[L]+=safe_cos(d,B)
+
+    n=states.shape[0]
+    Acoef/=n; Bcoef/=n; residual/=n; Acos/=n; Bcos/=n
+
+    return {
+        "coef_A":float(Acoef.mean()),
+        "coef_B":float(Bcoef.mean()),
+        "residual_fraction":float(residual.mean()),
+        "cos_A":float(Acos.mean()),
+        "cos_B":float(Bcos.mean()),
+        "layer_coef_A":Acoef,
+        "layer_coef_B":Bcoef,
+        "layer_residual":residual,
+        "layer_cos_A":Acos,
+        "layer_cos_B":Bcos,
+    }
+
+
+# =============================================================================
+# 13. TRAINING
+# =============================================================================
+
+def autograd_xray(student,prompt,label):
+    print(f"\nAUTOGRAD X-RAY — {label}")
+    student.train()
+    params=[p for p in student.parameters() if p.requires_grad]
+    for p in params:
+        p.grad=None
+
+    enc=encode_chat(prompt)
+    pos=int(enc["attention_mask"][0].sum().item())-1
+    out=student(
+        **enc,output_hidden_states=True,use_cache=False,return_dict=True
+    )
+    terms=[]
+    for L in [0,5,10,15,19]:
+        h=out.hidden_states[L+1][0,pos,:]
+        print(
+            f"L{L:02d} requires_grad={h.requires_grad} "
+            f"grad_fn={type(h.grad_fn).__name__ if h.grad_fn else 'NONE'}"
+        )
+        if not h.requires_grad:
+            raise RuntimeError("Autograd X-ray failed.")
+        terms.append(h.float().square().mean())
+
+    loss=torch.stack(terms).mean()
+    loss.backward()
+
+    sq=0.0; count=0
+    for p in params:
+        if p.grad is not None:
+            g=p.grad.detach().float()
+            if not torch.isfinite(g).all():
+                raise RuntimeError("Non-finite gradient.")
+            sq+=float(g.square().sum().cpu())
+            count+=1
+
+    norm=math.sqrt(sq)
+    if count==0 or norm<=0:
+        raise RuntimeError("No LoRA gradient.")
+
+    print("Global trainable grad norm:",f"{norm:.9f}")
+    print("AUTOGRAD X-RAY: PASS")
+
+    for p in params:
+        p.grad=None
+    del out,enc,terms,loss
+    cuda_cleanup("after autograd x-ray")
+
+@torch.inference_mode()
+def current_teacher_target(student,prompt,current_compass):
+    was_training=student.training
+    student.eval()
+    layers=resolve_layers(student)
+    enc=encode_chat(prompt)
+    pos=int(enc["attention_mask"][0].sum().item())-1
+    captured=[None]*N_LAYERS
+    handles=[]
+
+    def make_hook(L):
+        def hook(module,args,output):
+            hidden=output[0] if isinstance(output,tuple) else output
+            steered=seasc_tensor(hidden,current_compass[L],RELATIVE_DOSE[L])
+            captured[L]=(
+                steered[0,pos,:].detach()
+                .to(device="cpu",dtype=torch.float16).clone()
+            )
+            return (steered,)+output[1:] if isinstance(output,tuple) else steered
+        return hook
+
+    for L in range(N_LAYERS):
+        handles.append(layers[L].register_forward_hook(make_hook(L)))
+
+    try:
+        _=student(**enc,use_cache=False,return_dict=True)
+    finally:
+        for h in handles:
+            h.remove()
+
+    del enc
+    if was_training:
+        student.train()
+
+    if any(x is None for x in captured):
+        raise RuntimeError("Teacher target incomplete.")
+
+    return torch.stack(captured,dim=0)
+
+def training_forward(student,prompt,target_cpu):
+    student.train()
+    enc=encode_chat(prompt)
+    pos=int(enc["attention_mask"][0].sum().item())-1
+
+    out=student(
+        **enc,output_hidden_states=True,use_cache=False,return_dict=True
+    )
+
+    geo=[]
+    for L in range(N_LAYERS):
+        h=out.hidden_states[L+1][0,pos,:].float()
+        target=target_cpu[L].to(DEVICE,dtype=torch.float32)
+        scale2=target.square().sum().detach().clamp_min(1e-6)
+        geo.append((h-target).square().sum()/scale2)
+
+    geometry_loss=torch.stack(geo).mean()
+
+    logits=out.logits[0,pos,:].float()
+    cache=PRESERVE_CACHE[prompt]
+    indices=cache["indices"].to(DEVICE,dtype=torch.long)
+    base_logits=cache["logits"].to(DEVICE,dtype=torch.float32)
+    current_logits=logits[indices]
+
+    preserve_loss=F.kl_div(
+        F.log_softmax(current_logits,dim=-1),
+        F.softmax(base_logits,dim=-1),
+        reduction="sum",
+    )
+
+    total=LAMBDA_GEOMETRY*geometry_loss+LAMBDA_PRESERVE*preserve_loss
+
+    del out,enc
+    return total,geometry_loss.detach(),preserve_loss.detach()
+
+
+# =============================================================================
+# 14. CONSOLE
+# =============================================================================
+
+def print_layer_table(label,primary,secondary=None,secondary_baseline=None):
+    print("\n"+"-"*145)
+    print("LAYER X-RAY —",label)
+    print("-"*145)
+
+    if secondary is None:
+        for L in range(N_LAYERS):
+            print(
+                f"L{L:02d} | P={100*primary['layer_progress'][L]:+10.4f}% | "
+                f"align={primary['layer_alignment'][L]:+.7f} | "
+                f"proj={primary['layer_projection'][L]:+.6f}"
+            )
+    else:
+        for L in range(N_LAYERS):
+            delta=(
+                float("nan") if secondary_baseline is None else
+                100*(secondary["layer_progress"][L]-
+                     secondary_baseline["layer_progress"][L])
+            )
+            print(
+                f"L{L:02d} | primary={100*primary['layer_progress'][L]:+10.4f}% | "
+                f"align={primary['layer_alignment'][L]:+.7f} | "
+                f"secondary={100*secondary['layer_progress'][L]:+10.4f}% | "
+                f"Δ={delta:+10.4f} pp"
+            )
+
+def print_cross_summary(
+    stage,step,primary_name,primary,
+    secondary_name,secondary,baseline=None,autopsy=None
+):
+    print("\n"+"="*145)
+    print(f"{stage} — STEP {step}")
+    print("="*145)
+    print(
+        f"{primary_name}: progress={100*primary['progress']:+.6f}% | "
+        f"distance={primary['distance']:.8f} | "
+        f"align={primary['alignment']:+.8f} | "
+        f"projection={primary['projection']:+.8f}"
+    )
+    print(
+        f"{secondary_name}: progress={100*secondary['progress']:+.6f}% | "
+        f"align={secondary['alignment']:+.8f} | "
+        f"projection={secondary['projection']:+.8f}"
+    )
+
+    if baseline is not None:
+        delta=secondary["progress"]-baseline["progress"]
+        print(f"Interference Δ={100*delta:+.6f} pp")
+        ld=secondary["layer_progress"]-baseline["layer_progress"]
+        print(
+            f"Worst layer L{int(np.argmin(ld)):02d}: {100*ld.min():+.5f} pp | "
+            f"Best layer L{int(np.argmax(ld)):02d}: {100*ld.max():+.5f} pp"
+        )
+
+    if autopsy:
+        print(
+            f"Autopsy A={autopsy['coef_A']:+.8f} | "
+            f"B={autopsy['coef_B']:+.8f} | "
+            f"residual={100*autopsy['residual_fraction']:.4f}%"
+        )
+
+
+# =============================================================================
+# 15. CRYSTALLIZATION ENGINE
+# =============================================================================
+
+def crystallize(
+    student,branch_name,crystal_name,train_prompts,
+    positive,negative,immutable_compass,
+    primary_validation_prompts,primary_val_base,primary_val_target,
+    secondary_name,secondary_validation_prompts,
+    secondary_val_base,secondary_val_target,
+    secondary_baseline_metrics=None,seed_offset=0,
+):
+    print("\n"+"#"*150)
+    print(f"CRYSTALLIZATION — {branch_name} — {crystal_name}")
+    print("#"*150)
+
+    reseed(seed_offset)
+
+    current_compass,current_raw=extract_compass(student,positive,negative)
+
+    params=[p for p in student.parameters() if p.requires_grad]
+    if not params:
+        raise RuntimeError("No trainable parameters.")
+
+    optimizer=torch.optim.AdamW(
+        params,lr=LEARNING_RATE,betas=(0.9,0.95),weight_decay=0.01
+    )
+
+    autograd_xray(student,train_prompts[0],branch_name)
+
+    best_dir=os.path.join(ADAPTER_DIR,f"{branch_name}_BEST")
+    if os.path.exists(best_dir):
+        shutil.rmtree(best_dir)
+    os.makedirs(best_dir,exist_ok=True)
+
+    primary_states=capture_prompt_set(student,primary_validation_prompts)
+    secondary_states=capture_prompt_set(student,secondary_validation_prompts)
+
+    primary0=evaluate_against_reference(
+        primary_states,primary_val_base,primary_val_target
+    )
+    secondary0=evaluate_against_reference(
+        secondary_states,secondary_val_base,secondary_val_target
+    )
+
+    if secondary_baseline_metrics is None:
+        secondary_baseline_metrics=cpu_metric_copy(secondary0)
+
+    autopsy0=compass_space_autopsy(
+        primary_states,primary_val_base,A0_COMPASS,B0_COMPASS
+    )
+
+    print_cross_summary(
+        branch_name,0,crystal_name,primary0,
+        secondary_name,secondary0,secondary_baseline_metrics,autopsy0
+    )
+
+    if PRINT_FULL_LAYER_TABLE_EVERY_EVAL:
+        print_layer_table(
+            branch_name,primary0,secondary0,secondary_baseline_metrics
+        )
+
+    best_progress=primary0["progress"]
+    best_distance=primary0["distance"]
+    best_alignment=primary0["alignment"]
+    best_step=0
+    no_improvement=0
+    stop_reason=None
+
+    student.save_pretrained(best_dir)
+    tokenizer.save_pretrained(best_dir)
+
+    # Do NOT retain all validation hidden states across steps.
+    # This was unnecessary host-RAM growth in the original code.
+    del primary_states,secondary_states
+
+    start=time.time()
+    update=0
+    epoch=0
+    local_rng=random.Random(SEED+seed_offset)
+
+    while update<HARD_MAX_UPDATES:
+        epoch+=1
+        order=list(range(len(train_prompts)))
+        local_rng.shuffle(order)
+
+        for idx in order:
+            if update>=HARD_MAX_UPDATES:
+                break
+
+            update+=1
+            prompt=train_prompts[idx]
+
+            target=current_teacher_target(student,prompt,current_compass)
+
+            optimizer.zero_grad(set_to_none=True)
+
+            total_loss,geo_loss,preserve_loss=training_forward(
+                student,prompt,target
+            )
+
+            if not torch.isfinite(total_loss):
+                raise RuntimeError(
+                    f"Non-finite loss {branch_name} step {update}"
+                )
+
+            total_loss.backward()
+
+            grad_norm=torch.nn.utils.clip_grad_norm_(params,GRAD_CLIP)
+            grad_value=float(torch.as_tensor(grad_norm).detach().float().cpu())
+
+            if not math.isfinite(grad_value):
+                raise RuntimeError("Non-finite gradient.")
+
+            optimizer.step()
+
+            previous_compass=[x.detach().clone() for x in current_compass]
+            new_compass,new_raw=extract_compass(student,positive,negative)
+
+            ci=[]; cp=[]
+            for L in range(N_LAYERS):
+                init=immutable_compass[L].numpy()
+                prev=previous_compass[L].detach().float().cpu().numpy()
+                new=new_compass[L].detach().float().cpu().numpy()
+                c0=safe_cos(init,new)
+                cprev=safe_cos(prev,new)
+                ci.append(c0); cp.append(cprev)
+
+                COMPASS_LOG.append({
+                    "branch":branch_name,"crystal":crystal_name,
+                    "step":update,"layer":L,"raw_norm":new_raw[L],
+                    "cos_immutable_initial":c0,"cos_previous":cprev,
+                })
+
+            # Release old GPU compass before replacing it.
+            del previous_compass,current_compass
+            current_compass=[
+                x.detach().clone().to(DEVICE)
+                for x in new_compass
+            ]
+            del new_compass
+
+            mean_ci=float(np.mean(ci))
+            mean_cp=float(np.mean(cp))
+
+            TRAIN_LOG.append({
+                "branch":branch_name,"crystal":crystal_name,
+                "step":update,"epoch":epoch,
+                "loss_total":float(total_loss.detach().cpu()),
+                "loss_geometry":float(geo_loss.cpu()),
+                "loss_preserve":float(preserve_loss.cpu()),
+                "grad_norm":grad_value,
+                "mean_compass_cos_initial":mean_ci,
+                "mean_compass_cos_previous":mean_cp,
+                "elapsed_seconds":time.time()-start,
+            })
+
+            print(
+                f"{branch_name:12s} | step={update:04d} | "
+                f"loss={float(total_loss.detach().cpu()):.7f} | "
+                f"geo={float(geo_loss.cpu()):.7f} | "
+                f"presK={float(preserve_loss.cpu()):.7f} | "
+                f"grad={grad_value:.6f} | "
+                f"cos(init,t)={mean_ci:+.6f} | "
+                f"cos(prev,t)={mean_cp:+.6f}"
+            )
+
+            del target,total_loss,geo_loss,preserve_loss
+
+            if update%EVAL_EVERY==0:
+                primary_states=capture_prompt_set(
+                    student,primary_validation_prompts
+                )
+                secondary_states=capture_prompt_set(
+                    student,secondary_validation_prompts
+                )
+
+                primary=evaluate_against_reference(
+                    primary_states,primary_val_base,primary_val_target
+                )
+                secondary=evaluate_against_reference(
+                    secondary_states,secondary_val_base,secondary_val_target
+                )
+                autopsy=compass_space_autopsy(
+                    primary_states,primary_val_base,A0_COMPASS,B0_COMPASS
+                )
+
+                print_cross_summary(
+                    branch_name,update,crystal_name,primary,
+                    secondary_name,secondary,secondary_baseline_metrics,autopsy
+                )
+
+                if PRINT_FULL_LAYER_TABLE_EVERY_EVAL:
+                    print_layer_table(
+                        branch_name,primary,secondary,secondary_baseline_metrics
+                    )
+
+                EVAL_LOG.append({
+                    "branch":branch_name,"crystal":crystal_name,"step":update,
+                    "primary_progress":primary["progress"],
+                    "primary_distance":primary["distance"],
+                    "primary_alignment":primary["alignment"],
+                    "primary_projection":primary["projection"],
+                    "secondary_progress":secondary["progress"],
+                    "secondary_alignment":secondary["alignment"],
+                    "secondary_projection":secondary["projection"],
+                    "secondary_interference":
+                        secondary["progress"]-
+                        secondary_baseline_metrics["progress"],
+                    "autopsy_coef_A":autopsy["coef_A"],
+                    "autopsy_coef_B":autopsy["coef_B"],
+                    "autopsy_residual":autopsy["residual_fraction"],
+                })
+
+                for L in range(N_LAYERS):
+                    LAYER_LOG.append({
+                        "branch":branch_name,"crystal":crystal_name,
+                        "step":update,"layer":L,
+                        "primary_progress":primary["layer_progress"][L],
+                        "primary_alignment":primary["layer_alignment"][L],
+                        "primary_projection":primary["layer_projection"][L],
+                        "secondary_progress":secondary["layer_progress"][L],
+                        "secondary_alignment":secondary["layer_alignment"][L],
+                        "secondary_projection":secondary["layer_projection"][L],
+                        "secondary_interference":
+                            secondary["layer_progress"][L]-
+                            secondary_baseline_metrics["layer_progress"][L],
+                        "autopsy_coef_A":autopsy["layer_coef_A"][L],
+                        "autopsy_coef_B":autopsy["layer_coef_B"][L],
+                        "autopsy_residual":autopsy["layer_residual"][L],
+                    })
+
+                current_progress=primary["progress"]
+                current_distance=primary["distance"]
+                current_alignment=primary["alignment"]
+
+                progress_gain=current_progress-best_progress
+                relative_distance_gain=(
+                    (best_distance-current_distance)/max(best_distance,1e-12)
+                )
+                alignment_gain=current_alignment-best_alignment
+
+                new_best=(
+                    current_progress>best_progress
+                    and current_alignment>=ALIGNMENT_FLOOR
+                )
+
+                if new_best:
+                    best_progress=current_progress
+                    best_distance=current_distance
+                    best_alignment=current_alignment
+                    best_step=update
+
+                    if os.path.exists(best_dir):
+                        shutil.rmtree(best_dir)
+
+                    student.save_pretrained(best_dir)
+                    tokenizer.save_pretrained(best_dir)
+                    no_improvement=0
+
+                    print(
+                        f">>> NEW BEST | {branch_name} | step={best_step} | "
+                        f"progress={100*best_progress:+.6f}%"
+                    )
+                else:
+                    meaningful_change=(
+                        abs(progress_gain)>=MIN_PROGRESS_IMPROVEMENT
+                        or abs(relative_distance_gain)>=MIN_DISTANCE_IMPROVEMENT
+                        or abs(alignment_gain)>=MIN_ALIGNMENT_IMPROVEMENT
+                    )
+                    no_improvement+=1
+                    print(
+                        f"No new best | patience={no_improvement}/{PATIENCE_EVALS} | "
+                        f"ΔP={100*progress_gain:+.5f} pp | "
+                        f"movement={meaningful_change}"
+                    )
+
+                overshoot=(
+                    update>=MIN_UPDATES_BEFORE_STOP
+                    and best_progress-current_progress>=OVERSHOOT_PROGRESS_DROP
+                )
+
+                # Validation arrays no longer needed.
+                del primary_states,secondary_states,autopsy
+
+                if overshoot:
+                    stop_reason="OVERSHOOT_DETECTED"
+                    print(
+                        f">>> OVERSHOOT | best={100*best_progress:+.6f}% | "
+                        f"current={100*current_progress:+.6f}% | rollback BEST"
+                    )
+                    break
+
+                if (
+                    update>=MIN_UPDATES_BEFORE_STOP
+                    and no_improvement>=PATIENCE_EVALS
+                ):
+                    stop_reason="HELDOUT_EQUILIBRIUM"
+                    print(">>> HELDOUT EQUILIBRIUM")
+                    break
+
+            if update%25==0:
+                cuda_cleanup(f"{branch_name} step {update}")
+
+        if stop_reason is not None:
+            break
+
+    if stop_reason is None:
+        stop_reason="HARD_MAX_UPDATES"
+
+    print(
+        f"\n{branch_name} STOP | last={update} | best={best_step} | "
+        f"reason={stop_reason} | progress={100*best_progress:+.6f}%"
+    )
+
+    # Absolutely release optimizer references before model deletion outside.
+    optimizer.zero_grad(set_to_none=True)
+    del optimizer,params,current_compass,current_raw
+    cuda_cleanup(f"{branch_name} training objects released")
+
+    return {
+        "best_dir":best_dir,
+        "best_step":best_step,
+        "last_step":int(update),
+        "stop_reason":stop_reason,
+        "best_progress":float(best_progress),
+        "best_distance":float(best_distance),
+        "best_alignment":float(best_alignment),
+        "initial_primary":cpu_metric_copy(primary0),
+        "initial_secondary":cpu_metric_copy(secondary0),
+        "secondary_baseline":cpu_metric_copy(secondary_baseline_metrics),
+    }
+
+
+# =============================================================================
+# 16. MERGE DRIFT — ONE MODEL ONLY
+# =============================================================================
+
+def merge_drift_check_base(adapter_dir,prompts,label):
+    """
+    BASE -> adapter capture -> merge SAME object -> capture.
+    Never loads a second full model.
+    Returns merged model.
+    """
+    print(f"\nMERGE DRIFT — {label}")
+
+    parent=load_base_model()
+    adapter=PeftModel.from_pretrained(
+        parent,adapter_dir,is_trainable=False
+    )
+    adapter.eval()
+
+    before=capture_prompt_set(adapter,prompts)
+
+    merged=adapter.merge_and_unload()
+    merged.eval()
+    merged.config.use_cache=False
+
+    after=capture_prompt_set(merged,prompts)
+
+    drift=float(
+        np.linalg.norm(after-before)/
+        max(np.linalg.norm(before),1e-12)
+    )
+
+    status=(
+        "TIGHT_EQUIVALENCE" if drift<=0.005 else
+        "SMALL_BF16_MERGE_DRIFT" if drift<=0.015 else
+        "MERGE_DRIFT_REQUIRES_REVIEW"
+    )
+
+    MERGE_LOG.append({
+        "stage":label,
+        "relative_hidden_drift":drift,
+        "status":status
+    })
+
+    print(f"{label} drift={drift:.10e} | {status}")
+
+    del before,after,adapter,parent
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    return merged,drift,status
+
+def merge_drift_check_sequential(first_adapter,second_adapter,prompts,label):
+    """
+    BASE -> first merge -> second adapter capture -> merge -> capture.
+    Still only one 7B weight set alive.
+    """
+    print(f"\nMERGE DRIFT — {label}")
+
+    parent=load_base_model()
+
+    p1=PeftModel.from_pretrained(
+        parent,first_adapter,is_trainable=False
+    )
+    p1.eval()
+    parent=p1.merge_and_unload()
+    parent.eval()
+    del p1
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    p2=PeftModel.from_pretrained(
+        parent,second_adapter,is_trainable=False
+    )
+    p2.eval()
+
+    before=capture_prompt_set(p2,prompts)
+
+    merged=p2.merge_and_unload()
+    merged.eval()
+    merged.config.use_cache=False
+
+    after=capture_prompt_set(merged,prompts)
+
+    drift=float(
+        np.linalg.norm(after-before)/
+        max(np.linalg.norm(before),1e-12)
+    )
+
+    status=(
+        "TIGHT_EQUIVALENCE" if drift<=0.005 else
+        "SMALL_BF16_MERGE_DRIFT" if drift<=0.015 else
+        "MERGE_DRIFT_REQUIRES_REVIEW"
+    )
+
+    MERGE_LOG.append({
+        "stage":label,
+        "relative_hidden_drift":drift,
+        "status":status
+    })
+
+    print(f"{label} drift={drift:.10e} | {status}")
+
+    del before,after,p2,parent
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    return merged,drift,status
+
+
+# =============================================================================
+# 17. STAGE 1 — BASE -> A
+# =============================================================================
+
+print("\n"+"="*150)
+print("STAGE 1/4 — BASE -> A")
+print("="*150)
+
+assert_vram_for_new_model("STAGE 1")
+student_A=create_lora_student()
+
+A_RESULT=crystallize(
+    student_A,"A_ONLY","A",A_TRAIN,
+    A_POSITIVE,A_NEGATIVE,A0_COMPASS,
+    A_VALIDATION,A_VAL_BASE_NP,A_VAL_T0_NP,
+    "B",B_VALIDATION,B_VAL_BASE_NP,B_VAL_T0_NP,
+    None,10
+)
+
+del student_A
+cuda_cleanup("STAGE 1 student deleted")
+
+A_MERGED,A_MERGE_DRIFT,A_MERGE_STATUS=merge_drift_check_base(
+    A_RESULT["best_dir"],A_VALIDATION,"A_ONLY"
+)
+
+A_ONLY_A_VAL_STATES=capture_prompt_set(A_MERGED,A_VALIDATION)
+A_ONLY_B_VAL_STATES=capture_prompt_set(A_MERGED,B_VALIDATION)
+
+A_ONLY_A_VAL=evaluate_against_reference(
+    A_ONLY_A_VAL_STATES,A_VAL_BASE_NP,A_VAL_T0_NP
+)
+A_ONLY_B_VAL=evaluate_against_reference(
+    A_ONLY_B_VAL_STATES,B_VAL_BASE_NP,B_VAL_T0_NP
+)
+
+A_ONLY_A_VAL=cpu_metric_copy(A_ONLY_A_VAL)
+A_ONLY_B_VAL=cpu_metric_copy(A_ONLY_B_VAL)
+
+print(
+    f"A-only merged | A={100*A_ONLY_A_VAL['progress']:+.6f}% | "
+    f"B={100*A_ONLY_B_VAL['progress']:+.6f}%"
+)
+
+del A_ONLY_A_VAL_STATES,A_ONLY_B_VAL_STATES
+
+
+# =============================================================================
+# 18. STAGE 2 — A -> B
+# =============================================================================
+
+print("\n"+"="*150)
+print("STAGE 2/4 — A -> B")
+print("="*150)
+
+# IMPORTANT: A_MERGED itself becomes the parent of this LoRA.
+student_AB=attach_new_lora(A_MERGED,"default")
+A_MERGED=None
+
+AB_RESULT=crystallize(
+    student_AB,"A_TO_B","B",B_TRAIN,
+    B_POSITIVE,B_NEGATIVE,B0_COMPASS,
+    B_VALIDATION,B_VAL_BASE_NP,B_VAL_T0_NP,
+    "A",A_VALIDATION,A_VAL_BASE_NP,A_VAL_T0_NP,
+    A_ONLY_A_VAL,20
+)
+
+del student_AB
+cuda_cleanup("STAGE 2 student deleted")
+
+# Reconstruct only one 7B model and perform exact parent+second adapter merge.
+AB_MERGED,AB_MERGE_DRIFT,AB_MERGE_STATUS=merge_drift_check_sequential(
+    A_RESULT["best_dir"],
+    AB_RESULT["best_dir"],
+    B_VALIDATION,
+    "A_TO_B"
+)
+
+# Capture validation if desired, then destroy AB completely.
+AB_VAL_A_STATES=capture_prompt_set(AB_MERGED,A_VALIDATION)
+AB_VAL_B_STATES=capture_prompt_set(AB_MERGED,B_VALIDATION)
+
+AB_VAL_A=evaluate_against_reference(
+    AB_VAL_A_STATES,A_VAL_BASE_NP,A_VAL_T0_NP
+)
+AB_VAL_B=evaluate_against_reference(
+    AB_VAL_B_STATES,B_VAL_BASE_NP,B_VAL_T0_NP
+)
+
+print(
+    f"A->B merged validation | "
+    f"A={100*AB_VAL_A['progress']:+.6f}% | "
+    f"B={100*AB_VAL_B['progress']:+.6f}%"
+)
+
+del AB_VAL_A_STATES,AB_VAL_B_STATES
+del AB_MERGED
+AB_MERGED=None
+cuda_cleanup("STAGE 2 AB model fully destroyed")
+
+assert_vram_for_new_model("PRE-STAGE-3 HARD BARRIER")
+
+
+# =============================================================================
+# 19. STAGE 3 — BASE -> B
+# =============================================================================
+
+print("\n"+"="*150)
+print("STAGE 3/4 — BASE -> B")
+print("="*150)
+
+student_B=create_lora_student()
+
+B_RESULT=crystallize(
+    student_B,"B_ONLY","B",B_TRAIN,
+    B_POSITIVE,B_NEGATIVE,B0_COMPASS,
+    B_VALIDATION,B_VAL_BASE_NP,B_VAL_T0_NP,
+    "A",A_VALIDATION,A_VAL_BASE_NP,A_VAL_T0_NP,
+    None,30
+)
+
+del student_B
+cuda_cleanup("STAGE 3 student deleted")
+
+B_MERGED,B_MERGE_DRIFT,B_MERGE_STATUS=merge_drift_check_base(
+    B_RESULT["best_dir"],B_VALIDATION,"B_ONLY"
+)
+
+B_ONLY_B_VAL_STATES=capture_prompt_set(B_MERGED,B_VALIDATION)
+B_ONLY_A_VAL_STATES=capture_prompt_set(B_MERGED,A_VALIDATION)
+
+B_ONLY_B_VAL=evaluate_against_reference(
+    B_ONLY_B_VAL_STATES,B_VAL_BASE_NP,B_VAL_T0_NP
+)
+B_ONLY_A_VAL=evaluate_against_reference(
+    B_ONLY_A_VAL_STATES,A_VAL_BASE_NP,A_VAL_T0_NP
+)
+
+B_ONLY_B_VAL=cpu_metric_copy(B_ONLY_B_VAL)
+B_ONLY_A_VAL=cpu_metric_copy(B_ONLY_A_VAL)
+
+print(
+    f"B-only merged | B={100*B_ONLY_B_VAL['progress']:+.6f}% | "
+    f"A={100*B_ONLY_A_VAL['progress']:+.6f}%"
+)
+
+del B_ONLY_B_VAL_STATES,B_ONLY_A_VAL_STATES
+
+
+# =============================================================================
+# 20. STAGE 4 — B -> A
+# =============================================================================
+
+print("\n"+"="*150)
+print("STAGE 4/4 — B -> A")
+print("="*150)
+
+student_BA=attach_new_lora(B_MERGED,"default")
+B_MERGED=None
+
+BA_RESULT=crystallize(
+    student_BA,"B_TO_A","A",A_TRAIN,
+    A_POSITIVE,A_NEGATIVE,A0_COMPASS,
+    A_VALIDATION,A_VAL_BASE_NP,A_VAL_T0_NP,
+    "B",B_VALIDATION,B_VAL_BASE_NP,B_VAL_T0_NP,
+    B_ONLY_B_VAL,40
+)
+
+del student_BA
+cuda_cleanup("STAGE 4 student deleted")
+
+BA_MERGED,BA_MERGE_DRIFT,BA_MERGE_STATUS=merge_drift_check_sequential(
+    B_RESULT["best_dir"],
+    BA_RESULT["best_dir"],
+    A_VALIDATION,
+    "B_TO_A"
+)
+
+# No need to keep it resident until final.
+del BA_MERGED
+BA_MERGED=None
+cuda_cleanup("STAGE 4 BA model fully destroyed")
+
+assert_vram_for_new_model("PRE-FINAL HARD BARRIER")
+
+
+# =============================================================================
+# 21. FINAL EXAM — ONE MODEL AT A TIME
+# =============================================================================
+
+def final_exam_model(model,label):
+    print("\n"+"-"*150)
+    print("FINAL EXAM —",label)
+    print("-"*150)
+
+    A_states=capture_prompt_set(model,A_FINAL)
+    B_states=capture_prompt_set(model,B_FINAL)
+
+    A_metrics=evaluate_against_reference(
+        A_states,A_FINAL_BASE_NP,A_FINAL_T0_NP
+    )
+    B_metrics=evaluate_against_reference(
+        B_states,B_FINAL_BASE_NP,B_FINAL_T0_NP
+    )
+
+    A_autopsy=compass_space_autopsy(
+        A_states,A_FINAL_BASE_NP,A0_COMPASS,B0_COMPASS
+    )
+    B_autopsy=compass_space_autopsy(
+        B_states,B_FINAL_BASE_NP,A0_COMPASS,B0_COMPASS
+    )
+
+    print(
+        f"A={100*A_metrics['progress']:+.6f}% | "
+        f"B={100*B_metrics['progress']:+.6f}% | "
+        f"A-align={A_metrics['alignment']:+.7f} | "
+        f"B-align={B_metrics['alignment']:+.7f}"
+    )
+
+    for L in range(N_LAYERS):
+        FINAL_LOG.append({
+            "state":label,"layer":L,
+            "A_progress":A_metrics["layer_progress"][L],
+            "A_alignment":A_metrics["layer_alignment"][L],
+            "A_projection":A_metrics["layer_projection"][L],
+            "B_progress":B_metrics["layer_progress"][L],
+            "B_alignment":B_metrics["layer_alignment"][L],
+            "B_projection":B_metrics["layer_projection"][L],
+            "A_autopsy_coef_A":A_autopsy["layer_coef_A"][L],
+            "A_autopsy_coef_B":A_autopsy["layer_coef_B"][L],
+            "A_autopsy_residual":A_autopsy["layer_residual"][L],
+            "B_autopsy_coef_A":B_autopsy["layer_coef_A"][L],
+            "B_autopsy_coef_B":B_autopsy["layer_coef_B"][L],
+            "B_autopsy_residual":B_autopsy["layer_residual"][L],
+        })
+
+    return {
+        "A_states":A_states.copy(),
+        "B_states":B_states.copy(),
+        "A":cpu_metric_copy(A_metrics),
+        "B":cpu_metric_copy(B_metrics),
+        "A_autopsy":cpu_metric_copy(A_autopsy),
+        "B_autopsy":cpu_metric_copy(B_autopsy),
+    }
+
+def jaccard_text(a,b):
+    A=set(a.lower().split())
+    B=set(b.lower().split())
+    return 1.0 if not A and not B else len(A&B)/max(len(A|B),1)
+
+def behavioral_final_exam(model,label):
+    changed_A=0; changed_B=0
+    jA=[]; jB=[]
+
+    for i,prompt in enumerate(A_FINAL):
+        response=generate_response(model,prompt)
+        base_response=BASE_A_FINAL_RESPONSES[i]
+        changed=response.strip()!=base_response.strip()
+        jac=jaccard_text(response,base_response)
+        changed_A+=int(changed); jA.append(jac)
+        BEHAVIOR_LOG.append({
+            "state":label,"crystal_set":"A","prompt_index":i,
+            "prompt":prompt,"base_response":base_response,
+            "response":response,"changed":changed,"lexical_jaccard":jac,
+        })
+
+    for i,prompt in enumerate(B_FINAL):
+        response=generate_response(model,prompt)
+        base_response=BASE_B_FINAL_RESPONSES[i]
+        changed=response.strip()!=base_response.strip()
+        jac=jaccard_text(response,base_response)
+        changed_B+=int(changed); jB.append(jac)
+        BEHAVIOR_LOG.append({
+            "state":label,"crystal_set":"B","prompt_index":i,
+            "prompt":prompt,"base_response":base_response,
+            "response":response,"changed":changed,"lexical_jaccard":jac,
+        })
+
+    result={
+        "A_changed":changed_A,"B_changed":changed_B,
+        "A_mean_jaccard":float(np.mean(jA)),
+        "B_mean_jaccard":float(np.mean(jB)),
+    }
+
+    print(
+        f"{label} behavior | A changed={changed_A}/{N_FINAL} "
+        f"J={result['A_mean_jaccard']:.6f} | "
+        f"B changed={changed_B}/{N_FINAL} "
+        f"J={result['B_mean_jaccard']:.6f}"
+    )
+    return result
+
+
+# A-only
+model=load_merged_from_base(A_RESULT["best_dir"],"A_ONLY_FINAL")
+A_ONLY_FINAL=final_exam_model(model,"A_ONLY")
+del model
+cuda_cleanup("FINAL A-only destroyed")
+
+# B-only
+model=load_merged_from_base(B_RESULT["best_dir"],"B_ONLY_FINAL")
+B_ONLY_FINAL=final_exam_model(model,"B_ONLY")
+del model
+cuda_cleanup("FINAL B-only destroyed")
+
+# A -> B
+model=load_sequential_merged(
+    A_RESULT["best_dir"],AB_RESULT["best_dir"],"AB_FINAL"
+)
+AB_FINAL=final_exam_model(model,"A_TO_B")
+AB_BEHAVIOR=behavioral_final_exam(model,"A_TO_B")
+del model
+cuda_cleanup("FINAL AB destroyed")
+
+# B -> A
+model=load_sequential_merged(
+    B_RESULT["best_dir"],BA_RESULT["best_dir"],"BA_FINAL"
+)
+BA_FINAL=final_exam_model(model,"B_TO_A")
+BA_BEHAVIOR=behavioral_final_exam(model,"B_TO_A")
+del model
+cuda_cleanup("FINAL BA destroyed")
+
+
+# =============================================================================
+# 22. INTERFERENCE / ORDER EFFECT
+# =============================================================================
+
+I_A_FROM_B=(
+    AB_FINAL["A"]["progress"]-
+    A_ONLY_FINAL["A"]["progress"]
+)
+I_B_FROM_A=(
+    BA_FINAL["B"]["progress"]-
+    B_ONLY_FINAL["B"]["progress"]
+)
+
+A_GAIN_IN_BA=(
+    BA_FINAL["A"]["progress"]-
+    B_ONLY_FINAL["A"]["progress"]
+)
+B_GAIN_IN_AB=(
+    AB_FINAL["B"]["progress"]-
+    A_ONLY_FINAL["B"]["progress"]
+)
+
+A_LAYER_INTERFERENCE=(
+    AB_FINAL["A"]["layer_progress"]-
+    A_ONLY_FINAL["A"]["layer_progress"]
+)
+B_LAYER_INTERFERENCE=(
+    BA_FINAL["B"]["layer_progress"]-
+    B_ONLY_FINAL["B"]["layer_progress"]
+)
+
+AB_ORDER_STACK=np.concatenate(
+    [AB_FINAL["A_states"],AB_FINAL["B_states"]],axis=0
+)
+BA_ORDER_STACK=np.concatenate(
+    [BA_FINAL["A_states"],BA_FINAL["B_states"]],axis=0
+)
+BASE_ORDER_STACK=np.concatenate(
+    [A_FINAL_BASE_NP,B_FINAL_BASE_NP],axis=0
+)
+
+ORDER_DISTANCE_RAW=float(
+    np.linalg.norm(AB_ORDER_STACK-BA_ORDER_STACK)
+)
+ORDER_DISTANCE_NORMALIZED=float(
+    ORDER_DISTANCE_RAW/max(np.linalg.norm(BASE_ORDER_STACK),1e-12)
+)
+
+ORDER_LAYER=np.zeros(N_LAYERS)
+for L in range(N_LAYERS):
+    ORDER_LAYER[L]=(
+        np.linalg.norm(
+            AB_ORDER_STACK[:,L,:]-BA_ORDER_STACK[:,L,:]
+        )/
+        max(np.linalg.norm(BASE_ORDER_STACK[:,L,:]),1e-12)
+    )
+
+print("\n"+"="*165)
+print("FINAL LAYERWISE INTERFERENCE MATRIX")
+print("="*165)
+print(
+    "Layer | A-only P% | A after B P% | I[A<-B]pp | "
+    "B-only P% | B after A P% | I[B<-A]pp | Order%"
+)
+
+for L in range(N_LAYERS):
+    print(
+        f"L{L:02d} | "
+        f"{100*A_ONLY_FINAL['A']['layer_progress'][L]:+10.4f} | "
+        f"{100*AB_FINAL['A']['layer_progress'][L]:+12.4f} | "
+        f"{100*A_LAYER_INTERFERENCE[L]:+11.4f} | "
+        f"{100*B_ONLY_FINAL['B']['layer_progress'][L]:+10.4f} | "
+        f"{100*BA_FINAL['B']['layer_progress'][L]:+12.4f} | "
+        f"{100*B_LAYER_INTERFERENCE[L]:+11.4f} | "
+        f"{100*ORDER_LAYER[L]:10.5f}"
+    )
+
+    INTERFERENCE_LOG.append({
+        "layer":L,
+        "A_only_progress":A_ONLY_FINAL["A"]["layer_progress"][L],
+        "A_after_B_progress":AB_FINAL["A"]["layer_progress"][L],
+        "I_A_from_B":A_LAYER_INTERFERENCE[L],
+        "B_only_progress":B_ONLY_FINAL["B"]["layer_progress"][L],
+        "B_after_A_progress":BA_FINAL["B"]["layer_progress"][L],
+        "I_B_from_A":B_LAYER_INTERFERENCE[L],
+        "order_distance_normalized":ORDER_LAYER[L],
+    })
+
+
+# =============================================================================
+# 23. SAVE CSV
+# =============================================================================
+
+tables={
+    "TEST145_training_log.csv":TRAIN_LOG,
+    "TEST145_validation_log.csv":EVAL_LOG,
+    "TEST145_layerwise_validation.csv":LAYER_LOG,
+    "TEST145_compass_evolution.csv":COMPASS_LOG,
+    "TEST145_initial_AB_geometry.csv":INITIAL_AB_ROWS,
+    "TEST145_final_interference_matrix.csv":INTERFERENCE_LOG,
+    "TEST145_final_geometry.csv":FINAL_LOG,
+    "TEST145_merge_diagnostics.csv":MERGE_LOG,
+    "TEST145_behavior.csv":BEHAVIOR_LOG,
+}
+
+for filename,data in tables.items():
+    pd.DataFrame(data).to_csv(
+        os.path.join(CSV_DIR,filename),index=False
+    )
+
+
+# =============================================================================
+# 24. NPZ
+# =============================================================================
+
+NPZ_PATH=os.path.join(NPZ_DIR,"TEST145_dual_crystal_geometry.npz")
+
+np.savez_compressed(
+    NPZ_PATH,
+    A0_compass=np.stack([x.numpy() for x in A0_COMPASS],axis=0),
+    B0_compass=np.stack([x.numpy() for x in B0_COMPASS],axis=0),
+    initial_AB_cos=initial_ab_cos,
+    envelope=np.asarray(ENVELOPE,dtype=np.float32),
+    relative_dose=np.asarray(RELATIVE_DOSE,dtype=np.float32),
+
+    A_final_base=A_FINAL_BASE_NP,
+    A_final_T0=A_FINAL_T0_NP,
+    B_final_base=B_FINAL_BASE_NP,
+    B_final_T0=B_FINAL_T0_NP,
+
+    A_only_A_states=A_ONLY_FINAL["A_states"],
+    A_only_B_states=A_ONLY_FINAL["B_states"],
+    B_only_A_states=B_ONLY_FINAL["A_states"],
+    B_only_B_states=B_ONLY_FINAL["B_states"],
+    AB_A_states=AB_FINAL["A_states"],
+    AB_B_states=AB_FINAL["B_states"],
+    BA_A_states=BA_FINAL["A_states"],
+    BA_B_states=BA_FINAL["B_states"],
+
+    A_layer_interference=A_LAYER_INTERFERENCE,
+    B_layer_interference=B_LAYER_INTERFERENCE,
+    order_layer=ORDER_LAYER,
+)
+
+
+# =============================================================================
+# 25. SUMMARY
+# =============================================================================
+
+EXPERIMENT_END_UTC=datetime.now(timezone.utc).isoformat()
+
+SUMMARY={
+    "experiment":"TEST 145 — AkbasCore Dual-Crystal Interference Matrix",
+    "model":MODEL_ID,
+    "seed":SEED,
+    "vram_architecture":"single-live-7B-model",
+
+    "motor":{
+        "status":"LOCKED / UNMODIFIED",
+        "layers":"L0-L19",
+        "ivme":IVME,
+        "sonum":SONUM,
+        "zirve":ZIRVE,
+        "taban":TABAN,
+        "brake":False,
+        "cosine_gate":False,
+        "radar":False,
+        "gram_schmidt_actuator":False,
+        "anti_interference_controller":False,
+    },
+
+    "data":{
+        "train_per_crystal":N_TRAIN,
+        "validation_per_crystal":N_VALIDATION,
+        "final_per_crystal":N_FINAL,
+        "final_student_metrics_used_for_training":False,
+        "final_student_metrics_used_for_selection":False,
+    },
+
+    "initial_compass_geometry":{
+        "mean_cos_A_B":float(initial_ab_cos.mean()),
+        "min_cos_A_B":float(initial_ab_cos.min()),
+        "max_cos_A_B":float(initial_ab_cos.max()),
+    },
+
+    "A_only":{
+        "best_step":A_RESULT["best_step"],
+        "stop_reason":A_RESULT["stop_reason"],
+        "final_A_progress":A_ONLY_FINAL["A"]["progress"],
+        "cross_B_progress":A_ONLY_FINAL["B"]["progress"],
+        "merge_drift":A_MERGE_DRIFT,
+        "merge_status":A_MERGE_STATUS,
+    },
+
+    "B_only":{
+        "best_step":B_RESULT["best_step"],
+        "stop_reason":B_RESULT["stop_reason"],
+        "final_B_progress":B_ONLY_FINAL["B"]["progress"],
+        "cross_A_progress":B_ONLY_FINAL["A"]["progress"],
+        "merge_drift":B_MERGE_DRIFT,
+        "merge_status":B_MERGE_STATUS,
+    },
+
+    "A_to_B":{
+        "best_step_B":AB_RESULT["best_step"],
+        "stop_reason":AB_RESULT["stop_reason"],
+        "final_A_progress":AB_FINAL["A"]["progress"],
+        "final_B_progress":AB_FINAL["B"]["progress"],
+        "I_A_from_B":I_A_FROM_B,
+        "B_gain_relative_to_A_only":B_GAIN_IN_AB,
+        "merge_drift":AB_MERGE_DRIFT,
+        "merge_status":AB_MERGE_STATUS,
+    },
+
+    "B_to_A":{
+        "best_step_A":BA_RESULT["best_step"],
+        "stop_reason":BA_RESULT["stop_reason"],
+        "final_A_progress":BA_FINAL["A"]["progress"],
+        "final_B_progress":BA_FINAL["B"]["progress"],
+        "I_B_from_A":I_B_FROM_A,
+        "A_gain_relative_to_B_only":A_GAIN_IN_BA,
+        "merge_drift":BA_MERGE_DRIFT,
+        "merge_status":BA_MERGE_STATUS,
+    },
+
+    "order_effect":{
+        "AB_vs_BA_raw_distance":ORDER_DISTANCE_RAW,
+        "AB_vs_BA_normalized_distance":ORDER_DISTANCE_NORMALIZED,
+    },
+
+    "behavior":{
+        "interpretation_warning":"Changed output is not correctness.",
+        "AB":AB_BEHAVIOR,
+        "BA":BA_BEHAVIOR,
+    },
+
+    "final_runtime_state":{
+        "motor":"OFF",
+        "seasc_injection":"OFF",
+        "forward_hooks":"NONE",
+        "runtime_lora":"REMOVED / MERGED",
+    },
+
+    "start_utc":EXPERIMENT_START_UTC,
+    "end_utc":EXPERIMENT_END_UTC,
+}
+
+with open(
+    os.path.join(JSON_DIR,"TEST145_summary.json"),
+    "w",encoding="utf-8"
+) as f:
+    json.dump(SUMMARY,f,ensure_ascii=False,indent=2)
+
+
+# =============================================================================
+# 26. REPORT
+# =============================================================================
+
+REPORT_PATH=os.path.join(REPORT_DIR,"TEST145_FULL_REPORT.txt")
+
+with open(REPORT_PATH,"w",encoding="utf-8") as f:
+    f.write("TEST 145 — AKBASCORE DUAL-CRYSTAL INTERFERENCE MATRIX\n")
+    f.write("="*120+"\n\n")
+    f.write(f"Model: {MODEL_ID}\n")
+    f.write("Crystal-A: ABOVE <-> BELOW\n")
+    f.write("Crystal-B: BEFORE <-> AFTER\n")
+    f.write("SEASC 3.0: LOCKED / UNMODIFIED\n")
+    f.write("VRAM architecture: single-live-7B-model\n\n")
+
+    f.write("INITIAL COMPASS GEOMETRY\n")
+    f.write(f"Mean cos(A,B): {initial_ab_cos.mean():+.8f}\n")
+    f.write(f"Min cos(A,B): {initial_ab_cos.min():+.8f}\n")
+    f.write(f"Max cos(A,B): {initial_ab_cos.max():+.8f}\n\n")
+
+    f.write("FINAL STATES\n")
+    f.write(
+        f"A-only A: {100*A_ONLY_FINAL['A']['progress']:+.6f}%\n"
+    )
+    f.write(
+        f"B-only B: {100*B_ONLY_FINAL['B']['progress']:+.6f}%\n"
+    )
+    f.write(
+        f"A->B A: {100*AB_FINAL['A']['progress']:+.6f}%\n"
+    )
+    f.write(
+        f"A->B B: {100*AB_FINAL['B']['progress']:+.6f}%\n"
+    )
+    f.write(
+        f"B->A A: {100*BA_FINAL['A']['progress']:+.6f}%\n"
+    )
+    f.write(
+        f"B->A B: {100*BA_FINAL['B']['progress']:+.6f}%\n\n"
+    )
+
+    f.write(f"I[A <- B]: {100*I_A_FROM_B:+.6f} pp\n")
+    f.write(f"I[B <- A]: {100*I_B_FROM_A:+.6f} pp\n")
+    f.write(
+        f"AB vs BA normalized hidden distance: "
+        f"{ORDER_DISTANCE_NORMALIZED:.10e}\n\n"
+    )
+
+    f.write("MERGE DIAGNOSTICS\n")
+    for row in MERGE_LOG:
+        f.write(
+            f"{row['stage']}: "
+            f"{row['relative_hidden_drift']:.10e} | "
+            f"{row['status']}\n"
+        )
+
+    f.write("\nFINAL RUNTIME\n")
+    f.write("Motor: OFF\nSEASC: OFF\nHooks: NONE\nLoRA: MERGED\n")
+
+
+# =============================================================================
+# 27. FIGURES — FILE ONLY
+# =============================================================================
+
+plt.style.use("dark_background")
+
+def save_jpeg(fig,filename):
+    temp=os.path.join(FIG_DIR,"_temp.png")
+    final=os.path.join(FIG_DIR,filename)
+
+    fig.savefig(
+        temp,dpi=220,bbox_inches="tight",
+        facecolor=fig.get_facecolor()
+    )
+    plt.close(fig)
+
+    with Image.open(temp) as im:
+        if im.mode in ("RGBA","LA"):
+            rgba=im.convert("RGBA")
+            bg=Image.new("RGB",rgba.size,(0,0,0))
+            bg.paste(rgba,mask=rgba.getchannel("A"))
+            rgb=bg
+        else:
+            rgb=im.convert("RGB")
+
+        rgb.save(
+            final,format="JPEG",quality=95,
+            subsampling=0,optimize=False,progressive=False
+        )
+
+    os.remove(temp)
+
+    with open(final,"rb") as f:
+        if f.read(2)!=b"\xff\xd8":
+            raise RuntimeError("Invalid JPEG.")
+
+    JPEG_FILES.append(final)
+
+fig=plt.figure(figsize=(16,8))
+plt.plot(np.arange(N_LAYERS),initial_ab_cos,marker="o",linewidth=2)
+plt.axhline(0,linewidth=.8)
+plt.ylim(-1.05,1.05)
+plt.xticks(np.arange(N_LAYERS))
+plt.xlabel("Layer")
+plt.ylabel("cos(A_L, B_L)")
+plt.title("TEST 145 — Natural A/B Compass Geometry")
+plt.grid(alpha=.2)
+plt.tight_layout()
+save_jpeg(fig,"TEST145_01_INITIAL_AB_COMPASS.jpg")
+
+fig=plt.figure(figsize=(17,8))
+x=np.arange(N_LAYERS)
+plt.plot(x,100*A_LAYER_INTERFERENCE,marker="o",label="I[A <- B]")
+plt.plot(x,100*B_LAYER_INTERFERENCE,marker="s",label="I[B <- A]")
+plt.axhline(0,linewidth=.8)
+plt.xticks(x)
+plt.xlabel("Layer")
+plt.ylabel("Interference (percentage points)")
+plt.title("TEST 145 — Layerwise Dual-Crystal Interference")
+plt.legend()
+plt.grid(alpha=.2)
+plt.tight_layout()
+save_jpeg(fig,"TEST145_02_LAYERWISE_INTERFERENCE.jpg")
+
+fig=plt.figure(figsize=(16,8))
+plt.bar(np.arange(N_LAYERS),100*ORDER_LAYER)
+plt.xticks(np.arange(N_LAYERS))
+plt.xlabel("Layer")
+plt.ylabel("Normalized AB vs BA hidden distance (%)")
+plt.title("TEST 145 — Order-Dependent Final Geometry")
+plt.tight_layout()
+save_jpeg(fig,"TEST145_03_ORDER_EFFECT.jpg")
+
+state_names=["A-only","B-only","A->B","B->A"]
+A_values=[
+    A_ONLY_FINAL["A"]["progress"],
+    B_ONLY_FINAL["A"]["progress"],
+    AB_FINAL["A"]["progress"],
+    BA_FINAL["A"]["progress"],
+]
+B_values=[
+    A_ONLY_FINAL["B"]["progress"],
+    B_ONLY_FINAL["B"]["progress"],
+    AB_FINAL["B"]["progress"],
+    BA_FINAL["B"]["progress"],
+]
+
+fig=plt.figure(figsize=(15,9))
+x=np.arange(4); width=.35
+plt.bar(x-width/2,100*np.asarray(A_values),width,label="Crystal-A")
+plt.bar(x+width/2,100*np.asarray(B_values),width,label="Crystal-B")
+plt.xticks(x,state_names)
+plt.axhline(0,linewidth=.8)
+plt.ylabel("Immutable target progress (%)")
+plt.title("TEST 145 — Final Dual-Crystal State Matrix")
+plt.legend()
+plt.tight_layout()
+save_jpeg(fig,"TEST145_04_FINAL_STATE_MATRIX.jpg")
+
+labels=["AB/A-set","AB/B-set","BA/A-set","BA/B-set"]
+residuals=[
+    AB_FINAL["A_autopsy"]["residual_fraction"],
+    AB_FINAL["B_autopsy"]["residual_fraction"],
+    BA_FINAL["A_autopsy"]["residual_fraction"],
+    BA_FINAL["B_autopsy"]["residual_fraction"],
+]
+
+fig=plt.figure(figsize=(15,8))
+plt.bar(labels,100*np.asarray(residuals))
+plt.ylabel("Residual displacement fraction (%)")
+plt.title("TEST 145 — Displacement Outside A/B Compass Plane")
+plt.tight_layout()
+save_jpeg(fig,"TEST145_05_AB_RESIDUAL.jpg")
+
+plt.close("all")
+
+
+# =============================================================================
+# 28. FINAL REPORT
+# =============================================================================
+
+print("\n"+"="*170)
+print("TEST 145 — FINAL SCIENTIFIC REPORT")
+print("="*170)
+
+print("\nINITIAL GEOMETRY")
+print(f"Mean cos(A,B) : {initial_ab_cos.mean():+.8f}")
+print(
+    f"Min           : L{int(np.argmin(initial_ab_cos)):02d} "
+    f"{initial_ab_cos.min():+.8f}"
+)
+print(
+    f"Max           : L{int(np.argmax(initial_ab_cos)):02d} "
+    f"{initial_ab_cos.max():+.8f}"
+)
+
+print("\nSINGLE CRYSTAL")
+print(f"A-only A : {100*A_ONLY_FINAL['A']['progress']:+.6f}%")
+print(f"A-only B : {100*A_ONLY_FINAL['B']['progress']:+.6f}%")
+print(f"B-only B : {100*B_ONLY_FINAL['B']['progress']:+.6f}%")
+print(f"B-only A : {100*B_ONLY_FINAL['A']['progress']:+.6f}%")
+
+print("\nA -> B")
+print(f"A final       : {100*AB_FINAL['A']['progress']:+.6f}%")
+print(f"B final       : {100*AB_FINAL['B']['progress']:+.6f}%")
+print(f"I[A <- B]     : {100*I_A_FROM_B:+.6f} pp")
+print(f"B gain        : {100*B_GAIN_IN_AB:+.6f} pp")
+
+print("\nB -> A")
+print(f"A final       : {100*BA_FINAL['A']['progress']:+.6f}%")
+print(f"B final       : {100*BA_FINAL['B']['progress']:+.6f}%")
+print(f"I[B <- A]     : {100*I_B_FROM_A:+.6f} pp")
+print(f"A gain        : {100*A_GAIN_IN_BA:+.6f} pp")
+
+print("\nORDER")
+print(f"Raw distance  : {ORDER_DISTANCE_RAW:.8f}")
+print(f"Normalized    : {100*ORDER_DISTANCE_NORMALIZED:.6f}%")
+worst_order=int(np.argmax(ORDER_LAYER))
+print(
+    f"Max layer     : L{worst_order:02d} "
+    f"{100*ORDER_LAYER[worst_order]:.6f}%"
+)
+
+worst_A=int(np.argmin(A_LAYER_INTERFERENCE))
+best_A=int(np.argmax(A_LAYER_INTERFERENCE))
+worst_B=int(np.argmin(B_LAYER_INTERFERENCE))
+best_B=int(np.argmax(B_LAYER_INTERFERENCE))
+
+print("\nINTERFERENCE HOTSPOTS")
+print(
+    f"A strongest loss : L{worst_A:02d} "
+    f"{100*A_LAYER_INTERFERENCE[worst_A]:+.6f} pp"
+)
+print(
+    f"A strongest gain : L{best_A:02d} "
+    f"{100*A_LAYER_INTERFERENCE[best_A]:+.6f} pp"
+)
+print(
+    f"B strongest loss : L{worst_B:02d} "
+    f"{100*B_LAYER_INTERFERENCE[worst_B]:+.6f} pp"
+)
+print(
+    f"B strongest gain : L{best_B:02d} "
+    f"{100*B_LAYER_INTERFERENCE[best_B]:+.6f} pp"
+)
+
+print("\nMERGE FORENSICS")
+for row in MERGE_LOG:
+    print(
+        f"{row['stage']:12s} | "
+        f"{row['relative_hidden_drift']:.10e} | "
+        f"{row['status']}"
+    )
+
+print("\nBEHAVIOR")
+print(
+    f"A->B | A changed {AB_BEHAVIOR['A_changed']}/{N_FINAL} | "
+    f"B changed {AB_BEHAVIOR['B_changed']}/{N_FINAL}"
+)
+print(
+    f"B->A | A changed {BA_BEHAVIOR['A_changed']}/{N_FINAL} | "
+    f"B changed {BA_BEHAVIOR['B_changed']}/{N_FINAL}"
+)
+print("changed != correct")
+
+print("\nFINAL RUNTIME")
+print("Motor       : OFF")
+print("SEASC       : OFF")
+print("Hooks       : NONE")
+print("LoRA        : REMOVED / MERGED")
+print("Final test selection use: NO")
+memory_report("end of scientific experiment")
+
+
+# =============================================================================
+# 29. ARCHIVE
+# =============================================================================
+
+ZIP_BASE="/content/TEST145_AKBASCORE_DUAL_CRYSTAL_COMPLETE"
+ZIP_PATH=shutil.make_archive(ZIP_BASE,"zip",OUT_DIR)
+
+print("\nZIP:",ZIP_PATH)
+
+for root,dirs,files_in_dir in os.walk(OUT_DIR):
+    for filename in sorted(files_in_dir):
+        print(os.path.join(root,filename))
+
+from google.colab import files
+files.download(ZIP_PATH)
+
+print("\n"+"="*170)
+print("TEST 145 COMPLETE")
+print("="*170)
