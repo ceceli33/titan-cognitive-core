@@ -1,0 +1,2246 @@
+# =============================================================================
+# AkbasCore 3.1 — SEASC + Compass Foundry (Subspace-Fisher)
+# Standardized Evidential Activation-Steering Core
+#
+# REFERENCE IMPLEMENTATION / SINGLE-CELL COLAB DEMO
+#
+# Evidence-derived Production Core:
+#   1. Per-Layer Subspace-Fisher Matched-Contrastive Compass
+#   2. Frozen-Norm Direct Dose
+#   3. Static Normalized DRA Envelope
+#
+# Compass Foundry:
+#   - Matched positive / negative activation sets
+#   - Within-class residual geometry
+#   - Regularized low-rank inverse action
+#   - Reduced-SVD implementation
+#   - FP32 per-layer unit compass
+#   - No full H x H covariance matrix
+#
+# REMOVED FROM PRODUCTION:
+#   - cosine-gated magnitude
+#   - Sınır / Cap
+#   - Fren / Doyum / Karşıt
+#   - Mercek measurement path
+#   - multi-axis Manifold
+#   - JVP / Radar / transport probes
+#   - dynamic runtime controller
+#
+# Reference:
+#   Qwen/Qwen2.5-7B-Instruct · BF16 · A100
+#
+# T4 alternative:
+#   MODEL_ID = "Qwen/Qwen2.5-1.5B-Instruct"
+#
+# AkbasCore / SEASC / Compass Foundry — Akbaş, 2026
+# =============================================================================
+
+import os
+import sys
+import gc
+import math
+import time
+import shutil
+import subprocess
+from collections import Counter
+
+
+# =============================================================================
+# 0. DEPENDENCIES
+# =============================================================================
+
+print("=" * 108)
+print("AkbasCore 3.1 — SEASC + Compass Foundry (Subspace-Fisher)")
+print("Standardized Evidential Activation-Steering Core")
+print("=" * 108)
+
+subprocess.check_call([
+    sys.executable, "-m", "pip", "install", "-q",
+    "transformers>=4.45.0",
+    "accelerate>=0.34.0",
+    "ninja",
+    "pybind11",
+])
+
+os.environ["MAX_JOBS"] = "2"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from torch.utils.cpp_extension import load_inline
+
+if not torch.cuda.is_available():
+    raise RuntimeError(
+        "CUDA GPU bulunamadı. "
+        "Colab: Runtime > Change runtime type > GPU."
+    )
+
+DEVICE = torch.device("cuda")
+
+torch.manual_seed(42)
+torch.cuda.manual_seed_all(42)
+
+print(f"PyTorch : {torch.__version__}")
+print(f"CUDA    : {torch.version.cuda}")
+print(f"GPU     : {torch.cuda.get_device_name(0)}")
+
+
+# =============================================================================
+# 1. LOCKED REFERENCE CONFIGURATION
+# =============================================================================
+
+# A100 reference:
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+
+# T4 / lower-memory alternative:
+# MODEL_ID = "Qwen/Qwen2.5-1.5B-Instruct"
+
+N_LAYERS = 20
+
+# Physical first-layer dose.
+# 0.10 = requested displacement norm of 10% of ||h|| at L0.
+IVME = 0.10
+
+# Static DRA shape constants.
+SONUM = 0.30
+ZIRVE = 0.70
+TABAN = 0.20
+
+# Subspace-Fisher regularization.
+# lambda_L = FISHER_ALPHA * median(non-zero within-class eigenvalues)
+FISHER_ALPHA = 0.10
+FISHER_EPS = 1e-8
+
+MAX_NEW_TOKENS = 180
+REPETITION_PENALTY = 1.15
+
+
+# =============================================================================
+# 2. MATCHED-CONTRASTIVE DEMONSTRATION CONCEPT
+#
+# Positive and negative sentences preserve the same linguistic skeleton.
+# Only the target semantic relation changes:
+#
+#       ABOVE  <->  BELOW
+#
+# 3.1 difference:
+# Individual activation samples are retained. The compass is NOT simply:
+#
+#       normalize(mean(POS) - mean(NEG))
+#
+# Instead, the mean contrast is reliability-weighted by within-class
+# residual geometry using a regularized low-rank inverse action.
+# =============================================================================
+
+POSITIVE = [
+    "a person standing above a bridge",
+    "a person positioned above a tower",
+    "an object located above the roof",
+    "a bird flying above the mountain",
+    "a light appearing above the building",
+    "a person looking from above the valley",
+    "a structure extending above the wall",
+    "a signal coming from above the surface",
+]
+
+NEGATIVE = [
+    "a person standing below a bridge",
+    "a person positioned below a tower",
+    "an object located below the roof",
+    "a bird flying below the mountain",
+    "a light appearing below the building",
+    "a person looking from below the valley",
+    "a structure extending below the wall",
+    "a signal coming from below the surface",
+]
+
+if len(POSITIVE) != len(NEGATIVE):
+    raise RuntimeError("POSITIVE and NEGATIVE must contain matched sample counts.")
+
+
+# =============================================================================
+# 3. TEST PROMPT
+# =============================================================================
+
+SYSTEM_PROMPT = (
+    "You are a concise visual reasoning assistant. "
+    "Describe spatial relationships clearly."
+)
+
+USER_PROMPT = (
+    "A tower, a bridge, a bright signal, and a moving object are visible "
+    "in the scene. Describe where the objects appear relative to the "
+    "structures and summarize the scene."
+)
+
+
+# =============================================================================
+# 4. CLEAN EXTENSION BUILD DIRECTORY
+# =============================================================================
+
+BUILD_DIR = "/tmp/akbascore_seasc_v31"
+
+print("\n[1/8] Cleaning native extension build directory...")
+
+if os.path.exists(BUILD_DIR):
+    shutil.rmtree(
+        BUILD_DIR,
+        ignore_errors=True,
+    )
+
+os.makedirs(
+    BUILD_DIR,
+    exist_ok=True,
+)
+
+gc.collect()
+torch.cuda.empty_cache()
+
+
+# =============================================================================
+# 5. NATIVE C++ / CUDA EXTENSION
+#
+# SEASC injection law:
+#
+#   rho_L = IVME * E(L)
+#
+#   norm0 = ||h_L||
+#
+#   Delta h_L =
+#       rho_L * norm0 * A_L
+#
+#   h'_L =
+#       h_L + Delta h_L
+#
+# A_L is unit-normalized.
+#
+# IMPORTANT:
+#
+#   norm0 is measured BEFORE intervention.
+#
+# Compass construction and runtime dose are separate:
+#
+#   Compass Foundry -> direction A_L
+#   SEASC           -> physical magnitude rho_L * ||h_L||
+#
+# There is:
+#
+#   NO cosine magnitude gate
+#   NO cap
+#   NO brake
+#   NO radar
+#   NO controller
+# =============================================================================
+
+CPP_SOURCE = r"""
+#include <torch/extension.h>
+
+torch::Tensor seasc_inject_cuda(
+    torch::Tensor hidden,
+    torch::Tensor actuator,
+    double relative_dose
+);
+
+torch::Tensor seasc_inject(
+    torch::Tensor hidden,
+    torch::Tensor actuator,
+    double relative_dose
+) {
+    TORCH_CHECK(
+        hidden.is_cuda(),
+        "hidden must be CUDA"
+    );
+
+    TORCH_CHECK(
+        actuator.is_cuda(),
+        "actuator must be CUDA"
+    );
+
+    TORCH_CHECK(
+        hidden.dim() == 3,
+        "hidden must be [B,S,H]"
+    );
+
+    TORCH_CHECK(
+        actuator.dim() == 1,
+        "actuator must be [H]"
+    );
+
+    TORCH_CHECK(
+        hidden.size(2) == actuator.size(0),
+        "hidden size and actuator size mismatch"
+    );
+
+    TORCH_CHECK(
+        relative_dose >= 0.0,
+        "relative_dose must be non-negative"
+    );
+
+    return seasc_inject_cuda(
+        hidden,
+        actuator,
+        relative_dose
+    );
+}
+
+PYBIND11_MODULE(
+    TORCH_EXTENSION_NAME,
+    m
+) {
+    m.def(
+        "seasc_inject",
+        &seasc_inject,
+        "AkbasCore 3.1 SEASC frozen-norm injection (CUDA)"
+    );
+}
+"""
+
+
+CUDA_SOURCE = r"""
+#include <torch/extension.h>
+#include <ATen/cuda/CUDAContext.h>
+
+#include <c10/cuda/CUDAGuard.h>
+#include <c10/cuda/CUDAException.h>
+
+#include <cuda.h>
+#include <cuda_runtime.h>
+
+
+// =============================================================================
+// SEASC CUDA KERNEL
+//
+// One CUDA block processes one hidden vector.
+//
+// Input:
+//      h          : [B,S,H] flattened into n_vectors x hidden_size
+//      actuator   : normalized FP32 [H]
+//      relative_dose
+//
+// Operation:
+//
+//      norm0 = ||h||
+//
+//      scale = relative_dose * norm0
+//
+//      h <- h + scale * actuator
+//
+// The norm is computed before any component of the vector is modified.
+// =============================================================================
+
+template <typename scalar_t>
+__global__ void seasc_kernel(
+    scalar_t* __restrict__ h,
+    const float* __restrict__ actuator,
+    const int hidden_size,
+    const int n_vectors,
+    const float relative_dose
+) {
+    const int vec = blockIdx.x;
+
+    if (vec >= n_vectors) {
+        return;
+    }
+
+    extern __shared__ float shared[];
+
+    float local_sum = 0.0f;
+
+    const long long base =
+        static_cast<long long>(vec)
+        * static_cast<long long>(hidden_size);
+
+
+    // =========================================================================
+    // PHASE 1 — FROZEN NORM
+    // =========================================================================
+
+    for (
+        int j = threadIdx.x;
+        j < hidden_size;
+        j += blockDim.x
+    ) {
+        const float x =
+            static_cast<float>(
+                h[base + j]
+            );
+
+        local_sum += x * x;
+    }
+
+    shared[threadIdx.x] =
+        local_sum;
+
+    __syncthreads();
+
+
+    // =========================================================================
+    // BLOCK REDUCTION
+    // =========================================================================
+
+    for (
+        unsigned int stride =
+            blockDim.x / 2;
+        stride > 0;
+        stride >>= 1
+    ) {
+        if (
+            threadIdx.x < stride
+        ) {
+            shared[threadIdx.x] +=
+                shared[
+                    threadIdx.x
+                    + stride
+                ];
+        }
+
+        __syncthreads();
+    }
+
+
+    // =========================================================================
+    // PHASE 2 — DIRECT PHYSICAL DOSE
+    // =========================================================================
+
+    const float norm0 =
+        sqrtf(
+            fmaxf(
+                shared[0],
+                1.0e-20f
+            )
+        );
+
+    const float scale =
+        relative_dose
+        * norm0;
+
+    __syncthreads();
+
+
+    // =========================================================================
+    // PHASE 3 — FULL-SPACE ACTUATOR INJECTION
+    // =========================================================================
+
+    for (
+        int j = threadIdx.x;
+        j < hidden_size;
+        j += blockDim.x
+    ) {
+        const float old_value =
+            static_cast<float>(
+                h[base + j]
+            );
+
+        const float new_value =
+            old_value
+            + scale
+            * actuator[j];
+
+        h[base + j] =
+            static_cast<scalar_t>(
+                new_value
+            );
+    }
+}
+
+
+// =============================================================================
+// CUDA ENTRY POINT
+// =============================================================================
+
+torch::Tensor seasc_inject_cuda(
+    torch::Tensor hidden,
+    torch::Tensor actuator,
+    double relative_dose
+) {
+    auto out =
+        hidden
+        .contiguous()
+        .clone();
+
+    auto act =
+        actuator
+        .to(
+            hidden.device(),
+            torch::kFloat32
+        )
+        .contiguous();
+
+    const int hidden_size =
+        static_cast<int>(
+            out.size(2)
+        );
+
+    const int n_vectors =
+        static_cast<int>(
+            out.numel()
+            / hidden_size
+        );
+
+    constexpr int THREADS =
+        256;
+
+    const size_t shared_bytes =
+        THREADS
+        * sizeof(float);
+
+    cudaStream_t stream =
+        at::cuda::getCurrentCUDAStream();
+
+    AT_DISPATCH_FLOATING_TYPES_AND2(
+        at::ScalarType::Half,
+        at::ScalarType::BFloat16,
+        out.scalar_type(),
+        "akbascore_seasc_v31_cuda",
+        [&] {
+            seasc_kernel<scalar_t>
+                <<<n_vectors,
+                   THREADS,
+                   shared_bytes,
+                   stream>>>(
+                    out.data_ptr<scalar_t>(),
+                    act.data_ptr<float>(),
+                    hidden_size,
+                    n_vectors,
+                    static_cast<float>(
+                        relative_dose
+                    )
+                );
+        }
+    );
+
+    C10_CUDA_KERNEL_LAUNCH_CHECK();
+
+    return out;
+}
+"""
+
+
+print(
+    "[2/8] Compiling AkbasCore 3.1 "
+    "native CUDA kernel..."
+)
+
+seasc_ext = load_inline(
+    name="akbascore_seasc_v31_cuda",
+    cpp_sources=CPP_SOURCE,
+    cuda_sources=CUDA_SOURCE,
+    functions=None,
+    extra_cflags=[
+        "-O3",
+        "-std=c++17",
+    ],
+    extra_cuda_cflags=[
+        "-O3",
+        "--use_fast_math",
+        "-lineinfo",
+    ],
+    with_cuda=True,
+    build_directory=BUILD_DIR,
+    verbose=False,
+)
+
+print(
+    "      Native CUDA kernel: OK"
+)
+
+
+# =============================================================================
+# 6. MODEL LOAD
+# =============================================================================
+
+print(
+    f"\n[3/8] Loading model: "
+    f"{MODEL_ID}"
+)
+
+tokenizer = (
+    AutoTokenizer
+    .from_pretrained(
+        MODEL_ID,
+        trust_remote_code=True,
+    )
+)
+
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token = (
+        tokenizer.eos_token
+    )
+
+model = (
+    AutoModelForCausalLM
+    .from_pretrained(
+        MODEL_ID,
+        torch_dtype=torch.bfloat16,
+        device_map={"": 0},
+        attn_implementation="sdpa",
+        trust_remote_code=True,
+    )
+)
+
+model.eval()
+
+for p in model.parameters():
+    p.requires_grad_(False)
+
+layers = model.model.layers
+
+if len(layers) < N_LAYERS:
+    raise RuntimeError(
+        f"Model has only "
+        f"{len(layers)} layers, "
+        f"but N_LAYERS="
+        f"{N_LAYERS}."
+    )
+
+HIDDEN_SIZE = (
+    model.config.hidden_size
+)
+
+print(
+    f"      layers      : "
+    f"{len(layers)}"
+)
+
+print(
+    f"      hidden size : "
+    f"{HIDDEN_SIZE}"
+)
+
+print(
+    f"      dtype       : "
+    f"{next(model.parameters()).dtype}"
+)
+
+print(
+    f"      steered     : "
+    f"L0-L{N_LAYERS - 1}"
+)
+
+
+# =============================================================================
+# 7. STATIC NORMALIZED DRA ENVELOPE
+#
+# kb(L) =
+#
+#   Zirve * exp(-Sonum * L)
+#   * (1 + Sonum * L)
+#   + Taban
+#
+# E(L) =
+#
+#   kb(L) / kb(0)
+#
+# Therefore:
+#
+#   E(0) = 1
+# =============================================================================
+
+def dra_envelope(
+    layer_idx
+):
+    t = float(
+        layer_idx
+    )
+
+    kb = (
+        ZIRVE
+        * math.exp(
+            -SONUM * t
+        )
+        * (
+            1.0
+            + SONUM * t
+        )
+        + TABAN
+    )
+
+    kb0 = (
+        ZIRVE
+        + TABAN
+    )
+
+    return (
+        kb / kb0
+    )
+
+
+ENVELOPE = [
+    dra_envelope(L)
+    for L
+    in range(N_LAYERS)
+]
+
+
+print(
+    "\nStatic normalized "
+    "DRA envelope:"
+)
+
+for L, env in enumerate(
+    ENVELOPE
+):
+    print(
+        f"  L{L:02d}: "
+        f"E={env:.6f} | "
+        f"dose="
+        f"{100.0 * IVME * env:.3f}%"
+    )
+
+
+# =============================================================================
+# 8. COMPASS FOUNDRY — SUBSPACE-FISHER
+#
+# For every layer L:
+#
+#   H+_L = individual positive activation samples
+#   H-_L = individual negative activation samples
+#
+#   mu+_L = mean(H+_L)
+#   mu-_L = mean(H-_L)
+#
+#   d_L = mu+_L - mu-_L
+#
+# Within-class residual matrix:
+#
+#   R_L = [
+#       H+_L - mu+_L
+#       H-_L - mu-_L
+#   ]
+#
+# Conceptually:
+#
+#   C_L = R_L^T R_L / nu
+#
+# Desired reliability-weighted direction:
+#
+#   x_L = (C_L + lambda_L I)^(-1) d_L
+#
+# IMPORTANT:
+#
+#   C_L is NEVER explicitly constructed.
+#
+# Reduced SVD:
+#
+#   R_L = U S V^T
+#
+# gives:
+#
+#   x =
+#       d / lambda
+#       +
+#       V [
+#           (1/(S^2/nu + lambda) - 1/lambda)
+#           * (V^T d)
+#       ]
+#
+# Final compass:
+#
+#   A_L = x_L / ||x_L||
+#
+# All Foundry math is FP32.
+# =============================================================================
+
+@torch.inference_mode()
+def collect_hidden_samples(
+    texts
+):
+    samples = [
+        []
+        for _ in range(
+            N_LAYERS
+        )
+    ]
+
+    for text in texts:
+
+        enc = tokenizer(
+            text,
+            return_tensors="pt",
+            add_special_tokens=True,
+        )
+
+        enc = {
+            k: v.to(DEVICE)
+            for k, v
+            in enc.items()
+        }
+
+        out = model(
+            **enc,
+            output_hidden_states=True,
+            use_cache=False,
+            return_dict=True,
+        )
+
+        last_token = (
+            int(
+                enc[
+                    "attention_mask"
+                ][0]
+                .sum()
+                .item()
+            )
+            - 1
+        )
+
+        for L in range(
+            N_LAYERS
+        ):
+            h = (
+                out.hidden_states[
+                    L + 1
+                ][
+                    0,
+                    last_token,
+                    :
+                ]
+                .float()
+            )
+
+            samples[L].append(
+                h
+            )
+
+        del out
+        del enc
+
+    return [
+        torch.stack(
+            layer_samples,
+            dim=0,
+        )
+        for layer_samples
+        in samples
+    ]
+
+
+print(
+    "\n[4/8] Extracting matched "
+    "positive activation samples..."
+)
+
+positive_samples = (
+    collect_hidden_samples(
+        POSITIVE
+    )
+)
+
+gc.collect()
+torch.cuda.empty_cache()
+
+
+print(
+    "[5/8] Extracting matched "
+    "negative activation samples..."
+)
+
+negative_samples = (
+    collect_hidden_samples(
+        NEGATIVE
+    )
+)
+
+
+print(
+    "[6/8] Compass Foundry: "
+    "building Subspace-Fisher "
+    "per-layer compasses..."
+)
+
+actuators = []
+foundry_telemetry = []
+
+
+for L in range(
+    N_LAYERS
+):
+    H_pos = (
+        positive_samples[L]
+        .float()
+    )
+
+    H_neg = (
+        negative_samples[L]
+        .float()
+    )
+
+
+    # =========================================================================
+    # CLASS MEANS / RAW CONTRAST
+    # =========================================================================
+
+    mu_pos = (
+        H_pos.mean(
+            dim=0
+        )
+    )
+
+    mu_neg = (
+        H_neg.mean(
+            dim=0
+        )
+    )
+
+    mean_diff = (
+        mu_pos
+        - mu_neg
+    )
+
+    mean_diff_norm = (
+        torch.linalg
+        .vector_norm(
+            mean_diff
+        )
+        .clamp_min(
+            FISHER_EPS
+        )
+    )
+
+
+    # =========================================================================
+    # WITHIN-CLASS RESIDUAL GEOMETRY
+    # =========================================================================
+
+    R_pos = (
+        H_pos
+        - mu_pos.unsqueeze(0)
+    )
+
+    R_neg = (
+        H_neg
+        - mu_neg.unsqueeze(0)
+    )
+
+    R = (
+        torch.cat(
+            [
+                R_pos,
+                R_neg,
+            ],
+            dim=0,
+        )
+        .float()
+    )
+
+    # Degrees of freedom for two class means.
+    nu = max(
+        int(R.shape[0]) - 2,
+        1,
+    )
+
+
+    # =========================================================================
+    # REDUCED SVD
+    #
+    # R shape:
+    #
+    #       [2N, H]
+    #
+    # For 8 + 8 examples and Qwen2.5-7B:
+    #
+    #       [16, 3584]
+    #
+    # No H x H covariance is created.
+    # =========================================================================
+
+    U, S, Vh = (
+        torch.linalg.svd(
+            R,
+            full_matrices=False,
+        )
+    )
+
+    eig = (
+        S.square()
+        / float(nu)
+    )
+
+
+    # =========================================================================
+    # SCALE-ADAPTIVE RIDGE
+    #
+    # Zero / near-zero singular modes are excluded from the scale estimate.
+    # lambda still acts over the complete ambient space through d/lambda.
+    # =========================================================================
+
+    positive_eig = (
+        eig[
+            eig > FISHER_EPS
+        ]
+    )
+
+    if (
+        positive_eig.numel()
+        > 0
+    ):
+        eig_scale = (
+            torch.median(
+                positive_eig
+            )
+        )
+    else:
+        eig_scale = (
+            torch.tensor(
+                1.0,
+                dtype=torch.float32,
+                device=DEVICE,
+            )
+        )
+
+    ridge_lambda = (
+        FISHER_ALPHA
+        * eig_scale
+    ).clamp_min(
+        FISHER_EPS
+    )
+
+
+    # =========================================================================
+    # LOW-RANK REGULARIZED INVERSE ACTION
+    #
+    # x =
+    #
+    #   d/lambda
+    #
+    #   + V [
+    #       (1/(eig+lambda) - 1/lambda)
+    #       * (V^T d)
+    #     ]
+    #
+    # This includes both:
+    #
+    #   - residual subspace
+    #   - orthogonal complement
+    #
+    # without constructing or inverting C.
+    # =========================================================================
+
+    V = (
+        Vh.transpose(
+            0,
+            1,
+        )
+    )
+
+    projection = (
+        V.transpose(
+            0,
+            1,
+        )
+        @ mean_diff
+    )
+
+    correction = (
+        (
+            1.0
+            / (
+                eig
+                + ridge_lambda
+            )
+            -
+            1.0
+            / ridge_lambda
+        )
+        * projection
+    )
+
+    fisher_direction = (
+        mean_diff
+        / ridge_lambda
+        +
+        V
+        @ correction
+    )
+
+
+    # =========================================================================
+    # UNIT COMPASS
+    # =========================================================================
+
+    fisher_norm = (
+        torch.linalg
+        .vector_norm(
+            fisher_direction
+        )
+        .clamp_min(
+            FISHER_EPS
+        )
+    )
+
+    actuator = (
+        fisher_direction
+        / fisher_norm
+    ).to(
+        device=DEVICE,
+        dtype=torch.float32,
+    ).contiguous()
+
+    actuator_norm = (
+        torch.linalg
+        .vector_norm(
+            actuator
+        )
+    )
+
+
+    # =========================================================================
+    # GEOMETRIC DIAGNOSTIC
+    #
+    # Compare the 3.1 compass with the old 3.0 mean direction.
+    # Diagnostic only; it does NOT control runtime magnitude.
+    # =========================================================================
+
+    mean_unit = (
+        mean_diff
+        / mean_diff_norm
+    )
+
+    cosine_vs_mean = (
+        torch.dot(
+            actuator,
+            mean_unit,
+        )
+        .clamp(
+            -1.0,
+            1.0,
+        )
+    )
+
+
+    # Effective rank diagnostic.
+    singular_threshold = (
+        S.max()
+        * max(
+            R.shape
+        )
+        * torch.finfo(
+            S.dtype
+        ).eps
+    )
+
+    effective_rank = int(
+        (
+            S
+            > singular_threshold
+        )
+        .sum()
+        .item()
+    )
+
+
+    actuators.append(
+        actuator
+    )
+
+    foundry_telemetry.append(
+        {
+            "mean_diff_norm":
+                float(
+                    mean_diff_norm
+                    .item()
+                ),
+
+            "residual_rows":
+                int(
+                    R.shape[0]
+                ),
+
+            "residual_dim":
+                int(
+                    R.shape[1]
+                ),
+
+            "effective_rank":
+                effective_rank,
+
+            "lambda":
+                float(
+                    ridge_lambda
+                    .item()
+                ),
+
+            "fisher_raw_norm":
+                float(
+                    fisher_norm
+                    .item()
+                ),
+
+            "unit_norm":
+                float(
+                    actuator_norm
+                    .item()
+                ),
+
+            "cosine_vs_mean":
+                float(
+                    cosine_vs_mean
+                    .item()
+                ),
+        }
+    )
+
+
+    print(
+        f"  L{L:02d}: "
+        f"mean_norm="
+        f"{mean_diff_norm.item():.6f} | "
+        f"rank="
+        f"{effective_rank:02d} | "
+        f"lambda="
+        f"{ridge_lambda.item():.6e} | "
+        f"cos(mean,Fisher)="
+        f"{cosine_vs_mean.item():+.6f} | "
+        f"unit="
+        f"{actuator_norm.item():.6f}"
+    )
+
+
+del positive_samples
+del negative_samples
+
+gc.collect()
+torch.cuda.empty_cache()
+
+
+# =============================================================================
+# 9. GENERATION PROMPT
+# =============================================================================
+
+messages = [
+    {
+        "role": "system",
+        "content": SYSTEM_PROMPT,
+    },
+    {
+        "role": "user",
+        "content": USER_PROMPT,
+    },
+]
+
+prompt_text = (
+    tokenizer
+    .apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True,
+    )
+)
+
+inputs = tokenizer(
+    prompt_text,
+    return_tensors="pt",
+)
+
+inputs = {
+    k: v.to(DEVICE)
+    for k, v
+    in inputs.items()
+}
+
+PROMPT_LENGTH = (
+    inputs[
+        "input_ids"
+    ].shape[1]
+)
+
+
+# =============================================================================
+# 10. REPETITION METRICS
+# =============================================================================
+
+def repetition_ratio(
+    token_ids,
+    n
+):
+    ids = list(
+        map(
+            int,
+            token_ids
+        )
+    )
+
+    if len(ids) < n:
+        return 0.0
+
+    grams = [
+        tuple(
+            ids[i:i+n]
+        )
+        for i in range(
+            len(ids) - n + 1
+        )
+    ]
+
+    if not grams:
+        return 0.0
+
+    return (
+        1.0
+        - len(set(grams))
+        / len(grams)
+    )
+
+
+def loop_ratio_4gram(
+    token_ids
+):
+    ids = list(
+        map(
+            int,
+            token_ids
+        )
+    )
+
+    if len(ids) < 4:
+        return 0.0
+
+    grams = [
+        tuple(
+            ids[i:i+4]
+        )
+        for i in range(
+            len(ids) - 3
+        )
+    ]
+
+    counts = Counter(
+        grams
+    )
+
+    repeated = sum(
+        max(
+            0,
+            count - 1
+        )
+        for count
+        in counts.values()
+    )
+
+    return (
+        repeated
+        / max(
+            len(grams),
+            1
+        )
+    )
+
+
+# =============================================================================
+# 11. BASELINE / SEASC RUNNER
+# =============================================================================
+
+@torch.inference_mode()
+def generate_run(
+    name,
+    steering=False,
+):
+    handles = []
+
+    telemetry = [
+        {
+            "calls": 0,
+            "requested": [],
+            "realized": [],
+            "norm_change": [],
+        }
+        for _ in range(
+            N_LAYERS
+        )
+    ]
+
+
+    # =========================================================================
+    # INSTALL SEASC HOOKS
+    # =========================================================================
+
+    if steering:
+
+        for L in range(
+            N_LAYERS
+        ):
+            actuator = (
+                actuators[L]
+            )
+
+            relative_dose = (
+                IVME
+                * ENVELOPE[L]
+            )
+
+
+            def make_hook(
+                layer_idx,
+                actuator_vec,
+                dose,
+            ):
+                def hook(
+                    module,
+                    args,
+                    output,
+                ):
+                    if isinstance(
+                        output,
+                        tuple
+                    ):
+                        hidden = (
+                            output[0]
+                        )
+
+                        rest = (
+                            output[1:]
+                        )
+
+                    else:
+                        hidden = output
+                        rest = None
+
+
+                    # =========================================================
+                    # ORIGINAL / FROZEN STATE
+                    # =========================================================
+
+                    old = hidden
+
+
+                    # =========================================================
+                    # SEASC INJECTION
+                    # =========================================================
+
+                    new = (
+                        seasc_ext
+                        .seasc_inject(
+                            old,
+                            actuator_vec,
+                            float(dose),
+                        )
+                    )
+
+
+                    # =========================================================
+                    # TELEMETRY
+                    #
+                    # Final active token only.
+                    #
+                    # realized =
+                    #
+                    #       ||Delta h||
+                    #       -----------
+                    #         ||h||
+                    #
+                    # This is NOT hidden norm change.
+                    # =========================================================
+
+                    old_last = (
+                        old[
+                            :,
+                            -1,
+                            :
+                        ]
+                        .float()
+                    )
+
+                    new_last = (
+                        new[
+                            :,
+                            -1,
+                            :
+                        ]
+                        .float()
+                    )
+
+                    delta = (
+                        new_last
+                        - old_last
+                    )
+
+                    norm0 = (
+                        torch.linalg
+                        .vector_norm(
+                            old_last,
+                            dim=-1,
+                        )
+                        .clamp_min(
+                            1e-12
+                        )
+                    )
+
+                    norm1 = (
+                        torch.linalg
+                        .vector_norm(
+                            new_last,
+                            dim=-1,
+                        )
+                    )
+
+                    delta_norm = (
+                        torch.linalg
+                        .vector_norm(
+                            delta,
+                            dim=-1,
+                        )
+                    )
+
+                    realized = (
+                        delta_norm
+                        / norm0
+                    )
+
+                    norm_change = (
+                        (
+                            norm1
+                            - norm0
+                        )
+                        .abs()
+                        / norm0
+                    )
+
+                    t = telemetry[
+                        layer_idx
+                    ]
+
+                    t["calls"] += 1
+
+                    t[
+                        "requested"
+                    ].append(
+                        float(dose)
+                    )
+
+                    t[
+                        "realized"
+                    ].append(
+                        float(
+                            realized
+                            .mean()
+                            .item()
+                        )
+                    )
+
+                    t[
+                        "norm_change"
+                    ].append(
+                        float(
+                            norm_change
+                            .mean()
+                            .item()
+                        )
+                    )
+
+
+                    if rest is None:
+                        return new
+
+                    return (
+                        new,
+                    ) + rest
+
+                return hook
+
+
+            handle = (
+                layers[L]
+                .register_forward_hook(
+                    make_hook(
+                        L,
+                        actuator,
+                        relative_dose,
+                    )
+                )
+            )
+
+            handles.append(
+                handle
+            )
+
+
+    # =========================================================================
+    # GENERATION
+    # =========================================================================
+
+    try:
+        torch.cuda.synchronize()
+
+        start = (
+            time.perf_counter()
+        )
+
+        generated = (
+            model.generate(
+                **inputs,
+                max_new_tokens=(
+                    MAX_NEW_TOKENS
+                ),
+                do_sample=False,
+                repetition_penalty=(
+                    REPETITION_PENALTY
+                ),
+                use_cache=True,
+                pad_token_id=(
+                    tokenizer
+                    .pad_token_id
+                ),
+                eos_token_id=(
+                    tokenizer
+                    .eos_token_id
+                ),
+            )
+        )
+
+        torch.cuda.synchronize()
+
+        elapsed = (
+            time.perf_counter()
+            - start
+        )
+
+    finally:
+        for handle in handles:
+            handle.remove()
+
+
+    # =========================================================================
+    # DECODE
+    # =========================================================================
+
+    new_ids = (
+        generated[
+            0,
+            PROMPT_LENGTH:
+        ]
+        .detach()
+        .cpu()
+        .tolist()
+    )
+
+    text = tokenizer.decode(
+        new_ids,
+        skip_special_tokens=True,
+    )
+
+    token_count = len(
+        new_ids
+    )
+
+
+    result = {
+        "name": name,
+
+        "text": text,
+
+        "tokens":
+            token_count,
+
+        "seconds":
+            elapsed,
+
+        "tok_s":
+            token_count
+            / max(
+                elapsed,
+                1e-12
+            ),
+
+        "rep2":
+            repetition_ratio(
+                new_ids,
+                2
+            ),
+
+        "rep3":
+            repetition_ratio(
+                new_ids,
+                3
+            ),
+
+        "rep4":
+            repetition_ratio(
+                new_ids,
+                4
+            ),
+
+        "loop4":
+            loop_ratio_4gram(
+                new_ids
+            ),
+
+        "telemetry":
+            telemetry,
+    }
+
+
+    # =========================================================================
+    # AGGREGATED SEASC TELEMETRY
+    # =========================================================================
+
+    if steering:
+
+        realized = []
+        requested = []
+        norm_changes = []
+
+        for layer_data in telemetry:
+
+            realized.extend(
+                layer_data[
+                    "realized"
+                ]
+            )
+
+            requested.extend(
+                layer_data[
+                    "requested"
+                ]
+            )
+
+            norm_changes.extend(
+                layer_data[
+                    "norm_change"
+                ]
+            )
+
+        result[
+            "realized_mean"
+        ] = (
+            sum(realized)
+            / max(
+                len(realized),
+                1
+            )
+        )
+
+        result[
+            "requested_mean"
+        ] = (
+            sum(requested)
+            / max(
+                len(requested),
+                1
+            )
+        )
+
+        result[
+            "norm_change_mean"
+        ] = (
+            sum(norm_changes)
+            / max(
+                len(norm_changes),
+                1
+            )
+        )
+
+
+    del generated
+
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    return result
+
+
+# =============================================================================
+# 12. DUAL RUN
+# =============================================================================
+
+print(
+    "\n[7/8] Running BASELINE..."
+)
+
+baseline = generate_run(
+    "BASELINE",
+    steering=False,
+)
+
+
+print(
+    "[8/8] Running "
+    "AkbasCore 3.1 SEASC + Compass Foundry..."
+)
+
+seasc = generate_run(
+    "AKBASCORE 3.1 SEASC + SUBSPACE-FISHER",
+    steering=True,
+)
+
+
+# =============================================================================
+# 13. FINAL REPORT
+# =============================================================================
+
+def percent(x):
+    return (
+        100.0 * x
+    )
+
+
+print("\n\n")
+
+print("=" * 108)
+print(
+    "AkbasCore 3.1 SEASC + Compass Foundry "
+    "— FINAL REPORT"
+)
+print("=" * 108)
+
+
+print(
+    "\nREFERENCE CONFIGURATION"
+)
+
+print("-" * 108)
+
+print(
+    f"Model          : "
+    f"{MODEL_ID}"
+)
+
+print(
+    f"Hooked layers  : "
+    f"L0-L{N_LAYERS - 1}"
+)
+
+print(
+    f"İvme           : "
+    f"{IVME:.3f}"
+)
+
+print(
+    f"Sönüm          : "
+    f"{SONUM:.2f}"
+)
+
+print(
+    f"Zirve          : "
+    f"{ZIRVE:.2f}"
+)
+
+print(
+    f"Taban          : "
+    f"{TABAN:.2f}"
+)
+
+print(
+    f"Fisher alpha   : "
+    f"{FISHER_ALPHA:.3f}"
+)
+
+print(
+    "Magnitude law  : "
+    "frozen-norm direct dose"
+)
+
+print(
+    "Direction      : "
+    "per-layer Subspace-Fisher matched contrastive"
+)
+
+print(
+    "Foundry solver : "
+    "regularized reduced-SVD inverse action"
+)
+
+print(
+    "Full HxH cov   : "
+    "NONE"
+)
+
+print(
+    "Envelope       : "
+    "static normalized DRA"
+)
+
+print(
+    "Cosine gain    : NONE"
+)
+
+print(
+    "Cap            : NONE"
+)
+
+print(
+    "Brake          : NONE"
+)
+
+print(
+    "Controller     : NONE"
+)
+
+print(
+    "Radar / JVP    : NONE"
+)
+
+
+# =============================================================================
+# 14. COMPASS FOUNDRY REPORT
+# =============================================================================
+
+print("\n")
+print("=" * 108)
+print(
+    "COMPASS FOUNDRY — SUBSPACE-FISHER"
+)
+print("=" * 108)
+
+print(
+    f"{'LAYER':<8}"
+    f"{'MEAN ||d||':>16}"
+    f"{'RANK':>10}"
+    f"{'LAMBDA':>18}"
+    f"{'COS MEAN/FISHER':>20}"
+    f"{'||A||':>12}"
+)
+
+print("-" * 108)
+
+for L, data in enumerate(
+    foundry_telemetry
+):
+    print(
+        f"L{L:02d}{'':<5}"
+        f"{data['mean_diff_norm']:>16.6f}"
+        f"{data['effective_rank']:>10d}"
+        f"{data['lambda']:>18.6e}"
+        f"{data['cosine_vs_mean']:>20.6f}"
+        f"{data['unit_norm']:>12.6f}"
+    )
+
+
+mean_foundry_cos = (
+    sum(
+        x[
+            "cosine_vs_mean"
+        ]
+        for x
+        in foundry_telemetry
+    )
+    / len(
+        foundry_telemetry
+    )
+)
+
+print("-" * 108)
+
+print(
+    f"Mean cosine "
+    f"(3.0 mean compass vs 3.1 Subspace-Fisher): "
+    f"{mean_foundry_cos:+.6f}"
+)
+
+
+# =============================================================================
+# 15. OUTPUTS
+# =============================================================================
+
+print("\n")
+print("=" * 108)
+print("BASELINE OUTPUT")
+print("=" * 108)
+
+print(
+    baseline[
+        "text"
+    ]
+)
+
+
+print("\n")
+print("=" * 108)
+print(
+    "AKBASCORE 3.1 "
+    "SEASC + COMPASS FOUNDRY OUTPUT"
+)
+print("=" * 108)
+
+print(
+    seasc[
+        "text"
+    ]
+)
+
+
+# =============================================================================
+# 16. SIDE-BY-SIDE TELEMETRY
+# =============================================================================
+
+print("\n")
+print("=" * 108)
+print(
+    "SIDE-BY-SIDE TELEMETRY"
+)
+print("=" * 108)
+
+print(
+    f"{'METRIC':<32}"
+    f"{'BASELINE':>22}"
+    f"{'SEASC 3.1':>22}"
+)
+
+print("-" * 108)
+
+print(
+    f"{'Generated tokens':<32}"
+    f"{baseline['tokens']:>22}"
+    f"{seasc['tokens']:>22}"
+)
+
+print(
+    f"{'Token/s':<32}"
+    f"{baseline['tok_s']:>22.3f}"
+    f"{seasc['tok_s']:>22.3f}"
+)
+
+print(
+    f"{'2-gram repetition %':<32}"
+    f"{percent(baseline['rep2']):>22.3f}"
+    f"{percent(seasc['rep2']):>22.3f}"
+)
+
+print(
+    f"{'3-gram repetition %':<32}"
+    f"{percent(baseline['rep3']):>22.3f}"
+    f"{percent(seasc['rep3']):>22.3f}"
+)
+
+print(
+    f"{'4-gram repetition %':<32}"
+    f"{percent(baseline['rep4']):>22.3f}"
+    f"{percent(seasc['rep4']):>22.3f}"
+)
+
+print(
+    f"{'4-gram loop %':<32}"
+    f"{percent(baseline['loop4']):>22.3f}"
+    f"{percent(seasc['loop4']):>22.3f}"
+)
+
+print(
+    f"{'Mean requested dose %':<32}"
+    f"{'-':>22}"
+    f"{percent(seasc['requested_mean']):>22.4f}"
+)
+
+print(
+    f"{'Mean realized dose %':<32}"
+    f"{'-':>22}"
+    f"{percent(seasc['realized_mean']):>22.4f}"
+)
+
+print(
+    f"{'Mean hidden norm change %':<32}"
+    f"{'-':>22}"
+    f"{percent(seasc['norm_change_mean']):>22.4f}"
+)
+
+
+# =============================================================================
+# 17. PER-LAYER REALIZED DOSE
+# =============================================================================
+
+print("\n")
+print("=" * 108)
+print(
+    "PER-LAYER DOSE TELEMETRY"
+)
+print("=" * 108)
+
+print(
+    f"{'LAYER':<8}"
+    f"{'ENVELOPE':>14}"
+    f"{'REQUESTED %':>18}"
+    f"{'REALIZED %':>18}"
+    f"{'NORM CHANGE %':>20}"
+)
+
+print("-" * 108)
+
+
+for L in range(
+    N_LAYERS
+):
+    data = (
+        seasc[
+            "telemetry"
+        ][L]
+    )
+
+    if not data[
+        "realized"
+    ]:
+        continue
+
+    realized = (
+        sum(
+            data[
+                "realized"
+            ]
+        )
+        / len(
+            data[
+                "realized"
+            ]
+        )
+    )
+
+    norm_change = (
+        sum(
+            data[
+                "norm_change"
+            ]
+        )
+        / len(
+            data[
+                "norm_change"
+            ]
+        )
+    )
+
+    requested = (
+        IVME
+        * ENVELOPE[L]
+    )
+
+    print(
+        f"L{L:02d}{'':<5}"
+        f"{ENVELOPE[L]:>14.6f}"
+        f"{100.0 * requested:>18.4f}"
+        f"{100.0 * realized:>18.4f}"
+        f"{100.0 * norm_change:>20.4f}"
+    )
+
+
+# =============================================================================
+# 18. PHYSICAL DOSE SANITY CHECK
+# =============================================================================
+
+first_layer = (
+    seasc[
+        "telemetry"
+    ][0]
+)
+
+if first_layer[
+    "realized"
+]:
+    l0_realized = (
+        sum(
+            first_layer[
+                "realized"
+            ]
+        )
+        / len(
+            first_layer[
+                "realized"
+            ]
+        )
+    )
+
+    print("\n")
+    print("=" * 108)
+    print(
+        "PHYSICAL DOSE "
+        "SANITY CHECK"
+    )
+    print("=" * 108)
+
+    print(
+        f"L0 requested : "
+        f"{100.0 * IVME:.4f}% "
+        f"||h||"
+    )
+
+    print(
+        f"L0 realized  : "
+        f"{100.0 * l0_realized:.4f}% "
+        f"||h||"
+    )
+
+    error_pp = (
+        abs(
+            l0_realized
+            - IVME
+        )
+        * 100.0
+    )
+
+    print(
+        f"BF16 error   : "
+        f"{error_pp:.5f} "
+        f"percentage points"
+    )
+
+
+# =============================================================================
+# 19. FINAL ARCHITECTURE LOCK
+# =============================================================================
+
+print("\n")
+print("=" * 108)
+print(
+    "AkbasCore 3.1 — SEASC + Compass Foundry "
+    "— COMPLETE"
+)
+print("=" * 108)
+
+print(
+    "Production Core = "
+    "Per-Layer Subspace-Fisher Matched-Contrastive Compass "
+    "+ Frozen-Norm Direct Dose "
+    "+ Static Normalized DRA Envelope"
+)
+
+print(
+    "\nCompass equation:"
+)
+
+print(
+    "A_L = normalize("
+    "(C_L + lambda_L I)^(-1) "
+    "(mu_pos_L - mu_neg_L)"
+    ")"
+)
+
+print(
+    "\nCompass implementation:"
+)
+
+print(
+    "Within-class residual geometry "
+    "+ Reduced SVD "
+    "+ Regularized inverse action "
+    "+ FP32 unit normalization"
+)
+
+print(
+    "\nRuntime steering equation:"
+)
+
+print(
+    "h'_L = h_L + "
+    "i0 * E(L) * ||h_L|| * A_L"
+)
+
+print(
+    "\nSeparation of responsibilities:"
+)
+
+print(
+    "Compass Foundry = direction"
+)
+
+print(
+    "SEASC motor      = physical dose"
+)
+
+print(
+    "DRA envelope     = static layerwise dose shape"
+)
+
+print(
+    "\nRemoved mechanisms:"
+)
+
+print(
+    "cosine gain / cap / brake / "
+    "manifold / radar / JVP / "
+    "runtime controller = NONE"
+)
