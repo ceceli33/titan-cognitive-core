@@ -1,0 +1,107 @@
+ ==============================================================================================================
+TEST 150 — AKBASCORE COMPASS FOUNDRY — ON-THE-GO 4-ARM TOURNAMENT
+==============================================================================================================
+GPU  : NVIDIA A100-SXM4-40GB
+Model: Qwen/Qwen2.5-1.5B-Instruct
+config.json: 100% 660/660 [00:00<00:00, 83.8kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 31.0kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+vocab.json: 100% 2.78M/2.78M [00:00<00:00, 86.3MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 63.5MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 131MB/s]model.safetensors: reconstructing file: 100% 3.09GB / 3.09GB,  222MB/s  model.safetensors: downloading bytes:  2.69GB,  208MB/s  Loading weights: 100% 338/338 [00:00<00:00, 441.45it/s]generation_config.json: 100% 242/242 [00:00<00:00, 30.2kB/s]Hidden: 1536 | Layers: 28 | Foundry: 20
+
+[1/9] Extracting matched activations
+  04/24
+  08/24
+  12/24
+  16/24
+  20/24
+  24/24
+
+[2/9] Nuisance basis
+
+COMPASS GEOMETRY
+CONTROL_MEAN_ORTHO           retention=0.9832  cos(control)=+1.0000
+DIAG_WHITENED_ORTHO          retention=0.9843  cos(control)=+0.9505
+SUBSPACE_FISHER_ORTHO        retention=0.9979  cos(control)=+0.7619
+DIAG_INVARIANCE_ORTHO        retention=0.9853  cos(control)=+0.9180
+YES: 14004 NO: 8996
+
+[3/9] Four-arm causal tournament
+
+--------------------------------------------------------------------------------------------------------------
+CONTROL_MEAN_ORTHO
+theta*       : 2.0
+active layers: [1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+causal       : +3.51041667
+C_sym        : 0.607207
+shuffle      : +0.10937500 ± 0.21003767
+random       : +0.00000000
+ΔNLL         : +1.42077295
+Z            : +16.192532
+CVS          : +3.11688708
+
+--------------------------------------------------------------------------------------------------------------
+DIAG_WHITENED_ORTHO
+theta*       : 2.0
+active layers: [1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+causal       : +2.30208334
+C_sym        : 0.442886
+shuffle      : +0.03385417 ± 0.09575404
+random       : +0.00000000
+ΔNLL         : +1.50124276
+Z            : +23.688077
+CVS          : +1.96798062
+
+--------------------------------------------------------------------------------------------------------------
+SUBSPACE_FISHER_ORTHO
+theta*       : 2.0
+active layers: [2, 3, 4, 5, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+causal       : +3.34375000
+C_sym        : 0.726244
+shuffle      : +0.00000000 ± 0.00000000
+random       : +0.32986111
+ΔNLL         : +1.06121508
+Z            : +3343750.001369
+CVS          : +2.80164587
+
+--------------------------------------------------------------------------------------------------------------
+DIAG_INVARIANCE_ORTHO
+theta*       : 2.0
+active layers: [1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+causal       : +2.72916667
+C_sym        : 0.510224
+shuffle      : +0.84765625 ± 1.09990386
+random       : +0.05902778
+ΔNLL         : +1.28018117
+Z            : +1.710614
+CVS          : +1.62547418
+
+==============================================================================================================
+COMPARATIVE MATRIX
+==============================================================================================================
+CONTROL_MEAN_ORTHO           C=+3.510417 ΔNLL=+1.420773 Rc=1.000 Rn=1.000 Z=+16.193 Pareto=False
+DIAG_WHITENED_ORTHO          C=+2.302083 ΔNLL=+1.501243 Rc=0.656 Rn=1.057 Z=+23.688 Pareto=False
+SUBSPACE_FISHER_ORTHO        C=+3.343750 ΔNLL=+1.061215 Rc=0.953 Rn=0.747 Z=+3343750.001 Pareto=False
+DIAG_INVARIANCE_ORTHO        C=+2.729167 ΔNLL=+1.280181 Rc=0.777 Rn=0.901 Z=+1.711 Pareto=False
+
+LAYERWISE COSINE vs CONTROL
+CONTROL_MEAN_ORTHO           [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+DIAG_WHITENED_ORTHO          [0.9118, 0.8894, 0.9361, 0.9483, 0.9584, 0.9586, 0.9505, 0.9544, 0.9547, 0.962, 0.96, 0.9572, 0.9617, 0.9662, 0.9631, 0.9566, 0.9582, 0.9551, 0.9564, 0.9508]
+SUBSPACE_FISHER_ORTHO        [0.3876, 0.5562, 0.6797, 0.7365, 0.7671, 0.7005, 0.6565, 0.6941, 0.786, 0.823, 0.8025, 0.8327, 0.8412, 0.873, 0.8782, 0.8857, 0.8569, 0.8553, 0.8282, 0.7979]
+DIAG_INVARIANCE_ORTHO        [0.8326, 0.8205, 0.8862, 0.8816, 0.8909, 0.9102, 0.911, 0.9265, 0.9306, 0.9335, 0.9427, 0.9417, 0.946, 0.951, 0.9483, 0.9443, 0.9459, 0.938, 0.9402, 0.9371]
+
+[4/9] LOCK: SUBSPACE_FISHER_ORTHO
+FINAL BASE : +6.14062500
+FINAL +A   : +9.44531250
+FINAL -A   : +0.14843750
+FINAL C    : +3.30468750
+FINAL Csym : 0.710924
+FINAL mono : True
+
+==============================================================================================================
+TEST 150 COMPLETE
+STATUS : LOCK
+WINNER : SUBSPACE_FISHER_ORTHO
+JSON   : /content/TEST150_COMPASS_FOUNDRY/TEST150_SUMMARY.json
+REPORT : /content/TEST150_COMPASS_FOUNDRY/TEST150_REPORT.txt
+NPZ    : /content/TEST150_COMPASS_FOUNDRY/TEST150_COMPASS_LOCK.npz
+ZIP    : /content/TEST150_COMPASS_FOUNDRY_COMPLETE.zip
+==============================================================================================================
