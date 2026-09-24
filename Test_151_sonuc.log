@@ -1,0 +1,116 @@
+ ================================================================================================================
+TEST 151 v2 — SYNTHETIC FOUNDRY — LOCKED
+MODEL-NATIVE SYNTHETIC DIRECTION FALSIFICATION ASSAY
+================================================================================================================
+config.json: 100% 663/663 [00:00<00:00, 88.3kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 970kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+vocab.json: 100% 2.78M/2.78M [00:00<00:00, 47.5MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 73.7MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 133MB/s][transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.16MB/s]Download complete: :  13.1GB, 23.5MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  262MB/s  Fetching 4 files: 100% 4/4 [00:43<00:00,  9.37s/it]Loading weights: 100% 339/339 [00:03<00:00, 98.03it/s]generation_config.json: 100% 243/243 [00:00<00:00, 31.1kB/s]GPU              : NVIDIA A100-SXM4-40GB
+Model            : Qwen/Qwen2.5-7B-Instruct
+Hidden           : 3584
+Source           : L3
+Targets          : L4-L19
+Dose             : 0.2500%
+Candidates       : 32
+Null tournaments : 16
+
+[1/6] Parent A...
+[2/6] Parent B...
+[3/6] Neutral residual bank...
+Raw A/B cosine @ L3: -0.096025
+Neutral samples   : 64
+Residual rank     : 63
+Valid candidates  : 32
+
+[4/6] Real residual-span tournament...
+  8/32
+  16/32
+  24/32
+  32/32
+[5/6] Matched isotropic null tournaments...
+  null 01/16 | max=0.622240
+  null 02/16 | max=0.627108
+  null 03/16 | max=0.615856
+  null 04/16 | max=0.603924
+  null 05/16 | max=0.632749
+  null 06/16 | max=0.605532
+  null 07/16 | max=0.613236
+  null 08/16 | max=0.614177
+  null 09/16 | max=0.628402
+  null 10/16 | max=0.591496
+  null 11/16 | max=0.597278
+  null 12/16 | max=0.615967
+  null 13/16 | max=0.603914
+  null 14/16 | max=0.618534
+  null 15/16 | max=0.593318
+  null 16/16 | max=0.606338
+
+==============================================================================================================================
+TOP MODEL-NATIVE DIRECTIONS
+==============================================================================================================================
+ ID    FITNESS      GAIN     LOCAL    SOURCE   GAIN_CV    END_CV    RAW_AB    POST_AB
+  6   0.622072    9.4347    0.6625    0.0502    0.0465    0.0177   0.02030  0.0000000
+  0   0.613375    9.1930    0.6588    0.0572    0.0211    0.0519   0.01251  0.0000000
+ 18   0.609381   10.0889    0.6784    0.0567    0.0452    0.0652   0.03342  0.0000000
+ 17   0.605269    8.9177    0.6423    0.0438    0.0213    0.0390   0.00626  0.0000000
+ 26   0.604051    9.3736    0.6615    0.0598    0.0535    0.0395   0.02344  0.0000000
+  5   0.603106    8.5979    0.6410    0.0593    0.0282    0.0337   0.01974  0.0000000
+  9   0.582428    9.0611    0.6509    0.0519    0.0162    0.0997   0.02369  0.0000000
+ 27   0.581557    9.1078    0.6563    0.0551    0.0601    0.0645   0.02978  0.0000000
+
+==============================================================================================================================
+TEST 151 v2 — LOCKED FALSIFICATION SUMMARY
+==============================================================================================================================
+Neutral residual rank                : 63
+Real candidate count                 : 32
+Null tournament size                 : 32
+Null tournament count                : 16
+Best real candidate                  : C6
+Best real fitness                    : 0.62207236
+Real population mean fitness         : 0.55090476
+Best mean downstream gain            : 9.43471490
+Best local transport coherence       : 0.66254125
+Best source-direction alignment      : 0.05017512
+Best gain CV                         : 0.04651613
+Best endpoint CV                     : 0.01771479
+Best raw parent overlap              : 0.02030130
+Best post-projection parent overlap  : 0.00000000
+Null tournament-max mean             : 0.61187937
+Null tournament-max SD               : 0.01238994
+Null maxima >= real maximum          : 4/16
+Empirical tournament p               : 0.294118
+Real-max percentile vs null maxima   : 75.00%
+Descriptive tournament Z             : 0.8227
+Minimum possible empirical p         : 0.058824
+
+NULL TOURNAMENT MAXIMA
+[0.62224 , 0.627108, 0.615856, 0.603924, 0.632749, 0.605532, 0.613236,
+ 0.614177, 0.628402, 0.591496, 0.597278, 0.615967, 0.603914, 0.618534,
+ 0.593318, 0.606338]
+
+==============================================================================================================================
+LOCKED INTERPRETATION
+==============================================================================================================================
+SCREEN: REAL MAX ABOVE NULL-MAX MEAN, BUT NULL OVERLAP EXISTS.
+
+This assay does not claim discovery of a concept.
+It tests whether A/B-span-excluded directions synthesized from the model's
+own neutral residual activation subspace exhibit unusually coherent and
+prompt-stable downstream transport relative to equally searched isotropic
+random directions.
+
+LOCAL coherence measures smooth layer-to-layer transport:
+    cos(delta_L, delta_{L-1})
+
+SOURCE alignment is separate telemetry:
+    cos(delta_L, z_source)
+
+Rotation away from the source direction is therefore not automatically
+penalized. No semantic label is assigned to the surviving direction.
+
+With 16 null tournaments the minimum empirical p is 1/17; descriptive Z
+and percentile are screening statistics, not claims of significance.
+
+==============================================================================================================================
+TEST 151 v2 COMPLETE
+==============================================================================================================================
