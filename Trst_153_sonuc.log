@@ -1,0 +1,242 @@
+ ============================================================================================================================================
+TEST 153 — CAUSAL POTENT / NULL TRANSPORT ASSAY
+SELF-CONTAINED TEST152 ATLAS RECONSTRUCTION · LOCKED CAUSAL INTERVENTION
+============================================================================================================================================
+
+[1/12] Loading frozen model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 211kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 42.8kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 49.9MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 172MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 274MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 8.10MB/s]Download complete: :  13.1GB,  121MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  417MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  7.00s/it]Loading weights: 100% 339/339 [00:01<00:00, 346.12it/s]generation_config.json: 100% 243/243 [00:00<00:00, 82.1kB/s]GPU             : NVIDIA RTX PRO 6000 Blackwell Server Edition
+Model           : Qwen/Qwen2.5-7B-Instruct
+Hidden          : 3584
+Layers          : 28
+Source          : L3
+Targets         : [6, 10, 14, 19]
+
+[2/12] Reconstructing TEST152 SEARCH corpus...
+Atlas SEARCH prompts: 192
+
+[3/12] Rebuilding spontaneous activation atlas...
+  atlas 001/192
+  atlas 032/192
+  atlas 064/192
+  atlas 096/192
+  atlas 128/192
+  atlas 160/192
+  atlas 192/192
+
+[4/12] Reconstructing locked source/response modes...
+L3->L6 | sigma1=0.623909 | sigma2=0.466016 | sigma8=0.125343
+L3->L10 | sigma1=0.926220 | sigma2=0.864056 | sigma8=0.243236
+L3->L14 | sigma1=1.239003 | sigma2=1.135256 | sigma8=0.320104
+L3->L19 | sigma1=3.384266 | sigma2=2.670946 | sigma8=0.729875
+
+TEST152 fingerprint check (relative tolerance):
+L3->L6 | max relative error=0.1883% (tolerance 1.50%)
+L3->L10 | max relative error=0.9032% (tolerance 1.50%)
+L3->L14 | max relative error=0.1753% (tolerance 1.50%)
+L3->L19 | max relative error=0.2685% (tolerance 1.50%)
+
+[5/12] Locking persistent source subspace...
+Persistent support:
+ P01 = 0.998276
+ P02 = 0.996666
+ P03 = 0.991635
+ P04 = 0.944814
+ P05 = 0.865893
+ P06 = 0.740421
+ P07 = 0.684354
+ P08 = 0.322901
+ P09 = 0.303973
+ P10 = 0.087799
+TEST152 support fingerprint relative error: 0.7950% (tolerance 1.50%)
+
+ATLAS LOCKED.
+Primary POTENT dimensions : 4
+NULL exclusion dimensions : 7
+
+Causal prompts: 32
+
+[6/12] Building matched direction banks...
+POTENT bank : torch.Size([8, 3584])
+NULL bank   : torch.Size([8, 3584])
+Max NULL overlap with U7: 0.000000200
+
+[7/12] Capturing causal baselines...
+  baseline 01/32
+  baseline 08/32
+  baseline 16/32
+  baseline 24/32
+  baseline 32/32
+
+[8/12] Running POTENT / NULL causal interventions...
+  0001/1536 | dose=0.00125 | POTENT | dir=1
+  0128/1536 | dose=0.00125 | POTENT | dir=4
+  0256/1536 | dose=0.00125 | POTENT | dir=8
+  0384/1536 | dose=0.00125 | NULL | dir=4
+  0512/1536 | dose=0.00125 | NULL | dir=8
+  0640/1536 | dose=0.00250 | POTENT | dir=4
+  0768/1536 | dose=0.00250 | POTENT | dir=8
+  0896/1536 | dose=0.00250 | NULL | dir=4
+  1024/1536 | dose=0.00250 | NULL | dir=8
+  1152/1536 | dose=0.00500 | POTENT | dir=4
+  1280/1536 | dose=0.00500 | POTENT | dir=8
+  1408/1536 | dose=0.00500 | NULL | dir=4
+  1536/1536 | dose=0.00500 | NULL | dir=8
+
+[9/12] Aggregating causal results...
+
+======================================================================================================================================================
+PRIMARY CAUSAL TEST — DOSE 0.00250
+======================================================================================================================================================
+   HORIZON         G_P         G_N      R_PN         pG        Q_P        Q_N     Qratio         pQ
+    L3->L6    4.227088    4.127161    1.0242   0.006100   0.051487   0.029823     1.7264   0.000100
+   L3->L10    7.611012    7.559431    1.0068   0.259887   0.027401   0.028431     0.9638   0.863457
+   L3->L14   10.407877   10.389770    1.0017   0.376831   0.023953   0.023038     1.0397   0.191590
+   L3->L19   16.986244   17.116428    0.9924   0.816359   0.022727   0.023268     0.9768   0.618769
+
+======================================================================================================================================================
+DOSE ROBUSTNESS
+======================================================================================================================================================
+
+DOSE=0.00125
+L06 | G_P=8.306722 | G_N=7.855643 | R=1.0574 | Q_P=0.034426 | Q_N=0.026364
+L10 | G_P=15.783591 | G_N=15.237931 | R=1.0358 | Q_P=0.028771 | Q_N=0.028326
+L14 | G_P=21.718184 | G_N=20.942422 | R=1.0370 | Q_P=0.024312 | Q_N=0.024411
+L19 | G_P=35.503118 | G_N=34.989327 | R=1.0147 | Q_P=0.024785 | Q_N=0.023182
+
+DOSE=0.00250
+L06 | G_P=4.227088 | G_N=4.127161 | R=1.0242 | Q_P=0.051487 | Q_N=0.029823
+L10 | G_P=7.611012 | G_N=7.559431 | R=1.0068 | Q_P=0.027401 | Q_N=0.028431
+L14 | G_P=10.407877 | G_N=10.389770 | R=1.0017 | Q_P=0.023953 | Q_N=0.023038
+L19 | G_P=16.986244 | G_N=17.116428 | R=0.9924 | Q_P=0.022727 | Q_N=0.023268
+
+DOSE=0.00500
+L06 | G_P=2.436170 | G_N=2.300837 | R=1.0588 | Q_P=0.094175 | Q_N=0.029264
+L10 | G_P=4.038463 | G_N=3.903584 | R=1.0346 | Q_P=0.034026 | Q_N=0.027135
+L14 | G_P=5.365687 | G_N=5.297295 | R=1.0129 | Q_P=0.027460 | Q_N=0.024830
+L19 | G_P=8.694382 | G_N=8.764009 | R=0.9921 | Q_P=0.022427 | Q_N=0.023987
+
+======================================================================================================================================================
+REALIZED BF16 SOURCE WRITE
+======================================================================================================================================================
+dose=0.00125 | POTENT | realized/requested=0.986655±0.013828 | realized norm=0.023638
+dose=0.00125 |   NULL | realized/requested=1.010166±0.010103 | realized norm=0.024201
+dose=0.00250 | POTENT | realized/requested=1.040459±0.013580 | realized norm=0.049853
+dose=0.00250 |   NULL | realized/requested=1.030866±0.006705 | realized norm=0.049394
+dose=0.00500 | POTENT | realized/requested=1.015412±0.005246 | realized norm=0.097307
+dose=0.00500 |   NULL | realized/requested=1.012197±0.003087 | realized norm=0.096999
+
+======================================================================================================================================================
+PROMPT-LEVEL CONSISTENCY — PRIMARY DOSE
+======================================================================================================================================================
+L3->L6 | G P>N=21/32 | median R=1.0177 | Q P>N=30/32 | median Qratio=1.8979
+L3->L10 | G P>N=15/32 | median R=0.9992 | Q P>N=13/32 | median Qratio=0.9191
+L3->L14 | G P>N=17/32 | median R=1.0026 | Q P>N=21/32 | median Qratio=1.0868
+L3->L19 | G P>N=15/32 | median R=0.9947 | Q P>N=13/32 | median Qratio=0.9599
+
+[10/12] Saving atlas and causal result...
+
+[11/12] Locked falsification rule...
+
+======================================================================================================================================================
+LOCKED INTERPRETATION
+======================================================================================================================================================
+
+TEST153 is a causal follow-up to TEST152.
+
+TEST152:
+    observational natural cross-layer covariance.
+
+TEST153:
+    atlas-locked intervention.
+
+No TEST153 prompt or intervention is used to discover U or V.
+
+Primary source space:
+    first 4 TEST152 persistent modes.
+
+NULL:
+    random directions projected outside the broader first-7 persistent
+    source candidate space.
+
+The causal claim is NOT supported merely because POTENT produces a
+large downstream delta.
+
+Two predictions are tested separately:
+
+    1. TRANSMISSION
+
+       G_POTENT > G_NULL
+
+    2. RESPONSE SPECIFICITY
+
+       Q_POTENT > Q_NULL
+
+where:
+
+       G = ||delta downstream|| / ||realized BF16 delta L3||
+
+and:
+
+       Q = energy fraction of downstream delta inside TEST152's
+           frozen response subspace.
+
+Interpretation:
+
+A)
+    G_P > G_N
+    Q_P > Q_N
+    stable across prompts and doses
+
+    -> strongest evidence that TEST152 recovered a causally privileged
+       source-to-response transport structure.
+
+B)
+    G_P > G_N
+    Q_P ~= Q_N
+
+    -> source subspace may be generally high-transmission, but the
+       specific TEST152 response mapping is not causally confirmed.
+
+C)
+    G_P ~= G_N
+    Q_P > Q_N
+
+    -> atlas predicts downstream orientation but not stronger total
+       transmission.
+
+D)
+    G_P ~= G_N
+    Q_P ~= Q_N
+
+    -> observational TEST152 covariance does not survive causal
+       intervention.
+
+Even outcome A does NOT prove that all remaining 3577+ dimensions are
+universally null.
+
+The conclusion remains restricted to:
+    this model,
+    this source layer,
+    these downstream horizons,
+    these prompt distributions,
+    and this intervention regime.
+
+NOTE ON FINGERPRINT VERIFICATION:
+    The TEST152 reconstruction check above uses a RELATIVE tolerance
+    (not absolute). This is because the four target layers have very
+    different natural singular-value scale, and small, consistent
+    cross-GPU BF16 numerical drift (different hardware can legitimately
+    produce slightly different reduction order in matmul/attention
+    kernels) shows up as a larger ABSOLUTE difference at
+    larger-magnitude layers without indicating any actual problem. A
+    genuine corpus or logic mismatch would be expected to produce much
+    larger relative deviations than ordinary hardware noise.
+
+
+[12/12] Complete.
+======================================================================================================================================================
+Saved: /content/TEST153_CAUSAL_POTENT_NULL_TRANSPORT.npz
+TEST 153 COMPLETE
+======================================================================================================================================================
