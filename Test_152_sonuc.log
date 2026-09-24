@@ -1,0 +1,399 @@
+ ================================================================================================================================
+TEST 152 — SPONTANEOUS FLUCTUATION ATLAS
+ENDOGENOUS POTENT TRANSPORT SUBSPACE
+NATURAL CROSS-LAYER COVARIANCE · SHUFFLE NULL · PERSISTENCE X-RAY
+================================================================================================================================
+Total prompts    : 256
+SEARCH           : 192
+FINAL            : 64
+Shuffle nulls    : 32
+Source layer     : L3
+Target layers    : [6, 10, 14, 19]
+
+[1/10] Loading frozen model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 56.2kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 805kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 68.7MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 75.0MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 128MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.15MB/s]Download complete: :  13.1GB,  124MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  499MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.71s/it]Loading weights: 100% 339/339 [00:03<00:00, 99.54it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.4kB/s]GPU              : NVIDIA A100-SXM4-40GB
+Model            : Qwen/Qwen2.5-7B-Instruct
+Hidden           : 3584
+Decoder layers   : 28
+dtype            : torch.bfloat16
+
+[2/10] Capturing SEARCH spontaneous activations...
+  SEARCH:   1/192
+  SEARCH:  32/192
+  SEARCH:  64/192
+  SEARCH:  96/192
+  SEARCH: 128/192
+  SEARCH: 160/192
+  SEARCH: 192/192
+
+[3/10] Capturing untouched FINAL spontaneous activations...
+  FINAL:   1/64
+  FINAL:  32/64
+  FINAL:  64/64
+
+[4/10] Centering natural fluctuations...
+ L03 | SEARCH fluct RMS=1.325052 | FINAL=1.311038
+ L06 | SEARCH fluct RMS=2.645668 | FINAL=2.546377
+ L10 | SEARCH fluct RMS=5.422396 | FINAL=5.421923
+ L14 | SEARCH fluct RMS=7.100563 | FINAL=6.919571
+ L19 | SEARCH fluct RMS=16.654200 | FINAL=16.083132
+
+[5/10] Building SEARCH cross-layer transport atlas...
+  SVD L3 -> L6 ...
+    sigma1=0.625086 | sigma2=0.465954 | sigma8=0.125546
+  SVD L3 -> L10 ...
+    sigma1=0.923193 | sigma2=0.864209 | sigma8=0.241059
+  SVD L3 -> L14 ...
+    sigma1=1.238007 | sigma2=1.135841 | sigma8=0.320666
+  SVD L3 -> L19 ...
+    sigma1=3.393379 | sigma2=2.675814 | sigma8=0.729173
+
+[6/10] Transport spectrum / effective rank...
+
+L3->L6
+  participation rank: 3.670
+  k@50% energy: 2
+  k@80% energy: 4
+  k@90% energy: 7
+  k@95% energy: 10
+  E(01) = 44.543%
+  E(02) = 69.293%
+  E(04) = 82.972%
+  E(08) = 93.082%
+  E(16) = 98.552%
+  E(32) = 99.963%
+  E(48) = 99.997%
+  E(64) = 100.000%
+
+L3->L10
+  participation rank: 5.005
+  k@50% energy: 2
+  k@80% energy: 5
+  k@90% energy: 8
+  k@95% energy: 11
+  E(01) = 31.615%
+  E(02) = 59.319%
+  E(04) = 77.824%
+  E(08) = 91.059%
+  E(16) = 97.954%
+  E(32) = 99.939%
+  E(48) = 99.994%
+  E(64) = 100.000%
+
+L3->L14
+  participation rank: 4.706
+  k@50% energy: 2
+  k@80% energy: 5
+  k@90% energy: 7
+  k@95% energy: 10
+  E(01) = 33.179%
+  E(02) = 61.107%
+  E(04) = 79.236%
+  E(08) = 92.614%
+  E(16) = 98.457%
+  E(32) = 99.942%
+  E(48) = 99.992%
+  E(64) = 100.000%
+
+L3->L19
+  participation rank: 3.594
+  k@50% energy: 2
+  k@80% energy: 4
+  k@90% energy: 6
+  k@95% energy: 8
+  E(01) = 43.755%
+  E(02) = 70.962%
+  E(04) = 83.939%
+  E(08) = 95.275%
+  E(16) = 99.055%
+  E(32) = 99.949%
+  E(48) = 99.992%
+  E(64) = 100.000%
+
+[7/10] Running sample-shuffle null...
+  shuffle 01/32
+  shuffle 08/32
+  shuffle 16/32
+  shuffle 24/32
+  shuffle 32/32
+
+[8/10] Untouched FINAL validation...
+L3->L6 | FINAL corr M1=+0.955449 | M2=+0.960443 | M4=+0.925224 | M8=+0.943809
+L3->L10 | FINAL corr M1=+0.916914 | M2=+0.898364 | M4=+0.817551 | M8=+0.948191
+L3->L14 | FINAL corr M1=+0.921318 | M2=+0.856849 | M4=+0.902487 | M8=+0.896563
+L3->L19 | FINAL corr M1=+0.936647 | M2=+0.856379 | M4=+0.912430 | M8=+0.848462
+
+[9/10] Cross-horizon source-subspace persistence...
+
+SOURCE SUBSPACE k=4
+  L6 vs L10 | mean=0.785799 | min=0.198388 | RMS=0.856069
+  L6 vs L14 | mean=0.816658 | min=0.390591 | RMS=0.853919
+  L6 vs L19 | mean=0.719630 | min=0.017575 | RMS=0.826788
+  L10 vs L14 | mean=0.765451 | min=0.078912 | RMS=0.861998
+  L10 vs L19 | mean=0.795820 | min=0.227307 | RMS=0.860866
+  L14 vs L19 | mean=0.912179 | min=0.666989 | RMS=0.923110
+
+SOURCE SUBSPACE k=8
+  L6 vs L10 | mean=0.947167 | min=0.727403 | RMS=0.951104
+  L6 vs L14 | mean=0.867126 | min=0.144314 | RMS=0.909730
+  L6 vs L19 | mean=0.842637 | min=0.067793 | RMS=0.893415
+  L10 vs L14 | mean=0.919770 | min=0.470020 | RMS=0.935691
+  L10 vs L19 | mean=0.830765 | min=0.123888 | RMS=0.881095
+  L14 vs L19 | mean=0.929945 | min=0.549432 | RMS=0.941229
+
+SOURCE SUBSPACE k=16
+  L6 vs L10 | mean=0.929019 | min=0.391378 | RMS=0.941749
+  L6 vs L14 | mean=0.912576 | min=0.059712 | RMS=0.940445
+  L6 vs L19 | mean=0.908359 | min=0.204063 | RMS=0.930752
+  L10 vs L14 | mean=0.956883 | min=0.503130 | RMS=0.964379
+  L10 vs L19 | mean=0.916049 | min=0.320995 | RMS=0.932736
+  L14 vs L19 | mean=0.956607 | min=0.497940 | RMS=0.964122
+
+SOURCE SUBSPACE k=32
+  L6 vs L10 | mean=0.990715 | min=0.825586 | RMS=0.991219
+  L6 vs L14 | mean=0.989040 | min=0.802385 | RMS=0.989708
+  L6 vs L19 | mean=0.970802 | min=0.298644 | RMS=0.978437
+  L10 vs L14 | mean=0.995805 | min=0.927217 | RMS=0.995888
+  L10 vs L19 | mean=0.967480 | min=0.155495 | RMS=0.978508
+  L14 vs L19 | mean=0.976801 | min=0.376977 | RMS=0.982754
+
+[10/10] Building persistent source potent subspace...
+  L3->L6: k90=7
+  L3->L10: k90=8
+  L3->L14: k90=7
+  L3->L19: k90=6
+
+Persistent source support spectrum:
+ P01 | support=0.998238
+ P02 | support=0.996707
+ P03 | support=0.992332
+ P04 | support=0.951680
+ P05 | support=0.865170
+ P06 | support=0.743055
+ P07 | support=0.678956
+ P08 | support=0.331876
+ P09 | support=0.290541
+ P10 | support=0.086672
+ P11 | support=0.021059
+ P12 | support=0.018271
+ P13 | support=0.010200
+ P14 | support=0.004431
+ P15 | support=0.002938
+ P16 | support=0.002256
+ P17 | support=0.001691
+ P18 | support=0.000825
+ P19 | support=0.000374
+ P20 | support=0.000259
+ P21 | support=0.000234
+ P22 | support=0.000202
+ P23 | support=0.000151
+ P24 | support=0.000102
+ P25 | support=0.000069
+ P26 | support=0.000036
+ P27 | support=0.000013
+ P28 | support=0.000010
+ support >= 0.90: 4 dimensions
+ support >= 0.75: 5 dimensions
+ support >= 0.50: 7 dimensions
+ support >= 0.25: 9 dimensions
+
+============================================================================================================================================
+REAL vs SAMPLE-SHUFFLE CROSS-LAYER SPECTRUM
+============================================================================================================================================
+
+L3->L6
+ M01 | REAL=0.625086 | NULL=0.147305±0.024003 | null>=00/32 | emp.p=0.030303 | desc.Z=+19.905
+ M02 | REAL=0.465954 | NULL=0.108024±0.010830 | null>=00/32 | emp.p=0.030303 | desc.Z=+33.050
+ M04 | REAL=0.226231 | NULL=0.071572±0.004840 | null>=00/32 | emp.p=0.030303 | desc.Z=+31.955
+ M08 | REAL=0.125546 | NULL=0.042756±0.002740 | null>=00/32 | emp.p=0.030303 | desc.Z=+30.216
+ M16 | REAL=0.049157 | NULL=0.020446±0.001067 | null>=00/32 | emp.p=0.030303 | desc.Z=+26.917
+ M32 | REAL=0.012053 | NULL=0.005640±0.000244 | null>=00/32 | emp.p=0.030303 | desc.Z=+26.280
+
+L3->L10
+ M01 | REAL=0.923193 | NULL=0.288095±0.034403 | null>=00/32 | emp.p=0.030303 | desc.Z=+18.460
+ M02 | REAL=0.864209 | NULL=0.216812±0.024284 | null>=00/32 | emp.p=0.030303 | desc.Z=+26.659
+ M04 | REAL=0.464357 | NULL=0.149704±0.014111 | null>=00/32 | emp.p=0.030303 | desc.Z=+22.298
+ M08 | REAL=0.241059 | NULL=0.089739±0.005406 | null>=00/32 | emp.p=0.030303 | desc.Z=+27.993
+ M16 | REAL=0.099763 | NULL=0.044476±0.002011 | null>=00/32 | emp.p=0.030303 | desc.Z=+27.493
+ M32 | REAL=0.024171 | NULL=0.013649±0.000536 | null>=00/32 | emp.p=0.030303 | desc.Z=+19.622
+
+L3->L14
+ M01 | REAL=1.238007 | NULL=0.390723±0.060468 | null>=00/32 | emp.p=0.030303 | desc.Z=+14.012
+ M02 | REAL=1.135841 | NULL=0.287168±0.031600 | null>=00/32 | emp.p=0.030303 | desc.Z=+26.857
+ M04 | REAL=0.501729 | NULL=0.193277±0.011647 | null>=00/32 | emp.p=0.030303 | desc.Z=+26.483
+ M08 | REAL=0.320666 | NULL=0.117852±0.009036 | null>=00/32 | emp.p=0.030303 | desc.Z=+22.446
+ M16 | REAL=0.116592 | NULL=0.055947±0.002306 | null>=00/32 | emp.p=0.030303 | desc.Z=+26.302
+ M32 | REAL=0.027514 | NULL=0.018517±0.000702 | null>=00/32 | emp.p=0.030303 | desc.Z=+12.813
+
+L3->L19
+ M01 | REAL=3.393379 | NULL=0.927774±0.141062 | null>=00/32 | emp.p=0.030303 | desc.Z=+17.479
+ M02 | REAL=2.675814 | NULL=0.701816±0.084981 | null>=00/32 | emp.p=0.030303 | desc.Z=+23.229
+ M04 | REAL=1.102273 | NULL=0.447451±0.037670 | null>=00/32 | emp.p=0.030303 | desc.Z=+17.383
+ M08 | REAL=0.729173 | NULL=0.256093±0.019807 | null>=00/32 | emp.p=0.030303 | desc.Z=+23.885
+ M16 | REAL=0.238206 | NULL=0.122329±0.005006 | null>=00/32 | emp.p=0.030303 | desc.Z=+23.147
+ M32 | REAL=0.051463 | NULL=0.041646±0.001600 | null>=00/32 | emp.p=0.030303 | desc.Z=+6.136
+
+============================================================================================================================================
+TRANSPORT ENERGY CONCENTRATION
+============================================================================================================================================
+   HORIZON      PRANK     K50     K80     K90     K95        E8%       E16%       E32%
+    L3->L6      3.670       2       4       7      10     93.082     98.552     99.963
+   L3->L10      5.005       2       5       8      11     91.059     97.954     99.939
+   L3->L14      4.706       2       5       7      10     92.614     98.457     99.942
+   L3->L19      3.594       2       4       6       8     95.275     99.055     99.949
+
+============================================================================================================================================
+UNTOUCHED FINAL — SEARCH-LOCKED SOURCE/RESPONSE MODES
+============================================================================================================================================
+
+L3->L6
+ M01 | FINAL score correlation=+0.955449
+ M02 | FINAL score correlation=+0.960443
+ M03 | FINAL score correlation=+0.945677
+ M04 | FINAL score correlation=+0.925224
+ M05 | FINAL score correlation=+0.897013
+ M06 | FINAL score correlation=+0.933994
+ M07 | FINAL score correlation=+0.924996
+ M08 | FINAL score correlation=+0.943809
+ M09 | FINAL score correlation=+0.944157
+ M10 | FINAL score correlation=+0.939110
+ M11 | FINAL score correlation=+0.973049
+ M12 | FINAL score correlation=+0.959141
+ M13 | FINAL score correlation=+0.947073
+ M14 | FINAL score correlation=+0.959875
+ M15 | FINAL score correlation=+0.912084
+ M16 | FINAL score correlation=+0.930903
+
+L3->L10
+ M01 | FINAL score correlation=+0.916914
+ M02 | FINAL score correlation=+0.898364
+ M03 | FINAL score correlation=+0.859728
+ M04 | FINAL score correlation=+0.817551
+ M05 | FINAL score correlation=+0.878276
+ M06 | FINAL score correlation=+0.823384
+ M07 | FINAL score correlation=+0.866773
+ M08 | FINAL score correlation=+0.948191
+ M09 | FINAL score correlation=+0.892738
+ M10 | FINAL score correlation=+0.879654
+ M11 | FINAL score correlation=+0.863674
+ M12 | FINAL score correlation=+0.876024
+ M13 | FINAL score correlation=+0.890889
+ M14 | FINAL score correlation=+0.914018
+ M15 | FINAL score correlation=+0.768521
+ M16 | FINAL score correlation=+0.928013
+
+L3->L14
+ M01 | FINAL score correlation=+0.921318
+ M02 | FINAL score correlation=+0.856849
+ M03 | FINAL score correlation=+0.882442
+ M04 | FINAL score correlation=+0.902487
+ M05 | FINAL score correlation=+0.838220
+ M06 | FINAL score correlation=+0.870530
+ M07 | FINAL score correlation=+0.835014
+ M08 | FINAL score correlation=+0.896563
+ M09 | FINAL score correlation=+0.788971
+ M10 | FINAL score correlation=+0.863774
+ M11 | FINAL score correlation=+0.788044
+ M12 | FINAL score correlation=+0.737184
+ M13 | FINAL score correlation=+0.907326
+ M14 | FINAL score correlation=+0.894828
+ M15 | FINAL score correlation=+0.821953
+ M16 | FINAL score correlation=+0.906840
+
+L3->L19
+ M01 | FINAL score correlation=+0.936647
+ M02 | FINAL score correlation=+0.856379
+ M03 | FINAL score correlation=+0.894794
+ M04 | FINAL score correlation=+0.912430
+ M05 | FINAL score correlation=+0.839298
+ M06 | FINAL score correlation=+0.711945
+ M07 | FINAL score correlation=+0.752864
+ M08 | FINAL score correlation=+0.848462
+ M09 | FINAL score correlation=+0.622884
+ M10 | FINAL score correlation=+0.880196
+ M11 | FINAL score correlation=+0.789080
+ M12 | FINAL score correlation=+0.627268
+ M13 | FINAL score correlation=+0.811283
+ M14 | FINAL score correlation=+0.781462
+ M15 | FINAL score correlation=+0.743172
+ M16 | FINAL score correlation=+0.768486
+
+============================================================================================================================================
+CROSS-HORIZON SOURCE-SUBSPACE PERSISTENCE
+============================================================================================================================================
+k=04 | mean pairwise principal-cos=0.799256 | min pair mean=0.719630 | max pair mean=0.912179
+k=08 | mean pairwise principal-cos=0.889568 | min pair mean=0.830765 | max pair mean=0.947167
+k=16 | mean pairwise principal-cos=0.929916 | min pair mean=0.908359 | max pair mean=0.956883
+k=32 | mean pairwise principal-cos=0.981774 | min pair mean=0.967480 | max pair mean=0.995805
+
+============================================================================================================================================
+LOCKED INTERPRETATION
+============================================================================================================================================
+
+1. Model weights remained frozen.
+
+2. No steering vector was injected.
+
+3. No perturbation, epsilon derivative, JVP, VJP, gradient, LoRA or
+   optimizer participated in discovery.
+
+4. TEST 152 measures naturally occurring hidden-state fluctuations.
+
+5. High source-layer variance alone is NOT called "potent".
+
+6. A source direction becomes a transport-mode candidate only through
+   cross-layer covariance with naturally occurring downstream
+   fluctuations.
+
+7. Source and response modes are explicitly separated:
+
+       U = source / forcing side at L3
+       V = downstream response side
+
+   They are not required to be the same vector.
+
+8. The 3584 x 3584 cross-covariance matrix is never explicitly
+   materialized. The decomposition is solved through the low-rank
+   sample-space factorization.
+
+9. k=32 is NOT assumed to be correct. The singular spectrum determines
+   how many modes are required to explain 50%, 80%, 90% and 95% of the
+   measured cross-layer transport energy.
+
+10. Sample-shuffle nulls preserve the marginal L3 and downstream
+    activation distributions while destroying only example-level
+    correspondence.
+
+11. A real spectrum that does not exceed the shuffled spectrum is not
+    evidence for an endogenous cross-layer transport channel.
+
+12. SEARCH discovers U/S/V. FINAL is untouched during discovery and
+    tests whether the frozen source/response modes preserve score
+    correlation on unseen examples.
+
+13. Principal-angle analysis tests whether source transport subspaces
+    are shared across L6/L10/L14/L19 rather than existing at only one
+    downstream horizon.
+
+14. The persistent source spectrum is derived from the mean support of
+    horizon-specific source subspaces. It is a candidate map of
+    repeatedly downstream-coupled L3 directions.
+
+15. "Potent" here is an operational cross-layer covariance definition.
+    This experiment does NOT yet prove causal downstream readability.
+
+16. Likewise, dimensions outside the recovered subspace must NOT yet be
+    called a causal null space. Causal potent/null status requires a
+    later intervention experiment.
+
+17. If a compact real spectrum survives shuffle, FINAL, and
+    cross-horizon persistence, the next experiment may restrict
+    synthetic AkbasCore vectors to that empirically recovered source
+    subspace instead of searching blindly in all 3584 dimensions.
+
+============================================================================================================================================
+Saved: /content/TEST152_SPONTANEOUS_FLUCTUATION_ATLAS.npz
+TEST 152 COMPLETE
+============================================================================================================================================
