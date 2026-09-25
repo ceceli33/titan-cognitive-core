@@ -1,0 +1,330 @@
+ ============================================================================================================================================================
+TEST 154 — TRANSPORT MECHANISM DIFFERENTIAL DIAGNOSIS
+FIXED HIGHWAY · RELAY · SELF-HEALING · FOLDING · DIFFUSION · DYNAMIC ROUTING · NORM SINK
+============================================================================================================================================================
+
+[1/14] Loading frozen model...
+config.json: 100% 663/663 [00:00<00:00, 217kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 2.50MB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+vocab.json: 100% 2.78M/2.78M [00:00<00:00, 34.7MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 169MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 277MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 5.15MB/s]Download complete: :  13.1GB,  176MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  153MB/s  Fetching 4 files: 100% 4/4 [00:48<00:00, 11.14s/it]Loading weights: 100% 339/339 [00:01<00:00, 360.53it/s]generation_config.json: 100% 243/243 [00:00<00:00, 78.5kB/s]GPU            : NVIDIA RTX PRO 6000 Blackwell Server Edition
+Model          : Qwen/Qwen2.5-7B-Instruct
+Hidden         : 3584
+Decoder layers : 28
+Layers         : [3, 6, 10, 14, 19]
+Segments       : [(3, 6), (6, 10), (10, 14), (14, 19)]
+Primary K      : 4
+K sweep        : [4, 8, 16, 32, 64, 128]
+Local KNN      : 24
+Dose           : 0.0025
+
+[2/14] Building SEARCH / FINAL natural corpus...
+SEARCH : 192
+FINAL  : 64
+
+[3/14] Capturing natural activations...
+  SEARCH: 001/192
+  SEARCH: 032/192
+  SEARCH: 064/192
+  SEARCH: 096/192
+  SEARCH: 128/192
+  SEARCH: 160/192
+  SEARCH: 192/192
+  FINAL: 001/64
+  FINAL: 032/64
+  FINAL: 064/64
+
+[4/14] Building global natural transport atlas...
+L3->L6 | sigma1=0.623909 | sigma4=0.225245 | sigma8=0.125343
+L3->L10 | sigma1=0.926220 | sigma4=0.464487 | sigma8=0.243236
+L3->L14 | sigma1=1.239003 | sigma4=0.500865 | sigma8=0.320104
+L3->L19 | sigma1=3.384266 | sigma4=1.104549 | sigma8=0.729875
+L6->L10 | sigma1=2.785901 | sigma4=1.007349 | sigma8=0.428460
+L6->L14 | sigma1=3.688246 | sigma4=1.089079 | sigma8=0.578723
+L6->L19 | sigma1=8.447617 | sigma4=2.258425 | sigma8=1.230810
+L10->L14 | sigma1=7.173185 | sigma4=2.885048 | sigma8=1.160743
+L10->L19 | sigma1=15.371362 | sigma4=5.767429 | sigma8=2.527401
+L14->L19 | sigma1=23.884331 | sigma4=7.743940 | sigma8=3.679004
+
+[5/14] Untouched FINAL validation...
+L3->L6 | M1=+0.9545 M2=+0.9597 M3=+0.9426 M4=+0.9229
+L3->L10 | M1=+0.9237 M2=+0.8894 M3=+0.8603 M4=+0.8220
+L3->L14 | M1=+0.9219 M2=+0.8526 M3=+0.8838 M4=+0.9052
+L3->L19 | M1=+0.9368 M2=+0.8537 M3=+0.8942 M4=+0.9095
+L6->L10 | M1=+0.9334 M2=+0.9597 M3=+0.9518 M4=+0.8206
+L6->L14 | M1=+0.9363 M2=+0.9469 M3=+0.9151 M4=+0.8482
+L6->L19 | M1=+0.9379 M2=+0.9187 M3=+0.8785 M4=+0.7400
+L10->L14 | M1=+0.9544 M2=+0.9643 M3=+0.9579 M4=+0.9578
+L10->L19 | M1=+0.9160 M2=+0.9393 M3=+0.9034 M4=+0.5624
+L14->L19 | M1=+0.9780 M2=+0.9671 M3=+0.9601 M4=+0.8634
+
+[6/14] Relay geometry...
+L3->L6->L10 | PC=[0.9974 0.9952 0.9232 0.4051] | mean=0.830207 | null=0.027414±0.005143 | p=0.003891
+L6->L10->L14 | PC=[0.998  0.9942 0.974  0.8672] | mean=0.958330 | null=0.027781±0.005296 | p=0.003891
+L10->L14->L19 | PC=[0.9944 0.9855 0.9815 0.6621] | mean=0.905899 | null=0.027182±0.005479 | p=0.003891
+
+[7/14] Capturing causal baselines...
+  baseline 01/32
+  baseline 08/32
+  baseline 16/32
+  baseline 24/32
+  baseline 32/32
+
+[8/14] Building segment direction banks...
+L3->L6 | null overlap=0.000011036
+L6->L10 | null overlap=0.000021045
+L10->L14 | null overlap=0.000007833
+L14->L19 | null overlap=0.000008381
+
+[9/14] Locking prompt-local transport maps...
+  local atlas 01/32
+  local atlas 08/32
+  local atlas 16/32
+  local atlas 24/32
+  local atlas 32/32
+
+[10/14] Running shared causal trajectories...
+  0001/2048 | L3->L6 | POTENT | dir=1
+  0128/2048 | L3->L6 | POTENT | dir=4
+  0256/2048 | L3->L6 | POTENT | dir=8
+  0384/2048 | L3->L6 | NULL | dir=4
+  0512/2048 | L3->L6 | NULL | dir=8
+  0640/2048 | L6->L10 | POTENT | dir=4
+  0768/2048 | L6->L10 | POTENT | dir=8
+  0896/2048 | L6->L10 | NULL | dir=4
+  1024/2048 | L6->L10 | NULL | dir=8
+  1152/2048 | L10->L14 | POTENT | dir=4
+  1280/2048 | L10->L14 | POTENT | dir=8
+  1408/2048 | L10->L14 | NULL | dir=4
+  1536/2048 | L10->L14 | NULL | dir=8
+  1664/2048 | L14->L19 | POTENT | dir=4
+  1792/2048 | L14->L19 | POTENT | dir=8
+  1920/2048 | L14->L19 | NULL | dir=4
+  2048/2048 | L14->L19 | NULL | dir=8
+
+[11/14] Aggregating mechanism evidence...
+
+========================================================================================================================================================================
+MECHANISM EVIDENCE MATRIX
+========================================================================================================================================================================
+
+================================================================================
+SEGMENT L3->L6
+================================================================================
+RELAY response   | P=0.041137 N=0.018794 R=2.1888 p=0.000078
+RELAY next       | P=0.033619 N=0.015512 R=2.1673 p=0.000078
+RELAY handoff    | P=0.683075 N=0.593337 R=1.1512 p=0.001787
+L06 absolute G | P=4.2124 N=4.1203 R=1.0224 p=0.037918
+L06 rel survival| P=2.5019 N=2.4472 R=1.0224 p=0.037529
+L06 fixed Q     | P=0.041126 N=0.018789 R=2.1888 p=0.000078
+L10 absolute G | P=7.5314 N=7.4846 R=1.0063 p=0.254856
+L10 rel survival| P=3.2684 N=3.2479 R=1.0063 p=0.252758
+L10 fixed Q     | P=0.017948 N=0.017062 R=1.0519 p=0.168609
+L14 absolute G | P=10.2105 N=10.3206 R=0.9893 p=0.861616
+L14 rel survival| P=3.2637 N=3.2991 R=0.9893 p=0.863481
+L14 fixed Q     | P=0.015025 N=0.017260 R=0.8705 p=0.971018
+L19 absolute G | P=16.7814 N=16.9831 R=0.9881 p=0.924165
+L19 rel survival| P=3.5436 N=3.5862 R=0.9881 p=0.922222
+L19 fixed Q     | P=0.014959 N=0.015210 R=0.9835 p=0.654002
+
+MULTI-K CAPTURE at immediate target:
+  K=004 | P=0.041126 N=0.018789 R=2.1888 p=0.000078
+  K=008 | P=0.053367 N=0.030592 R=1.7445 p=0.000078
+  K=016 | P=0.077071 N=0.052948 R=1.4556 p=0.000078
+  K=032 | P=0.109754 N=0.083037 R=1.3218 p=0.000078
+  K=064 | P=0.196180 N=0.163981 R=1.1964 p=0.000233
+  K=128 | P=0.285525 N=0.249588 R=1.1440 p=0.000466
+
+DYNAMIC routing:
+  GLOBAL | P=0.041126 N=0.018789 R=2.1888
+  LOCAL  | P=0.025306 N=0.015700 R=1.6119
+
+NONLINEAR/local geometry:
+  local max | P=0.151476 N=0.121330 R=1.2485 p=0.000078
+  local mean| P=0.063467 N=0.048972 R=1.2960 p=0.000078
+
+================================================================================
+SEGMENT L6->L10
+================================================================================
+RELAY response   | P=0.028742 N=0.013715 R=2.0956 p=0.000078
+RELAY next       | P=0.030197 N=0.015335 R=1.9691 p=0.000078
+RELAY handoff    | P=0.943812 N=0.927685 R=1.0174 p=0.034421
+L10 absolute G | P=3.8787 N=3.8973 R=0.9952 p=0.686325
+L10 rel survival| P=2.8341 N=2.8476 R=0.9953 p=0.683838
+L10 fixed Q     | P=0.028735 N=0.013712 R=2.0956 p=0.000078
+L14 absolute G | P=5.7032 N=5.7664 R=0.9890 p=0.835276
+L14 rel survival| P=3.0694 N=3.1034 R=0.9890 p=0.835820
+L14 fixed Q     | P=0.014873 N=0.013135 R=1.1323 p=0.050039
+L19 absolute G | P=9.7057 N=9.8401 R=0.9863 p=0.916006
+L19 rel survival| P=3.4501 N=3.4980 R=0.9863 p=0.918337
+L19 fixed Q     | P=0.011954 N=0.012418 R=0.9626 p=0.764880
+
+MULTI-K CAPTURE at immediate target:
+  K=004 | P=0.028735 N=0.013712 R=2.0956 p=0.000078
+  K=008 | P=0.038281 N=0.022116 R=1.7310 p=0.000078
+  K=016 | P=0.063420 N=0.047986 R=1.3216 p=0.000389
+  K=032 | P=0.105613 N=0.091009 R=1.1605 p=0.001243
+  K=064 | P=0.182901 N=0.171751 R=1.0649 p=0.023543
+  K=128 | P=0.280328 N=0.273334 R=1.0256 p=0.189122
+
+DYNAMIC routing:
+  GLOBAL | P=0.028735 N=0.013712 R=2.0956
+  LOCAL  | P=0.020584 N=0.012927 R=1.5923
+
+NONLINEAR/local geometry:
+  local max | P=0.138681 N=0.120558 R=1.1503 p=0.001865
+  local mean| P=0.056249 N=0.047481 R=1.1847 p=0.000155
+
+================================================================================
+SEGMENT L10->L14
+================================================================================
+RELAY response   | P=0.036359 N=0.008241 R=4.4121 p=0.000078
+RELAY next       | P=0.030619 N=0.007621 R=4.0178 p=0.000078
+RELAY handoff    | P=0.888594 N=0.869200 R=1.0223 p=0.188034
+L14 absolute G | P=3.2701 N=3.1827 R=1.0275 p=0.006216
+L14 rel survival| P=2.4082 N=2.3443 R=1.0273 p=0.005983
+L14 fixed Q     | P=0.036349 N=0.008238 R=4.4122 p=0.000078
+L19 absolute G | P=6.5423 N=6.4651 R=1.0119 p=0.109169
+L19 rel survival| P=3.1816 N=3.1441 R=1.0119 p=0.109713
+L19 fixed Q     | P=0.019373 N=0.015877 R=1.2202 p=0.000932
+
+MULTI-K CAPTURE at immediate target:
+  K=004 | P=0.036349 N=0.008238 R=4.4122 p=0.000078
+  K=008 | P=0.045246 N=0.016779 R=2.6966 p=0.000078
+  K=016 | P=0.060660 N=0.030853 R=1.9661 p=0.000078
+  K=032 | P=0.094970 N=0.062007 R=1.5316 p=0.000078
+  K=064 | P=0.151912 N=0.115392 R=1.3165 p=0.000078
+  K=128 | P=0.251962 N=0.209345 R=1.2036 p=0.000078
+
+DYNAMIC routing:
+  GLOBAL | P=0.036349 N=0.008238 R=4.4122
+  LOCAL  | P=0.024305 N=0.008642 R=2.8124
+
+NONLINEAR/local geometry:
+  local max | P=0.141884 N=0.095068 R=1.4924 p=0.000078
+  local mean| P=0.058757 N=0.036628 R=1.6041 p=0.000078
+
+================================================================================
+SEGMENT L14->L19
+================================================================================
+RELAY response   | P=0.037355 N=0.013271 R=2.8148 p=0.000078
+L19 absolute G | P=4.0303 N=3.9951 R=1.0088 p=0.209013
+L19 rel survival| P=2.6603 N=2.6378 R=1.0086 p=0.213598
+L19 fixed Q     | P=0.037344 N=0.013267 R=2.8148 p=0.000078
+
+MULTI-K CAPTURE at immediate target:
+  K=004 | P=0.037344 N=0.013267 R=2.8148 p=0.000078
+  K=008 | P=0.048522 N=0.023691 R=2.0481 p=0.000078
+  K=016 | P=0.067983 N=0.042101 R=1.6148 p=0.000078
+  K=032 | P=0.096951 N=0.070443 R=1.3763 p=0.000078
+  K=064 | P=0.142948 N=0.113500 R=1.2595 p=0.000078
+  K=128 | P=0.218366 N=0.188619 R=1.1577 p=0.000155
+
+DYNAMIC routing:
+  GLOBAL | P=0.037344 N=0.013267 R=2.8148
+  LOCAL  | P=0.028535 N=0.013248 R=2.1539
+
+NONLINEAR/local geometry:
+  local max | P=0.150387 N=0.110580 R=1.3600 p=0.000078
+  local mean| P=0.063058 N=0.045122 R=1.3975 p=0.000078
+
+========================================================================================================================================================================
+L3 POTENT TRAJECTORY X-RAY
+========================================================================================================================================================================
+  LAYER        ABS_G     REL_SURV      FIXED_Q           K4          K32          K64         K128
+L06     4.212417     2.501943     0.041126     0.041126     0.109754     0.196180     0.285525
+L10     7.531423     3.268440     0.017948     0.017948     0.099563     0.181089     0.281876
+L14    10.210517     3.263723     0.015025     0.015025     0.084545     0.161619     0.269856
+L19    16.781400     3.543605     0.014959     0.014959     0.085182     0.141636     0.232210
+
+[12/14] Saving complete diagnostic capsule...
+
+[13/14] Interpretation contract...
+
+========================================================================================================================================================================
+LOCKED INTERPRETATION CONTRACT
+========================================================================================================================================================================
+
+TEST154 does NOT select a winner by construction.
+
+Several mechanisms may coexist.
+
+H1 FIXED HIGHWAY
+----------------
+Supported only if source-specific response capture remains privileged
+across depth rather than only at the first downstream horizon.
+
+H2 RELAY
+--------
+Supported when:
+    V_previous geometrically overlaps U_next,
+and causal perturbations preferentially enter:
+    V_current
+and:
+    U_next.
+
+H3 SELF-HEALING / ATTENUATION
+-----------------------------
+Suggested when absolute perturbation propagation itself falls strongly
+with depth.
+
+A falling projection alone is NOT self-healing if total perturbation
+energy remains large.
+
+H4 NONLINEAR FOLDING
+--------------------
+Suggested only when global linear transport capture becomes weak while
+local neighborhood compatibility remains selectively stronger for
+POTENT than NULL.
+
+This assay is deliberately only a first nonlinear probe.
+It does not prove a curved manifold.
+
+H5 DISTRIBUTED SUPERPOSITION / DIFFUSION
+----------------------------------------
+Suggested when low-K capture falls but broader K=32/64/128 capture
+recovers substantial perturbation energy.
+
+If total perturbation remains large while energy escapes K=4, the
+signal has not necessarily disappeared.
+
+H6 DYNAMIC / CONTEXT-CONDITIONAL ROUTING
+----------------------------------------
+Suggested when prompt-local transport maps systematically outperform
+the pooled global map, especially for POTENT perturbations.
+
+Local improvement by itself is not sufficient: it must exceed the
+corresponding NULL behavior.
+
+H7 NORM SINK / RELATIVE DILUTION
+--------------------------------
+Suggested when absolute perturbation remains substantial but:
+
+    ||delta h_L|| / ||h_L||
+
+shrinks strongly relative to its source-layer value.
+
+This distinguishes relative dilution from actual disappearance.
+
+IMPORTANT
+---------
+These mechanisms are not mutually exclusive.
+
+Possible outcome:
+
+    early relay
+        +
+    mid-depth diffusion
+        +
+    late context-dependent routing
+
+is fully allowed.
+
+The experiment therefore reports a MECHANISM EVIDENCE MATRIX rather
+than forcing a single winning theory.
+
+
+[14/14] Complete.
+========================================================================================================================================================================
+Saved: /content/TEST154_TRANSPORT_MECHANISM_DIAGNOSIS.npz
+TEST 154 COMPLETE
+========================================================================================================================================================================
