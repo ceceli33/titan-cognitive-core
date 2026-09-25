@@ -1,0 +1,298 @@
+ Installing required build dependency: ninja...
+==========================================================================================================================================================
+TEST 172 — COLLATERAL COMPONENT TRANSPORT X-RAY
+CAUSAL_ORTH vs CAUSAL_SAFE(K=8) vs REMOVED_COMPONENT
+==========================================================================================================================================================
+Ninja: 1.13.2
+GPU: NVIDIA A100-SXM4-40GB
+Model: Qwen/Qwen2.5-7B-Instruct
+Layers: L0-L19 | frozen K=8 | X-ray primary dose=0.50
+Locked SEASC RSS dose budget: 0.250235055
+
+[1/22] Compiling SEASC...
+       OK
+
+[2/22] Loading frozen model...
+config.json: 100% 663/663 [00:00<00:00, 78.1kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 783kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 85.3MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 71.7MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 131MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.16MB/s]Download complete: :  13.1GB,  153MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  456MB/s  Fetching 4 files: 100% 4/4 [00:40<00:00,  6.70s/it]Loading weights: 100% 339/339 [00:03<00:00, 99.25it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.1kB/s]       hidden: 3584 dtype: torch.bfloat16
+
+[3/22] Rebuilding TEST169 Fisher / Bank geometry...
+       pair 01/16
+       pair 02/16
+       pair 03/16
+       pair 04/16
+       pair 05/16
+       pair 06/16
+       pair 07/16
+       pair 08/16
+       pair 09/16
+       pair 10/16
+       pair 11/16
+       pair 12/16
+       pair 13/16
+       pair 14/16
+       pair 15/16
+       pair 16/16
+       L00 cos(F,B)=+0.957046 residual=0.289934
+       L01 cos(F,B)=+0.945882 residual=0.324511
+       L02 cos(F,B)=+0.923687 residual=0.383148
+       L03 cos(F,B)=+0.905784 residual=0.423739
+       L04 cos(F,B)=+0.827902 residual=0.560873
+       L05 cos(F,B)=+0.787565 residual=0.616231
+       L06 cos(F,B)=+0.783951 residual=0.620823
+       L07 cos(F,B)=+0.851357 residual=0.524587
+       L08 cos(F,B)=+0.877778 residual=0.479067
+       L09 cos(F,B)=+0.880560 residual=0.473935
+       L10 cos(F,B)=+0.868166 residual=0.496274
+       L11 cos(F,B)=+0.863361 residual=0.504587
+       L12 cos(F,B)=+0.872287 residual=0.488994
+       L13 cos(F,B)=+0.866555 residual=0.499081
+       L14 cos(F,B)=+0.869072 residual=0.494686
+       L15 cos(F,B)=+0.870898 residual=0.491464
+       L16 cos(F,B)=+0.860497 residual=0.509455
+       L17 cos(F,B)=+0.861645 residual=0.507511
+       L18 cos(F,B)=+0.766311 residual=0.642469
+       L19 cos(F,B)=+0.772911 residual=0.634515
+       mean cos=+0.860661 | mean residual=0.498294
+
+[4/22] Computing frozen P8 retention basis...
+       probe 1/8 | NLL=10.108150 | mean ||g||=5.017349e+00
+       probe 2/8 | NLL=10.067118 | mean ||g||=4.504144e+00
+       probe 3/8 | NLL=12.503087 | mean ||g||=3.515239e+00
+       probe 4/8 | NLL=11.644833 | mean ||g||=3.911535e+00
+       probe 5/8 | NLL=12.823627 | mean ||g||=5.401210e+00
+       probe 6/8 | NLL=9.968038 | mean ||g||=5.083509e+00
+       probe 7/8 | NLL=9.568528 | mean ||g||=4.566213e+00
+       probe 8/8 | NLL=10.291623 | mean ||g||=5.011105e+00
+       P8 ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+
+[5/22] Reconstructing TEST169 CAUSAL_ORTH...
+       family A item 1/4
+       family A item 2/4
+       family A item 3/4
+       family A item 4/4
+       family B item 1/4
+       family B item 2/4
+       family B item 3/4
+       family B item 4/4
+       family C item 1/4
+       family C item 2/4
+       family C item 3/4
+       family C item 4/4
+       family D item 1/4
+       family D item 2/4
+       family D item 3/4
+       family D item 4/4
+       mean cos(Causal,Fisher)=+0.040625
+       mean Fisher-orthogonal component=0.998925
+       mean P8 overlap=2.21149694e-07
+
+[6/22] Rebuilding TEST171 collateral basis...
+       neutral 1/8 | NLL=10.886089 | mean ||g_act||=5.622915e+02
+       neutral 2/8 | NLL=11.839475 | mean ||g_act||=5.220968e+02
+       neutral 3/8 | NLL=11.787427 | mean ||g_act||=4.307135e+02
+       neutral 4/8 | NLL=10.572948 | mean ||g_act||=4.240309e+02
+       neutral 5/8 | NLL=10.917864 | mean ||g_act||=5.194454e+02
+       neutral 6/8 | NLL=11.511093 | mean ||g_act||=4.948602e+02
+       neutral 7/8 | NLL=13.429094 | mean ||g_act||=4.935550e+02
+       neutral 8/8 | NLL=9.970058 | mean ||g_act||=4.371637e+02
+       Frozen collateral ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+
+[7/22] Reconstructing TEST171 CAUSAL_SAFE and removed component...
+       mean raw collateral energy=0.009823
+       mean cos(SAFE,ORTH)=0.995383
+       mean ||ORTH-SAFE||=0.093620
+       mean cos(REMOVED,RAW_COLL)=+0.964281
+       mean SAFE CollQ=1.03775769e-02
+
+[8/22] Primary layerwise transport X-ray @0.50...
+       CAUSAL_ORTH        rows=320
+       CAUSAL_SAFE        rows=320
+       REMOVED_COMPONENT  rows=320
+       RAW_COLL_COMPONENT rows=320
+
+[9/22] Aggregating transport by layer...
+       CAUSAL_ORTH  L00 rel=0.050016 target=0.050001 perp=0.001234 cos=+0.9997 CollQ=0.1183
+       CAUSAL_ORTH  L01 rel=0.074239 target=0.045827 perp=0.058405 cos=+0.6173 CollQ=0.1167
+       CAUSAL_ORTH  L02 rel=0.093778 target=0.046969 perp=0.081163 cos=+0.5009 CollQ=0.0906
+       CAUSAL_ORTH  L03 rel=0.135908 target=0.088252 perp=0.103351 cos=+0.6494 CollQ=0.0526
+       CAUSAL_ORTH  L04 rel=0.191669 target=0.094618 perp=0.166655 cos=+0.4941 CollQ=0.0463
+       CAUSAL_ORTH  L05 rel=0.275614 target=0.055134 perp=0.270040 cos=+0.2001 CollQ=0.0612
+       CAUSAL_ORTH  L06 rel=0.313009 target=0.068113 perp=0.305487 cos=+0.2185 CollQ=0.0496
+       CAUSAL_ORTH  L07 rel=0.336257 target=0.049274 perp=0.332624 cos=+0.1462 CollQ=0.0411
+       CAUSAL_ORTH  L08 rel=0.433016 target=0.027830 perp=0.432020 cos=+0.0636 CollQ=0.0320
+       CAUSAL_ORTH  L09 rel=0.452938 target=0.052625 perp=0.449807 cos=+0.1161 CollQ=0.0414
+       CAUSAL_ORTH  L10 rel=0.412118 target=0.044196 perp=0.409706 cos=+0.1078 CollQ=0.0527
+       CAUSAL_ORTH  L11 rel=0.379119 target=0.040789 perp=0.376916 cos=+0.1075 CollQ=0.0608
+       CAUSAL_ORTH  L12 rel=0.355515 target=0.035202 perp=0.353767 cos=+0.0990 CollQ=0.0718
+       CAUSAL_ORTH  L13 rel=0.350683 target=0.004818 perp=0.350645 cos=-0.0138 CollQ=0.0761
+       CAUSAL_ORTH  L14 rel=0.342469 target=0.023699 perp=0.341644 cos=+0.0693 CollQ=0.0586
+       CAUSAL_ORTH  L15 rel=0.345824 target=0.033655 perp=0.344176 cos=+0.0971 CollQ=0.0684
+       CAUSAL_ORTH  L16 rel=0.366833 target=0.039819 perp=0.364607 cos=+0.1090 CollQ=0.0517
+       CAUSAL_ORTH  L17 rel=0.359662 target=0.035715 perp=0.357852 cos=+0.0995 CollQ=0.0528
+       CAUSAL_ORTH  L18 rel=0.393872 target=0.035663 perp=0.392246 cos=+0.0904 CollQ=0.0498
+       CAUSAL_ORTH  L19 rel=0.413336 target=0.040514 perp=0.411325 cos=+0.0976 CollQ=0.0615
+       CAUSAL_SAFE  L00 rel=0.050040 target=0.050024 perp=0.001246 cos=+0.9997 CollQ=0.0249
+       CAUSAL_SAFE  L01 rel=0.074676 target=0.045554 perp=0.059168 cos=+0.6101 CollQ=0.0287
+       CAUSAL_SAFE  L02 rel=0.093663 target=0.046768 perp=0.081147 cos=+0.4994 CollQ=0.0276
+       CAUSAL_SAFE  L03 rel=0.134452 target=0.087562 perp=0.102029 cos=+0.6513 CollQ=0.0384
+       CAUSAL_SAFE  L04 rel=0.191761 target=0.094490 perp=0.166851 cos=+0.4930 CollQ=0.0416
+       CAUSAL_SAFE  L05 rel=0.260938 target=0.055173 perp=0.255033 cos=+0.2117 CollQ=0.0587
+       CAUSAL_SAFE  L06 rel=0.300993 target=0.068020 perp=0.293185 cos=+0.2269 CollQ=0.0410
+       CAUSAL_SAFE  L07 rel=0.324241 target=0.050032 perp=0.320355 cos=+0.1540 CollQ=0.0406
+       CAUSAL_SAFE  L08 rel=0.416634 target=0.027750 perp=0.415620 cos=+0.0662 CollQ=0.0296
+       CAUSAL_SAFE  L09 rel=0.441810 target=0.054152 perp=0.438421 cos=+0.1225 CollQ=0.0418
+       CAUSAL_SAFE  L10 rel=0.404110 target=0.044668 perp=0.401613 cos=+0.1109 CollQ=0.0517
+       CAUSAL_SAFE  L11 rel=0.373059 target=0.040496 perp=0.370851 cos=+0.1084 CollQ=0.0589
+       CAUSAL_SAFE  L12 rel=0.349999 target=0.033368 perp=0.348404 cos=+0.0953 CollQ=0.0661
+       CAUSAL_SAFE  L13 rel=0.341333 target=0.003391 perp=0.341313 cos=-0.0099 CollQ=0.0702
+       CAUSAL_SAFE  L14 rel=0.333109 target=0.022521 perp=0.332340 cos=+0.0678 CollQ=0.0575
+       CAUSAL_SAFE  L15 rel=0.336214 target=0.032775 perp=0.334607 cos=+0.0973 CollQ=0.0667
+       CAUSAL_SAFE  L16 rel=0.354797 target=0.040198 perp=0.352458 cos=+0.1137 CollQ=0.0475
+       CAUSAL_SAFE  L17 rel=0.345165 target=0.035396 perp=0.343305 cos=+0.1028 CollQ=0.0467
+       CAUSAL_SAFE  L18 rel=0.376651 target=0.036049 perp=0.374915 cos=+0.0956 CollQ=0.0487
+       CAUSAL_SAFE  L19 rel=0.391996 target=0.041587 perp=0.389761 cos=+0.1056 CollQ=0.0568
+
+[10/22] ORTH vs SAFE trajectory divergence...
+       L00 gap=0.005653 gapCollQ=0.9159 cos(ΔO,ΔS)=+0.993616
+       L01 gap=0.012031 gapCollQ=0.6865 cos(ΔO,ΔS)=+0.986954
+       L02 gap=0.014309 gapCollQ=0.5721 cos(ΔO,ΔS)=+0.988328
+       L03 gap=0.017831 gapCollQ=0.3366 cos(ΔO,ΔS)=+0.991354
+       L04 gap=0.024467 gapCollQ=0.3056 cos(ΔO,ΔS)=+0.991852
+       L05 gap=0.031845 gapCollQ=0.2138 cos(ΔO,ΔS)=+0.994171
+       L06 gap=0.033765 gapCollQ=0.1863 cos(ΔO,ΔS)=+0.994471
+       L07 gap=0.036017 gapCollQ=0.1353 cos(ΔO,ΔS)=+0.994655
+       L08 gap=0.045448 gapCollQ=0.0926 cos(ΔO,ΔS)=+0.995025
+       L09 gap=0.040853 gapCollQ=0.1238 cos(ΔO,ΔS)=+0.996134
+       L10 gap=0.040154 gapCollQ=0.1326 cos(ΔO,ΔS)=+0.995346
+       L11 gap=0.040872 gapCollQ=0.1246 cos(ΔO,ΔS)=+0.994243
+       L12 gap=0.042345 gapCollQ=0.1199 cos(ΔO,ΔS)=+0.992935
+       L13 gap=0.046804 gapCollQ=0.1010 cos(ΔO,ΔS)=+0.991191
+       L14 gap=0.048311 gapCollQ=0.0834 cos(ΔO,ΔS)=+0.990073
+       L15 gap=0.051090 gapCollQ=0.0794 cos(ΔO,ΔS)=+0.989085
+       L16 gap=0.057301 gapCollQ=0.0839 cos(ΔO,ΔS)=+0.987739
+       L17 gap=0.061142 gapCollQ=0.0975 cos(ΔO,ΔS)=+0.985456
+       L18 gap=0.074020 gapCollQ=0.1292 cos(ΔO,ΔS)=+0.982101
+       L19 gap=0.080673 gapCollQ=0.1287 cos(ΔO,ΔS)=+0.981099
+
+[11/22] Removed-component fingerprint...
+       L00 vecΔ=0.110671 energy=0.014187 transport=0.049980 gap=0.005653 CollQ=0.9411
+       L01 vecΔ=0.122789 energy=0.015539 transport=0.098236 gap=0.012031 CollQ=0.7172
+       L02 vecΔ=0.084371 energy=0.007582 transport=0.120406 gap=0.014309 CollQ=0.6491
+       L03 vecΔ=0.085798 energy=0.007793 transport=0.152822 gap=0.017831 CollQ=0.4204
+       L04 vecΔ=0.085606 energy=0.007627 transport=0.224744 gap=0.024467 CollQ=0.3686
+       L05 vecΔ=0.092866 energy=0.009337 transport=0.284499 gap=0.031845 CollQ=0.2609
+       L06 vecΔ=0.091578 energy=0.008645 transport=0.318951 gap=0.033765 CollQ=0.2251
+       L07 vecΔ=0.077077 energy=0.006077 transport=0.361559 gap=0.036017 CollQ=0.1616
+       L08 vecΔ=0.112963 energy=0.013276 transport=0.447662 gap=0.045448 CollQ=0.0997
+       L09 vecΔ=0.099953 energy=0.010241 transport=0.426430 gap=0.040853 CollQ=0.1299
+       L10 vecΔ=0.104152 energy=0.011117 transport=0.417680 gap=0.040154 CollQ=0.1381
+       L11 vecΔ=0.090680 energy=0.008547 transport=0.395778 gap=0.040872 CollQ=0.1145
+       L12 vecΔ=0.138090 energy=0.019514 transport=0.420296 gap=0.042345 CollQ=0.1264
+       L13 vecΔ=0.135118 energy=0.019789 transport=0.423500 gap=0.046804 CollQ=0.1096
+       L14 vecΔ=0.058076 energy=0.004170 transport=0.404109 gap=0.048311 CollQ=0.1030
+       L15 vecΔ=0.063612 energy=0.004345 transport=0.417119 gap=0.051090 CollQ=0.0905
+       L16 vecΔ=0.092627 energy=0.009087 transport=0.481811 gap=0.057301 CollQ=0.0961
+       L17 vecΔ=0.088071 energy=0.008645 transport=0.491613 gap=0.061142 CollQ=0.1021
+       L18 vecΔ=0.076990 energy=0.007022 transport=0.573105 gap=0.074020 CollQ=0.1415
+       L19 vecΔ=0.061312 energy=0.003927 transport=0.613022 gap=0.080673 CollQ=0.1274
+
+[12/22] Behavioral assay of isolated components...
+
+       DOSE=0.125
+       CAUSAL_ORTH        C=+0.839334 P+=8/8 KL=0.246509 |dNLL|=0.203205
+       CAUSAL_SAFE        C=+0.835650 P+=8/8 KL=0.188097 |dNLL|=0.208825
+       REMOVED_COMPONENT  C=+0.035872 P+=5/8 KL=1.733035 |dNLL|=0.688568
+       RAW_COLL_COMPONENT C=+0.084978 P+=5/8 KL=1.927464 |dNLL|=0.899053
+
+       DOSE=0.250
+       CAUSAL_ORTH        C=+1.335918 P+=8/8 KL=0.903776 |dNLL|=0.397188
+       CAUSAL_SAFE        C=+1.351643 P+=8/8 KL=0.715801 |dNLL|=0.394357
+       REMOVED_COMPONENT  C=+0.232090 P+=6/8 KL=3.980145 |dNLL|=1.004039
+       RAW_COLL_COMPONENT C=+0.251156 P+=7/8 KL=4.545855 |dNLL|=1.218594
+
+       DOSE=0.500
+       CAUSAL_ORTH        C=+1.428540 P+=8/8 KL=2.453985 |dNLL|=0.768708
+       CAUSAL_SAFE        C=+1.422013 P+=8/8 KL=2.098954 |dNLL|=0.755007
+       REMOVED_COMPONENT  C=+0.135425 P+=5/8 KL=7.908982 |dNLL|=1.292064
+       RAW_COLL_COMPONENT C=+0.083986 P+=6/8 KL=8.515383 |dNLL|=1.176361
+
+       DOSE=0.750
+       CAUSAL_ORTH        C=+1.400450 P+=8/8 KL=3.921998 |dNLL|=1.338725
+       CAUSAL_SAFE        C=+1.437432 P+=8/8 KL=3.193794 |dNLL|=1.049292
+       REMOVED_COMPONENT  C=-0.031628 P+=2/8 KL=8.033213 |dNLL|=1.498534
+       RAW_COLL_COMPONENT C=-0.197264 P+=1/8 KL=8.512635 |dNLL|=1.294752
+
+       DOSE=1.000
+       CAUSAL_ORTH        C=+1.300255 P+=8/8 KL=4.492309 |dNLL|=0.846473
+       CAUSAL_SAFE        C=+1.379907 P+=8/8 KL=3.593315 |dNLL|=1.055982
+       REMOVED_COMPONENT  C=-0.060427 P+=2/8 KL=7.361495 |dNLL|=2.120055
+       RAW_COLL_COMPONENT C=-0.127868 P+=2/8 KL=7.828995 |dNLL|=1.963073
+
+[13/22] Dose-response transport summary...
+       scale=0.125 complete
+       scale=0.250 complete
+       scale=0.500 complete
+       scale=0.750 complete
+       scale=1.000 complete
+
+[14/22] Growth / rotation hotspots...
+       CAUSAL_ORTH        peakRel=L09 0.452938 | peakPerp=L09 0.449807 | peakAngle=L13 90.79° | peakGrowth=L01 1.4843
+       CAUSAL_SAFE        peakRel=L09 0.441810 | peakPerp=L09 0.438421 | peakAngle=L13 90.56° | peakGrowth=L01 1.4923
+       REMOVED_COMPONENT  peakRel=L19 0.613022 | peakPerp=L19 0.610866 | peakAngle=L13 90.61° | peakGrowth=L01 1.9655
+
+[15/22] ORTH-SAFE divergence hotspot...
+       max trajectory gap: L19 = 0.080673
+       max gap CollQ fraction: L00 = 0.915946
+
+[16/22] PCA of downstream displacement...
+       CAUSAL_ORTH        PC1=0.2141 PC1+2=0.3787 PC1+5=0.5847 effRank=19.040
+       CAUSAL_SAFE        PC1=0.2162 PC1+2=0.3785 PC1+5=0.5838 effRank=19.113
+       REMOVED_COMPONENT  PC1=0.2264 PC1+2=0.3980 PC1+5=0.5980 effRank=18.115
+
+[17/22] Paired causal bootstrap...
+       s=0.125 SAFE-ORTH=-0.003684[-0.022676,+0.015805] | REMOVED-ORTH=-0.803462[-1.022649,-0.601190]
+       s=0.250 SAFE-ORTH=+0.015725[-0.022706,+0.052527] | REMOVED-ORTH=-1.103828[-1.277784,-0.953033]
+       s=0.500 SAFE-ORTH=-0.006527[-0.045451,+0.038507] | REMOVED-ORTH=-1.293115[-1.486286,-1.093347]
+       s=0.750 SAFE-ORTH=+0.036981[-0.014780,+0.082437] | REMOVED-ORTH=-1.432078[-1.589592,-1.244824]
+       s=1.000 SAFE-ORTH=+0.079652[+0.005105,+0.175789] | REMOVED-ORTH=-1.360681[-1.518407,-1.204417]
+
+[18/22] Primary mechanism @0.50...
+       CAUSAL_ORTH        C=+1.428540 KL=2.453985 |dNLL|=0.768708 L19rel=0.413336 L19perp=0.411325 CollQ=0.0615
+       CAUSAL_SAFE        C=+1.422013 KL=2.098954 |dNLL|=0.755007 L19rel=0.391996 L19perp=0.389761 CollQ=0.0568
+       REMOVED_COMPONENT  C=+0.135425 KL=7.908982 |dNLL|=1.292064 L19rel=0.613022 L19perp=0.610866 CollQ=0.1274
+       RAW_COLL_COMPONENT C=+0.083986 KL=8.515383 |dNLL|=1.176361 L19rel=0.619562 L19perp=0.617511 CollQ=0.1277
+
+[19/22] TEST172 mechanism decision...
+       SAFE causal >=90% ORTH: True
+       SAFE KL < ORTH: True
+       SAFE L19 perp < ORTH: True
+       REMOVED collateral-density > ORTH: True
+       ORTH-SAFE trajectory gap grows L0->L19: True
+       DECISION: SMALL_COMPONENT_DOWNSTREAM_AMPLIFICATION_SUPPORTED
+
+[20/22] Saving...
+
+[21/22] Integrity...
+       P8 ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+       Frozen collateral K: 8
+       SEASC envelope changed: NO
+       RSS dose budget: 0.250235055
+       TEST171 FINAL used for selection: NO
+       New vector selected in TEST172: NO
+       Model weights modified: NO
+       Runtime controller: OFF
+       mean SAFE CollQ overlap: 1.03775769e-02
+
+[22/22] COMPLETE
+==========================================================================================================================================================
+TEST 172 — COLLATERAL COMPONENT TRANSPORT X-RAY — SUMMARY
+==========================================================================================================================================================
+Mean cos(Fisher,Bank): +0.860661
+Mean raw collateral energy in CAUSAL_ORTH: 0.009823
+Mean cos(REMOVED,RAW_COLL): +0.964281
+ORTH->SAFE gap L00/L19: 0.005653 / 0.080673
+DECISION: SMALL_COMPONENT_DOWNSTREAM_AMPLIFICATION_SUPPORTED
+Saved: /content/TEST172_COLLATERAL_COMPONENT_TRANSPORT_XRAY
+==========================================================================================================================================================
