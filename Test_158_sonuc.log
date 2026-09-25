@@ -1,0 +1,453 @@
+ ============================================================================================================================================================
+TEST 158 — SEMANTIC OBJECT X-RAY
+GAUGE · CONSTELLATION · HELD-OUT ALIGNMENT · CONTEXT · DEFORMATION SUBSPACE
+============================================================================================================================================================
+
+[1/15] Loading frozen model...
+config.json: 100% 663/663 [00:00<00:00, 81.0kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 785kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 42.6MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 73.0MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 117MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 1.98MB/s]Download complete: :  13.1GB, 18.4MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  198MB/s  Fetching 4 files: 100% 4/4 [01:03<00:00, 14.61s/it]Loading weights: 100% 339/339 [00:03<00:00, 100.15it/s]generation_config.json: 100% 243/243 [00:00<00:00, 32.7kB/s]GPU            : NVIDIA A100-SXM4-40GB
+Model          : Qwen/Qwen2.5-7B-Instruct
+Hidden         : 3584
+Decoder layers : 28
+Layers         : [3, 6, 10, 14, 19]
+Segments       : [(3, 6), (6, 10), (10, 14), (14, 19)]
+TRAIN axes     : ['BEFORE_AFTER', 'INSIDE_OUTSIDE', 'LEFT_RIGHT', 'NEAR_FAR', 'EARLIER_LATER', 'FRONT_BEHIND']
+VAL axes       : ['BIGGER_SMALLER', 'HOTTER_COLDER']
+FINAL axes     : ['ABOVE_BELOW']
+
+[2/15] Capturing semantic activation banks...
+
+  AXIS: BEFORE_AFTER
+    BEFORE_AFTER:POS: 01/8
+    BEFORE_AFTER:POS: 08/8
+    BEFORE_AFTER:NEG: 01/8
+    BEFORE_AFTER:NEG: 08/8
+
+  AXIS: INSIDE_OUTSIDE
+    INSIDE_OUTSIDE:POS: 01/8
+    INSIDE_OUTSIDE:POS: 08/8
+    INSIDE_OUTSIDE:NEG: 01/8
+    INSIDE_OUTSIDE:NEG: 08/8
+
+  AXIS: LEFT_RIGHT
+    LEFT_RIGHT:POS: 01/8
+    LEFT_RIGHT:POS: 08/8
+    LEFT_RIGHT:NEG: 01/8
+    LEFT_RIGHT:NEG: 08/8
+
+  AXIS: NEAR_FAR
+    NEAR_FAR:POS: 01/8
+    NEAR_FAR:POS: 08/8
+    NEAR_FAR:NEG: 01/8
+    NEAR_FAR:NEG: 08/8
+
+  AXIS: EARLIER_LATER
+    EARLIER_LATER:POS: 01/8
+    EARLIER_LATER:POS: 08/8
+    EARLIER_LATER:NEG: 01/8
+    EARLIER_LATER:NEG: 08/8
+
+  AXIS: FRONT_BEHIND
+    FRONT_BEHIND:POS: 01/8
+    FRONT_BEHIND:POS: 08/8
+    FRONT_BEHIND:NEG: 01/8
+    FRONT_BEHIND:NEG: 08/8
+
+  AXIS: BIGGER_SMALLER
+    BIGGER_SMALLER:POS: 01/8
+    BIGGER_SMALLER:POS: 08/8
+    BIGGER_SMALLER:NEG: 01/8
+    BIGGER_SMALLER:NEG: 08/8
+
+  AXIS: HOTTER_COLDER
+    HOTTER_COLDER:POS: 01/8
+    HOTTER_COLDER:POS: 08/8
+    HOTTER_COLDER:NEG: 01/8
+    HOTTER_COLDER:NEG: 08/8
+
+  AXIS: ABOVE_BELOW
+    ABOVE_BELOW:POS: 01/8
+    ABOVE_BELOW:POS: 08/8
+    ABOVE_BELOW:NEG: 01/8
+    ABOVE_BELOW:NEG: 08/8
+
+[3/15] Building semantic objects...
+
+Adjacent compass cosines:
+BEFORE_AFTER       +0.2505 +0.0952 +0.2738 +0.2924
+INSIDE_OUTSIDE     +0.2579 +0.1876 +0.2488 +0.2840
+LEFT_RIGHT         +0.2374 +0.1143 +0.3165 +0.2468
+NEAR_FAR           +0.2579 +0.1750 +0.3109 +0.2722
+EARLIER_LATER      +0.3112 +0.1441 +0.3408 +0.1468
+FRONT_BEHIND       +0.3752 +0.2254 +0.3377 +0.2831
+BIGGER_SMALLER     +0.3252 +0.1576 +0.3453 +0.2982
+HOTTER_COLDER      +0.3305 +0.1616 +0.3435 +0.1949
+ABOVE_BELOW        +0.2774 +0.1808 +0.3231 +0.2570
+
+[4/15] H1 — Semantic constellation geometry...
+
+  SPLIT: TRAIN
+L3->L6 | individual=+0.281686 | Gram-r=+0.561226 | MAE=0.159504
+L6->L10 | individual=+0.156929 | Gram-r=+0.337523 | MAE=0.176677
+L10->L14 | individual=+0.304753 | Gram-r=+0.791638 | MAE=0.086586
+L14->L19 | individual=+0.254213 | Gram-r=+0.577513 | MAE=0.126772
+
+  SPLIT: ALL
+L3->L6 | individual=+0.291472 | Gram-r=+0.612866 | MAE=0.118442
+L6->L10 | individual=+0.160165 | Gram-r=+0.236474 | MAE=0.188325
+L10->L14 | individual=+0.315604 | Gram-r=+0.749208 | MAE=0.100210
+L14->L19 | individual=+0.252820 | Gram-r=+0.352808 | MAE=0.159750
+
+[5/15] H2 — TRAIN-only held-out orthogonal alignment...
+
+  L3->L6 fit rank=6
+    TRAIN BEFORE_AFTER       | static=+0.250534 ortho=+0.985281 Δ=+0.734747
+    TRAIN INSIDE_OUTSIDE     | static=+0.257946 ortho=+0.988885 Δ=+0.730939
+    TRAIN LEFT_RIGHT         | static=+0.237450 ortho=+0.987415 Δ=+0.749965
+    TRAIN NEAR_FAR           | static=+0.257863 ortho=+0.963100 Δ=+0.705237
+    TRAIN EARLIER_LATER      | static=+0.311164 ortho=+0.995425 Δ=+0.684261
+    TRAIN FRONT_BEHIND       | static=+0.375157 ortho=+0.975562 Δ=+0.600405
+    VAL   BIGGER_SMALLER     | static=+0.325220 ortho=+0.410241 Δ=+0.085021
+    VAL   HOTTER_COLDER      | static=+0.330520 ortho=+0.075759 Δ=-0.254760
+    FINAL ABOVE_BELOW        | static=+0.277398 ortho=+0.283468 Δ=+0.006070
+
+  L6->L10 fit rank=6
+    TRAIN BEFORE_AFTER       | static=+0.095219 ortho=+0.940737 Δ=+0.845518
+    TRAIN INSIDE_OUTSIDE     | static=+0.187599 ortho=+0.990373 Δ=+0.802774
+    TRAIN LEFT_RIGHT         | static=+0.114269 ortho=+0.962820 Δ=+0.848551
+    TRAIN NEAR_FAR           | static=+0.174963 ortho=+0.977599 Δ=+0.802636
+    TRAIN EARLIER_LATER      | static=+0.144146 ortho=+0.995005 Δ=+0.850859
+    TRAIN FRONT_BEHIND       | static=+0.225378 ortho=+0.953467 Δ=+0.728089
+    VAL   BIGGER_SMALLER     | static=+0.157598 ortho=+0.054838 Δ=-0.102760
+    VAL   HOTTER_COLDER      | static=+0.161558 ortho=+0.012286 Δ=-0.149272
+    FINAL ABOVE_BELOW        | static=+0.180759 ortho=-0.016036 Δ=-0.196795
+
+  L10->L14 fit rank=6
+    TRAIN BEFORE_AFTER       | static=+0.273825 ortho=+0.986961 Δ=+0.713135
+    TRAIN INSIDE_OUTSIDE     | static=+0.248830 ortho=+0.998312 Δ=+0.749482
+    TRAIN LEFT_RIGHT         | static=+0.316495 ortho=+0.994226 Δ=+0.677731
+    TRAIN NEAR_FAR           | static=+0.310911 ortho=+0.977533 Δ=+0.666621
+    TRAIN EARLIER_LATER      | static=+0.340783 ortho=+0.997014 Δ=+0.656230
+    TRAIN FRONT_BEHIND       | static=+0.337675 ortho=+0.995129 Δ=+0.657454
+    VAL   BIGGER_SMALLER     | static=+0.345307 ortho=+0.312857 Δ=-0.032451
+    VAL   HOTTER_COLDER      | static=+0.343523 ortho=+0.183696 Δ=-0.159827
+    FINAL ABOVE_BELOW        | static=+0.323088 ortho=-0.014540 Δ=-0.337627
+
+  L14->L19 fit rank=6
+    TRAIN BEFORE_AFTER       | static=+0.292380 ortho=+0.988459 Δ=+0.696079
+    TRAIN INSIDE_OUTSIDE     | static=+0.284021 ortho=+0.973342 Δ=+0.689321
+    TRAIN LEFT_RIGHT         | static=+0.246760 ortho=+0.998543 Δ=+0.751782
+    TRAIN NEAR_FAR           | static=+0.272190 ortho=+0.964107 Δ=+0.691916
+    TRAIN EARLIER_LATER      | static=+0.146834 ortho=+0.987985 Δ=+0.841150
+    TRAIN FRONT_BEHIND       | static=+0.283090 ortho=+0.979372 Δ=+0.696282
+    VAL   BIGGER_SMALLER     | static=+0.298193 ortho=+0.321118 Δ=+0.022925
+    VAL   HOTTER_COLDER      | static=+0.194940 ortho=+0.105774 Δ=-0.089166
+    FINAL ABOVE_BELOW        | static=+0.256970 ortho=+0.345411 Δ=+0.088440
+
+[6/15] H3 — Pairwise semantic-difference geometry...
+
+  SPLIT: TRAIN
+L3->L6 | absolute=+0.281686 | pair-diff=+0.289233 | Δ=+0.007547
+L6->L10 | absolute=+0.156929 | pair-diff=+0.152245 | Δ=-0.004684
+L10->L14 | absolute=+0.304753 | pair-diff=+0.312338 | Δ=+0.007585
+L14->L19 | absolute=+0.254213 | pair-diff=+0.247013 | Δ=-0.007199
+
+  SPLIT: ALL
+L3->L6 | absolute=+0.291472 | pair-diff=+0.291800 | Δ=+0.000327
+L6->L10 | absolute=+0.160165 | pair-diff=+0.163048 | Δ=+0.002883
+L10->L14 | absolute=+0.315604 | pair-diff=+0.319654 | Δ=+0.004050
+L14->L19 | absolute=+0.252820 | pair-diff=+0.247027 | Δ=-0.005792
+
+[7/15] H4 — Concept × context interaction...
+
+  AXIS: BEFORE_AFTER
+L3->L6 | compass=+0.25053 | same=+0.22429 | cross=+0.15568 | same-cross=+0.06862
+L6->L10 | compass=+0.09522 | same=+0.10676 | cross=+0.05311 | same-cross=+0.05365
+L10->L14 | compass=+0.27383 | same=+0.24953 | cross=+0.14512 | same-cross=+0.10441
+L14->L19 | compass=+0.29238 | same=+0.22968 | cross=+0.12106 | same-cross=+0.10862
+
+  AXIS: INSIDE_OUTSIDE
+L3->L6 | compass=+0.25795 | same=+0.26789 | cross=+0.17370 | same-cross=+0.09418
+L6->L10 | compass=+0.18760 | same=+0.17068 | cross=+0.10810 | same-cross=+0.06259
+L10->L14 | compass=+0.24883 | same=+0.25350 | cross=+0.12463 | same-cross=+0.12887
+L14->L19 | compass=+0.28402 | same=+0.24285 | cross=+0.15825 | same-cross=+0.08459
+
+  AXIS: LEFT_RIGHT
+L3->L6 | compass=+0.23745 | same=+0.23307 | cross=+0.17611 | same-cross=+0.05696
+L6->L10 | compass=+0.11427 | same=+0.11583 | cross=+0.07584 | same-cross=+0.03998
+L10->L14 | compass=+0.31650 | same=+0.29590 | cross=+0.18258 | same-cross=+0.11332
+L14->L19 | compass=+0.24676 | same=+0.22467 | cross=+0.12748 | same-cross=+0.09719
+
+  AXIS: NEAR_FAR
+L3->L6 | compass=+0.25786 | same=+0.25055 | cross=+0.22927 | same-cross=+0.02128
+L6->L10 | compass=+0.17496 | same=+0.16284 | cross=+0.14362 | same-cross=+0.01922
+L10->L14 | compass=+0.31091 | same=+0.29848 | cross=+0.23674 | same-cross=+0.06174
+L14->L19 | compass=+0.27219 | same=+0.25603 | cross=+0.19847 | same-cross=+0.05756
+
+  AXIS: EARLIER_LATER
+L3->L6 | compass=+0.31116 | same=+0.29192 | cross=+0.25130 | same-cross=+0.04061
+L6->L10 | compass=+0.14415 | same=+0.13546 | cross=+0.10392 | same-cross=+0.03154
+L10->L14 | compass=+0.34078 | same=+0.32117 | cross=+0.22096 | same-cross=+0.10021
+L14->L19 | compass=+0.14683 | same=+0.15115 | cross=+0.10742 | same-cross=+0.04373
+
+  AXIS: FRONT_BEHIND
+L3->L6 | compass=+0.37516 | same=+0.35608 | cross=+0.32581 | same-cross=+0.03027
+L6->L10 | compass=+0.22538 | same=+0.19935 | cross=+0.16923 | same-cross=+0.03012
+L10->L14 | compass=+0.33768 | same=+0.30808 | cross=+0.20929 | same-cross=+0.09879
+L14->L19 | compass=+0.28309 | same=+0.23905 | cross=+0.14193 | same-cross=+0.09711
+
+  AXIS: BIGGER_SMALLER
+L3->L6 | compass=+0.32522 | same=+0.31430 | cross=+0.28326 | same-cross=+0.03104
+L6->L10 | compass=+0.15760 | same=+0.14949 | cross=+0.13365 | same-cross=+0.01584
+L10->L14 | compass=+0.34531 | same=+0.32352 | cross=+0.27858 | same-cross=+0.04493
+L14->L19 | compass=+0.29819 | same=+0.27099 | cross=+0.22026 | same-cross=+0.05073
+
+  AXIS: HOTTER_COLDER
+L3->L6 | compass=+0.33052 | same=+0.31135 | cross=+0.19596 | same-cross=+0.11539
+L6->L10 | compass=+0.16156 | same=+0.15275 | cross=+0.08249 | same-cross=+0.07026
+L10->L14 | compass=+0.34352 | same=+0.33108 | cross=+0.16951 | same-cross=+0.16157
+L14->L19 | compass=+0.19494 | same=+0.18860 | cross=+0.09386 | same-cross=+0.09474
+
+  AXIS: ABOVE_BELOW
+L3->L6 | compass=+0.27740 | same=+0.26658 | cross=+0.20801 | same-cross=+0.05857
+L6->L10 | compass=+0.18076 | same=+0.14692 | cross=+0.10505 | same-cross=+0.04186
+L10->L14 | compass=+0.32309 | same=+0.29950 | cross=+0.12903 | same-cross=+0.17047
+L14->L19 | compass=+0.25697 | same=+0.22350 | cross=+0.09271 | same-cross=+0.13080
+
+[8/15] H4 — Context correspondence permutation null...
+BEFORE_AFTER       L3->L6 | real=+0.068617 | null=+0.000133±0.012973 | Z=+5.279 | p=0.000500
+BEFORE_AFTER       L6->L10 | real=+0.053648 | null=+0.000277±0.010118 | Z=+5.275 | p=0.000500
+BEFORE_AFTER       L10->L14 | real=+0.104409 | null=-0.000315±0.017130 | Z=+6.114 | p=0.000500
+BEFORE_AFTER       L14->L19 | real=+0.108625 | null=-0.000857±0.017563 | Z=+6.234 | p=0.000500
+INSIDE_OUTSIDE     L3->L6 | real=+0.094181 | null=+0.000255±0.019365 | Z=+4.850 | p=0.000500
+INSIDE_OUTSIDE     L6->L10 | real=+0.062588 | null=-0.000216±0.014701 | Z=+4.272 | p=0.000500
+INSIDE_OUTSIDE     L10->L14 | real=+0.128873 | null=+0.000086±0.020909 | Z=+6.159 | p=0.000500
+INSIDE_OUTSIDE     L14->L19 | real=+0.084595 | null=+0.000211±0.013752 | Z=+6.136 | p=0.000500
+LEFT_RIGHT         L3->L6 | real=+0.056956 | null=+0.000419±0.010819 | Z=+5.226 | p=0.000500
+LEFT_RIGHT         L6->L10 | real=+0.039984 | null=+0.000218±0.007150 | Z=+5.562 | p=0.000500
+LEFT_RIGHT         L10->L14 | real=+0.113322 | null=-0.000908±0.017198 | Z=+6.642 | p=0.000500
+LEFT_RIGHT         L14->L19 | real=+0.097191 | null=+0.000437±0.015391 | Z=+6.286 | p=0.000500
+NEAR_FAR           L3->L6 | real=+0.021280 | null=-0.000007±0.003802 | Z=+5.598 | p=0.000500
+NEAR_FAR           L6->L10 | real=+0.019225 | null=-0.000061±0.004040 | Z=+4.774 | p=0.000500
+NEAR_FAR           L10->L14 | real=+0.061741 | null=+0.000055±0.009512 | Z=+6.485 | p=0.000500
+NEAR_FAR           L14->L19 | real=+0.057563 | null=-0.000300±0.009268 | Z=+6.243 | p=0.000500
+EARLIER_LATER      L3->L6 | real=+0.040611 | null=-0.000222±0.006946 | Z=+5.879 | p=0.000500
+EARLIER_LATER      L6->L10 | real=+0.031541 | null=-0.000127±0.005772 | Z=+5.487 | p=0.001000
+EARLIER_LATER      L10->L14 | real=+0.100209 | null=+0.000744±0.016563 | Z=+6.005 | p=0.000500
+EARLIER_LATER      L14->L19 | real=+0.043730 | null=-0.000122±0.009057 | Z=+4.842 | p=0.000500
+FRONT_BEHIND       L3->L6 | real=+0.030273 | null=+0.000005±0.004977 | Z=+6.082 | p=0.000500
+FRONT_BEHIND       L6->L10 | real=+0.030123 | null=+0.000218±0.005633 | Z=+5.309 | p=0.000500
+FRONT_BEHIND       L10->L14 | real=+0.098789 | null=+0.000183±0.015572 | Z=+6.332 | p=0.001000
+FRONT_BEHIND       L14->L19 | real=+0.097114 | null=+0.000356±0.017130 | Z=+5.649 | p=0.000500
+BIGGER_SMALLER     L3->L6 | real=+0.031042 | null=+0.000078±0.005475 | Z=+5.656 | p=0.000500
+BIGGER_SMALLER     L6->L10 | real=+0.015839 | null=-0.000017±0.002824 | Z=+5.616 | p=0.000500
+BIGGER_SMALLER     L10->L14 | real=+0.044934 | null=-0.000213±0.007913 | Z=+5.705 | p=0.000500
+BIGGER_SMALLER     L14->L19 | real=+0.050732 | null=+0.000176±0.009509 | Z=+5.317 | p=0.000500
+HOTTER_COLDER      L3->L6 | real=+0.115388 | null=-0.000851±0.022990 | Z=+5.056 | p=0.000500
+HOTTER_COLDER      L6->L10 | real=+0.070261 | null=+0.000018±0.015973 | Z=+4.398 | p=0.000500
+HOTTER_COLDER      L10->L14 | real=+0.161573 | null=+0.000674±0.029234 | Z=+5.504 | p=0.000500
+HOTTER_COLDER      L14->L19 | real=+0.094741 | null=-0.000158±0.016421 | Z=+5.779 | p=0.000500
+ABOVE_BELOW        L3->L6 | real=+0.058573 | null=+0.000184±0.010776 | Z=+5.418 | p=0.000500
+ABOVE_BELOW        L6->L10 | real=+0.041861 | null=+0.000022±0.008245 | Z=+5.074 | p=0.001000
+ABOVE_BELOW        L10->L14 | real=+0.170473 | null=+0.001243±0.027525 | Z=+6.148 | p=0.000500
+ABOVE_BELOW        L14->L19 | real=+0.130795 | null=+0.000156±0.021258 | Z=+6.145 | p=0.000500
+
+[9/15] H5 — Semantic deformation subspaces...
+
+  AXIS: BEFORE_AFTER
+L3->L6 | compass=+0.25053 | RAW-sub=+0.20056 | CENTERED-sub=+0.18811 | RAW-compass=-0.04997
+L6->L10 | compass=+0.09522 | RAW-sub=+0.12309 | CENTERED-sub=+0.11808 | RAW-compass=+0.02787
+L10->L14 | compass=+0.27383 | RAW-sub=+0.22656 | CENTERED-sub=+0.21860 | RAW-compass=-0.04726
+L14->L19 | compass=+0.29238 | RAW-sub=+0.21167 | CENTERED-sub=+0.19658 | RAW-compass=-0.08071
+
+  AXIS: INSIDE_OUTSIDE
+L3->L6 | compass=+0.25795 | RAW-sub=+0.27218 | CENTERED-sub=+0.26725 | RAW-compass=+0.01423
+L6->L10 | compass=+0.18760 | RAW-sub=+0.14330 | CENTERED-sub=+0.13791 | RAW-compass=-0.04430
+L10->L14 | compass=+0.24883 | RAW-sub=+0.26657 | CENTERED-sub=+0.26537 | RAW-compass=+0.01774
+L14->L19 | compass=+0.28402 | RAW-sub=+0.21121 | CENTERED-sub=+0.20104 | RAW-compass=-0.07282
+
+  AXIS: LEFT_RIGHT
+L3->L6 | compass=+0.23745 | RAW-sub=+0.22223 | CENTERED-sub=+0.22007 | RAW-compass=-0.01522
+L6->L10 | compass=+0.11427 | RAW-sub=+0.13156 | CENTERED-sub=+0.13280 | RAW-compass=+0.01729
+L10->L14 | compass=+0.31650 | RAW-sub=+0.28192 | CENTERED-sub=+0.27552 | RAW-compass=-0.03457
+L14->L19 | compass=+0.24676 | RAW-sub=+0.21545 | CENTERED-sub=+0.21097 | RAW-compass=-0.03131
+
+  AXIS: NEAR_FAR
+L3->L6 | compass=+0.25786 | RAW-sub=+0.19799 | CENTERED-sub=+0.18361 | RAW-compass=-0.05987
+L6->L10 | compass=+0.17496 | RAW-sub=+0.12660 | CENTERED-sub=+0.11827 | RAW-compass=-0.04836
+L10->L14 | compass=+0.31091 | RAW-sub=+0.26667 | CENTERED-sub=+0.25912 | RAW-compass=-0.04425
+L14->L19 | compass=+0.27219 | RAW-sub=+0.21783 | CENTERED-sub=+0.20602 | RAW-compass=-0.05436
+
+  AXIS: EARLIER_LATER
+L3->L6 | compass=+0.31116 | RAW-sub=+0.23282 | CENTERED-sub=+0.21862 | RAW-compass=-0.07834
+L6->L10 | compass=+0.14415 | RAW-sub=+0.12305 | CENTERED-sub=+0.11543 | RAW-compass=-0.02110
+L10->L14 | compass=+0.34078 | RAW-sub=+0.29078 | CENTERED-sub=+0.28299 | RAW-compass=-0.05000
+L14->L19 | compass=+0.14683 | RAW-sub=+0.16617 | CENTERED-sub=+0.14499 | RAW-compass=+0.01934
+
+  AXIS: FRONT_BEHIND
+L3->L6 | compass=+0.37516 | RAW-sub=+0.26028 | CENTERED-sub=+0.23922 | RAW-compass=-0.11487
+L6->L10 | compass=+0.22538 | RAW-sub=+0.14230 | CENTERED-sub=+0.12627 | RAW-compass=-0.08307
+L10->L14 | compass=+0.33768 | RAW-sub=+0.27241 | CENTERED-sub=+0.26408 | RAW-compass=-0.06526
+L14->L19 | compass=+0.28309 | RAW-sub=+0.20549 | CENTERED-sub=+0.19375 | RAW-compass=-0.07760
+
+  AXIS: BIGGER_SMALLER
+L3->L6 | compass=+0.32522 | RAW-sub=+0.25513 | CENTERED-sub=+0.24401 | RAW-compass=-0.07009
+L6->L10 | compass=+0.15760 | RAW-sub=+0.12131 | CENTERED-sub=+0.11361 | RAW-compass=-0.03629
+L10->L14 | compass=+0.34531 | RAW-sub=+0.25379 | CENTERED-sub=+0.24326 | RAW-compass=-0.09152
+L14->L19 | compass=+0.29819 | RAW-sub=+0.20198 | CENTERED-sub=+0.19251 | RAW-compass=-0.09621
+
+  AXIS: HOTTER_COLDER
+L3->L6 | compass=+0.33052 | RAW-sub=+0.27495 | CENTERED-sub=+0.26601 | RAW-compass=-0.05557
+L6->L10 | compass=+0.16156 | RAW-sub=+0.14953 | CENTERED-sub=+0.14794 | RAW-compass=-0.01203
+L10->L14 | compass=+0.34352 | RAW-sub=+0.30803 | CENTERED-sub=+0.30096 | RAW-compass=-0.03549
+L14->L19 | compass=+0.19494 | RAW-sub=+0.18630 | CENTERED-sub=+0.17246 | RAW-compass=-0.00864
+
+  AXIS: ABOVE_BELOW
+L3->L6 | compass=+0.27740 | RAW-sub=+0.23813 | CENTERED-sub=+0.22732 | RAW-compass=-0.03927
+L6->L10 | compass=+0.18076 | RAW-sub=+0.12811 | CENTERED-sub=+0.11899 | RAW-compass=-0.05265
+L10->L14 | compass=+0.32309 | RAW-sub=+0.28786 | CENTERED-sub=+0.27867 | RAW-compass=-0.03523
+L14->L19 | compass=+0.25697 | RAW-sub=+0.21167 | CENTERED-sub=+0.20698 | RAW-compass=-0.04530
+
+[10/15] H5 — Deformation-subspace pairing null...
+BEFORE_AFTER       L3->L6 | real=0.200563 | null=0.131872±0.012004 | Z=+5.723 | p=0.000500
+BEFORE_AFTER       L6->L10 | real=0.123086 | null=0.096623±0.005804 | Z=+4.560 | p=0.000500
+BEFORE_AFTER       L10->L14 | real=0.226562 | null=0.155019±0.012064 | Z=+5.931 | p=0.000500
+BEFORE_AFTER       L14->L19 | real=0.211668 | null=0.162323±0.009887 | Z=+4.991 | p=0.000500
+INSIDE_OUTSIDE     L3->L6 | real=0.272180 | null=0.158454±0.020177 | Z=+5.636 | p=0.001000
+INSIDE_OUTSIDE     L6->L10 | real=0.143297 | null=0.105009±0.009090 | Z=+4.212 | p=0.001000
+INSIDE_OUTSIDE     L10->L14 | real=0.266566 | null=0.161587±0.016439 | Z=+6.386 | p=0.000500
+INSIDE_OUTSIDE     L14->L19 | real=0.211205 | null=0.141656±0.011030 | Z=+6.305 | p=0.000500
+LEFT_RIGHT         L3->L6 | real=0.222227 | null=0.139662±0.015571 | Z=+5.302 | p=0.000500
+LEFT_RIGHT         L6->L10 | real=0.131563 | null=0.091319±0.007424 | Z=+5.421 | p=0.000500
+LEFT_RIGHT         L10->L14 | real=0.281923 | null=0.170688±0.018611 | Z=+5.977 | p=0.001000
+LEFT_RIGHT         L14->L19 | real=0.215450 | null=0.140473±0.012738 | Z=+5.886 | p=0.000500
+NEAR_FAR           L3->L6 | real=0.197992 | null=0.135017±0.012300 | Z=+5.120 | p=0.000500
+NEAR_FAR           L6->L10 | real=0.126603 | null=0.104587±0.006221 | Z=+3.539 | p=0.001499
+NEAR_FAR           L10->L14 | real=0.266665 | null=0.164877±0.016328 | Z=+6.234 | p=0.000500
+NEAR_FAR           L14->L19 | real=0.217828 | null=0.147576±0.011539 | Z=+6.088 | p=0.000500
+EARLIER_LATER      L3->L6 | real=0.232824 | null=0.131532±0.018755 | Z=+5.401 | p=0.000500
+EARLIER_LATER      L6->L10 | real=0.123047 | null=0.086412±0.008096 | Z=+4.525 | p=0.000500
+EARLIER_LATER      L10->L14 | real=0.290780 | null=0.179076±0.019257 | Z=+5.801 | p=0.000500
+EARLIER_LATER      L14->L19 | real=0.166172 | null=0.114993±0.008982 | Z=+5.698 | p=0.000500
+FRONT_BEHIND       L3->L6 | real=0.260283 | null=0.158548±0.018609 | Z=+5.467 | p=0.000500
+FRONT_BEHIND       L6->L10 | real=0.142303 | null=0.104473±0.007792 | Z=+4.855 | p=0.000500
+FRONT_BEHIND       L10->L14 | real=0.272413 | null=0.171519±0.016285 | Z=+6.195 | p=0.000500
+FRONT_BEHIND       L14->L19 | real=0.205491 | null=0.143083±0.010985 | Z=+5.681 | p=0.000500
+BIGGER_SMALLER     L3->L6 | real=0.255126 | null=0.145481±0.021248 | Z=+5.160 | p=0.000500
+BIGGER_SMALLER     L6->L10 | real=0.121312 | null=0.091082±0.007014 | Z=+4.310 | p=0.001499
+BIGGER_SMALLER     L10->L14 | real=0.253790 | null=0.165476±0.014123 | Z=+6.253 | p=0.000500
+BIGGER_SMALLER     L14->L19 | real=0.201983 | null=0.134388±0.012030 | Z=+5.619 | p=0.000500
+HOTTER_COLDER      L3->L6 | real=0.274953 | null=0.156371±0.022476 | Z=+5.276 | p=0.000500
+HOTTER_COLDER      L6->L10 | real=0.149527 | null=0.101299±0.009995 | Z=+4.825 | p=0.000500
+HOTTER_COLDER      L10->L14 | real=0.308029 | null=0.188499±0.021490 | Z=+5.562 | p=0.000500
+HOTTER_COLDER      L14->L19 | real=0.186302 | null=0.131559±0.009984 | Z=+5.483 | p=0.000500
+ABOVE_BELOW        L3->L6 | real=0.238129 | null=0.137934±0.017738 | Z=+5.649 | p=0.000500
+ABOVE_BELOW        L6->L10 | real=0.128112 | null=0.094783±0.007308 | Z=+4.560 | p=0.000500
+ABOVE_BELOW        L10->L14 | real=0.287860 | null=0.178334±0.018674 | Z=+5.865 | p=0.000500
+ABOVE_BELOW        L14->L19 | real=0.211674 | null=0.143588±0.012215 | Z=+5.574 | p=0.000500
+
+[11/15] Held-out relational signatures...
+
+  VAL: BIGGER_SMALLER
+L3->L6 | absolute=+0.325220 | relational-r=+0.972182 | RMSE=0.065234
+L6->L10 | absolute=+0.157598 | relational-r=+0.247034 | RMSE=0.312758
+L10->L14 | absolute=+0.345307 | relational-r=+0.949620 | RMSE=0.137929
+L14->L19 | absolute=+0.298193 | relational-r=+0.567907 | RMSE=0.167941
+
+  VAL: HOTTER_COLDER
+L3->L6 | absolute=+0.330520 | relational-r=+0.156826 | RMSE=0.089795
+L6->L10 | absolute=+0.161558 | relational-r=-0.222038 | RMSE=0.151955
+L10->L14 | absolute=+0.343523 | relational-r=+0.682099 | RMSE=0.094519
+L14->L19 | absolute=+0.194940 | relational-r=+0.202271 | RMSE=0.245963
+
+  FINAL: ABOVE_BELOW
+L3->L6 | absolute=+0.277398 | relational-r=+0.823036 | RMSE=0.126414
+L6->L10 | absolute=+0.180759 | relational-r=-0.604900 | RMSE=0.206242
+L10->L14 | absolute=+0.323088 | relational-r=+0.437267 | RMSE=0.165492
+L14->L19 | absolute=+0.256970 | relational-r=+0.536114 | RMSE=0.231133
+
+[12/15] Integrated summary...
+TRAIN constellation Gram-r        : +0.566975
+ALL constellation Gram-r          : +0.487839
+VAL held-out ORTHO Δ              : -0.085036
+FINAL held-out ORTHO Δ            : -0.109978
+Pair-difference advantage         : +0.000367
+Mean same-context advantage       : +0.073094
+Context permutation p<.05 fraction: 1.000
+RAW subspace - compass            : -0.043196
+CENTERED subspace - compass       : -0.052310
+Subspace pairing p<.05 fraction   : 1.000
+VAL relational signature r        : +0.444488
+FINAL relational signature r      : +0.297880
+
+[13/15] Mechanistic diagnosis...
+
+DIAGNOSTIC FLAGS
+ - CONTEXT_DEPENDENT_SEMANTICS_SUPPORTED
+
+Interpretation map:
+
+RELATIONAL_GEOMETRY_PRESERVED
+    Individual semantic arrows rotate, but the semantic constellation survives.
+
+HELDOUT_GAUGE_ALIGNMENT_SUPPORTED
+    A TRAIN-fitted low-rank orthogonal coordinate transformation improves
+    unseen semantic axes. Layer coordinate-frame change is plausible.
+
+PAIRWISE_DIFFERENCE_GEOMETRY_SUPPORTED
+    Relative semantic differences survive better than absolute semantic arrows.
+
+CONTEXT_DEPENDENT_SEMANTICS_SUPPORTED
+    Matched lexical/context instances preserve cross-layer identity better than
+    mismatched instances. A single averaged compass discards useful structure.
+
+SEMANTIC_DEFORMATION_SUBSPACE_SUPPORTED
+    The sample-wise semantic deformation span survives depth substantially
+    better than the mean compass. The semantic object is better represented
+    as a subspace than as one vector.
+
+CONTEXT_RESIDUAL_SUBSPACE_SUPPORTED
+    Even after removing the mean semantic direction, structured context-
+    dependent semantic variation persists across depth.
+
+HELDOUT_RELATIONAL_IDENTITY_SUPPORTED
+    An unseen concept preserves its relationships to TRAIN concepts even when
+    its absolute hidden-space direction changes.
+
+NO_SINGLE_OBJECT_DOMINATES
+    None of these simple objects explains semantic persistence alone.
+
+
+[14/15] Saving CSV / JSON / NPZ...
+
+[15/15] COMPLETE
+============================================================================================================================================================
+Mean absolute axis persistence      : +0.255016
+ALL constellation Gram-r            : +0.487839
+FINAL held-out ORTHO delta          : -0.109978
+Pair-difference advantage           : +0.000367
+Mean context advantage              : +0.073094
+Context p<.05 fraction              : 1.000
+RAW subspace minus compass          : -0.043196
+CENTERED subspace minus compass     : -0.052310
+Subspace p<.05 fraction             : 1.000
+FINAL relational signature r        : +0.297880
+
+DIAGNOSTIC FLAGS:
+  CONTEXT_DEPENDENT_SEMANTICS_SUPPORTED
+
+Saved:
+  /content/TEST158_SEMANTIC_OBJECT_XRAY/CONSTELLATION.csv
+  /content/TEST158_SEMANTIC_OBJECT_XRAY/HELDOUT_ORTHO.csv
+  /content/TEST158_SEMANTIC_OBJECT_XRAY/PAIRWISE_GEOMETRY.csv
+  /content/TEST158_SEMANTIC_OBJECT_XRAY/CONTEXT_INTERACTION.csv
+  /content/TEST158_SEMANTIC_OBJECT_XRAY/CONTEXT_PERMUTATION_NULL.csv
+  /content/TEST158_SEMANTIC_OBJECT_XRAY/DEFORMATION_SUBSPACE.csv
+  /content/TEST158_SEMANTIC_OBJECT_XRAY/DEFORMATION_SUBSPACE_NULL.csv
+  /content/TEST158_SEMANTIC_OBJECT_XRAY/HELDOUT_RELATIONAL_SIGNATURE.csv
+  /content/TEST158_SEMANTIC_OBJECT_XRAY/REPORT.json
+  /content/TEST158_SEMANTIC_OBJECT_XRAY/TEST158_SEMANTIC_OBJECT_XRAY.npz
+============================================================================================================================================================
+TEST 158 COMPLETE
+============================================================================================================================================================
