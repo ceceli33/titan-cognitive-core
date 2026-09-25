@@ -1,0 +1,271 @@
+ ======================================================================================================================================================
+TEST 164 — VEKTÖR SOY AĞACI DÖKÜMHANESİ
+AKBASCORE 3.2 / SEASC
+======================================================================================================================================================
+GPU            : NVIDIA A100-SXM4-40GB
+Model          : Qwen/Qwen2.5-7B-Instruct
+Steered layers : L0-L19
+Forge scale    : 0.5
+Final scales   : [0.25, 0.5, 1.0]
+
+[1/14] Compiling SEASC kernel...
+       CUDA kernel: OK
+
+[2/14] Loading frozen model...
+config.json: 100% 663/663 [00:00<00:00, 82.3kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 768kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 86.8MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 69.9MB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 135MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.04MB/s]Download complete: :  13.1GB,  310MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  487MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.82s/it]Loading weights: 100% 339/339 [00:03<00:00, 99.79it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.5kB/s]       hidden : 3584
+       layers : 28
+       dtype  : torch.bfloat16
+
+[3/14] Building SEARCH bank...
+       pair 01/16
+       pair 02/16
+       pair 03/16
+       pair 04/16
+       pair 05/16
+       pair 06/16
+       pair 07/16
+       pair 08/16
+       pair 09/16
+       pair 10/16
+       pair 11/16
+       pair 12/16
+       pair 13/16
+       pair 14/16
+       pair 15/16
+       pair 16/16
+
+[4/14] Building Fisher / Bank lineage...
+       L00 cos(F,B)=+0.957046 | residual=0.289934
+       L01 cos(F,B)=+0.945882 | residual=0.324511
+       L02 cos(F,B)=+0.923687 | residual=0.383148
+       L03 cos(F,B)=+0.905784 | residual=0.423739
+       L04 cos(F,B)=+0.827902 | residual=0.560873
+       L05 cos(F,B)=+0.787565 | residual=0.616231
+       L06 cos(F,B)=+0.783951 | residual=0.620823
+       L07 cos(F,B)=+0.851357 | residual=0.524587
+       L08 cos(F,B)=+0.877778 | residual=0.479067
+       L09 cos(F,B)=+0.880560 | residual=0.473935
+       L10 cos(F,B)=+0.868166 | residual=0.496274
+       L11 cos(F,B)=+0.863361 | residual=0.504587
+       L12 cos(F,B)=+0.872287 | residual=0.488994
+       L13 cos(F,B)=+0.866555 | residual=0.499081
+       L14 cos(F,B)=+0.869072 | residual=0.494686
+       L15 cos(F,B)=+0.870898 | residual=0.491464
+       L16 cos(F,B)=+0.860497 | residual=0.509455
+       L17 cos(F,B)=+0.861645 | residual=0.507511
+       L18 cos(F,B)=+0.766311 | residual=0.642469
+       L19 cos(F,B)=+0.772911 | residual=0.634515
+
+[5/14] Forging lineage candidates...
+       BETA_-1.00       F=+0.86066 B=+0.48674 R=-0.49829
+       BETA_-0.50       F=+0.95782 B=+0.68011 R=-0.28002
+       BETA_+0.00       F=+1.00000 B=+0.86066 R=+0.00000
+       BETA_+0.25       F=+0.98883 B=+0.92666 R=+0.14502
+       BETA_+0.50       F=+0.95782 B=+0.97046 R=+0.28002
+       BETA_+0.75       F=+0.91293 B=+0.99346 R=+0.39849
+       BETA_+1.00       F=+0.86066 B=+1.00000 R=+0.49829
+       BETA_+1.25       F=+0.80615 B=+0.99503 R=+0.58037
+       BETA_+1.50       F=+0.75271 B=+0.98275 R=+0.64707
+       BETA_+2.00       F=+0.65548 B=+0.94766 R=+0.74490
+       FISHER           F=+1.00000 B=+0.86066 R=+0.00000
+       BANK_MEAN        F=+0.86066 B=+1.00000 R=+0.49829
+       BANK_RESIDUAL    F=+0.00000 B=+0.49829 R=+1.00000
+
+[6/14] Multi-family causal forge...
+
+       BETA_-1.00
+         FAMILY_A_DIRECT          Csym=+0.121803 | P+=4/4
+         FAMILY_B_POSITIONED      Csym=+0.124414 | P+=3/4
+         FAMILY_C_HIGHER_LOWER    Csym=+0.120555 | P+=3/4
+         FAMILY_D_UPPER_LOWER     Csym=+0.085553 | P+=2/4
+
+       BETA_-0.50
+         FAMILY_A_DIRECT          Csym=+0.108860 | P+=3/4
+         FAMILY_B_POSITIONED      Csym=+0.116287 | P+=3/4
+         FAMILY_C_HIGHER_LOWER    Csym=+0.103095 | P+=4/4
+         FAMILY_D_UPPER_LOWER     Csym=+0.157689 | P+=3/4
+
+       BETA_+0.00
+         FAMILY_A_DIRECT          Csym=+0.074769 | P+=2/4
+         FAMILY_B_POSITIONED      Csym=+0.108246 | P+=3/4
+         FAMILY_C_HIGHER_LOWER    Csym=+0.097592 | P+=4/4
+         FAMILY_D_UPPER_LOWER     Csym=+0.247986 | P+=4/4
+
+       BETA_+0.25
+         FAMILY_A_DIRECT          Csym=+0.090331 | P+=2/4
+         FAMILY_B_POSITIONED      Csym=+0.096998 | P+=3/4
+         FAMILY_C_HIGHER_LOWER    Csym=+0.101257 | P+=4/4
+         FAMILY_D_UPPER_LOWER     Csym=+0.278884 | P+=4/4
+
+       BETA_+0.50
+         FAMILY_A_DIRECT          Csym=+0.075027 | P+=2/4
+         FAMILY_B_POSITIONED      Csym=+0.058025 | P+=3/4
+         FAMILY_C_HIGHER_LOWER    Csym=+0.112569 | P+=4/4
+         FAMILY_D_UPPER_LOWER     Csym=+0.293079 | P+=4/4
+
+       BETA_+0.75
+         FAMILY_A_DIRECT          Csym=+0.078296 | P+=3/4
+         FAMILY_B_POSITIONED      Csym=+0.056211 | P+=3/4
+         FAMILY_C_HIGHER_LOWER    Csym=+0.120615 | P+=4/4
+         FAMILY_D_UPPER_LOWER     Csym=+0.284512 | P+=4/4
+
+       BETA_+1.00
+         FAMILY_A_DIRECT          Csym=+0.092513 | P+=3/4
+         FAMILY_B_POSITIONED      Csym=+0.021521 | P+=2/4
+         FAMILY_C_HIGHER_LOWER    Csym=+0.123388 | P+=4/4
+         FAMILY_D_UPPER_LOWER     Csym=+0.271799 | P+=4/4
+
+       BETA_+1.25
+         FAMILY_A_DIRECT          Csym=+0.098171 | P+=3/4
+         FAMILY_B_POSITIONED      Csym=+0.007885 | P+=2/4
+         FAMILY_C_HIGHER_LOWER    Csym=+0.113464 | P+=4/4
+         FAMILY_D_UPPER_LOWER     Csym=+0.277573 | P+=4/4
+
+       BETA_+1.50
+         FAMILY_A_DIRECT          Csym=+0.097568 | P+=3/4
+         FAMILY_B_POSITIONED      Csym=-0.010755 | P+=2/4
+         FAMILY_C_HIGHER_LOWER    Csym=+0.121134 | P+=4/4
+         FAMILY_D_UPPER_LOWER     Csym=+0.273126 | P+=4/4
+
+       BETA_+2.00
+         FAMILY_A_DIRECT          Csym=+0.071529 | P+=3/4
+         FAMILY_B_POSITIONED      Csym=-0.071986 | P+=2/4
+         FAMILY_C_HIGHER_LOWER    Csym=+0.114574 | P+=4/4
+         FAMILY_D_UPPER_LOWER     Csym=+0.273764 | P+=4/4
+
+       FISHER
+         FAMILY_A_DIRECT          Csym=+0.073801 | P+=1/4
+         FAMILY_B_POSITIONED      Csym=+0.115425 | P+=3/4
+         FAMILY_C_HIGHER_LOWER    Csym=+0.104525 | P+=4/4
+         FAMILY_D_UPPER_LOWER     Csym=+0.255593 | P+=4/4
+
+       BANK_MEAN
+         FAMILY_A_DIRECT          Csym=+0.100780 | P+=3/4
+         FAMILY_B_POSITIONED      Csym=+0.024200 | P+=2/4
+         FAMILY_C_HIGHER_LOWER    Csym=+0.123948 | P+=4/4
+         FAMILY_D_UPPER_LOWER     Csym=+0.284042 | P+=4/4
+
+       BANK_RESIDUAL
+         FAMILY_A_DIRECT          Csym=-0.021776 | P+=2/4
+         FAMILY_B_POSITIONED      Csym=-0.212834 | P+=0/4
+         FAMILY_C_HIGHER_LOWER    Csym=+0.030949 | P+=2/4
+         FAMILY_D_UPPER_LOWER     Csym=+0.197816 | P+=4/4
+
+[7/14] Building family profiles...
+  BETA_-1.00       mean=+0.113081 | SD=0.018422 | min=+0.085553 | KL=0.309704 | SCORE=+0.070932
+  BETA_-0.50       mean=+0.121483 | SD=0.024734 | min=+0.103095 | KL=0.373531 | SCORE=+0.065061
+  BETA_+0.00       mean=+0.132149 | SD=0.078478 | min=+0.074769 | KL=0.466060 | SCORE=+0.051709
+  BETA_+0.25       mean=+0.141867 | SD=0.091455 | min=+0.090331 | KL=0.517243 | SCORE=+0.050731
+  BETA_+0.50       mean=+0.134675 | SD=0.108033 | min=+0.058025 | KL=0.570026 | SCORE=+0.030672
+  BETA_+0.75       mean=+0.134908 | SD=0.103253 | min=+0.056211 | KL=0.632850 | SCORE=+0.041054
+  BETA_+1.00       mean=+0.127305 | SD=0.105348 | min=+0.021521 | KL=0.668853 | SCORE=+0.029121
+  BETA_+1.25       mean=+0.124273 | SD=0.112317 | min=+0.007885 | KL=0.698475 | SCORE=+0.025638
+  BETA_+1.50       mean=+0.120268 | SD=0.116974 | min=-0.010755 | KL=0.756817 | SCORE=+0.025884
+  BETA_+2.00       mean=+0.096970 | SD=0.142314 | min=-0.071986 | KL=0.823376 | SCORE=-0.011124
+  FISHER           mean=+0.137336 | SD=0.080784 | min=+0.073801 | KL=0.473407 | SCORE=+0.054218
+  BANK_MEAN        mean=+0.133243 | SD=0.109195 | min=+0.024200 | KL=0.653608 | SCORE=+0.034572
+  BANK_RESIDUAL    mean=-0.001461 | SD=0.169167 | min=-0.212834 | KL=0.830300 | SCORE=-0.105477
+
+       FROZEN WINNER : BETA_-1.00
+       Origin        : FISHER_PLUS_BANK_RESIDUAL
+       Family mean   : +0.113081
+       Family SD     : 0.018422
+       Lineage score : +0.070932
+
+[8/14] Leave-one-family-out selection stability...
+       hold=FAMILY_A_DIRECT          select=BETA_-0.50   | held Csym=+0.108860
+       hold=FAMILY_B_POSITIONED      select=BETA_+1.50   | held Csym=-0.010755
+       hold=FAMILY_C_HIGHER_LOWER    select=BETA_-0.50   | held Csym=+0.103095
+       hold=FAMILY_D_UPPER_LOWER     select=BETA_-1.00   | held Csym=+0.085553
+
+[9/14] FINAL validation — first access...
+
+DOSE=0.25
+  FISHER               Csym=+0.081696 | P+=09/12 | real=1.2517%
+  BANK_MEAN            Csym=+0.035136 | P+=09/12 | real=1.2501%
+  BANK_RESIDUAL        Csym=-0.073257 | P+=03/12 | real=1.2483%
+  LINEAGE_SYNTHETIC    Csym=+0.107887 | P+=08/12 | real=1.2501%
+
+DOSE=0.50
+  FISHER               Csym=+0.155605 | P+=09/12 | real=2.4950%
+  BANK_MEAN            Csym=+0.083508 | P+=09/12 | real=2.4956%
+  BANK_RESIDUAL        Csym=-0.083073 | P+=03/12 | real=2.4976%
+  LINEAGE_SYNTHETIC    Csym=+0.208656 | P+=08/12 | real=2.4938%
+
+DOSE=1.00
+  FISHER               Csym=+0.251602 | P+=10/12 | real=4.9842%
+  BANK_MEAN            Csym=+0.186545 | P+=09/12 | real=4.9844%
+  BANK_RESIDUAL        Csym=-0.133326 | P+=03/12 | real=4.9878%
+  LINEAGE_SYNTHETIC    Csym=+0.170854 | P+=09/12 | real=4.9809%
+
+[10/14] FINAL collateral...
+  FISHER               scale=0.25 | ΔNLL=+0.129985 | KL=0.131923
+  BANK_MEAN            scale=0.25 | ΔNLL=+0.072404 | KL=0.174201
+  BANK_RESIDUAL        scale=0.25 | ΔNLL=+0.056814 | KL=0.121673
+  LINEAGE_SYNTHETIC    scale=0.25 | ΔNLL=-0.013872 | KL=0.076676
+  FISHER               scale=0.50 | ΔNLL=+0.045836 | KL=0.479724
+  BANK_MEAN            scale=0.50 | ΔNLL=+0.139441 | KL=0.776678
+  BANK_RESIDUAL        scale=0.50 | ΔNLL=+0.057898 | KL=0.856565
+  LINEAGE_SYNTHETIC    scale=0.50 | ΔNLL=-0.023301 | KL=0.254231
+  FISHER               scale=1.00 | ΔNLL=-0.312315 | KL=1.403012
+  BANK_MEAN            scale=1.00 | ΔNLL=-0.140596 | KL=2.797663
+  BANK_RESIDUAL        scale=1.00 | ΔNLL=+0.980927 | KL=4.776250
+  LINEAGE_SYNTHETIC    scale=1.00 | ΔNLL=-0.419618 | KL=0.945431
+
+[11/14] FINAL contrasts...
+  scale=0.25 | SYN-F=+0.026191 [-0.004778,+0.058202] p=0.050397 | SYN-B=+0.072751 [+0.006211,+0.136226] p=0.016149
+  scale=0.50 | SYN-F=+0.053050 [-0.023765,+0.137744] p=0.096445 | SYN-B=+0.125148 [-0.002274,+0.270417] p=0.027549
+  scale=1.00 | SYN-F=-0.080748 [-0.151337,-0.014965] p=0.992900 | SYN-B=-0.015691 [-0.138217,+0.114331] p=0.599070
+
+[12/14] Saving tables...
+[13/14] Saving vectors...
+
+[14/14] COMPLETE
+======================================================================================================================================================
+TEST 164 — FINAL SUMMARY
+======================================================================================================================================================
+Frozen lineage vector    : BETA_-1.00
+Origin                   : FISHER_PLUS_BANK_RESIDUAL
+Family mean              : +0.113081
+Family SD                : 0.018422
+Family minimum           : +0.085553
+Lineage score            : +0.070932
+
+LOFO
+  FAMILY_A_DIRECT          -> BETA_-0.50   | held=+0.108860
+  FAMILY_B_POSITIONED      -> BETA_+1.50   | held=-0.010755
+  FAMILY_C_HIGHER_LOWER    -> BETA_-0.50   | held=+0.103095
+  FAMILY_D_UPPER_LOWER     -> BETA_-1.00   | held=+0.085553
+
+LOFO mode                : BETA_-0.50 (2/4)
+
+DOSE SCALE = 0.25
+  FISHER               Csym=+0.081696 | P+=09/12 | KL=0.131923 | real=1.2517%
+  BANK_MEAN            Csym=+0.035136 | P+=09/12 | KL=0.174201 | real=1.2501%
+  BANK_RESIDUAL        Csym=-0.073257 | P+=03/12 | KL=0.121673 | real=1.2483%
+  LINEAGE_SYNTHETIC    Csym=+0.107887 | P+=08/12 | KL=0.076676 | real=1.2501%
+
+DOSE SCALE = 0.50
+  FISHER               Csym=+0.155605 | P+=09/12 | KL=0.479724 | real=2.4950%
+  BANK_MEAN            Csym=+0.083508 | P+=09/12 | KL=0.776678 | real=2.4956%
+  BANK_RESIDUAL        Csym=-0.083073 | P+=03/12 | KL=0.856565 | real=2.4976%
+  LINEAGE_SYNTHETIC    Csym=+0.208656 | P+=08/12 | KL=0.254231 | real=2.4938%
+
+DOSE SCALE = 1.00
+  FISHER               Csym=+0.251602 | P+=10/12 | KL=1.403012 | real=4.9842%
+  BANK_MEAN            Csym=+0.186545 | P+=09/12 | KL=2.797663 | real=4.9844%
+  BANK_RESIDUAL        Csym=-0.133326 | P+=03/12 | KL=4.776250 | real=4.9878%
+  LINEAGE_SYNTHETIC    Csym=+0.170854 | P+=09/12 | KL=0.945431 | real=4.9809%
+
+FINAL CONTRASTS
+  scale=0.25 | SYN-F=+0.026191 [-0.004778,+0.058202] | SYN-B=+0.072751 [+0.006211,+0.136226]
+  scale=0.50 | SYN-F=+0.053050 [-0.023765,+0.137744] | SYN-B=+0.125148 [-0.002274,+0.270417]
+  scale=1.00 | SYN-F=-0.080748 [-0.151337,-0.014965] | SYN-B=-0.015691 [-0.138217,+0.114331]
+
+DECISION : PARTIAL_LINEAGE_SIGNAL
+Saved    : /content/TEST164_VECTOR_LINEAGE_FOUNDRY
+======================================================================================================================================================
+TEST 164 COMPLETE
+======================================================================================================================================================
