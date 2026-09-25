@@ -1,0 +1,552 @@
+ ======================================================================================================================================================
+TEST 155 — TRANSPORT-AWARE STEERING TOURNAMENT
+STATIC · LAYER-COMPASS · SHUFFLED-RELAY · RELAY · SUBSPACE
+======================================================================================================================================================
+
+[1/18] Loading frozen model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 217kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 2.34MB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 101MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 171MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 285MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 8.55MB/s]Download complete: :  13.1GB,  493MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  435MB/s  Fetching 4 files: 100% 4/4 [00:37<00:00,  6.69s/it]Loading weights: 100% 339/339 [00:01<00:00, 344.99it/s]generation_config.json: 100% 243/243 [00:00<00:00, 84.7kB/s]GPU            : NVIDIA RTX PRO 6000 Blackwell Server Edition
+Model          : Qwen/Qwen2.5-7B-Instruct
+Hidden         : 3584
+Decoder layers : 28
+Layers         : [3, 6, 10, 14, 19]
+Segments       : [(3, 6), (6, 10), (10, 14), (14, 19)]
+K values       : [4, 16, 32]
+Doses          : [0.00125, 0.0025, 0.005]
+
+[2/18] Capturing natural SEARCH atlas...
+  SEARCH: 001/192
+  SEARCH: 032/192
+  SEARCH: 064/192
+  SEARCH: 096/192
+  SEARCH: 128/192
+  SEARCH: 160/192
+  SEARCH: 192/192
+
+[3/18] Building transport atlas...
+L3->L6 | s1=0.623879 s4=0.225252 s16=0.048689 s32=0.012134
+L6->L10 | s1=2.785877 s4=1.007360 s16=0.193126 s32=0.039315
+L10->L14 | s1=7.172801 s4=2.884923 s16=0.496274 s32=0.120100
+L14->L19 | s1=23.883511 s4=7.743535 s16=0.987475 s32=0.288235
+
+[4/18] Extracting locked ABOVE/BELOW layer compasses...
+  POS-EN: 001/8
+  POS-EN: 008/8
+  NEG-EN: 001/8
+  NEG-EN: 008/8
+  POS-TR: 001/8
+  POS-TR: 008/8
+  NEG-TR: 001/8
+  NEG-TR: 008/8
+L03 | cos(EN,TR)=-0.058836
+L06 | cos(EN,TR)=-0.151629
+L10 | cos(EN,TR)=-0.038750
+L14 | cos(EN,TR)=+0.171574
+L19 | cos(EN,TR)=+0.155126
+
+[5/18] Model Capability Gate...
+  CAP-EN | BASE | dose=0.00000 | 01/32
+  CAP-EN | BASE | dose=0.00000 | 08/32
+  CAP-EN | BASE | dose=0.00000 | 16/32
+  CAP-EN | BASE | dose=0.00000 | 24/32
+  CAP-EN | BASE | dose=0.00000 | 32/32
+  CAP-TR | BASE | dose=0.00000 | 01/32
+  CAP-TR | BASE | dose=0.00000 | 08/32
+  CAP-TR | BASE | dose=0.00000 | 16/32
+  CAP-TR | BASE | dose=0.00000 | 24/32
+  CAP-TR | BASE | dose=0.00000 | 32/32
+
+CAPABILITY
+EN accuracy=1.0000 margin=+17.695313 gate=PASS
+TR accuracy=1.0000 margin=+6.748903 gate=PASS
+
+[6/18] VAL tournament...
+  VAL | BASE | dose=0.00000 | 01/32
+  VAL | BASE | dose=0.00000 | 08/32
+  VAL | BASE | dose=0.00000 | 16/32
+  VAL | BASE | dose=0.00000 | 24/32
+  VAL | BASE | dose=0.00000 | 32/32
+  VAL | STATIC | dose=0.00125 | 01/32
+  VAL | STATIC | dose=0.00125 | 08/32
+  VAL | STATIC | dose=0.00125 | 16/32
+  VAL | STATIC | dose=0.00125 | 24/32
+  VAL | STATIC | dose=0.00125 | 32/32
+  VAL | STATIC | dose=0.00250 | 01/32
+  VAL | STATIC | dose=0.00250 | 08/32
+  VAL | STATIC | dose=0.00250 | 16/32
+  VAL | STATIC | dose=0.00250 | 24/32
+  VAL | STATIC | dose=0.00250 | 32/32
+  VAL | STATIC | dose=0.00500 | 01/32
+  VAL | STATIC | dose=0.00500 | 08/32
+  VAL | STATIC | dose=0.00500 | 16/32
+  VAL | STATIC | dose=0.00500 | 24/32
+  VAL | STATIC | dose=0.00500 | 32/32
+  VAL | LAYER | dose=0.00125 | 01/32
+  VAL | LAYER | dose=0.00125 | 08/32
+  VAL | LAYER | dose=0.00125 | 16/32
+  VAL | LAYER | dose=0.00125 | 24/32
+  VAL | LAYER | dose=0.00125 | 32/32
+  VAL | LAYER | dose=0.00250 | 01/32
+  VAL | LAYER | dose=0.00250 | 08/32
+  VAL | LAYER | dose=0.00250 | 16/32
+  VAL | LAYER | dose=0.00250 | 24/32
+  VAL | LAYER | dose=0.00250 | 32/32
+  VAL | LAYER | dose=0.00500 | 01/32
+  VAL | LAYER | dose=0.00500 | 08/32
+  VAL | LAYER | dose=0.00500 | 16/32
+  VAL | LAYER | dose=0.00500 | 24/32
+  VAL | LAYER | dose=0.00500 | 32/32
+  VAL | SHUFFLED | dose=0.00125 | 01/32
+  VAL | SHUFFLED | dose=0.00125 | 08/32
+  VAL | SHUFFLED | dose=0.00125 | 16/32
+  VAL | SHUFFLED | dose=0.00125 | 24/32
+  VAL | SHUFFLED | dose=0.00125 | 32/32
+  VAL | SHUFFLED | dose=0.00250 | 01/32
+  VAL | SHUFFLED | dose=0.00250 | 08/32
+  VAL | SHUFFLED | dose=0.00250 | 16/32
+  VAL | SHUFFLED | dose=0.00250 | 24/32
+  VAL | SHUFFLED | dose=0.00250 | 32/32
+  VAL | SHUFFLED | dose=0.00500 | 01/32
+  VAL | SHUFFLED | dose=0.00500 | 08/32
+  VAL | SHUFFLED | dose=0.00500 | 16/32
+  VAL | SHUFFLED | dose=0.00500 | 24/32
+  VAL | SHUFFLED | dose=0.00500 | 32/32
+  VAL | RELAY_K4 | dose=0.00125 | 01/32
+  VAL | RELAY_K4 | dose=0.00125 | 08/32
+  VAL | RELAY_K4 | dose=0.00125 | 16/32
+  VAL | RELAY_K4 | dose=0.00125 | 24/32
+  VAL | RELAY_K4 | dose=0.00125 | 32/32
+  VAL | RELAY_K4 | dose=0.00250 | 01/32
+  VAL | RELAY_K4 | dose=0.00250 | 08/32
+  VAL | RELAY_K4 | dose=0.00250 | 16/32
+  VAL | RELAY_K4 | dose=0.00250 | 24/32
+  VAL | RELAY_K4 | dose=0.00250 | 32/32
+  VAL | RELAY_K4 | dose=0.00500 | 01/32
+  VAL | RELAY_K4 | dose=0.00500 | 08/32
+  VAL | RELAY_K4 | dose=0.00500 | 16/32
+  VAL | RELAY_K4 | dose=0.00500 | 24/32
+  VAL | RELAY_K4 | dose=0.00500 | 32/32
+  VAL | RELAY_K4 | dose=0.00125 | 01/32
+  VAL | RELAY_K4 | dose=0.00125 | 08/32
+  VAL | RELAY_K4 | dose=0.00125 | 16/32
+  VAL | RELAY_K4 | dose=0.00125 | 24/32
+  VAL | RELAY_K4 | dose=0.00125 | 32/32
+  VAL | RELAY_K4 | dose=0.00250 | 01/32
+  VAL | RELAY_K4 | dose=0.00250 | 08/32
+  VAL | RELAY_K4 | dose=0.00250 | 16/32
+  VAL | RELAY_K4 | dose=0.00250 | 24/32
+  VAL | RELAY_K4 | dose=0.00250 | 32/32
+  VAL | RELAY_K4 | dose=0.00500 | 01/32
+  VAL | RELAY_K4 | dose=0.00500 | 08/32
+  VAL | RELAY_K4 | dose=0.00500 | 16/32
+  VAL | RELAY_K4 | dose=0.00500 | 24/32
+  VAL | RELAY_K4 | dose=0.00500 | 32/32
+  VAL | RELAY_K16 | dose=0.00125 | 01/32
+  VAL | RELAY_K16 | dose=0.00125 | 08/32
+  VAL | RELAY_K16 | dose=0.00125 | 16/32
+  VAL | RELAY_K16 | dose=0.00125 | 24/32
+  VAL | RELAY_K16 | dose=0.00125 | 32/32
+  VAL | RELAY_K16 | dose=0.00250 | 01/32
+  VAL | RELAY_K16 | dose=0.00250 | 08/32
+  VAL | RELAY_K16 | dose=0.00250 | 16/32
+  VAL | RELAY_K16 | dose=0.00250 | 24/32
+  VAL | RELAY_K16 | dose=0.00250 | 32/32
+  VAL | RELAY_K16 | dose=0.00500 | 01/32
+  VAL | RELAY_K16 | dose=0.00500 | 08/32
+  VAL | RELAY_K16 | dose=0.00500 | 16/32
+  VAL | RELAY_K16 | dose=0.00500 | 24/32
+  VAL | RELAY_K16 | dose=0.00500 | 32/32
+  VAL | RELAY_K16 | dose=0.00125 | 01/32
+  VAL | RELAY_K16 | dose=0.00125 | 08/32
+  VAL | RELAY_K16 | dose=0.00125 | 16/32
+  VAL | RELAY_K16 | dose=0.00125 | 24/32
+  VAL | RELAY_K16 | dose=0.00125 | 32/32
+  VAL | RELAY_K16 | dose=0.00250 | 01/32
+  VAL | RELAY_K16 | dose=0.00250 | 08/32
+  VAL | RELAY_K16 | dose=0.00250 | 16/32
+  VAL | RELAY_K16 | dose=0.00250 | 24/32
+  VAL | RELAY_K16 | dose=0.00250 | 32/32
+  VAL | RELAY_K16 | dose=0.00500 | 01/32
+  VAL | RELAY_K16 | dose=0.00500 | 08/32
+  VAL | RELAY_K16 | dose=0.00500 | 16/32
+  VAL | RELAY_K16 | dose=0.00500 | 24/32
+  VAL | RELAY_K16 | dose=0.00500 | 32/32
+  VAL | RELAY_K32 | dose=0.00125 | 01/32
+  VAL | RELAY_K32 | dose=0.00125 | 08/32
+  VAL | RELAY_K32 | dose=0.00125 | 16/32
+  VAL | RELAY_K32 | dose=0.00125 | 24/32
+  VAL | RELAY_K32 | dose=0.00125 | 32/32
+  VAL | RELAY_K32 | dose=0.00250 | 01/32
+  VAL | RELAY_K32 | dose=0.00250 | 08/32
+  VAL | RELAY_K32 | dose=0.00250 | 16/32
+  VAL | RELAY_K32 | dose=0.00250 | 24/32
+  VAL | RELAY_K32 | dose=0.00250 | 32/32
+  VAL | RELAY_K32 | dose=0.00500 | 01/32
+  VAL | RELAY_K32 | dose=0.00500 | 08/32
+  VAL | RELAY_K32 | dose=0.00500 | 16/32
+  VAL | RELAY_K32 | dose=0.00500 | 24/32
+  VAL | RELAY_K32 | dose=0.00500 | 32/32
+  VAL | RELAY_K32 | dose=0.00125 | 01/32
+  VAL | RELAY_K32 | dose=0.00125 | 08/32
+  VAL | RELAY_K32 | dose=0.00125 | 16/32
+  VAL | RELAY_K32 | dose=0.00125 | 24/32
+  VAL | RELAY_K32 | dose=0.00125 | 32/32
+  VAL | RELAY_K32 | dose=0.00250 | 01/32
+  VAL | RELAY_K32 | dose=0.00250 | 08/32
+  VAL | RELAY_K32 | dose=0.00250 | 16/32
+  VAL | RELAY_K32 | dose=0.00250 | 24/32
+  VAL | RELAY_K32 | dose=0.00250 | 32/32
+  VAL | RELAY_K32 | dose=0.00500 | 01/32
+  VAL | RELAY_K32 | dose=0.00500 | 08/32
+  VAL | RELAY_K32 | dose=0.00500 | 16/32
+  VAL | RELAY_K32 | dose=0.00500 | 24/32
+  VAL | RELAY_K32 | dose=0.00500 | 32/32
+  VAL | SUBSPACE_K16 | dose=0.00125 | 01/32
+  VAL | SUBSPACE_K16 | dose=0.00125 | 08/32
+  VAL | SUBSPACE_K16 | dose=0.00125 | 16/32
+  VAL | SUBSPACE_K16 | dose=0.00125 | 24/32
+  VAL | SUBSPACE_K16 | dose=0.00125 | 32/32
+  VAL | SUBSPACE_K16 | dose=0.00250 | 01/32
+  VAL | SUBSPACE_K16 | dose=0.00250 | 08/32
+  VAL | SUBSPACE_K16 | dose=0.00250 | 16/32
+  VAL | SUBSPACE_K16 | dose=0.00250 | 24/32
+  VAL | SUBSPACE_K16 | dose=0.00250 | 32/32
+  VAL | SUBSPACE_K16 | dose=0.00500 | 01/32
+  VAL | SUBSPACE_K16 | dose=0.00500 | 08/32
+  VAL | SUBSPACE_K16 | dose=0.00500 | 16/32
+  VAL | SUBSPACE_K16 | dose=0.00500 | 24/32
+  VAL | SUBSPACE_K16 | dose=0.00500 | 32/32
+
+[7/18] Locking winner from VAL only...
+
+VAL LEADERBOARD
+METHOD               W      DOSE      MARGIN        GAIN      ACC        DNLL          KL        ENERGY
+LAYER                0   0.00250   17.796875    0.101563   1.0000    0.033227    0.001626     5413.6372
+RELAY_K32            1   0.00125   17.789062    0.093750   1.0000    0.001086    0.001436     1399.1684
+STATIC               0   0.00500   17.781250    0.085937   1.0000    0.079234    0.004131    21998.0629
+LAYER                0   0.00125   17.773438    0.078125   1.0000    0.018148    0.001861     1358.8786
+RELAY_K4             0   0.00125   17.757813    0.062500   1.0000    0.003691    0.001715     1367.2240
+RELAY_K16            1   0.00125   17.750000    0.054688   1.0000    0.012684    0.001634     1400.0825
+LAYER                0   0.00500   17.750000    0.054687   1.0000    0.055748    0.003382    21773.2536
+RELAY_K4             1   0.00125   17.742188    0.046875   1.0000   -0.005044    0.001358     1396.4681
+SHUFFLED             0   0.00500   17.742188    0.046875   1.0000    0.036505    0.002944    21896.6611
+RELAY_K4             0   0.00250   17.734375    0.039062   1.0000    0.010329    0.001867     5507.5580
+RELAY_K32            1   0.00500   17.726562    0.031249   1.0000    0.007714    0.002639    22005.4495
+RELAY_K4             1   0.00500   17.718750    0.023438   1.0000    0.005451    0.002951    21976.0892
+RELAY_K32            1   0.00250   17.718750    0.023438   1.0000    0.016729    0.002000     5528.8999
+RELAY_K16            1   0.00500   17.718750    0.023437   1.0000    0.004168    0.002856    22005.8144
+RELAY_K16            1   0.00250   17.718750    0.023437   1.0000    0.022489    0.002259     5527.8295
+STATIC               0   0.00125   17.710938    0.015625   1.0000    0.017369    0.001875     1368.5118
+SHUFFLED             0   0.00250   17.703125    0.007812   1.0000    0.010647    0.001637     5450.7806
+RELAY_K16            0   0.00125   17.703125    0.007812   1.0000    0.009609    0.001502     1360.2418
+SUBSPACE_K16         0   0.00125   17.703125    0.007812   1.0000    0.009609    0.001502     1360.2418
+RELAY_K4             0   0.00500   17.703125    0.007812   1.0000    0.003166    0.002891    22016.8621
+SHUFFLED             0   0.00125   17.703125    0.007812   1.0000    0.000817    0.001566     1352.8350
+RELAY_K16            0   0.00250   17.703125    0.007812   1.0000   -0.023025    0.001721     5527.3738
+SUBSPACE_K16         0   0.00250   17.703125    0.007812   1.0000   -0.023025    0.001721     5527.3738
+STATIC               0   0.00250   17.703125    0.007812   1.0000    0.043717    0.002431     5431.2163
+RELAY_K4             1   0.00250   17.679688   -0.015625   1.0000    0.001967    0.002049     5518.9020
+RELAY_K32            0   0.00125   17.671875   -0.023438   1.0000    0.008496    0.001746     1345.8268
+RELAY_K16            0   0.00500   17.671875   -0.023438   1.0000   -0.011154    0.002829    21995.6707
+SUBSPACE_K16         0   0.00500   17.664062   -0.031250   1.0000   -0.010593    0.002819    21995.6714
+RELAY_K32            0   0.00250   17.640625   -0.054687   1.0000   -0.019701    0.001963     5496.8016
+RELAY_K32            0   0.00500   17.578125   -0.117187   1.0000   -0.016801    0.002858    21933.2836
+
+LOCKED
+Method : LAYER
+Dose   : 0.0025
+Weighted: False
+Reason : FEASIBLE_MAX_CONCEPT
+
+[8/18] FINAL-ID...
+
+--- FINAL ID ---
+  FINAL-ID | BASE | dose=0.00000 | 01/32
+  FINAL-ID | BASE | dose=0.00000 | 08/32
+  FINAL-ID | BASE | dose=0.00000 | 16/32
+  FINAL-ID | BASE | dose=0.00000 | 24/32
+  FINAL-ID | BASE | dose=0.00000 | 32/32
+  FINAL-ID | STATIC | dose=0.00250 | 01/32
+  FINAL-ID | STATIC | dose=0.00250 | 08/32
+  FINAL-ID | STATIC | dose=0.00250 | 16/32
+  FINAL-ID | STATIC | dose=0.00250 | 24/32
+  FINAL-ID | STATIC | dose=0.00250 | 32/32
+  FINAL-ID | LAYER | dose=0.00250 | 01/32
+  FINAL-ID | LAYER | dose=0.00250 | 08/32
+  FINAL-ID | LAYER | dose=0.00250 | 16/32
+  FINAL-ID | LAYER | dose=0.00250 | 24/32
+  FINAL-ID | LAYER | dose=0.00250 | 32/32
+  FINAL-ID | SHUFFLED | dose=0.00250 | 01/32
+  FINAL-ID | SHUFFLED | dose=0.00250 | 08/32
+  FINAL-ID | SHUFFLED | dose=0.00250 | 16/32
+  FINAL-ID | SHUFFLED | dose=0.00250 | 24/32
+  FINAL-ID | SHUFFLED | dose=0.00250 | 32/32
+  FINAL-ID | RELAY_K16 | dose=0.00250 | 01/32
+  FINAL-ID | RELAY_K16 | dose=0.00250 | 08/32
+  FINAL-ID | RELAY_K16 | dose=0.00250 | 16/32
+  FINAL-ID | RELAY_K16 | dose=0.00250 | 24/32
+  FINAL-ID | RELAY_K16 | dose=0.00250 | 32/32
+
+--- FINAL TOPIC ---
+  FINAL-TOPIC | BASE | dose=0.00000 | 01/32
+  FINAL-TOPIC | BASE | dose=0.00000 | 08/32
+  FINAL-TOPIC | BASE | dose=0.00000 | 16/32
+  FINAL-TOPIC | BASE | dose=0.00000 | 24/32
+  FINAL-TOPIC | BASE | dose=0.00000 | 32/32
+  FINAL-TOPIC | STATIC | dose=0.00250 | 01/32
+  FINAL-TOPIC | STATIC | dose=0.00250 | 08/32
+  FINAL-TOPIC | STATIC | dose=0.00250 | 16/32
+  FINAL-TOPIC | STATIC | dose=0.00250 | 24/32
+  FINAL-TOPIC | STATIC | dose=0.00250 | 32/32
+  FINAL-TOPIC | LAYER | dose=0.00250 | 01/32
+  FINAL-TOPIC | LAYER | dose=0.00250 | 08/32
+  FINAL-TOPIC | LAYER | dose=0.00250 | 16/32
+  FINAL-TOPIC | LAYER | dose=0.00250 | 24/32
+  FINAL-TOPIC | LAYER | dose=0.00250 | 32/32
+  FINAL-TOPIC | SHUFFLED | dose=0.00250 | 01/32
+  FINAL-TOPIC | SHUFFLED | dose=0.00250 | 08/32
+  FINAL-TOPIC | SHUFFLED | dose=0.00250 | 16/32
+  FINAL-TOPIC | SHUFFLED | dose=0.00250 | 24/32
+  FINAL-TOPIC | SHUFFLED | dose=0.00250 | 32/32
+  FINAL-TOPIC | RELAY_K16 | dose=0.00250 | 01/32
+  FINAL-TOPIC | RELAY_K16 | dose=0.00250 | 08/32
+  FINAL-TOPIC | RELAY_K16 | dose=0.00250 | 16/32
+  FINAL-TOPIC | RELAY_K16 | dose=0.00250 | 24/32
+  FINAL-TOPIC | RELAY_K16 | dose=0.00250 | 32/32
+
+--- FINAL LONG ---
+  FINAL-LONG | BASE | dose=0.00000 | 01/32
+  FINAL-LONG | BASE | dose=0.00000 | 08/32
+  FINAL-LONG | BASE | dose=0.00000 | 16/32
+  FINAL-LONG | BASE | dose=0.00000 | 24/32
+  FINAL-LONG | BASE | dose=0.00000 | 32/32
+  FINAL-LONG | STATIC | dose=0.00250 | 01/32
+  FINAL-LONG | STATIC | dose=0.00250 | 08/32
+  FINAL-LONG | STATIC | dose=0.00250 | 16/32
+  FINAL-LONG | STATIC | dose=0.00250 | 24/32
+  FINAL-LONG | STATIC | dose=0.00250 | 32/32
+  FINAL-LONG | LAYER | dose=0.00250 | 01/32
+  FINAL-LONG | LAYER | dose=0.00250 | 08/32
+  FINAL-LONG | LAYER | dose=0.00250 | 16/32
+  FINAL-LONG | LAYER | dose=0.00250 | 24/32
+  FINAL-LONG | LAYER | dose=0.00250 | 32/32
+  FINAL-LONG | SHUFFLED | dose=0.00250 | 01/32
+  FINAL-LONG | SHUFFLED | dose=0.00250 | 08/32
+  FINAL-LONG | SHUFFLED | dose=0.00250 | 16/32
+  FINAL-LONG | SHUFFLED | dose=0.00250 | 24/32
+  FINAL-LONG | SHUFFLED | dose=0.00250 | 32/32
+  FINAL-LONG | RELAY_K16 | dose=0.00250 | 01/32
+  FINAL-LONG | RELAY_K16 | dose=0.00250 | 08/32
+  FINAL-LONG | RELAY_K16 | dose=0.00250 | 16/32
+  FINAL-LONG | RELAY_K16 | dose=0.00250 | 24/32
+  FINAL-LONG | RELAY_K16 | dose=0.00250 | 32/32
+
+--- FINAL TR ---
+  FINAL-TR | BASE | dose=0.00000 | 01/32
+  FINAL-TR | BASE | dose=0.00000 | 08/32
+  FINAL-TR | BASE | dose=0.00000 | 16/32
+  FINAL-TR | BASE | dose=0.00000 | 24/32
+  FINAL-TR | BASE | dose=0.00000 | 32/32
+  FINAL-TR | STATIC | dose=0.00250 | 01/32
+  FINAL-TR | STATIC | dose=0.00250 | 08/32
+  FINAL-TR | STATIC | dose=0.00250 | 16/32
+  FINAL-TR | STATIC | dose=0.00250 | 24/32
+  FINAL-TR | STATIC | dose=0.00250 | 32/32
+  FINAL-TR | LAYER | dose=0.00250 | 01/32
+  FINAL-TR | LAYER | dose=0.00250 | 08/32
+  FINAL-TR | LAYER | dose=0.00250 | 16/32
+  FINAL-TR | LAYER | dose=0.00250 | 24/32
+  FINAL-TR | LAYER | dose=0.00250 | 32/32
+  FINAL-TR | SHUFFLED | dose=0.00250 | 01/32
+  FINAL-TR | SHUFFLED | dose=0.00250 | 08/32
+  FINAL-TR | SHUFFLED | dose=0.00250 | 16/32
+  FINAL-TR | SHUFFLED | dose=0.00250 | 24/32
+  FINAL-TR | SHUFFLED | dose=0.00250 | 32/32
+  FINAL-TR | RELAY_K16 | dose=0.00250 | 01/32
+  FINAL-TR | RELAY_K16 | dose=0.00250 | 08/32
+  FINAL-TR | RELAY_K16 | dose=0.00250 | 16/32
+  FINAL-TR | RELAY_K16 | dose=0.00250 | 24/32
+  FINAL-TR | RELAY_K16 | dose=0.00250 | 32/32
+
+[9/18] Building Turkish diagnostic atlas...
+  TR-SEARCH: 001/192
+  TR-SEARCH: 032/192
+  TR-SEARCH: 064/192
+  TR-SEARCH: 096/192
+  TR-SEARCH: 128/192
+  TR-SEARCH: 160/192
+  TR-SEARCH: 192/192
+TR L3->L6 | s1=0.636061 s4=0.297149
+TR L6->L10 | s1=1.118042 s4=0.822969
+TR L10->L14 | s1=4.305104 s4=2.271497
+TR L14->L19 | s1=19.921396 s4=7.658604
+
+[10/18] Turkish cross-language diagnostic...
+  EN-ATLAS -> TR 01/32
+  EN-ATLAS -> TR 08/32
+  EN-ATLAS -> TR 16/32
+  EN-ATLAS -> TR 24/32
+  EN-ATLAS -> TR 32/32
+  TR-ATLAS -> TR 01/32
+  TR-ATLAS -> TR 08/32
+  TR-ATLAS -> TR 16/32
+  TR-ATLAS -> TR 24/32
+  TR-ATLAS -> TR 32/32
+  TR-LAYER -> TR 01/32
+  TR-LAYER -> TR 08/32
+  TR-LAYER -> TR 16/32
+  TR-LAYER -> TR 24/32
+  TR-LAYER -> TR 32/32
+
+[11/18] Computing efficiency...
+
+[12/18] Pareto analysis...
+
+[13/18] FINAL championship table...
+
+==========================================================================================================================================================================
+FINAL CHAMPIONSHIP
+==========================================================================================================================================================================
+SPLIT       METHOD               W     DOSE      MARGIN        GAIN      ACC       DNLL         KL        ENERGY           EFF
+ID          BASE                 0  0.00000   17.695313    0.000000   1.0000   0.000000   0.000000        0.0000    0.00000000
+ID          STATIC               0  0.00250   17.703125    0.007812   1.0000   0.043717   0.002431     5431.2163    0.00000144
+ID          LAYER                0  0.00250   17.796875    0.101563   1.0000   0.033227   0.001626     5413.6372    0.00001876
+ID          SHUFFLED             0  0.00250   17.703125    0.007812   1.0000   0.010647   0.001637     5450.7806    0.00000143
+ID          RELAY_K16            0  0.00250   17.703125    0.007812   1.0000  -0.023025   0.001721     5527.3738    0.00000141
+TOPIC       BASE                 0  0.00000   21.355468    0.000000   1.0000   0.000000   0.000000        0.0000    0.00000000
+TOPIC       STATIC               0  0.00250   21.441407    0.085939   1.0000   0.042553   0.001554     5501.6731    0.00001562
+TOPIC       LAYER                0  0.00250   21.378905    0.023437   1.0000   0.042480   0.001386     5478.9647    0.00000428
+TOPIC       SHUFFLED             0  0.00250   21.312499   -0.042969   1.0000   0.025288   0.001529     5517.9047   -0.00000779
+TOPIC       RELAY_K16            0  0.00250   21.343750   -0.011718   1.0000   0.004432   0.001374     5595.0711   -0.00000209
+LONG        BASE                 0  0.00000   22.933594    0.000000   1.0000   0.000000   0.000000        0.0000    0.00000000
+LONG        STATIC               0  0.00250   22.949219    0.015625   1.0000   0.059002   0.001527     5491.6115    0.00000285
+LONG        LAYER                0  0.00250   22.933593   -0.000000   1.0000   0.056827   0.001601     5468.9040   -0.00000000
+LONG        SHUFFLED             0  0.00250   22.851562   -0.082031   1.0000   0.003017   0.001770     5508.7379   -0.00001489
+LONG        RELAY_K16            0  0.00250   22.851562   -0.082032   1.0000  -0.013183   0.001475     5586.7951   -0.00001468
+TR          BASE                 0  0.00000    6.748903    0.000000   1.0000   0.000000   0.000000        0.0000    0.00000000
+TR          STATIC               0  0.00250    6.802827    0.053924   1.0000  -0.015765   0.003728     5465.3030    0.00000987
+TR          LAYER                0  0.00250    6.866874    0.117972   1.0000   0.003735   0.003810     5450.6423    0.00002164
+TR          SHUFFLED             0  0.00250    6.849164    0.100261   1.0000   0.001390   0.002660     5484.1164    0.00001828
+TR          RELAY_K16            0  0.00250    6.734231   -0.014671   1.0000  -0.009088   0.003652     5566.4019   -0.00000264
+
+PARETO FRONTIERS
+ID => [('BASE', 0, 0.0), ('LAYER', 0, 0.0025), ('SHUFFLED', 0, 0.0025), ('RELAY_K16', 0, 0.0025)]
+TOPIC => [('BASE', 0, 0.0), ('STATIC', 0, 0.0025), ('LAYER', 0, 0.0025)]
+LONG => [('BASE', 0, 0.0), ('STATIC', 0, 0.0025), ('RELAY_K16', 0, 0.0025)]
+TR => [('BASE', 0, 0.0), ('STATIC', 0, 0.0025), ('LAYER', 0, 0.0025), ('SHUFFLED', 0, 0.0025), ('RELAY_K16', 0, 0.0025)]
+
+[14/18] Primary contrasts...
+ID         RELAY_vs_STATIC        | Δmargin=+0.000000 ΔNLL=-0.066742 ΔKL=-0.000710 Eratio=1.0177
+ID         RELAY_vs_LAYER         | Δmargin=-0.093751 ΔNLL=-0.056253 ΔKL=+0.000095 Eratio=1.0210
+ID         RELAY_vs_SHUFFLED      | Δmargin=-0.000000 ΔNLL=-0.033672 ΔKL=+0.000084 Eratio=1.0141
+TOPIC      RELAY_vs_STATIC        | Δmargin=-0.097657 ΔNLL=-0.038121 ΔKL=-0.000180 Eratio=1.0170
+TOPIC      RELAY_vs_LAYER         | Δmargin=-0.035156 ΔNLL=-0.038047 ΔKL=-0.000012 Eratio=1.0212
+TOPIC      RELAY_vs_SHUFFLED      | Δmargin=+0.031250 ΔNLL=-0.020856 ΔKL=-0.000155 Eratio=1.0140
+LONG       RELAY_vs_STATIC        | Δmargin=-0.097657 ΔNLL=-0.072185 ΔKL=-0.000052 Eratio=1.0173
+LONG       RELAY_vs_LAYER         | Δmargin=-0.082031 ΔNLL=-0.070010 ΔKL=-0.000126 Eratio=1.0216
+LONG       RELAY_vs_SHUFFLED      | Δmargin=-0.000000 ΔNLL=-0.016200 ΔKL=-0.000295 Eratio=1.0142
+TR         RELAY_vs_STATIC        | Δmargin=-0.068595 ΔNLL=+0.006677 ΔKL=-0.000077 Eratio=1.0185
+TR         RELAY_vs_LAYER         | Δmargin=-0.132643 ΔNLL=-0.012823 ΔKL=-0.000158 Eratio=1.0212
+TR         RELAY_vs_SHUFFLED      | Δmargin=-0.114932 ΔNLL=-0.010478 ΔKL=+0.000992 Eratio=1.0150
+
+[15/18] Language capability interpretation...
+MODEL_CAPABILITY_GATE_PASS: Turkish cross-language steering result is interpretable as a transport/generalization result under this task distribution.
+
+Turkish diagnostic
+BASE          | margin=+6.748903 acc=1.0000
+EN-ATLAS -> TR   | margin=+6.734231 acc=1.0000 dnll=-0.009088 KL=0.003652 E=5566.4019
+TR-ATLAS -> TR   | margin=+6.847353 acc=1.0000 dnll=-0.003374 KL=0.005641 E=5529.0064
+TR-LAYER -> TR   | margin=+6.876805 acc=1.0000 dnll=-0.023418 KL=0.004034 E=5515.6495
+
+[16/18] Saving CSV / JSON / NPZ...
+
+[17/18] Locked interpretation contract...
+
+======================================================================================================================================================
+LOCKED INTERPRETATION CONTRACT
+======================================================================================================================================================
+
+PRIMARY QUESTIONS
+
+1. Does transport-aware steering outperform STATIC under matched dose
+   and measured BF16 write cost?
+
+2. Does RELAY outperform SHUFFLED-RELAY?
+   If yes, the advantage is more specifically associated with the
+   correct layer-to-layer transport geometry rather than merely using
+   different vectors at different layers.
+
+3. Does RELAY outperform LAYER-COMPASS?
+   If yes, independently extracting a direction at every layer is not
+   sufficient to explain the transport-aware advantage.
+
+4. Does broader K improve control/collateral tradeoff?
+   If yes, TEST154 diffusion structure has engineering value.
+
+5. Does the English-locked transport system retain an advantage on
+   topic-shifted, long-context and Turkish prompts?
+
+LANGUAGE RULE
+
+If BASE Turkish capability fails the pre-locked capability threshold,
+the English->Turkish steering result is capability-confounded.
+
+The Turkish diagnostic atlas may identify whether within-Turkish
+transport remains usable, but it may NEVER replace or modify the
+locked English->Turkish FINAL result.
+
+ENERGY RULE
+
+Requested intervention energy and realized BF16 write energy are
+reported separately.
+
+Realized BF16 energy is the primary engineering cost.
+
+COLLATERAL RULE
+
+Target answer tokens are not used for collateral measurement.
+
+Collateral is measured on a separate neutral continuation using:
+    ΔNLL
+    KL(BASE || STEERED)
+
+SELECTION RULE
+
+Only VAL may choose:
+    method
+    K
+    dose
+    weighted/unweighted transport
+
+FINAL is read-only evaluation.
+
+NO UNIVERSALITY CLAIM
+
+Successful Turkish or OOD transfer supports cross-distribution
+generalization under the tested conditions. It does not by itself
+establish a universal architecture constant.
+
+NO AUTOMATIC WINNER CLAIM
+
+The test reports raw metrics and Pareto frontiers.
+RELAY is allowed to win, tie, or lose.
+
+
+[18/18] COMPLETE
+======================================================================================================================================================
+Locked method : LAYER
+Locked dose   : 0.0025
+Weighted      : False
+EN capability : PASS
+TR capability : PASS
+
+Saved:
+  /content/TEST155_TRANSPORT_AWARE_TOURNAMENT/VAL_RESULTS.csv
+  /content/TEST155_TRANSPORT_AWARE_TOURNAMENT/FINAL_RESULTS.csv
+  /content/TEST155_TRANSPORT_AWARE_TOURNAMENT/FINAL_RAW_ROWS.csv
+  /content/TEST155_TRANSPORT_AWARE_TOURNAMENT/REPORT.json
+  /content/TEST155_TRANSPORT_AWARE_TOURNAMENT/TEST155_TRANSPORT_AWARE_TOURNAMENT.npz
+======================================================================================================================================================
+TEST 155 COMPLETE
+======================================================================================================================================================
