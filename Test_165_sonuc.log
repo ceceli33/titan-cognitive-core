@@ -1,0 +1,315 @@
+ ======================================================================================================================================================
+TEST 165 — NEGATIVE-RESIDUAL CAUSAL EFFICIENCY REPLICATION
+AKBASCORE 3.2 / SEASC
+======================================================================================================================================================
+GPU            : NVIDIA A100-SXM4-40GB
+Model          : Qwen/Qwen2.5-7B-Instruct
+Steered layers : L0-L19
+Beta region    : [-1.5, -1.25, -1.0, -0.75, -0.5]
+Forge scale    : 0.5
+Final scales   : [0.125, 0.25, 0.5, 0.75, 1.0]
+
+[1/15] Compiling SEASC kernel...
+       CUDA kernel: OK
+
+[2/15] Loading frozen model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 78.7kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 911kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 85.9MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 70.2MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 121MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.08MB/s]Download complete: :  13.1GB,  193MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  527MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.54s/it]Loading weights: 100% 339/339 [00:03<00:00, 98.32it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.2kB/s]       hidden : 3584
+       layers : 28
+       dtype  : torch.bfloat16
+
+[3/15] Building SEARCH bank...
+       pair 01/16
+       pair 02/16
+       pair 03/16
+       pair 04/16
+       pair 05/16
+       pair 06/16
+       pair 07/16
+       pair 08/16
+       pair 09/16
+       pair 10/16
+       pair 11/16
+       pair 12/16
+       pair 13/16
+       pair 14/16
+       pair 15/16
+       pair 16/16
+
+[4/15] Reconstructing lineage basis...
+       L00 cos(F,B)=+0.957046 | residual=0.289934
+       L01 cos(F,B)=+0.945882 | residual=0.324511
+       L02 cos(F,B)=+0.923687 | residual=0.383148
+       L03 cos(F,B)=+0.905784 | residual=0.423739
+       L04 cos(F,B)=+0.827902 | residual=0.560873
+       L05 cos(F,B)=+0.787565 | residual=0.616231
+       L06 cos(F,B)=+0.783951 | residual=0.620823
+       L07 cos(F,B)=+0.851357 | residual=0.524587
+       L08 cos(F,B)=+0.877778 | residual=0.479067
+       L09 cos(F,B)=+0.880560 | residual=0.473935
+       L10 cos(F,B)=+0.868166 | residual=0.496274
+       L11 cos(F,B)=+0.863361 | residual=0.504587
+       L12 cos(F,B)=+0.872287 | residual=0.488994
+       L13 cos(F,B)=+0.866555 | residual=0.499081
+       L14 cos(F,B)=+0.869072 | residual=0.494686
+       L15 cos(F,B)=+0.870898 | residual=0.491464
+       L16 cos(F,B)=+0.860497 | residual=0.509455
+       L17 cos(F,B)=+0.861645 | residual=0.507511
+       L18 cos(F,B)=+0.766311 | residual=0.642469
+       L19 cos(F,B)=+0.772911 | residual=0.634515
+
+       Mean cos(F,B) : +0.860661
+       Mean residual : 0.498294
+
+[5/15] Forging negative-residual neighborhood...
+       BETA_-1.50     F=+0.752713 B=+0.320709 R=-0.647066
+       BETA_-1.25     F=+0.806147 B=+0.399305 R=-0.580366
+       BETA_-1.00     F=+0.860661 B=+0.486739 R=-0.498294
+       BETA_-0.75     F=+0.912928 B=+0.581560 R=-0.398491
+       BETA_-0.50     F=+0.957816 B=+0.680107 R=-0.280022
+
+[6/15] NEW multi-family FORGE...
+
+       BETA_-1.50
+         FAMILY_E_VERTICAL_RELATION   Csym=+0.308459 | P+=4/4
+         FAMILY_F_RELATIVE_HEIGHT     Csym=-0.041214 | P+=2/4
+         FAMILY_G_UPPER_LOWER         Csym=+0.160693 | P+=4/4
+         FAMILY_H_SPATIAL_AXIS        Csym=+0.017859 | P+=3/4
+
+       BETA_-1.25
+         FAMILY_E_VERTICAL_RELATION   Csym=+0.312973 | P+=4/4
+         FAMILY_F_RELATIVE_HEIGHT     Csym=+0.005419 | P+=2/4
+         FAMILY_G_UPPER_LOWER         Csym=+0.172338 | P+=4/4
+         FAMILY_H_SPATIAL_AXIS        Csym=+0.026067 | P+=3/4
+
+       BETA_-1.00
+         FAMILY_E_VERTICAL_RELATION   Csym=+0.322101 | P+=4/4
+         FAMILY_F_RELATIVE_HEIGHT     Csym=+0.074110 | P+=3/4
+         FAMILY_G_UPPER_LOWER         Csym=+0.199426 | P+=4/4
+         FAMILY_H_SPATIAL_AXIS        Csym=+0.034795 | P+=3/4
+
+       BETA_-0.75
+         FAMILY_E_VERTICAL_RELATION   Csym=+0.317492 | P+=4/4
+         FAMILY_F_RELATIVE_HEIGHT     Csym=+0.136678 | P+=3/4
+         FAMILY_G_UPPER_LOWER         Csym=+0.199595 | P+=4/4
+         FAMILY_H_SPATIAL_AXIS        Csym=+0.037872 | P+=3/4
+
+       BETA_-0.50
+         FAMILY_E_VERTICAL_RELATION   Csym=+0.326719 | P+=4/4
+         FAMILY_F_RELATIVE_HEIGHT     Csym=+0.215309 | P+=3/4
+         FAMILY_G_UPPER_LOWER         Csym=+0.208330 | P+=4/4
+         FAMILY_H_SPATIAL_AXIS        Csym=+0.060206 | P+=3/4
+
+       FISHER
+         FAMILY_E_VERTICAL_RELATION   Csym=+0.309094 | P+=4/4
+         FAMILY_F_RELATIVE_HEIGHT     Csym=+0.395513 | P+=4/4
+         FAMILY_G_UPPER_LOWER         Csym=+0.151491 | P+=3/4
+         FAMILY_H_SPATIAL_AXIS        Csym=+0.080484 | P+=3/4
+
+       BANK_MEAN
+         FAMILY_E_VERTICAL_RELATION   Csym=+0.266984 | P+=4/4
+         FAMILY_F_RELATIVE_HEIGHT     Csym=+0.532929 | P+=4/4
+         FAMILY_G_UPPER_LOWER         Csym=+0.058897 | P+=2/4
+         FAMILY_H_SPATIAL_AXIS        Csym=+0.088295 | P+=3/4
+
+       BANK_RESIDUAL
+         FAMILY_E_VERTICAL_RELATION   Csym=-0.030374 | P+=1/4
+         FAMILY_F_RELATIVE_HEIGHT     Csym=+0.347482 | P+=4/4
+         FAMILY_G_UPPER_LOWER         Csym=-0.004806 | P+=2/4
+         FAMILY_H_SPATIAL_AXIS        Csym=+0.066993 | P+=3/4
+
+[7/15] Building efficiency profiles...
+  BETA_-1.50       mean=+0.111449 | SD=0.156315 | min=-0.041214 | KL=0.158750 | C/KL=+0.7020 | SCORE=+0.010874
+  BETA_-1.25       mean=+0.129199 | SD=0.143284 | min=+0.005419 | KL=0.155905 | C/KL=+0.8287 | SCORE=+0.045336
+  BETA_-1.00       mean=+0.157608 | SD=0.130207 | min=+0.034795 | KL=0.169984 | C/KL=+0.9272 | SCORE=+0.088479
+  BETA_-0.75       mean=+0.172909 | SD=0.117138 | min=+0.037872 | KL=0.179444 | C/KL=+0.9636 | SCORE=+0.120532
+  BETA_-0.50       mean=+0.202641 | SD=0.109356 | min=+0.060206 | KL=0.192180 | C/KL=+1.0544 | SCORE=+0.150069
+  FISHER           mean=+0.234145 | SD=0.143875 | min=+0.080484 | KL=0.269888 | C/KL=+0.8676 | SCORE=+0.149895
+  BANK_MEAN        mean=+0.236776 | SD=0.217797 | min=+0.058897 | KL=0.472363 | C/KL=+0.5013 | SCORE=+0.089482
+  BANK_RESIDUAL    mean=+0.094824 | SD=0.173408 | min=-0.030374 | KL=0.647512 | C/KL=+0.1464 | SCORE=-0.023458
+
+       FROZEN WINNER : BETA_-0.50
+       beta          : -0.5
+       family mean   : +0.202641
+       family SD     : 0.109356
+       family min    : +0.060206
+       KL            : 0.192180
+       score         : +0.150069
+
+[8/15] Leave-one-family-out stability...
+       hold=FAMILY_E_VERTICAL_RELATION   select=BETA_-0.50   | held=+0.326719
+       hold=FAMILY_F_RELATIVE_HEIGHT     select=BETA_-0.50   | held=+0.215309
+       hold=FAMILY_G_UPPER_LOWER         select=BETA_-0.50   | held=+0.208330
+       hold=FAMILY_H_SPATIAL_AXIS        select=BETA_-0.50   | held=+0.060206
+
+[9/15] FINAL first access — frozen vector only...
+
+DOSE=0.125
+  FISHER                     Csym=+0.048915 | P+=11/16 | real=0.6298%
+  BANK_MEAN                  Csym=+0.047780 | P+=14/16 | real=0.6297%
+  BETA_MINUS_1_REFERENCE     Csym=+0.036094 | P+=12/16 | real=0.6337%
+  NEGATIVE_RESIDUAL_FROZEN   Csym=+0.044283 | P+=12/16 | real=0.6290%
+
+DOSE=0.250
+  FISHER                     Csym=+0.112751 | P+=12/16 | real=1.2522%
+  BANK_MEAN                  Csym=+0.107753 | P+=14/16 | real=1.2495%
+  BETA_MINUS_1_REFERENCE     Csym=+0.073678 | P+=12/16 | real=1.2506%
+  NEGATIVE_RESIDUAL_FROZEN   Csym=+0.098356 | P+=13/16 | real=1.2519%
+
+DOSE=0.500
+  FISHER                     Csym=+0.186548 | P+=15/16 | real=2.4948%
+  BANK_MEAN                  Csym=+0.163918 | P+=13/16 | real=2.4960%
+  BETA_MINUS_1_REFERENCE     Csym=+0.120457 | P+=11/16 | real=2.4944%
+  NEGATIVE_RESIDUAL_FROZEN   Csym=+0.170794 | P+=13/16 | real=2.4957%
+
+DOSE=0.750
+  FISHER                     Csym=+0.125266 | P+=15/16 | real=3.7371%
+  BANK_MEAN                  Csym=+0.116203 | P+=13/16 | real=3.7393%
+  BETA_MINUS_1_REFERENCE     Csym=+0.106803 | P+=10/16 | real=3.7382%
+  NEGATIVE_RESIDUAL_FROZEN   Csym=+0.116237 | P+=14/16 | real=3.7403%
+
+DOSE=1.000
+  FISHER                     Csym=+0.042499 | P+=10/16 | real=4.9838%
+  BANK_MEAN                  Csym=+0.051194 | P+=11/16 | real=4.9842%
+  BETA_MINUS_1_REFERENCE     Csym=+0.035060 | P+=09/16 | real=4.9799%
+  NEGATIVE_RESIDUAL_FROZEN   Csym=+0.022983 | P+=10/16 | real=4.9833%
+
+[10/15] FINAL collateral...
+  FISHER                     scale=0.125 | ΔNLL=+0.072321 | KL=0.032290
+  BANK_MEAN                  scale=0.125 | ΔNLL=+0.083189 | KL=0.044274
+  BETA_MINUS_1_REFERENCE     scale=0.125 | ΔNLL=-0.002435 | KL=0.024347
+  NEGATIVE_RESIDUAL_FROZEN   scale=0.125 | ΔNLL=+0.028879 | KL=0.022871
+  FISHER                     scale=0.250 | ΔNLL=+0.102446 | KL=0.118894
+  BANK_MEAN                  scale=0.250 | ΔNLL=+0.115053 | KL=0.187042
+  BETA_MINUS_1_REFERENCE     scale=0.250 | ΔNLL=-0.053635 | KL=0.059317
+  NEGATIVE_RESIDUAL_FROZEN   scale=0.250 | ΔNLL=+0.058120 | KL=0.087439
+  FISHER                     scale=0.500 | ΔNLL=+0.115698 | KL=0.423400
+  BANK_MEAN                  scale=0.500 | ΔNLL=+0.285828 | KL=0.720466
+  BETA_MINUS_1_REFERENCE     scale=0.500 | ΔNLL=-0.134850 | KL=0.211987
+  NEGATIVE_RESIDUAL_FROZEN   scale=0.500 | ΔNLL=-0.002279 | KL=0.281646
+  FISHER                     scale=0.750 | ΔNLL=-0.080407 | KL=0.782247
+  BANK_MEAN                  scale=0.750 | ΔNLL=+0.070724 | KL=1.504338
+  BETA_MINUS_1_REFERENCE     scale=0.750 | ΔNLL=-0.513293 | KL=0.452385
+  NEGATIVE_RESIDUAL_FROZEN   scale=0.750 | ΔNLL=-0.266613 | KL=0.572704
+  FISHER                     scale=1.000 | ΔNLL=-0.558674 | KL=1.289306
+  BANK_MEAN                  scale=1.000 | ΔNLL=-0.230130 | KL=2.839090
+  BETA_MINUS_1_REFERENCE     scale=1.000 | ΔNLL=-0.945474 | KL=0.805360
+  NEGATIVE_RESIDUAL_FROZEN   scale=1.000 | ΔNLL=-0.694004 | KL=0.963609
+
+[11/15] Causal-efficiency curve...
+  FISHER                     scale=0.125 | Csym=+0.048915 | KL=0.032290 | C/KL=+1.51489 | C/dose=+7.76706
+  BANK_MEAN                  scale=0.125 | Csym=+0.047780 | KL=0.044274 | C/KL=+1.07918 | C/dose=+7.58722
+  BETA_MINUS_1_REFERENCE     scale=0.125 | Csym=+0.036094 | KL=0.024347 | C/KL=+1.48244 | C/dose=+5.69543
+  NEGATIVE_RESIDUAL_FROZEN   scale=0.125 | Csym=+0.044283 | KL=0.022871 | C/KL=+1.93618 | C/dose=+7.04037
+  FISHER                     scale=0.250 | Csym=+0.112751 | KL=0.118894 | C/KL=+0.94833 | C/dose=+9.00415
+  BANK_MEAN                  scale=0.250 | Csym=+0.107753 | KL=0.187042 | C/KL=+0.57609 | C/dose=+8.62373
+  BETA_MINUS_1_REFERENCE     scale=0.250 | Csym=+0.073678 | KL=0.059317 | C/KL=+1.24210 | C/dose=+5.89128
+  NEGATIVE_RESIDUAL_FROZEN   scale=0.250 | Csym=+0.098356 | KL=0.087439 | C/KL=+1.12485 | C/dose=+7.85621
+  FISHER                     scale=0.500 | Csym=+0.186548 | KL=0.423400 | C/KL=+0.44060 | C/dose=+7.47748
+  BANK_MEAN                  scale=0.500 | Csym=+0.163918 | KL=0.720466 | C/KL=+0.22752 | C/dose=+6.56714
+  BETA_MINUS_1_REFERENCE     scale=0.500 | Csym=+0.120457 | KL=0.211987 | C/KL=+0.56823 | C/dose=+4.82917
+  NEGATIVE_RESIDUAL_FROZEN   scale=0.500 | Csym=+0.170794 | KL=0.281646 | C/KL=+0.60641 | C/dose=+6.84343
+  FISHER                     scale=0.750 | Csym=+0.125266 | KL=0.782247 | C/KL=+0.16014 | C/dose=+3.35196
+  BANK_MEAN                  scale=0.750 | Csym=+0.116203 | KL=1.504338 | C/KL=+0.07725 | C/dose=+3.10761
+  BETA_MINUS_1_REFERENCE     scale=0.750 | Csym=+0.106803 | KL=0.452385 | C/KL=+0.23609 | C/dose=+2.85708
+  NEGATIVE_RESIDUAL_FROZEN   scale=0.750 | Csym=+0.116237 | KL=0.572704 | C/KL=+0.20296 | C/dose=+3.10771
+  FISHER                     scale=1.000 | Csym=+0.042499 | KL=1.289306 | C/KL=+0.03296 | C/dose=+0.85275
+  BANK_MEAN                  scale=1.000 | Csym=+0.051194 | KL=2.839090 | C/KL=+0.01803 | C/dose=+1.02714
+  BETA_MINUS_1_REFERENCE     scale=1.000 | Csym=+0.035060 | KL=0.805360 | C/KL=+0.04353 | C/dose=+0.70404
+  NEGATIVE_RESIDUAL_FROZEN   scale=1.000 | Csym=+0.022983 | KL=0.963609 | C/KL=+0.02385 | C/dose=+0.46119
+
+[12/15] FINAL paired contrasts...
+
+  scale=0.125
+    SYN-FISHER = -0.004633 [-0.020787,+0.012812] p=0.707415
+    SYN-BANK   = -0.003497 [-0.042087,+0.034745] p=0.570821
+    SYN-BETA-1 = +0.008189 [-0.010918,+0.029969] p=0.228139
+
+  scale=0.250
+    SYN-FISHER = -0.014395 [-0.042232,+0.015827] p=0.839208
+    SYN-BANK   = -0.009397 [-0.070304,+0.053349] p=0.621569
+    SYN-BETA-1 = +0.024678 [-0.004124,+0.050672] p=0.043798
+
+  scale=0.500
+    SYN-FISHER = -0.015754 [-0.055046,+0.023271] p=0.784911
+    SYN-BANK   = +0.006876 [-0.097341,+0.115116] p=0.452877
+    SYN-BETA-1 = +0.050337 [+0.009974,+0.094679] p=0.007000
+
+  scale=0.750
+    SYN-FISHER = -0.009028 [-0.063586,+0.044943] p=0.624169
+    SYN-BANK   = +0.000035 [-0.122437,+0.125240] p=0.504225
+    SYN-BETA-1 = +0.009434 [-0.052949,+0.066878] p=0.370531
+
+  scale=1.000
+    SYN-FISHER = -0.019517 [-0.067656,+0.035625] p=0.777361
+    SYN-BANK   = -0.028212 [-0.156784,+0.103057] p=0.666667
+    SYN-BETA-1 = -0.012078 [-0.076078,+0.044355] p=0.637968
+
+[13/15] Replication decision...
+       Decision   : NEGATIVE_RESIDUAL_ADVANTAGE_NOT_REPLICATED
+       Peak dose  : 0.5
+       Peak Csym  : +0.170794
+
+[14/15] Saving...
+
+[15/15] COMPLETE
+======================================================================================================================================================
+TEST 165 — FINAL SUMMARY
+======================================================================================================================================================
+Frozen beta              : -0.5
+Frozen vector            : BETA_-0.50
+FORGE family mean        : +0.202641
+FORGE family SD          : 0.109356
+FORGE minimum family     : +0.060206
+FORGE KL                 : 0.192180
+
+LOFO
+  FAMILY_E_VERTICAL_RELATION   -> BETA_-0.50   | held=+0.326719
+  FAMILY_F_RELATIVE_HEIGHT     -> BETA_-0.50   | held=+0.215309
+  FAMILY_G_UPPER_LOWER         -> BETA_-0.50   | held=+0.208330
+  FAMILY_H_SPATIAL_AXIS        -> BETA_-0.50   | held=+0.060206
+
+DOSE SCALE = 0.125
+  FISHER                     Csym=+0.048915 | P+=11/16 | KL=0.032290 | C/KL=+1.5149 | real=0.6298%
+  BANK_MEAN                  Csym=+0.047780 | P+=14/16 | KL=0.044274 | C/KL=+1.0792 | real=0.6297%
+  BETA_MINUS_1_REFERENCE     Csym=+0.036094 | P+=12/16 | KL=0.024347 | C/KL=+1.4824 | real=0.6337%
+  NEGATIVE_RESIDUAL_FROZEN   Csym=+0.044283 | P+=12/16 | KL=0.022871 | C/KL=+1.9362 | real=0.6290%
+
+DOSE SCALE = 0.250
+  FISHER                     Csym=+0.112751 | P+=12/16 | KL=0.118894 | C/KL=+0.9483 | real=1.2522%
+  BANK_MEAN                  Csym=+0.107753 | P+=14/16 | KL=0.187042 | C/KL=+0.5761 | real=1.2495%
+  BETA_MINUS_1_REFERENCE     Csym=+0.073678 | P+=12/16 | KL=0.059317 | C/KL=+1.2421 | real=1.2506%
+  NEGATIVE_RESIDUAL_FROZEN   Csym=+0.098356 | P+=13/16 | KL=0.087439 | C/KL=+1.1248 | real=1.2519%
+
+DOSE SCALE = 0.500
+  FISHER                     Csym=+0.186548 | P+=15/16 | KL=0.423400 | C/KL=+0.4406 | real=2.4948%
+  BANK_MEAN                  Csym=+0.163918 | P+=13/16 | KL=0.720466 | C/KL=+0.2275 | real=2.4960%
+  BETA_MINUS_1_REFERENCE     Csym=+0.120457 | P+=11/16 | KL=0.211987 | C/KL=+0.5682 | real=2.4944%
+  NEGATIVE_RESIDUAL_FROZEN   Csym=+0.170794 | P+=13/16 | KL=0.281646 | C/KL=+0.6064 | real=2.4957%
+
+DOSE SCALE = 0.750
+  FISHER                     Csym=+0.125266 | P+=15/16 | KL=0.782247 | C/KL=+0.1601 | real=3.7371%
+  BANK_MEAN                  Csym=+0.116203 | P+=13/16 | KL=1.504338 | C/KL=+0.0772 | real=3.7393%
+  BETA_MINUS_1_REFERENCE     Csym=+0.106803 | P+=10/16 | KL=0.452385 | C/KL=+0.2361 | real=3.7382%
+  NEGATIVE_RESIDUAL_FROZEN   Csym=+0.116237 | P+=14/16 | KL=0.572704 | C/KL=+0.2030 | real=3.7403%
+
+DOSE SCALE = 1.000
+  FISHER                     Csym=+0.042499 | P+=10/16 | KL=1.289306 | C/KL=+0.0330 | real=4.9838%
+  BANK_MEAN                  Csym=+0.051194 | P+=11/16 | KL=2.839090 | C/KL=+0.0180 | real=4.9842%
+  BETA_MINUS_1_REFERENCE     Csym=+0.035060 | P+=09/16 | KL=0.805360 | C/KL=+0.0435 | real=4.9799%
+  NEGATIVE_RESIDUAL_FROZEN   Csym=+0.022983 | P+=10/16 | KL=0.963609 | C/KL=+0.0239 | real=4.9833%
+
+FINAL CONTRASTS
+  scale=0.125 | SYN-F=-0.004633 [-0.020787,+0.012812] | SYN-B=-0.003497 [-0.042087,+0.034745]
+  scale=0.250 | SYN-F=-0.014395 [-0.042232,+0.015827] | SYN-B=-0.009397 [-0.070304,+0.053349]
+  scale=0.500 | SYN-F=-0.015754 [-0.055046,+0.023271] | SYN-B=+0.006876 [-0.097341,+0.115116]
+  scale=0.750 | SYN-F=-0.009028 [-0.063586,+0.044943] | SYN-B=+0.000035 [-0.122437,+0.125240]
+  scale=1.000 | SYN-F=-0.019517 [-0.067656,+0.035625] | SYN-B=-0.028212 [-0.156784,+0.103057]
+
+PEAK FROZEN DOSE : 0.5
+DECISION         : NEGATIVE_RESIDUAL_ADVANTAGE_NOT_REPLICATED
+Saved            : /content/TEST165_NEGATIVE_RESIDUAL_REPLICATION
+======================================================================================================================================================
+TEST 165 COMPLETE
+======================================================================================================================================================
