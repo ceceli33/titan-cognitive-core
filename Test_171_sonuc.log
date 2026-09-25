@@ -1,0 +1,234 @@
+ Installing required build dependency: ninja...
+==========================================================================================================================================================
+TEST 171 — COLLATERAL-NULL CAUSAL VECTOR FORGE
+CAUSAL_ORTH -> NEUTRAL COLLATERAL NULLSPACE -> CAUSAL_SAFE
+==========================================================================================================================================================
+Ninja: 1.13.2
+GPU: NVIDIA A100-SXM4-40GB
+Model: Qwen/Qwen2.5-7B-Instruct
+Layers: L0-L19 | source=TEST169 CAUSAL_ORTH | primary dose=0.50
+Locked SEASC RSS dose budget: 0.250235055
+
+[1/22] Compiling SEASC...
+       OK
+
+[2/22] Loading frozen model...
+config.json: 100% 663/663 [00:00<00:00, 85.8kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 827kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 25.5MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 68.5MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 132MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.29MB/s]Download complete: :  13.1GB, 1.05GB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  503MB/s  Fetching 4 files: 100% 4/4 [00:40<00:00,  7.46s/it]Loading weights: 100% 339/339 [00:03<00:00, 99.40it/s]generation_config.json: 100% 243/243 [00:00<00:00, 31.1kB/s]       hidden: 3584 dtype: torch.bfloat16
+
+[3/22] Rebuilding TEST169 Fisher / Bank geometry...
+       pair 01/16
+       pair 02/16
+       pair 03/16
+       pair 04/16
+       pair 05/16
+       pair 06/16
+       pair 07/16
+       pair 08/16
+       pair 09/16
+       pair 10/16
+       pair 11/16
+       pair 12/16
+       pair 13/16
+       pair 14/16
+       pair 15/16
+       pair 16/16
+       L00 cos(F,B)=+0.957046 residual=0.289934
+       L01 cos(F,B)=+0.945882 residual=0.324511
+       L02 cos(F,B)=+0.923687 residual=0.383148
+       L03 cos(F,B)=+0.905784 residual=0.423739
+       L04 cos(F,B)=+0.827902 residual=0.560873
+       L05 cos(F,B)=+0.787565 residual=0.616231
+       L06 cos(F,B)=+0.783951 residual=0.620823
+       L07 cos(F,B)=+0.851357 residual=0.524587
+       L08 cos(F,B)=+0.877778 residual=0.479067
+       L09 cos(F,B)=+0.880560 residual=0.473935
+       L10 cos(F,B)=+0.868166 residual=0.496274
+       L11 cos(F,B)=+0.863361 residual=0.504587
+       L12 cos(F,B)=+0.872287 residual=0.488994
+       L13 cos(F,B)=+0.866555 residual=0.499081
+       L14 cos(F,B)=+0.869072 residual=0.494686
+       L15 cos(F,B)=+0.870898 residual=0.491464
+       L16 cos(F,B)=+0.860497 residual=0.509455
+       L17 cos(F,B)=+0.861645 residual=0.507511
+       L18 cos(F,B)=+0.766311 residual=0.642469
+       L19 cos(F,B)=+0.772911 residual=0.634515
+       mean cos=+0.860661 | mean residual=0.498294
+
+[4/22] Computing frozen P8 retention basis...
+       probe 1/8 | NLL=10.108150 | mean ||g||=5.017349e+00
+       probe 2/8 | NLL=10.067118 | mean ||g||=4.504144e+00
+       probe 3/8 | NLL=12.503087 | mean ||g||=3.515239e+00
+       probe 4/8 | NLL=11.644833 | mean ||g||=3.911535e+00
+       probe 5/8 | NLL=12.823627 | mean ||g||=5.401210e+00
+       probe 6/8 | NLL=9.968038 | mean ||g||=5.083509e+00
+       probe 7/8 | NLL=9.568528 | mean ||g||=4.566213e+00
+       probe 8/8 | NLL=10.291623 | mean ||g||=5.011105e+00
+       P8 ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+
+[5/22] Reconstructing TEST169 CAUSAL_ORTH...
+       family A item 1/4
+       family A item 2/4
+       family A item 3/4
+       family A item 4/4
+       family B item 1/4
+       family B item 2/4
+       family B item 3/4
+       family B item 4/4
+       family C item 1/4
+       family C item 2/4
+       family C item 3/4
+       family C item 4/4
+       family D item 1/4
+       family D item 2/4
+       family D item 3/4
+       family D item 4/4
+       mean cos(Causal,Fisher)=+0.040625
+       mean Fisher-orthogonal component=0.998925
+       mean P8 overlap after CAUSAL_ORTH=2.21149694e-07
+
+[6/22] Building token-norm-weighted collateral gradient bank...
+       neutral 1/8 | NLL=10.886089 | mean ||g_act||=5.622915e+02
+       neutral 2/8 | NLL=11.839475 | mean ||g_act||=5.220968e+02
+       neutral 3/8 | NLL=11.787427 | mean ||g_act||=4.307135e+02
+       neutral 4/8 | NLL=10.572948 | mean ||g_act||=4.240309e+02
+       neutral 5/8 | NLL=10.917864 | mean ||g_act||=5.194454e+02
+       neutral 6/8 | NLL=11.511093 | mean ||g_act||=4.948602e+02
+       neutral 7/8 | NLL=13.429094 | mean ||g_act||=4.935550e+02
+       neutral 8/8 | NLL=9.970058 | mean ||g_act||=4.371637e+02
+
+[7/22] Constructing nested collateral subspaces...
+       K=1 ranks: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+       K=2 ranks: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+       K=4 ranks: [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+       K=6 ranks: [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6]
+       K=8 ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+       K=1 overlap_energy=0.000381 retained=0.999747 postColl=6.608e-03
+       K=2 overlap_energy=0.001557 retained=0.999071 postColl=8.084e-03
+       K=4 overlap_energy=0.004223 retained=0.997646 postColl=9.425e-03
+       K=6 overlap_energy=0.006713 retained=0.996325 postColl=1.039e-02
+       K=8 overlap_energy=0.009823 retained=0.994764 postColl=1.038e-02
+
+[8/22] DEV collateral-rank ablation...
+       K=0 BASE C=+1.315848 worst=+1.117860 KL=2.713733 Ret=0.850077 Dp=0.296345
+       K=1 C=+1.315295 worst=+1.107081 sd=0.213312 KL=2.705704 Ret=0.577093 Dp=0.296814 removed=0.000381
+       K=2 C=+1.322272 worst=+1.112196 sd=0.216892 KL=2.694451 Ret=0.589927 Dp=0.293902 removed=0.001557
+       K=4 C=+1.321210 worst=+1.108638 sd=0.217243 KL=2.700479 Ret=0.635786 Dp=0.289875 removed=0.004223
+       K=6 C=+1.317885 worst=+1.112337 sd=0.225860 KL=2.462029 Ret=0.607371 Dp=0.288623 removed=0.006713
+       K=8 C=+1.313886 worst=+1.114650 sd=0.234405 KL=2.290425 Ret=0.579048 Dp=0.287052 removed=0.009823
+
+[9/22] Viability / safety / Pareto...
+       viable: [1, 2, 4, 6, 8]
+       safe: [1, 2, 4, 6, 8]
+       Pareto: [1, 2, 4, 6, 8]
+
+[10/22] LOFO family stability...
+       hold A -> K=8 C=+1.226888 worst=+1.114650
+       hold B -> K=8 C=+1.268843 worst=+1.114650
+       hold C -> K=8 C=+1.380298 worst=+1.116998
+       hold D -> K=2 C=+1.392297 worst=+1.167684
+
+[11/22] Rank robustness...
+       K=1 neighbors=[(1, 1.31529), (2, 1.32227)] sd=0.004934
+       K=2 neighbors=[(1, 1.31529), (2, 1.32227), (4, 1.32121)] sd=0.003760
+       K=4 neighbors=[(2, 1.32227), (4, 1.32121), (6, 1.31788)] sd=0.002289
+       K=6 neighbors=[(4, 1.32121), (6, 1.31788), (8, 1.31389)] sd=0.003667
+       K=8 neighbors=[(6, 1.31788), (8, 1.31389)] sd=0.002828
+
+[12/22] FREEZE...
+       FROZEN K: 8
+       fallback: False
+       collateral overlap energy removed=0.009823
+       mean post-collateral overlap=1.038e-02
+       FINAL remains unopened.
+
+[13/22] FINAL — FIRST ACCESS AFTER FREEZE...
+
+       DOSE=0.125
+       CAUSAL_ORTH    C=+0.799662 P+=16/16 KL=0.151858 HeldRet=0.249882
+       CAUSAL_SAFE    C=+0.803951 P+=16/16 KL=0.153859 HeldRet=0.175881
+
+       DOSE=0.250
+       CAUSAL_ORTH    C=+1.362765 P+=16/16 KL=0.458912 HeldRet=0.379642
+       CAUSAL_SAFE    C=+1.359625 P+=16/16 KL=0.429295 HeldRet=0.377577
+
+       DOSE=0.500
+       CAUSAL_ORTH    C=+1.459602 P+=16/16 KL=1.291344 HeldRet=0.618741
+       CAUSAL_SAFE    C=+1.512839 P+=16/16 KL=1.152732 HeldRet=0.504329
+
+       DOSE=0.750
+       CAUSAL_ORTH    C=+1.423262 P+=16/16 KL=2.134831 HeldRet=1.018475
+       CAUSAL_SAFE    C=+1.496530 P+=16/16 KL=1.864101 HeldRet=0.684116
+
+       DOSE=1.000
+       CAUSAL_ORTH    C=+1.336798 P+=16/16 KL=2.734012 HeldRet=0.754419
+       CAUSAL_SAFE    C=+1.402108 P+=16/16 KL=2.419884 HeldRet=0.635678
+
+[14/22] FINAL hidden-state canalization...
+       CAUSAL_ORTH    s=0.125 Dperp=0.086937 Dtarget=0.011807 off=0.9770
+       CAUSAL_SAFE    s=0.125 Dperp=0.083046 Dtarget=0.011824 off=0.9757
+       CAUSAL_ORTH    s=0.250 Dperp=0.166845 Dtarget=0.023543 off=0.9751
+       CAUSAL_SAFE    s=0.250 Dperp=0.159425 Dtarget=0.023527 off=0.9738
+       CAUSAL_ORTH    s=0.500 Dperp=0.293893 Dtarget=0.045420 off=0.9715
+       CAUSAL_SAFE    s=0.500 Dperp=0.284830 Dtarget=0.045361 off=0.9705
+       CAUSAL_ORTH    s=0.750 Dperp=0.398876 Dtarget=0.066502 off=0.9685
+       CAUSAL_SAFE    s=0.750 Dperp=0.388264 Dtarget=0.066294 off=0.9675
+       CAUSAL_ORTH    s=1.000 Dperp=0.516081 Dtarget=0.090475 off=0.9668
+       CAUSAL_SAFE    s=1.000 Dperp=0.490598 Dtarget=0.088932 off=0.9653
+
+[15/22] Paired bootstrap...
+       s=0.125 SAFE-ORTH ΔC=+0.004290 [-0.007442,+0.017030] | Δ|Ret|=-0.074001 [-0.162148,+0.011800]
+       s=0.250 SAFE-ORTH ΔC=-0.003140 [-0.028612,+0.020331] | Δ|Ret|=-0.002064 [-0.126565,+0.129668]
+       s=0.500 SAFE-ORTH ΔC=+0.053237 [+0.025571,+0.083258] | Δ|Ret|=-0.114412 [-0.349572,+0.137882]
+       s=0.750 SAFE-ORTH ΔC=+0.073268 [+0.048725,+0.099472] | Δ|Ret|=-0.334359 [-0.566447,-0.152538]
+       s=1.000 SAFE-ORTH ΔC=+0.065310 [+0.016004,+0.123800] | Δ|Ret|=-0.118741 [-0.470125,+0.183895]
+
+[16/22] Primary mechanism @0.50...
+       CAUSAL_ORTH    C=+1.459602 KL=1.291344 HeldRet=0.618741 Dperp=0.293893 off=0.9715 P+=16/16
+       CAUSAL_SAFE    C=+1.512839 KL=1.152732 HeldRet=0.504329 Dperp=0.284830 off=0.9705 P+=16/16
+
+[17/22] Geometry / nullspace verification...
+       CAUSAL_ORTH    CollQ=9.66971282e-02 max=1.40674174e-01 P8=2.21149694e-07 FisherCos=+0.00000000
+       CAUSAL_SAFE    CollQ=1.03775769e-02 max=2.53212508e-02 P8=8.40153710e-09 FisherCos=-0.00000000
+
+[18/22] Effect-retention ratios...
+       s=0.125 causal=1.0054 KL=1.0132 HeldRet=0.7039
+       s=0.250 causal=0.9977 KL=0.9355 HeldRet=0.9946
+       s=0.500 causal=1.0365 KL=0.8927 HeldRet=0.8151
+       s=0.750 causal=1.0515 KL=0.8732 HeldRet=0.6717
+       s=1.000 causal=1.0489 KL=0.8851 HeldRet=0.8426
+
+[19/22] TEST171 decision...
+       Frozen K: 8
+       causal >=90%: True
+       KL >=10% reduction: True
+       held-ret >=10% reduction: True
+       Dperp >=10% reduction: False
+       retention bootstrap upper<0: False
+       DECISION: COLLATERAL_NULL_CAUSAL_VECTOR_SUPPORTED
+
+[20/22] Saving...
+
+[21/22] Integrity...
+       P8 ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+       Collateral rank frozen: 8
+       SEASC envelope changed: NO
+       RSS dose budget: 0.250235055
+       FINAL selection access: NONE
+       Model weights modified: NO
+       Runtime controller: OFF
+       mean final CollQ overlap: 1.03775769e-02
+       mean final P8 overlap: 8.40153710e-09
+
+[22/22] COMPLETE
+==========================================================================================================================================================
+TEST 171 — COLLATERAL-NULL CAUSAL VECTOR FORGE — SUMMARY
+==========================================================================================================================================================
+Mean cos(Fisher,Bank): +0.860661
+Mean CAUSAL_ORTH Fisher-orthogonal component: 0.998925
+Frozen collateral rank K: 8
+Fallback: False
+DECISION: COLLATERAL_NULL_CAUSAL_VECTOR_SUPPORTED
+Saved: /content/TEST171_COLLATERAL_NULL_CAUSAL_FORGE
+==========================================================================================================================================================
