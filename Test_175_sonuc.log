@@ -1,0 +1,270 @@
+ Installing required build dependency: ninja...
+==========================================================================================================================================================
+TEST 175 — CROSS-CONCEPT CAUSAL VECTOR FORGE
+INDEPENDENT BEFORE↔AFTER REPLICATION — FROZEN TEST169→174 RECIPE
+==========================================================================================================================================================
+Ninja: 1.13.2
+GPU: NVIDIA A100-SXM4-40GB
+Model: Qwen/Qwen2.5-7B-Instruct
+Target axis: BEFORE↔AFTER | L0-L19 | K=8 | frozen early-safe=L00-L04
+Locked SEASC RSS dose budget: 0.250235055
+
+[1/24] Compiling SEASC...
+       OK
+
+[2/24] Loading frozen model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 86.1kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 843kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 58.8MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 75.9MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 138MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.42MB/s]Download complete: :  13.1GB,  792MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  524MB/s  Fetching 4 files: 100% 4/4 [00:38<00:00,  6.55s/it]Loading weights: 100% 339/339 [00:04<00:00, 98.02it/s]generation_config.json: 100% 243/243 [00:00<00:00, 27.4kB/s]       hidden: 3584 dtype: torch.bfloat16
+
+[3/24] Building independent BEFORE↔AFTER Fisher / Bank geometry...
+       pair 01/16
+       pair 02/16
+       pair 03/16
+       pair 04/16
+       pair 05/16
+       pair 06/16
+       pair 07/16
+       pair 08/16
+       pair 09/16
+       pair 10/16
+       pair 11/16
+       pair 12/16
+       pair 13/16
+       pair 14/16
+       pair 15/16
+       pair 16/16
+       L00 cos(F,B)=+0.906634 residual=0.421919
+       L01 cos(F,B)=+0.923883 residual=0.382676
+       L02 cos(F,B)=+0.935344 residual=0.353740
+       L03 cos(F,B)=+0.954821 residual=0.297183
+       L04 cos(F,B)=+0.946717 residual=0.322068
+       L05 cos(F,B)=+0.912508 residual=0.409058
+       L06 cos(F,B)=+0.904130 residual=0.427257
+       L07 cos(F,B)=+0.910096 residual=0.414397
+       L08 cos(F,B)=+0.868354 residual=0.495946
+       L09 cos(F,B)=+0.844405 residual=0.535705
+       L10 cos(F,B)=+0.847051 residual=0.531511
+       L11 cos(F,B)=+0.877887 residual=0.478868
+       L12 cos(F,B)=+0.869321 residual=0.494249
+       L13 cos(F,B)=+0.836024 residual=0.548692
+       L14 cos(F,B)=+0.826034 residual=0.563620
+       L15 cos(F,B)=+0.825974 residual=0.563709
+       L16 cos(F,B)=+0.822407 residual=0.568899
+       L17 cos(F,B)=+0.813565 residual=0.581474
+       L18 cos(F,B)=+0.831423 residual=0.555640
+       L19 cos(F,B)=+0.821338 residual=0.570442
+       mean cos=+0.873896 | mean residual=0.475853
+
+[4/24] Computing frozen P8 retention basis...
+       probe 1/8 | NLL=10.108150 | mean ||g||=5.017349e+00
+       probe 2/8 | NLL=10.067118 | mean ||g||=4.504144e+00
+       probe 3/8 | NLL=12.503087 | mean ||g||=3.515239e+00
+       probe 4/8 | NLL=11.644833 | mean ||g||=3.911535e+00
+       probe 5/8 | NLL=12.823627 | mean ||g||=5.401210e+00
+       probe 6/8 | NLL=9.968038 | mean ||g||=5.083509e+00
+       probe 7/8 | NLL=9.568528 | mean ||g||=4.566213e+00
+       probe 8/8 | NLL=10.291623 | mean ||g||=5.011105e+00
+       P8 ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+
+[5/24] Forging independent BEFORE↔AFTER causal direction...
+       family A item 1/4
+       family A item 2/4
+       family A item 3/4
+       family A item 4/4
+       family B item 1/4
+       family B item 2/4
+       family B item 3/4
+       family B item 4/4
+       family C item 1/4
+       family C item 2/4
+       family C item 3/4
+       family C item 4/4
+       family D item 1/4
+       family D item 2/4
+       family D item 3/4
+       family D item 4/4
+       mean cos(Causal,B-Fisher)=+0.035668
+       mean B-Fisher-orthogonal component=0.999169
+       mean P8 overlap=2.00668521e-07
+
+[6/24] Rebuilding frozen K=8 collateral basis...
+       neutral 1/8 | NLL=10.886089 | mean ||g_act||=5.622915e+02
+       neutral 2/8 | NLL=11.839475 | mean ||g_act||=5.220968e+02
+       neutral 3/8 | NLL=11.787427 | mean ||g_act||=4.307135e+02
+       neutral 4/8 | NLL=10.572948 | mean ||g_act||=4.240309e+02
+       neutral 5/8 | NLL=10.917864 | mean ||g_act||=5.194454e+02
+       neutral 6/8 | NLL=11.511093 | mean ||g_act||=4.948602e+02
+       neutral 7/8 | NLL=13.429094 | mean ||g_act||=4.935550e+02
+       neutral 8/8 | NLL=9.970058 | mean ||g_act||=4.371637e+02
+       Frozen collateral ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+
+[7/24] Constructing B_CAUSAL_SAFE...
+       mean raw collateral energy=0.009574
+       mean cos(SAFE,ORTH)=0.995548
+       mean ||ORTH-SAFE||=0.089693
+       EARLY_SAFE frozen at L00-L04 BEFORE evaluation.
+
+[8/24] B-axis vectors frozen. DEV diagnostic begins...
+       B_ORTH        C=+0.743093 P+=8/8 KL=2.114733 |dNLL|=2.032378
+       B_EARLY_SAFE  C=+0.744998 P+=8/8 KL=2.233163 |dNLL|=1.868119
+       B_SAFE_ALL    C=+0.783306 P+=8/8 KL=1.983981 |dNLL|=2.140859
+
+[9/24] Cross-family causal consensus...
+       A-B: mean cos=+0.089208
+       A-C: mean cos=-0.013849
+       A-D: mean cos=+0.033647
+       B-C: mean cos=-0.016526
+       B-D: mean cos=+0.027586
+       C-D: mean cos=-0.029984
+
+[10/24] B-axis vector geometry...
+       L00 collE=0.035976 cosSafeOrth=+0.983019 early=1
+       L01 collE=0.006454 cosSafeOrth=+0.996858 early=1
+       L02 collE=0.015091 cosSafeOrth=+0.992647 early=1
+       L03 collE=0.005514 cosSafeOrth=+0.997311 early=1
+       L04 collE=0.005776 cosSafeOrth=+0.997199 early=1
+       L05 collE=0.002817 cosSafeOrth=+0.998660 early=0
+       L06 collE=0.009331 cosSafeOrth=+0.995479 early=0
+       L07 collE=0.009470 cosSafeOrth=+0.995430 early=0
+       L08 collE=0.010527 cosSafeOrth=+0.994996 early=0
+       L09 collE=0.009293 cosSafeOrth=+0.995490 early=0
+       L10 collE=0.002449 cosSafeOrth=+0.998835 early=0
+       L11 collE=0.005575 cosSafeOrth=+0.997265 early=0
+       L12 collE=0.007000 cosSafeOrth=+0.996745 early=0
+       L13 collE=0.003672 cosSafeOrth=+0.998299 early=0
+       L14 collE=0.016688 cosSafeOrth=+0.992399 early=0
+       L15 collE=0.013571 cosSafeOrth=+0.993689 early=0
+       L16 collE=0.008688 cosSafeOrth=+0.996516 early=0
+       L17 collE=0.007890 cosSafeOrth=+0.996992 early=0
+       L18 collE=0.006460 cosSafeOrth=+0.997027 early=0
+       L19 collE=0.009246 cosSafeOrth=+0.996101 early=0
+
+[11/24] Freeze declaration...
+       B_CAUSAL_ORTH: FROZEN
+       B_EARLY_SAFE : FROZEN L00-L04 from prior A-axis result
+       B_SAFE_ALL   : reference arm
+       DEV selected nothing.
+       FINAL remains unopened.
+
+[12/24] FINAL opened...
+
+       DOSE=0.125
+       B_ORTH        C=+0.071312 P+=5/8 KL=0.062140 |dNLL|=0.346280
+       B_EARLY_SAFE  C=+0.068638 P+=5/8 KL=0.061808 |dNLL|=0.344217
+       B_SAFE_ALL    C=+0.089718 P+=5/8 KL=0.056596 |dNLL|=0.347274
+
+       DOSE=0.250
+       B_ORTH        C=+0.236926 P+=7/8 KL=0.411373 |dNLL|=0.887024
+       B_EARLY_SAFE  C=+0.239394 P+=8/8 KL=0.434180 |dNLL|=0.880368
+       B_SAFE_ALL    C=+0.278719 P+=8/8 KL=0.350555 |dNLL|=0.972827
+
+       DOSE=0.500
+       B_ORTH        C=+0.765639 P+=8/8 KL=2.102395 |dNLL|=1.845331
+       B_EARLY_SAFE  C=+0.774449 P+=8/8 KL=2.242852 |dNLL|=1.686450
+       B_SAFE_ALL    C=+0.827946 P+=8/8 KL=1.951387 |dNLL|=1.935107
+
+       DOSE=0.750
+       B_ORTH        C=+1.174069 P+=8/8 KL=4.284663 |dNLL|=2.114287
+       B_EARLY_SAFE  C=+1.167301 P+=8/8 KL=4.242082 |dNLL|=1.983481
+       B_SAFE_ALL    C=+1.202319 P+=8/8 KL=4.037862 |dNLL|=2.160324
+
+       DOSE=1.000
+       B_ORTH        C=+1.268093 P+=8/8 KL=5.856619 |dNLL|=2.267689
+       B_EARLY_SAFE  C=+1.274487 P+=8/8 KL=5.733011 |dNLL|=2.185822
+       B_SAFE_ALL    C=+1.299965 P+=8/8 KL=5.535207 |dNLL|=1.994572
+
+[13/24] FINAL causal bootstrap...
+       s=0.125 E-O=-0.002674[-0.021283,+0.015008] | E-S=-0.021080[-0.033646,-0.006822]
+       s=0.250 E-O=+0.002468[-0.014979,+0.021227] | E-S=-0.039325[-0.057441,-0.021476]
+       s=0.500 E-O=+0.008809[-0.003599,+0.022262] | E-S=-0.053497[-0.076341,-0.035995]
+       s=0.750 E-O=-0.006767[-0.030165,+0.019026] | E-S=-0.035018[-0.067888,-0.004006]
+       s=1.000 E-O=+0.006395[-0.028598,+0.044108] | E-S=-0.025477[-0.069584,+0.018084]
+
+[14/24] FINAL neutral bootstrap...
+       s=0.125 KL  E-O=-0.000332[-0.005501,+0.005270] | E-S=+0.005212[-0.001255,+0.011719]
+       s=0.125 RET E-O=-0.002062[-0.059071,+0.050895] | E-S=-0.003056[-0.054163,+0.050316]
+       s=0.250 KL  E-O=+0.022807[+0.004163,+0.044016] | E-S=+0.083624[+0.018187,+0.154121]
+       s=0.250 RET E-O=-0.006656[-0.069128,+0.058770] | E-S=-0.092459[-0.158445,-0.027237]
+       s=0.500 KL  E-O=+0.140457[-0.020843,+0.298789] | E-S=+0.291465[-0.022712,+0.606542]
+       s=0.500 RET E-O=-0.158881[-0.246298,-0.070138] | E-S=-0.248657[-0.382168,-0.118267]
+       s=0.750 KL  E-O=-0.042581[-0.332151,+0.243125] | E-S=+0.204220[-0.439256,+0.857579]
+       s=0.750 RET E-O=-0.130806[-0.223819,-0.022364] | E-S=-0.176843[-0.480824,+0.121820]
+       s=1.000 KL  E-O=-0.123607[-0.313425,+0.070351] | E-S=+0.197804[-0.461582,+0.860736]
+       s=1.000 RET E-O=-0.081867[-0.177882,+0.023956] | E-S=+0.191250[-0.110549,+0.453968]
+
+[15/24] Primary FINAL @0.50...
+       B_ORTH        C=+0.765639 P+=8/8 KL=2.102395 |dNLL|=1.845331
+       B_EARLY_SAFE  C=+0.774449 P+=8/8 KL=2.242852 |dNLL|=1.686450
+       B_SAFE_ALL    C=+0.827946 P+=8/8 KL=1.951387 |dNLL|=1.935107
+       EARLY/ORTH causal=1.0115 KL=1.0668 Ret=0.9139
+
+[16/24] Dose consistency...
+       B_ORTH        positive doses=5/5 P+ total=36/40 meanC=+0.703208
+       B_EARLY_SAFE  positive doses=5/5 P+ total=37/40 meanC=+0.704854
+       B_SAFE_ALL    positive doses=5/5 P+ total=37/40 meanC=+0.739733
+
+[17/24] Early-safe effect profile...
+       s=0.125 ΔC=-0.002674 ΔKL=-0.000332 ΔRet=-0.002062
+       s=0.250 ΔC=+0.002468 ΔKL=+0.022807 ΔRet=-0.006656
+       s=0.500 ΔC=+0.008809 ΔKL=+0.140457 ΔRet=-0.158881
+       s=0.750 ΔC=-0.006767 ΔKL=-0.042581 ΔRet=-0.130806
+       s=1.000 ΔC=+0.006395 ΔKL=-0.123607 ΔRet=-0.081867
+
+[18/24] Cross-concept replication check...
+       independent B causal vector positive 8/8: True
+       B early-safe positive 8/8: True
+       B early-safe KL < B_ORTH: False
+       B early-safe retention disturbance < B_ORTH: True
+       primary ΔC CI: [-0.003599,+0.022262]
+       primary ΔKL CI: [-0.020843,+0.298789]
+       primary ΔRet CI: [-0.246298,-0.070138]
+
+[19/24] TEST175 decision...
+       DECISION: CROSS_CONCEPT_CAUSAL_FORGE_REPLICATED__EARLY_CLEANING_PARTIAL
+
+[20/24] Interpretation flags...
+       new_semantic_axis: True
+       axis: BEFORE_AFTER
+       above_below_vector_used_for_B_construction: False
+       recipe_transferred: True
+       early_region_transferred_without_B_search: True
+       final_used_for_selection: False
+       general_algorithm_proven: False
+
+[21/24] Saving...
+
+[22/24] Integrity...
+       P8 ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+       Frozen collateral K: 8
+       Semantic axis: BEFORE↔AFTER
+       A-axis vector used to build B-axis: NO
+       Early-safe region: [0, 1, 2, 3, 4] (transferred, not searched)
+       DEV selected hyperparameters: NO
+       FINAL used for selection: NO
+       SEASC envelope changed: NO
+       RSS dose budget: 0.250235055
+       All L0-L19 injections active: YES
+       Model weights modified: NO
+       Runtime controller: OFF
+
+[23/24] Scientific boundary...
+       This test can establish replication on a second semantic axis.
+       It cannot by itself establish universal cross-concept generality.
+       Early L00-L04 cleanup is a transferred hypothesis, not B-axis-selected.
+
+[24/24] COMPLETE
+==========================================================================================================================================================
+TEST 175 — CROSS-CONCEPT CAUSAL VECTOR FORGE — SUMMARY
+==========================================================================================================================================================
+Axis: BEFORE↔AFTER
+Mean cos(B-Fisher,B-Bank): +0.873896
+Mean causal Fisher-orthogonal component: 0.999169
+Mean raw collateral energy: 0.009574
+Early-safe layers: [0, 1, 2, 3, 4]
+Primary B_ORTH       : C=+0.765639 KL=2.102395 |dNLL|=1.845331
+Primary B_EARLY_SAFE : C=+0.774449 KL=2.242852 |dNLL|=1.686450
+Primary B_SAFE_ALL   : C=+0.827946 KL=1.951387 |dNLL|=1.935107
+DECISION: CROSS_CONCEPT_CAUSAL_FORGE_REPLICATED__EARLY_CLEANING_PARTIAL
+Saved: /content/TEST175_CROSS_CONCEPT_CAUSAL_VECTOR_FORGE
+==========================================================================================================================================================
