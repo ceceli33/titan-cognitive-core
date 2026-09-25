@@ -1,0 +1,231 @@
+ ======================================================================================================================================================
+TEST 159 — LOCAL STATE-CONDITIONED STEERING DIFFERENTIAL
+AKBASCORE 3.1 / SEASC
+======================================================================================================================================================
+GPU            : NVIDIA A100-SXM4-40GB
+Model          : Qwen/Qwen2.5-7B-Instruct
+Steered layers : L0-L19
+Dose scales    : [0.25, 0.5, 1.0]
+Methods        : ['GLOBAL_STATIC', 'LAYER_LOCAL', 'STATE_GAIN', 'STATE_DIRECTION', 'COMBINED', 'SHUFFLED_STATE']
+
+[1/13] Compiling AkbasCore batch SEASC kernel...
+      CUDA kernel: OK
+
+[2/13] Loading frozen model...
+config.json: 100% 663/663 [00:00<00:00, 81.4kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 915kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 87.5MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 72.2MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 127MB/s][transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.00MB/s]Download complete: :  13.1GB,  131MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  470MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.74s/it]Loading weights: 100% 339/339 [00:03<00:00, 100.27it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.7kB/s]      hidden : 3584
+      layers : 28
+      dtype  : torch.bfloat16
+
+DRA envelope:
+  L00: E=1.000000 base-dose=10.000%
+  L01: E=0.971272 base-dose=9.713%
+  L02: E=0.905188 base-dose=9.052%
+  L03: E=0.823042 base-dose=8.230%
+  L04: E=0.737599 base-dose=7.376%
+  L05: E=0.656086 base-dose=6.561%
+  L06: E=0.582206 base-dose=5.822%
+  L07: E=0.517478 base-dose=5.175%
+  L08: E=0.462121 base-dose=4.621%
+  L09: E=0.415625 base-dose=4.156%
+  L10: E=0.377115 base-dose=3.771%
+  L11: E=0.345576 base-dose=3.456%
+  L12: E=0.319980 base-dose=3.200%
+  L13: E=0.299366 base-dose=2.994%
+  L14: E=0.282871 base-dose=2.829%
+  L15: E=0.269744 base-dose=2.697%
+  L16: E=0.259348 base-dose=2.593%
+  L17: E=0.251148 base-dose=2.511%
+  L18: E=0.244705 base-dose=2.447%
+  L19: E=0.239658 base-dose=2.397%
+
+[3/13] Building SEARCH-only state bank...
+      pair 01/16
+      pair 02/16
+      pair 03/16
+      pair 04/16
+      pair 05/16
+      pair 06/16
+      pair 07/16
+      pair 08/16
+      pair 09/16
+      pair 10/16
+      pair 11/16
+      pair 12/16
+      pair 13/16
+      pair 14/16
+      pair 15/16
+      pair 16/16
+
+[4/13] Building local Fisher compasses + state-conditioned directions...
+      L00 | Fisher norm=1.000000 | state-dir coherence=+0.951705
+      L01 | Fisher norm=1.000000 | state-dir coherence=+0.901434
+      L02 | Fisher norm=1.000000 | state-dir coherence=+0.836222
+      L03 | Fisher norm=1.000000 | state-dir coherence=+0.809298
+      L04 | Fisher norm=1.000000 | state-dir coherence=+0.726167
+      L05 | Fisher norm=1.000000 | state-dir coherence=+0.687893
+      L06 | Fisher norm=1.000000 | state-dir coherence=+0.688247
+      L07 | Fisher norm=1.000000 | state-dir coherence=+0.708701
+      L08 | Fisher norm=1.000000 | state-dir coherence=+0.678020
+      L09 | Fisher norm=1.000000 | state-dir coherence=+0.648536
+      L10 | Fisher norm=1.000000 | state-dir coherence=+0.644315
+      L11 | Fisher norm=1.000000 | state-dir coherence=+0.625543
+      L12 | Fisher norm=1.000000 | state-dir coherence=+0.613119
+      L13 | Fisher norm=1.000000 | state-dir coherence=+0.589075
+      L14 | Fisher norm=1.000000 | state-dir coherence=+0.597690
+      L15 | Fisher norm=1.000000 | state-dir coherence=+0.585515
+      L16 | Fisher norm=1.000000 | state-dir coherence=+0.568761
+      L17 | Fisher norm=1.000000 | state-dir coherence=+0.552806
+      L18 | Fisher norm=1.000000 | state-dir coherence=+0.484373
+      L19 | Fisher norm=1.000000 | state-dir coherence=+0.520210
+
+[5/13] Baseline symmetric task calibration...
+      item 00 baseline margin=+0.434365
+      item 01 baseline margin=+1.298656
+      item 02 baseline margin=+1.229667
+      item 03 baseline margin=+1.161713
+      item 04 baseline margin=-0.122270
+      item 05 baseline margin=+2.194057
+      item 06 baseline margin=+0.725624
+      item 07 baseline margin=-0.200624
+      item 08 baseline margin=+0.979838
+      item 09 baseline margin=+1.203382
+      item 10 baseline margin=+0.575202
+      item 11 baseline margin=+0.268963
+      mean baseline margin = +0.812381
+
+[6/13] Running ± causal steering matrix...
+  GLOBAL_STATIC      scale=0.25 | +M=+0.891701 -M=+0.609009 | Csym=+0.141346 | req=1.2450% real=1.2532% | E=0.189598
+  GLOBAL_STATIC      scale=0.50 | +M=+0.983760 -M=+0.423940 | Csym=+0.279910 | req=2.4900% real=2.4941% | E=0.752883
+  GLOBAL_STATIC      scale=1.00 | +M=+0.616653 -M=+0.499649 | Csym=+0.058502 | req=4.9801% real=4.9807% | E=3.006480
+  LAYER_LOCAL        scale=0.25 | +M=+0.926335 -M=+0.746039 | Csym=+0.090148 | req=1.2450% real=1.2520% | E=0.189329
+  LAYER_LOCAL        scale=0.50 | +M=+1.072153 -M=+0.736296 | Csym=+0.167929 | req=2.4900% real=2.4948% | E=0.752821
+  LAYER_LOCAL        scale=1.00 | +M=+0.973874 -M=+0.740629 | Csym=+0.116622 | req=4.9801% real=4.9843% | E=3.009936
+  STATE_GAIN         scale=0.25 | +M=+0.926335 -M=+0.746039 | Csym=+0.090148 | req=1.2450% real=1.2520% | E=0.189329
+  STATE_GAIN         scale=0.50 | +M=+1.072153 -M=+0.736296 | Csym=+0.167929 | req=2.4900% real=2.4948% | E=0.752821
+  STATE_GAIN         scale=1.00 | +M=+0.973874 -M=+0.740629 | Csym=+0.116622 | req=4.9801% real=4.9843% | E=3.009936
+  STATE_DIRECTION    scale=0.25 | +M=+0.860551 -M=+0.717849 | Csym=+0.071351 | req=1.2450% real=1.2508% | E=0.188746
+  STATE_DIRECTION    scale=0.50 | +M=+0.992380 -M=+0.550852 | Csym=+0.220764 | req=2.4900% real=2.4962% | E=0.754068
+  STATE_DIRECTION    scale=1.00 | +M=+1.052690 -M=+0.531968 | Csym=+0.260361 | req=4.9801% real=4.9843% | E=3.009650
+  COMBINED           scale=0.25 | +M=+0.860551 -M=+0.717849 | Csym=+0.071351 | req=1.2450% real=1.2508% | E=0.188746
+  COMBINED           scale=0.50 | +M=+0.992380 -M=+0.550852 | Csym=+0.220764 | req=2.4900% real=2.4962% | E=0.754068
+  COMBINED           scale=1.00 | +M=+1.052690 -M=+0.531968 | Csym=+0.260361 | req=4.9801% real=4.9843% | E=3.009650
+  SHUFFLED_STATE     scale=0.25 | +M=+0.876336 -M=+0.707502 | Csym=+0.084417 | req=1.2450% real=1.2507% | E=0.188731
+  SHUFFLED_STATE     scale=0.50 | +M=+1.013477 -M=+0.546075 | Csym=+0.233701 | req=2.4900% real=2.4959% | E=0.753943
+  SHUFFLED_STATE     scale=1.00 | +M=+1.025361 -M=+0.519558 | Csym=+0.252901 | req=4.9801% real=4.9838% | E=3.009371
+
+[7/13] Neutral collateral assay...
+  GLOBAL_STATIC      scale=0.25 | ΔNLL=+0.820410 | KL=0.522398
+  GLOBAL_STATIC      scale=0.50 | ΔNLL=+1.284549 | KL=1.487593
+  GLOBAL_STATIC      scale=1.00 | ΔNLL=-0.749336 | KL=3.314483
+  LAYER_LOCAL        scale=0.25 | ΔNLL=+0.174484 | KL=0.135555
+  LAYER_LOCAL        scale=0.50 | ΔNLL=+0.241384 | KL=0.482472
+  LAYER_LOCAL        scale=1.00 | ΔNLL=-0.167839 | KL=1.360831
+  STATE_GAIN         scale=0.25 | ΔNLL=+0.174484 | KL=0.135555
+  STATE_GAIN         scale=0.50 | ΔNLL=+0.241384 | KL=0.482472
+  STATE_GAIN         scale=1.00 | ΔNLL=-0.167839 | KL=1.360831
+  STATE_DIRECTION    scale=0.25 | ΔNLL=+0.162559 | KL=0.172498
+  STATE_DIRECTION    scale=0.50 | ΔNLL=+0.299917 | KL=0.730202
+  STATE_DIRECTION    scale=1.00 | ΔNLL=-0.015175 | KL=2.649153
+  COMBINED           scale=0.25 | ΔNLL=+0.162559 | KL=0.172498
+  COMBINED           scale=0.50 | ΔNLL=+0.299917 | KL=0.730202
+  COMBINED           scale=1.00 | ΔNLL=-0.015175 | KL=2.649153
+  SHUFFLED_STATE     scale=0.25 | ΔNLL=+0.159367 | KL=0.171538
+  SHUFFLED_STATE     scale=0.50 | ΔNLL=+0.315489 | KL=0.754207
+  SHUFFLED_STATE     scale=1.00 | ΔNLL=-0.014202 | KL=2.677142
+
+[8/13] Causal effect / energy view...
+METHOD                SCALE         CSYM        ENERGY        CSYM/E         DNLL           KL
+----------------------------------------------------------------------------------------------
+GLOBAL_STATIC          0.50     0.279910      0.752883      0.371784     1.284549     1.487593
+STATE_DIRECTION        1.00     0.260361      3.009650      0.086509    -0.015175     2.649153
+COMBINED               1.00     0.260361      3.009650      0.086509    -0.015175     2.649153
+SHUFFLED_STATE         1.00     0.252901      3.009371      0.084038    -0.014202     2.677142
+SHUFFLED_STATE         0.50     0.233701      0.753943      0.309972     0.315489     0.754207
+STATE_DIRECTION        0.50     0.220764      0.754068      0.292764     0.299917     0.730202
+COMBINED               0.50     0.220764      0.754068      0.292764     0.299917     0.730202
+LAYER_LOCAL            0.50     0.167929      0.752821      0.223066     0.241384     0.482472
+STATE_GAIN             0.50     0.167929      0.752821      0.223066     0.241384     0.482472
+GLOBAL_STATIC          0.25     0.141346      0.189598      0.745502     0.820410     0.522398
+LAYER_LOCAL            1.00     0.116622      3.009936      0.038746    -0.167839     1.360831
+STATE_GAIN             1.00     0.116622      3.009936      0.038746    -0.167839     1.360831
+LAYER_LOCAL            0.25     0.090148      0.189329      0.476147     0.174484     0.135555
+STATE_GAIN             0.25     0.090148      0.189329      0.476147     0.174484     0.135555
+SHUFFLED_STATE         0.25     0.084417      0.188731      0.447285     0.159367     0.171538
+STATE_DIRECTION        0.25     0.071351      0.188746      0.378025     0.162559     0.172498
+COMBINED               0.25     0.071351      0.188746      0.378025     0.162559     0.172498
+GLOBAL_STATIC          1.00     0.058502      3.006480      0.019459    -0.749336     3.314483
+
+[9/13] Primary mechanistic differentials...
+scale=0.25 | LOCAL-GLOBAL=-0.051198 | GAIN-LOCAL=+0.000000 | DIR-LOCAL=-0.018797 | COMB-LOCAL=-0.018797 | COMB-SHUFFLE=-0.013066
+scale=0.50 | LOCAL-GLOBAL=-0.111982 | GAIN-LOCAL=+0.000000 | DIR-LOCAL=+0.052835 | COMB-LOCAL=+0.052835 | COMB-SHUFFLE=-0.012937
+scale=1.00 | LOCAL-GLOBAL=+0.058121 | GAIN-LOCAL=+0.000000 | DIR-LOCAL=+0.143739 | COMB-LOCAL=+0.143739 | COMB-SHUFFLE=+0.007460
+
+[10/13] Prompt-level consistency at scale=1.00...
+  GLOBAL_STATIC      P(Csym>0)=07/12 | median=+0.051130 | mean=+0.058502
+  LAYER_LOCAL        P(Csym>0)=08/12 | median=+0.082041 | mean=+0.116622
+  STATE_GAIN         P(Csym>0)=08/12 | median=+0.082041 | mean=+0.116622
+  STATE_DIRECTION    P(Csym>0)=10/12 | median=+0.312750 | mean=+0.260361
+  COMBINED           P(Csym>0)=10/12 | median=+0.312750 | mean=+0.260361
+  SHUFFLED_STATE     P(Csym>0)=09/12 | median=+0.306870 | mean=+0.252901
+
+[11/13] Mechanistic diagnosis...
+ - STATE_DEPENDENT_DIRECTION_SUPPORTED
+ - STATE_CONDITIONED_COMBINED_SUPPORTED
+
+Interpretation:
+
+LAYER_LOCAL_RECONSTRUCTION_SUPPORTED
+    Rebuilding the semantic compass independently at each layer outperforms
+    carrying one source-layer vector through depth.
+
+STATE_DEPENDENT_GAIN_SUPPORTED
+    The current hidden state contains useful information about HOW MUCH
+    steering should be applied, even with direction fixed to A_L.
+
+STATE_DEPENDENT_DIRECTION_SUPPORTED
+    The current hidden state contains useful information about WHICH local
+    semantic direction should be used.
+
+STATE_CONDITIONED_COMBINED_SUPPORTED
+    Direction and magnitude adaptation together improve causal control over
+    the ordinary layer-local AkbasCore compass.
+
+MATCHED_STATE_SPECIFICITY_SUPPORTED
+    Correct state-to-direction correspondence matters; the effect cannot be
+    explained merely by mixing the SEARCH direction bank.
+
+STATE_CONDITIONING_NOT_CAUSALLY_SUPPORTED
+    TEST158's observational matched-context structure did not translate into
+    superior causal steering under this decoder and intervention regime.
+
+
+[12/13] Saving artifacts...
+
+[13/13] COMPLETE
+======================================================================================================================================================
+TEST 159 — FINAL SUMMARY
+======================================================================================================================================================
+Baseline ambiguous margin : +0.812381
+
+MECHANISTIC DIFFERENTIALS
+scale=0.25 | LOCAL-GLOBAL=-0.051198 | GAIN-LOCAL=+0.000000 | DIR-LOCAL=-0.018797 | COMBINED-LOCAL=-0.018797 | COMBINED-SHUFFLED=-0.013066
+scale=0.50 | LOCAL-GLOBAL=-0.111982 | GAIN-LOCAL=+0.000000 | DIR-LOCAL=+0.052835 | COMBINED-LOCAL=+0.052835 | COMBINED-SHUFFLED=-0.012937
+scale=1.00 | LOCAL-GLOBAL=+0.058121 | GAIN-LOCAL=+0.000000 | DIR-LOCAL=+0.143739 | COMBINED-LOCAL=+0.143739 | COMBINED-SHUFFLED=+0.007460
+
+DIAGNOSTIC FLAGS
+  STATE_DEPENDENT_DIRECTION_SUPPORTED
+  STATE_CONDITIONED_COMBINED_SUPPORTED
+
+Saved:
+  /content/TEST159_LOCAL_STATE_STEERING/METHOD_MATRIX.csv
+  /content/TEST159_LOCAL_STATE_STEERING/MECHANISTIC_DIFFERENTIALS.csv
+  /content/TEST159_LOCAL_STATE_STEERING/PROMPT_CONSISTENCY.csv
+  /content/TEST159_LOCAL_STATE_STEERING/BASELINE.csv
+  /content/TEST159_LOCAL_STATE_STEERING/TEST159_STATE_BANK.npz
+  /content/TEST159_LOCAL_STATE_STEERING/REPORT.json
+======================================================================================================================================================
+TEST 159 COMPLETE
+======================================================================================================================================================
