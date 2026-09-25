@@ -1,0 +1,432 @@
+ ==========================================================================================================================================================
+TEST 157 — HELD-OUT SEMANTIC RECODING OPERATOR
+DOES A SHARED R_{a->b} GENERALIZE TO AN UNSEEN SEMANTIC AXIS?
+==========================================================================================================================================================
+
+[1/16] Loading frozen model...
+config.json: 100% 663/663 [00:00<00:00, 76.8kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 871kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 35.9MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 71.0MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 125MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.31MB/s]Download complete: :  13.1GB, 1.60MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  111MB/s  Fetching 4 files: 100% 4/4 [01:26<00:00, 20.25s/it]Loading weights: 100% 339/339 [00:03<00:00, 101.30it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.6kB/s]GPU            : NVIDIA A100-SXM4-40GB
+Model          : Qwen/Qwen2.5-7B-Instruct
+Hidden         : 3584
+Decoder layers : 28
+Layers         : [3, 6, 10, 14, 19]
+Segments       : [(3, 6), (6, 10), (10, 14), (14, 19)]
+K values       : [4, 8, 16, 32]
+TRAIN axes     : ['BEFORE_AFTER', 'INSIDE_OUTSIDE', 'LEFT_RIGHT', 'NEAR_FAR', 'EARLIER_LATER', 'FRONT_BEHIND']
+VAL axes       : ['BIGGER_SMALLER', 'HOTTER_COLDER']
+FINAL axis     : ['ABOVE_BELOW']
+Ridges         : [0.0, 1e-05, 0.0001, 0.001, 0.01, 0.1, 1.0, 10.0]
+
+[2/16] Capturing natural SEARCH atlas...
+  SEARCH: 001/192
+  SEARCH: 032/192
+  SEARCH: 064/192
+  SEARCH: 096/192
+  SEARCH: 128/192
+  SEARCH: 160/192
+  SEARCH: 192/192
+
+[3/16] Building natural transport atlas...
+L3->L6 | s1=0.625068 s4=0.226240 s8=0.125546 s16=0.049157 s32=0.012052
+L6->L10 | s1=2.794859 s4=0.999019 s8=0.428736 s16=0.192302 s32=0.039390
+L10->L14 | s1=7.181062 s4=2.870953 s8=1.153514 s16=0.495570 s32=0.118913
+L14->L19 | s1=23.969080 s4=7.697594 s8=3.673829 s16=0.986603 s32=0.287849
+
+[4/16] Fingerprint check...
+L3->L6 max_rel_error=0.9609%
+L6->L10 max_rel_error=0.8281%
+L10->L14 max_rel_error=0.9885%
+L14->L19 max_rel_error=0.5933%
+GLOBAL fingerprint max rel error = 0.9885%
+Fingerprint: PASS
+
+[5/16] Capturing semantic axes...
+
+  AXIS: BEFORE_AFTER
+  BEFORE_AFTER:POS: 001/8
+  BEFORE_AFTER:POS: 008/8
+  BEFORE_AFTER:NEG: 001/8
+  BEFORE_AFTER:NEG: 008/8
+
+  AXIS: INSIDE_OUTSIDE
+  INSIDE_OUTSIDE:POS: 001/8
+  INSIDE_OUTSIDE:POS: 008/8
+  INSIDE_OUTSIDE:NEG: 001/8
+  INSIDE_OUTSIDE:NEG: 008/8
+
+  AXIS: LEFT_RIGHT
+  LEFT_RIGHT:POS: 001/8
+  LEFT_RIGHT:POS: 008/8
+  LEFT_RIGHT:NEG: 001/8
+  LEFT_RIGHT:NEG: 008/8
+
+  AXIS: NEAR_FAR
+  NEAR_FAR:POS: 001/8
+  NEAR_FAR:POS: 008/8
+  NEAR_FAR:NEG: 001/8
+  NEAR_FAR:NEG: 008/8
+
+  AXIS: EARLIER_LATER
+  EARLIER_LATER:POS: 001/8
+  EARLIER_LATER:POS: 008/8
+  EARLIER_LATER:NEG: 001/8
+  EARLIER_LATER:NEG: 008/8
+
+  AXIS: FRONT_BEHIND
+  FRONT_BEHIND:POS: 001/8
+  FRONT_BEHIND:POS: 008/8
+  FRONT_BEHIND:NEG: 001/8
+  FRONT_BEHIND:NEG: 008/8
+
+  AXIS: BIGGER_SMALLER
+  BIGGER_SMALLER:POS: 001/8
+  BIGGER_SMALLER:POS: 008/8
+  BIGGER_SMALLER:NEG: 001/8
+  BIGGER_SMALLER:NEG: 008/8
+
+  AXIS: HOTTER_COLDER
+  HOTTER_COLDER:POS: 001/8
+  HOTTER_COLDER:POS: 008/8
+  HOTTER_COLDER:NEG: 001/8
+  HOTTER_COLDER:NEG: 008/8
+
+  AXIS: ABOVE_BELOW
+  ABOVE_BELOW:POS: 001/8
+  ABOVE_BELOW:POS: 008/8
+  ABOVE_BELOW:NEG: 001/8
+  ABOVE_BELOW:NEG: 008/8
+
+[6/16] Building layer-local semantic compasses...
+BEFORE_AFTER       adjacent cos = +0.2175 +0.1232 +0.2402 +0.2056
+INSIDE_OUTSIDE     adjacent cos = +0.2527 +0.1801 +0.2552 +0.2997
+LEFT_RIGHT         adjacent cos = +0.2291 +0.1146 +0.3341 +0.2554
+NEAR_FAR           adjacent cos = +0.2608 +0.1761 +0.3104 +0.2643
+EARLIER_LATER      adjacent cos = +0.3258 +0.1472 +0.3648 +0.1770
+FRONT_BEHIND       adjacent cos = +0.3812 +0.2274 +0.3640 +0.2443
+BIGGER_SMALLER     adjacent cos = +0.3213 +0.1543 +0.3353 +0.3022
+HOTTER_COLDER      adjacent cos = +0.3328 +0.1551 +0.3438 +0.1956
+ABOVE_BELOW        adjacent cos = +0.2774 +0.1808 +0.3231 +0.2570
+
+[7/16] Fitting TRAIN-only semantic recoding operators...
+
+K=4 ridge=0
+  L3->L6 | MSE=0.00286532 | ||R||F=5.2502 | ||R||2=4.7527 | rank=4
+  L6->L10 | MSE=0.00804676 | ||R||F=4.2086 | ||R||2=4.0935 | rank=4
+  L10->L14 | MSE=0.00058577 | ||R||F=2.3054 | ||R||2=2.0220 | rank=4
+  L14->L19 | MSE=0.00169713 | ||R||F=3.1004 | ||R||2=2.7630 | rank=4
+
+K=4 ridge=1e-05
+  L3->L6 | MSE=0.00286536 | ||R||F=5.2311 | ||R||2=4.7340 | rank=4
+  L6->L10 | MSE=0.00804677 | ||R||F=4.2057 | ||R||2=4.0906 | rank=4
+  L10->L14 | MSE=0.00058578 | ||R||F=2.3015 | ||R||2=2.0176 | rank=4
+  L14->L19 | MSE=0.00169714 | ||R||F=3.0933 | ||R||2=2.7551 | rank=4
+
+K=4 ridge=0.0001
+  L3->L6 | MSE=0.00286907 | ||R||F=5.0704 | ||R||2=4.5779 | rank=4
+  L6->L10 | MSE=0.00804726 | ||R||F=4.1802 | ||R||2=4.0648 | rank=4
+  L10->L14 | MSE=0.00058613 | ||R||F=2.2672 | ||R||2=1.9793 | rank=4
+  L14->L19 | MSE=0.00169800 | ||R||F=3.0315 | ||R||2=2.6868 | rank=4
+
+K=4 ridge=0.001
+  L3->L6 | MSE=0.00303613 | ||R||F=4.1346 | ||R||2=3.7068 | rank=4
+  L6->L10 | MSE=0.00808981 | ||R||F=3.9452 | ||R||2=3.8269 | rank=4
+  L10->L14 | MSE=0.00061063 | ||R||F=1.9960 | ||R||2=1.6724 | rank=4
+  L14->L19 | MSE=0.00175296 | ||R||F=2.5605 | ||R||2=2.1555 | rank=4
+
+K=4 ridge=0.01
+  L3->L6 | MSE=0.00483151 | ||R||F=2.3407 | ||R||2=2.0049 | rank=4
+  L6->L10 | MSE=0.00969366 | ||R||F=2.6346 | ||R||2=2.4944 | rank=4
+  L10->L14 | MSE=0.00097105 | ||R||F=1.2642 | ||R||2=0.8323 | rank=4
+  L14->L19 | MSE=0.00240088 | ||R||F=1.4290 | ||R||2=1.0919 | rank=4
+
+K=4 ridge=0.1
+  L3->L6 | MSE=0.01065341 | ||R||F=0.6935 | ||R||2=0.5365 | rank=4
+  L6->L10 | MSE=0.01712304 | ||R||F=0.8193 | ||R||2=0.6780 | rank=4
+  L10->L14 | MSE=0.00252309 | ||R||F=0.7114 | ||R||2=0.5311 | rank=4
+  L14->L19 | MSE=0.00470278 | ||R||F=0.6015 | ||R||2=0.5459 | rank=4
+
+K=4 ridge=1
+  L3->L6 | MSE=0.01482348 | ||R||F=0.1010 | ||R||2=0.0843 | rank=4
+  L6->L10 | MSE=0.02324624 | ||R||F=0.1444 | ||R||2=0.1291 | rank=4
+  L10->L14 | MSE=0.00818823 | ||R||F=0.2538 | ||R||2=0.2383 | rank=4
+  L14->L19 | MSE=0.00807139 | ||R||F=0.1034 | ||R||2=0.0969 | rank=4
+
+K=4 ridge=10
+  L3->L6 | MSE=0.01560492 | ||R||F=0.0107 | ||R||2=0.0090 | rank=4
+  L6->L10 | MSE=0.02488444 | ||R||F=0.0163 | ||R||2=0.0148 | rank=4
+  L10->L14 | MSE=0.01388171 | ||R||F=0.0382 | ||R||2=0.0369 | rank=4
+  L14->L19 | MSE=0.00889892 | ||R||F=0.0112 | ||R||2=0.0106 | rank=4
+
+K=8 ridge=0
+  L3->L6 | MSE=0.00000000 | ||R||F=19.6747 | ||R||2=19.0992 | rank=6
+  L6->L10 | MSE=0.00000000 | ||R||F=5.9036 | ||R||2=5.4134 | rank=6
+  L10->L14 | MSE=0.00000000 | ||R||F=3.1177 | ||R||2=2.2034 | rank=6
+  L14->L19 | MSE=0.00000000 | ||R||F=4.7047 | ||R||2=3.5115 | rank=6
+
+K=8 ridge=1e-05
+  L3->L6 | MSE=0.00000251 | ||R||F=19.0410 | ||R||2=18.4489 | rank=8
+  L6->L10 | MSE=0.00000001 | ||R||F=5.8998 | ||R||2=5.4099 | rank=8
+  L10->L14 | MSE=0.00000000 | ||R||F=3.1141 | ||R||2=2.2003 | rank=8
+  L14->L19 | MSE=0.00000001 | ||R||F=4.6960 | ||R||2=3.5031 | rank=8
+
+K=8 ridge=0.0001
+  L3->L6 | MSE=0.00014657 | ||R||F=14.8793 | ||R||2=14.1512 | rank=8
+  L6->L10 | MSE=0.00000046 | ||R||F=5.8660 | ||R||2=5.3779 | rank=8
+  L10->L14 | MSE=0.00000023 | ||R||F=3.0814 | ||R||2=2.1724 | rank=8
+  L14->L19 | MSE=0.00000082 | ||R||F=4.6197 | ||R||2=3.4304 | rank=8
+
+K=8 ridge=0.001
+  L3->L6 | MSE=0.00135810 | ||R||F=6.0092 | ||R||2=4.8956 | rank=7
+  L6->L10 | MSE=0.00004051 | ||R||F=5.5518 | ||R||2=5.0801 | rank=7
+  L10->L14 | MSE=0.00001707 | ||R||F=2.8158 | ||R||2=1.9589 | rank=7
+  L14->L19 | MSE=0.00005631 | ||R||F=4.0133 | ||R||2=2.8845 | rank=7
+
+K=8 ridge=0.01
+  L3->L6 | MSE=0.00301917 | ||R||F=2.4285 | ||R||2=1.8897 | rank=6
+  L6->L10 | MSE=0.00161249 | ||R||F=3.7468 | ||R||2=3.3535 | rank=6
+  L10->L14 | MSE=0.00038947 | ||R||F=1.8754 | ||R||2=1.2287 | rank=6
+  L14->L19 | MSE=0.00090246 | ||R||F=2.2379 | ||R||2=1.7162 | rank=6
+
+K=8 ridge=0.1
+  L3->L6 | MSE=0.00609850 | ||R||F=1.1026 | ||R||2=0.8280 | rank=6
+  L6->L10 | MSE=0.00915482 | ||R||F=1.1996 | ||R||2=0.9319 | rank=6
+  L10->L14 | MSE=0.00220442 | ||R||F=0.8656 | ||R||2=0.5557 | rank=6
+  L14->L19 | MSE=0.00361986 | ||R||F=0.8625 | ||R||2=0.7085 | rank=6
+
+K=8 ridge=1
+  L3->L6 | MSE=0.01227792 | ||R||F=0.2548 | ||R||2=0.2200 | rank=6
+  L6->L10 | MSE=0.01580820 | ||R||F=0.2416 | ||R||2=0.1779 | rank=6
+  L10->L14 | MSE=0.00619106 | ||R||F=0.2786 | ||R||2=0.2525 | rank=6
+  L14->L19 | MSE=0.00708286 | ||R||F=0.1502 | ||R||2=0.1220 | rank=6
+
+K=8 ridge=10
+  L3->L6 | MSE=0.01489956 | ||R||F=0.0308 | ||R||2=0.0275 | rank=6
+  L6->L10 | MSE=0.01819234 | ||R||F=0.0303 | ||R||2=0.0243 | rank=6
+  L10->L14 | MSE=0.00960280 | ||R||F=0.0415 | ||R||2=0.0395 | rank=6
+  L14->L19 | MSE=0.00795958 | ||R||F=0.0164 | ||R||2=0.0133 | rank=6
+
+K=16 ridge=0
+  L3->L6 | MSE=0.00000000 | ||R||F=3.6700 | ||R||2=2.5388 | rank=6
+  L6->L10 | MSE=0.00000000 | ||R||F=5.0030 | ||R||2=4.2516 | rank=6
+  L10->L14 | MSE=0.00000000 | ||R||F=2.3665 | ||R||2=1.6675 | rank=6
+  L14->L19 | MSE=0.00000000 | ||R||F=3.2404 | ||R||2=2.4217 | rank=6
+
+K=16 ridge=1e-05
+  L3->L6 | MSE=0.00000000 | ||R||F=3.6690 | ||R||2=2.5382 | rank=16
+  L6->L10 | MSE=0.00000001 | ||R||F=5.0011 | ||R||2=4.2499 | rank=16
+  L10->L14 | MSE=0.00000001 | ||R||F=2.3663 | ||R||2=1.6673 | rank=16
+  L14->L19 | MSE=0.00000000 | ||R||F=3.2400 | ||R||2=2.4215 | rank=16
+
+K=16 ridge=0.0001
+  L3->L6 | MSE=0.00000004 | ||R||F=3.6607 | ||R||2=2.5334 | rank=16
+  L6->L10 | MSE=0.00000010 | ||R||F=4.9841 | ||R||2=4.2348 | rank=16
+  L10->L14 | MSE=0.00000001 | ||R||F=2.3630 | ||R||2=1.6641 | rank=15
+  L14->L19 | MSE=0.00000002 | ||R||F=3.2339 | ||R||2=2.4167 | rank=15
+
+K=16 ridge=0.001
+  L3->L6 | MSE=0.00000333 | ||R||F=3.5801 | ||R||2=2.4869 | rank=14
+  L6->L10 | MSE=0.00000904 | ||R||F=4.8220 | ||R||2=4.0907 | rank=14
+  L10->L14 | MSE=0.00000082 | ||R||F=2.3325 | ||R||2=1.6346 | rank=14
+  L14->L19 | MSE=0.00000211 | ||R||F=3.1765 | ||R||2=2.3723 | rank=13
+
+K=16 ridge=0.01
+  L3->L6 | MSE=0.00019674 | ||R||F=3.0083 | ||R||2=2.1539 | rank=7
+  L6->L10 | MSE=0.00046981 | ||R||F=3.7429 | ||R||2=3.1261 | rank=8
+  L10->L14 | MSE=0.00006036 | ||R||F=2.0812 | ||R||2=1.3943 | rank=7
+  L14->L19 | MSE=0.00014520 | ||R||F=2.7181 | ||R||2=2.0186 | rank=6
+
+K=16 ridge=0.1
+  L3->L6 | MSE=0.00273440 | ||R||F=1.5342 | ||R||2=1.1413 | rank=6
+  L6->L10 | MSE=0.00439664 | ||R||F=1.5690 | ||R||2=1.1659 | rank=6
+  L10->L14 | MSE=0.00120428 | ||R||F=1.2238 | ||R||2=0.7375 | rank=6
+  L14->L19 | MSE=0.00232980 | ||R||F=1.2865 | ||R||2=0.9360 | rank=6
+
+K=16 ridge=1
+  L3->L6 | MSE=0.00882054 | ||R||F=0.3961 | ||R||2=0.3393 | rank=6
+  L6->L10 | MSE=0.01045600 | ||R||F=0.3861 | ||R||2=0.2713 | rank=6
+  L10->L14 | MSE=0.00530138 | ||R||F=0.4144 | ||R||2=0.3395 | rank=6
+  L14->L19 | MSE=0.00635560 | ||R||F=0.2655 | ||R||2=0.1762 | rank=6
+
+K=16 ridge=10
+  L3->L6 | MSE=0.01207828 | ||R||F=0.0514 | ||R||2=0.0461 | rank=6
+  L6->L10 | MSE=0.01361885 | ||R||F=0.0536 | ||R||2=0.0435 | rank=6
+  L10->L14 | MSE=0.00909471 | ||R||F=0.0627 | ||R||2=0.0552 | rank=6
+  L14->L19 | MSE=0.00776579 | ||R||F=0.0314 | ||R||2=0.0198 | rank=6
+
+K=32 ridge=0
+  L3->L6 | MSE=0.00000000 | ||R||F=3.3506 | ||R||2=2.4288 | rank=6
+  L6->L10 | MSE=0.00000000 | ||R||F=3.9277 | ||R||2=3.2304 | rank=6
+  L10->L14 | MSE=0.00000000 | ||R||F=2.3484 | ||R||2=1.5884 | rank=6
+  L14->L19 | MSE=0.00000000 | ||R||F=2.8065 | ||R||2=1.9827 | rank=6
+
+K=32 ridge=1e-05
+  L3->L6 | MSE=0.00000001 | ||R||F=3.3495 | ||R||2=2.4275 | rank=32
+  L6->L10 | MSE=0.00000001 | ||R||F=3.9271 | ||R||2=3.2298 | rank=32
+  L10->L14 | MSE=0.00000001 | ||R||F=2.3478 | ||R||2=1.5878 | rank=32
+  L14->L19 | MSE=0.00000001 | ||R||F=2.8055 | ||R||2=1.9814 | rank=32
+
+K=32 ridge=0.0001
+  L3->L6 | MSE=0.00000001 | ||R||F=3.3474 | ||R||2=2.4260 | rank=31
+  L6->L10 | MSE=0.00000001 | ||R||F=3.9224 | ||R||2=3.2252 | rank=31
+  L10->L14 | MSE=0.00000000 | ||R||F=2.3467 | ||R||2=1.5870 | rank=31
+  L14->L19 | MSE=0.00000000 | ||R||F=2.8044 | ||R||2=1.9814 | rank=31
+
+K=32 ridge=0.001
+  L3->L6 | MSE=0.00000057 | ||R||F=3.3174 | ||R||2=2.4004 | rank=27
+  L6->L10 | MSE=0.00000106 | ||R||F=3.8749 | ||R||2=3.1779 | rank=28
+  L10->L14 | MSE=0.00000020 | ||R||F=2.3317 | ||R||2=1.5743 | rank=28
+  L14->L19 | MSE=0.00000030 | ||R||F=2.7859 | ||R||2=1.9702 | rank=27
+
+K=32 ridge=0.01
+  L3->L6 | MSE=0.00004667 | ||R||F=3.0538 | ||R||2=2.1805 | rank=11
+  L6->L10 | MSE=0.00008126 | ||R||F=3.4719 | ||R||2=2.7808 | rank=11
+  L10->L14 | MSE=0.00001731 | ||R||F=2.1954 | ||R||2=1.4598 | rank=10
+  L14->L19 | MSE=0.00002565 | ||R||F=2.6167 | ||R||2=1.8667 | rank=9
+
+K=32 ridge=0.1
+  L3->L6 | MSE=0.00133522 | ||R||F=1.8486 | ||R||2=1.2921 | rank=6
+  L6->L10 | MSE=0.00180097 | ||R||F=1.9181 | ||R||2=1.3593 | rank=6
+  L10->L14 | MSE=0.00061261 | ||R||F=1.4902 | ||R||2=0.8894 | rank=6
+  L14->L19 | MSE=0.00091437 | ||R||F=1.7238 | ||R||2=1.2816 | rank=6
+
+K=32 ridge=1
+  L3->L6 | MSE=0.00585771 | ||R||F=0.4985 | ||R||2=0.4017 | rank=6
+  L6->L10 | MSE=0.00652502 | ||R||F=0.5320 | ||R||2=0.3762 | rank=6
+  L10->L14 | MSE=0.00369474 | ||R||F=0.5087 | ||R||2=0.3582 | rank=6
+  L14->L19 | MSE=0.00498371 | ||R||F=0.4798 | ||R||2=0.3714 | rank=6
+
+K=32 ridge=10
+  L3->L6 | MSE=0.00845542 | ||R||F=0.0660 | ||R||2=0.0566 | rank=6
+  L6->L10 | MSE=0.00960348 | ||R||F=0.0790 | ||R||2=0.0656 | rank=6
+  L10->L14 | MSE=0.00656115 | ||R||F=0.0778 | ||R||2=0.0610 | rank=6
+  L14->L19 | MSE=0.00736378 | ||R||F=0.0615 | ||R||2=0.0477 | rank=6
+
+[8/16] VAL tournament...
+
+   K      RIDGE     RECODED     NATURAL      STATIC        ΔNAT       COEFF
+   4          0   +0.058022   +0.119282   +0.267551   -0.061260   +0.047946
+   4      1e-05   +0.057961   +0.119282   +0.267551   -0.061321   +0.047691
+   4     0.0001   +0.057419   +0.119282   +0.267551   -0.061863   +0.045431
+   4      0.001   +0.052854   +0.119282   +0.267551   -0.066428   +0.026508
+   4       0.01   +0.048402   +0.119282   +0.267551   -0.070880   +0.016713
+   4        0.1   +0.060581   +0.119282   +0.267551   -0.058701   +0.094017
+   4          1   +0.072422   +0.119282   +0.267551   -0.046860   +0.141178
+   4         10   +0.072811   +0.119282   +0.267551   -0.046471   +0.135816
+   8          0   +0.061187   +0.186846   +0.267551   -0.125659   +0.117195
+   8      1e-05   +0.061411   +0.186846   +0.267551   -0.125436   +0.117969
+   8     0.0001   +0.063372   +0.186846   +0.267551   -0.123475   +0.124774
+   8      0.001   +0.070673   +0.186846   +0.267551   -0.116174   +0.150761
+   8       0.01   +0.059960   +0.186846   +0.267551   -0.126886   +0.111385
+   8        0.1   +0.001491   +0.186846   +0.267551   -0.185355   -0.038952
+   8          1   -0.021563   +0.186846   +0.267551   -0.208409   -0.091034
+   8         10   -0.024552   +0.186846   +0.267551   -0.211398   -0.098955
+  16          0   +0.107129   +0.229838   +0.267551   -0.122709   +0.205924
+  16      1e-05   +0.107154   +0.229838   +0.267551   -0.122684   +0.206017
+  16     0.0001   +0.107088   +0.229838   +0.267551   -0.122750   +0.205802
+  16      0.001   +0.106764   +0.229838   +0.267551   -0.123074   +0.204811
+  16       0.01   +0.102965   +0.229838   +0.267551   -0.126873   +0.195078
+  16        0.1   +0.082404   +0.229838   +0.267551   -0.147434   +0.159141
+  16          1   +0.075161   +0.229838   +0.267551   -0.154677   +0.155002
+  16         10   +0.072781   +0.229838   +0.267551   -0.157057   +0.151646
+  32          0   +0.184977   +0.304044   +0.267551   -0.119067   +0.309955
+  32      1e-05   +0.185100   +0.304044   +0.267551   -0.118945   +0.310207
+  32     0.0001   +0.184988   +0.304044   +0.267551   -0.119057   +0.309980
+  32      0.001   +0.184953   +0.304044   +0.267551   -0.119091   +0.309979
+  32       0.01   +0.184522   +0.304044   +0.267551   -0.119522   +0.309798
+  32        0.1   +0.172170   +0.304044   +0.267551   -0.131875   +0.292568
+  32          1   +0.129742   +0.304044   +0.267551   -0.174303   +0.225842
+  32         10   +0.115572   +0.304044   +0.267551   -0.188473   +0.202155
+
+[9/16] LOCKING K and ridge from VAL only...
+LOCKED K     : 32
+LOCKED ridge : 1e-05
+VAL recoded  : +0.185100
+VAL natural  : +0.304044
+VAL Δnatural : -0.118945
+
+[10/16] FINAL held-out ABOVE/BELOW evaluation...
+L3->L6 | STATIC=+0.277398 | NATURAL=+0.362657 | R=+0.090565 | ΔR-NAT=-0.272092 | V-ceiling=+0.498026 | coeff=+0.181848
+L6->L10 | STATIC=+0.180759 | NATURAL=+0.172495 | R=+0.020066 | ΔR-NAT=-0.152429 | V-ceiling=+0.504438 | coeff=+0.039780
+L10->L14 | STATIC=+0.323088 | NATURAL=+0.225165 | R=+0.047959 | ΔR-NAT=-0.177206 | V-ceiling=+0.395235 | coeff=+0.121343
+L14->L19 | STATIC=+0.256970 | NATURAL=+0.101211 | R=+0.006093 | ΔR-NAT=-0.095118 | V-ceiling=+0.522324 | coeff=+0.011666
+
+FINAL MEANS
+STATIC      : +0.259554
+NATURAL I   : +0.215382
+LEARNED R   : +0.041171
+V CEILING   : +0.480006
+R - NATURAL : -0.174211
+R - STATIC  : -0.218383
+
+[11/16] FINAL chained held-out transport...
+L3->L6 | NATURAL chain=+0.362657 | R chain=+0.090565 | Δ=-0.272092 | capR=0.182901
+L6->L10 | NATURAL chain=+0.060503 | R chain=+0.204485 | Δ=+0.143982 | capR=0.985899
+L10->L14 | NATURAL chain=-0.032178 | R chain=+0.136353 | Δ=+0.168532 | capR=0.955340
+L14->L19 | NATURAL chain=-0.071679 | R chain=-0.357729 | Δ=-0.286050 | capR=0.973383
+
+[12/16] Leave-one-TRAIN-axis-out recoding check...
+BEFORE_AFTER       mean held-out cos=+0.038763
+INSIDE_OUTSIDE     mean held-out cos=+0.291443
+LEFT_RIGHT         mean held-out cos=+0.135094
+NEAR_FAR           mean held-out cos=-0.112906
+EARLIER_LATER      mean held-out cos=+0.221686
+FRONT_BEHIND       mean held-out cos=+0.051385
+
+[13/16] Operator X-ray...
+L3->L6 | ||R-I||/||I||=1.067018 | trace/K=+0.106033 | smax=2.427485 | smin=0.000012 | rank=32
+L6->L10 | ||R-I||/||I||=1.130727 | trace/K=+0.101702 | smax=3.229831 | smin=0.000015 | rank=32
+L10->L14 | ||R-I||/||I||=0.981484 | trace/K=+0.104474 | smax=1.587784 | smin=0.000010 | rank=32
+L14->L19 | ||R-I||/||I||=1.033282 | trace/K=+0.089149 | smax=1.981380 | smin=0.000007 | rank=32
+
+[14/16] Mechanistic diagnosis...
+VAL gain over natural   : -0.118945
+FINAL gain over natural : -0.174211
+LOO TRAIN R mean        : +0.104244
+LOO natural mean        : +0.270934
+FINAL chain natural     : +0.079826
+FINAL chain recoded     : +0.018419
+FINAL L19 chain natural : -0.071679
+FINAL L19 chain recoded : -0.357729
+
+DIAGNOSIS: SHARED_RECODING_NOT_SUPPORTED
+
+ The learned cross-axis recoding operator does not improve the untouched ABOVE/BELOW semantic mapping sufficiently relative to the natural identity correspondence. A single shared linear R in the tested low-rank coordinates is therefore not supported as the missing semantic transport object.
+
+[15/16] Saving CSV / JSON / NPZ...
+
+[16/16] COMPLETE
+==========================================================================================================================================================
+Atlas fingerprint max error : 0.9885%
+Locked K                    : 32
+Locked ridge                : 1e-05
+VAL natural mean            : +0.304044
+VAL learned-R mean          : +0.185100
+VAL R - natural             : -0.118945
+FINAL static mean           : +0.259554
+FINAL natural mean          : +0.215382
+FINAL learned-R mean        : +0.041171
+FINAL R - natural           : -0.174211
+FINAL V ceiling             : +0.480006
+FINAL chain natural         : +0.079826
+FINAL chain learned-R       : +0.018419
+FINAL L19 natural chain     : -0.071679
+FINAL L19 learned-R chain   : -0.357729
+TRAIN LOO natural           : +0.270934
+TRAIN LOO learned-R         : +0.104244
+
+Diagnosis                    : SHARED_RECODING_NOT_SUPPORTED
+
+Saved:
+  /content/TEST157_HELDOUT_SEMANTIC_RECODING_OPERATOR/OPERATOR_TRAIN.csv
+  /content/TEST157_HELDOUT_SEMANTIC_RECODING_OPERATOR/VAL_TOURNAMENT.csv
+  /content/TEST157_HELDOUT_SEMANTIC_RECODING_OPERATOR/VAL_SUMMARY.csv
+  /content/TEST157_HELDOUT_SEMANTIC_RECODING_OPERATOR/FINAL_HELDOUT.csv
+  /content/TEST157_HELDOUT_SEMANTIC_RECODING_OPERATOR/FINAL_CHAIN.csv
+  /content/TEST157_HELDOUT_SEMANTIC_RECODING_OPERATOR/TRAIN_LOO.csv
+  /content/TEST157_HELDOUT_SEMANTIC_RECODING_OPERATOR/OPERATOR_XRAY.csv
+  /content/TEST157_HELDOUT_SEMANTIC_RECODING_OPERATOR/REPORT.json
+  /content/TEST157_HELDOUT_SEMANTIC_RECODING_OPERATOR/TEST157_HELDOUT_SEMANTIC_RECODING_OPERATOR.npz
+==========================================================================================================================================================
+TEST 157 COMPLETE
+==========================================================================================================================================================
