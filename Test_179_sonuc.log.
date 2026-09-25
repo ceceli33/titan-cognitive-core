@@ -1,0 +1,268 @@
+ ==========================================================================================================================================================
+TEST 179 — SUCCESS-vs-FAILURE DOWNSTREAM X-RAY
+TEST177 OPEN↔CLOSED vs TEST178 CAUSE↔EFFECT
+==========================================================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB
+Model: Qwen/Qwen2.5-7B-Instruct
+Locked RSS: 0.250235055
+
+[1/24] Compiling SEASC...
+       OK
+
+[2/24] Loading frozen model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 87.1kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 779kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 84.0MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 71.5MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 121MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 2.99MB/s]Download complete: :  13.1GB,  269MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  450MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.70s/it]Loading weights: 100% 339/339 [00:03<00:00, 98.15it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.2kB/s]       hidden: 3584 dtype: torch.bfloat16
+
+[3/24] Building D OPEN↔CLOSED Fisher / Bank...
+       D OPEN↔CLOSED pair 01/16
+       D OPEN↔CLOSED pair 02/16
+       D OPEN↔CLOSED pair 03/16
+       D OPEN↔CLOSED pair 04/16
+       D OPEN↔CLOSED pair 05/16
+       D OPEN↔CLOSED pair 06/16
+       D OPEN↔CLOSED pair 07/16
+       D OPEN↔CLOSED pair 08/16
+       D OPEN↔CLOSED pair 09/16
+       D OPEN↔CLOSED pair 10/16
+       D OPEN↔CLOSED pair 11/16
+       D OPEN↔CLOSED pair 12/16
+       D OPEN↔CLOSED pair 13/16
+       D OPEN↔CLOSED pair 14/16
+       D OPEN↔CLOSED pair 15/16
+       D OPEN↔CLOSED pair 16/16
+       D OPEN↔CLOSED mean cos(F,B)=+0.841642 residual=0.534012
+
+[3/24] Building E CAUSE↔EFFECT Fisher / Bank...
+       E CAUSE↔EFFECT pair 01/16
+       E CAUSE↔EFFECT pair 02/16
+       E CAUSE↔EFFECT pair 03/16
+       E CAUSE↔EFFECT pair 04/16
+       E CAUSE↔EFFECT pair 05/16
+       E CAUSE↔EFFECT pair 06/16
+       E CAUSE↔EFFECT pair 07/16
+       E CAUSE↔EFFECT pair 08/16
+       E CAUSE↔EFFECT pair 09/16
+       E CAUSE↔EFFECT pair 10/16
+       E CAUSE↔EFFECT pair 11/16
+       E CAUSE↔EFFECT pair 12/16
+       E CAUSE↔EFFECT pair 13/16
+       E CAUSE↔EFFECT pair 14/16
+       E CAUSE↔EFFECT pair 15/16
+       E CAUSE↔EFFECT pair 16/16
+       E CAUSE↔EFFECT mean cos(F,B)=+0.814657 residual=0.567868
+
+[4/24] Building shared frozen P8...
+       probe 1/8
+       probe 2/8
+       probe 3/8
+       probe 4/8
+       probe 5/8
+       probe 6/8
+       probe 7/8
+       probe 8/8
+       ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+
+[5/24] Reconstructing D causal vector...
+       D family A 1/4
+       D family A 2/4
+       D family A 3/4
+       D family A 4/4
+       D family B 1/4
+       D family B 2/4
+       D family B 3/4
+       D family B 4/4
+       D family C 1/4
+       D family C 2/4
+       D family C 3/4
+       D family C 4/4
+       D family D 1/4
+       D family D 2/4
+       D family D 3/4
+       D family D 4/4
+       D mean orthogonal component=0.998879
+
+[5/24] Reconstructing E causal vector...
+       E family A 1/4
+       E family A 2/4
+       E family A 3/4
+       E family A 4/4
+       E family B 1/4
+       E family B 2/4
+       E family B 3/4
+       E family B 4/4
+       E family C 1/4
+       E family C 2/4
+       E family C 3/4
+       E family C 4/4
+       E family D 1/4
+       E family D 2/4
+       E family D 3/4
+       E family D 4/4
+       E mean orthogonal component=0.999519
+
+[6/24] Preparing fresh X-ray prompts...
+
+[7/24] Capturing D successful trajectories...
+       D 1/8
+       D 2/8
+       D 3/8
+       D 4/8
+       D 5/8
+       D 6/8
+       D 7/8
+       D 8/8
+
+[8/24] Capturing E failed trajectories...
+       E 1/8
+       E 2/8
+       E 3/8
+       E 4/8
+       E 5/8
+       E 6/8
+       E 7/8
+       E 8/8
+
+[9/24] Computing downstream geometry...
+       L00 D rel=0.0000 cos=+0.0000 target=+0.0000 | E rel=0.0000 cos=+0.0000 target=+0.0000
+       L01 D rel=0.0509 cos=+0.0141 target=+0.0110 | E rel=0.0723 cos=+0.2273 target=+0.2496
+       L02 D rel=0.0803 cos=+0.3879 target=+0.5788 | E rel=0.1166 cos=+0.1215 target=+0.2597
+       L03 D rel=0.1325 cos=+0.0377 target=+0.0942 | E rel=0.1654 cos=+0.2304 target=+0.7152
+       L04 D rel=0.1691 cos=+0.1936 target=+0.7570 | E rel=0.2150 cos=+0.0289 target=+0.1431
+       L05 D rel=0.1865 cos=+0.0683 target=+0.3975 | E rel=0.2186 cos=-0.0262 target=-0.1756
+       L06 D rel=0.2140 cos=+0.1334 target=+0.9128 | E rel=0.2266 cos=+0.1914 target=+1.3989
+       L07 D rel=0.2366 cos=+0.0005 target=+0.0035 | E rel=0.2477 cos=+0.2264 target=+1.8205
+       L08 D rel=0.2787 cos=+0.1451 target=+1.3762 | E rel=0.3272 cos=-0.0203 target=-0.2302
+       L09 D rel=0.2990 cos=-0.0793 target=-0.9819 | E rel=0.3198 cos=+0.0164 target=+0.2247
+       L10 D rel=0.2930 cos=+0.0039 target=+0.0500 | E rel=0.3178 cos=-0.0567 target=-0.7933
+       L11 D rel=0.2793 cos=+0.0329 target=+0.4297 | E rel=0.2792 cos=-0.0389 target=-0.5083
+       L12 D rel=0.2886 cos=+0.0422 target=+0.5751 | E rel=0.2543 cos=-0.0170 target=-0.2038
+       L13 D rel=0.2735 cos=-0.0430 target=-0.6423 | E rel=0.2287 cos=+0.0632 target=+0.7836
+       L14 D rel=0.2674 cos=+0.0451 target=+0.7202 | E rel=0.2237 cos=+0.0174 target=+0.2292
+       L15 D rel=0.2703 cos=+0.0231 target=+0.3738 | E rel=0.2248 cos=+0.0646 target=+0.8459
+       L16 D rel=0.2871 cos=+0.0647 target=+1.1355 | E rel=0.2364 cos=+0.0442 target=+0.6253
+       L17 D rel=0.2928 cos=+0.0894 target=+1.7815 | E rel=0.2299 cos=+0.0865 target=+1.3165
+       L18 D rel=0.3246 cos=+0.0611 target=+1.4458 | E rel=0.2452 cos=+0.0639 target=+1.1415
+       L19 D rel=0.3242 cos=+0.0800 target=+2.2306 | E rel=0.2610 cos=-0.0250 target=-0.5482
+
+[10/24] Measuring injected-direction rotation...
+       D L19 angle=85.414°
+       E L19 angle=91.434°
+
+[11/24] Measuring source-direction survival...
+       complete
+
+[12/24] Target-vs-Fisher projection...
+       complete
+
+[13/24] Comparing family coherence...
+       D_SUCCESS A-B=+0.006332
+       D_SUCCESS A-C=+0.044853
+       D_SUCCESS A-D=-0.014359
+       D_SUCCESS B-C=+0.004986
+       D_SUCCESS B-D=-0.000337
+       D_SUCCESS C-D=-0.004843
+       E_FAILURE A-B=-0.002810
+       E_FAILURE A-C=-0.017329
+       E_FAILURE A-D=-0.029298
+       E_FAILURE B-C=+0.014114
+       E_FAILURE B-D=-0.000727
+       E_FAILURE C-D=+0.030224
+
+[14/24] Family dispersion by layer...
+       complete
+
+[15/24] PCA / effective-rank analysis...
+       complete
+
+[16/24] Success/failure contrast...
+       L00 Δrel=+0.00000 Δtarget=+0.00000 Δcos=+0.00000
+       L01 Δrel=-0.02141 Δtarget=-0.23859 Δcos=-0.21320
+       L02 Δrel=-0.03626 Δtarget=+0.31910 Δcos=+0.26641
+       L03 Δrel=-0.03294 Δtarget=-0.62099 Δcos=-0.19266
+       L04 Δrel=-0.04587 Δtarget=+0.61389 Δcos=+0.16463
+       L05 Δrel=-0.03211 Δtarget=+0.57318 Δcos=+0.09458
+       L06 Δrel=-0.01255 Δtarget=-0.48606 Δcos=-0.05804
+       L07 Δrel=-0.01115 Δtarget=-1.81699 Δcos=-0.22590
+       L08 Δrel=-0.04847 Δtarget=+1.60631 Δcos=+0.16538
+       L09 Δrel=-0.02086 Δtarget=-1.20656 Δcos=-0.09570
+       L10 Δrel=-0.02481 Δtarget=+0.84334 Δcos=+0.06054
+       L11 Δrel=+0.00014 Δtarget=+0.93805 Δcos=+0.07183
+       L12 Δrel=+0.03433 Δtarget=+0.77885 Δcos=+0.05917
+       L13 Δrel=+0.04486 Δtarget=-1.42587 Δcos=-0.10625
+       L14 Δrel=+0.04373 Δtarget=+0.49098 Δcos=+0.02769
+       L15 Δrel=+0.04549 Δtarget=-0.47215 Δcos=-0.04148
+       L16 Δrel=+0.05076 Δtarget=+0.51020 Δcos=+0.02050
+       L17 Δrel=+0.06285 Δtarget=+0.46500 Δcos=+0.00285
+       L18 Δrel=+0.07945 Δtarget=+0.30430 Δcos=-0.00275
+       L19 Δrel=+0.06325 Δtarget=+2.77879 Δcos=+0.10498
+
+[17/24] Bootstrap D-vs-E layerwise...
+       complete
+
+[18/24] Zone summary...
+       EARLY D_SUCCESS rel=0.0866 target=+0.2882 cos=+0.1267 growth=2.125
+       EARLY E_FAILURE rel=0.1139 target=+0.2735 cos=+0.1216 growth=2.783
+       MID1  D_SUCCESS rel=0.2430 target=+0.3416 cos=+0.0536 growth=9.726
+       MID1  E_FAILURE rel=0.2680 target=+0.6076 cos=+0.0775 growth=10.714
+       MID2  D_SUCCESS rel=0.2804 target=+0.2265 cos=+0.0162 growth=17.386
+       MID2  E_FAILURE rel=0.2607 target=-0.0985 cos=-0.0064 growth=16.000
+       LATE  D_SUCCESS rel=0.2998 target=+1.3935 cos=+0.0637 growth=23.817
+       LATE  E_FAILURE rel=0.2394 target=+0.6762 cos=+0.0468 growth=19.004
+
+[19/24] Primary mechanistic fingerprint...
+       D_mean_rel: +0.227425
+       E_mean_rel: +0.220505
+       D_mean_target: +0.562456
+       E_mean_target: +0.364717
+       D_mean_cos: +0.065030
+       E_mean_cos: +0.059902
+       D_L19_rel: +0.324200
+       E_L19_rel: +0.260954
+       D_L19_target: +2.230607
+       E_L19_target: -0.548187
+       D_L19_cos: +0.079962
+       E_L19_cos: -0.025021
+       D_orth_fraction: +0.998879
+       E_orth_fraction: +0.999519
+
+[20/24] TEST179 diagnostic decision...
+       DECISION: SUCCESS_FAILURE_DOWNSTREAM_TARGET_RETENTION_DIFFERENCE_SUPPORTED
+
+[21/24] Integrity / interpretation...
+       xray_only: True
+       test177_success_axis: OPEN_CLOSED
+       test178_failure_axis: CAUSE_EFFECT
+       fresh_xray_prompts: True
+       test177_final_reused: False
+       test178_final_reused: False
+       vector_selection_performed: False
+       rank_search_performed: False
+       layer_search_performed: False
+       envelope_search_performed: False
+       controller: False
+       weights_modified: False
+
+[22/24] Saving...
+       Saved: /content/TEST179_SUCCESS_FAILURE_DOWNSTREAM_XRAY
+
+[23/24] Scientific boundary...
+       TEST179 selects no new vector or hyperparameter.
+       It compares downstream trajectories of one previously successful and one previously failed forge.
+       A trajectory difference is mechanistic evidence, not proof of a unique causal mechanism.
+       Similar Fisher-orthogonality alone is not treated as sufficient for behavioral success.
+       Fresh prompts prevent TEST177/178 FINAL evaluation reuse.
+
+[24/24] COMPLETE
+==========================================================================================================================================================
+TEST 179 — SUCCESS-vs-FAILURE DOWNSTREAM X-RAY — SUMMARY
+==========================================================================================================================================================
+D OPEN↔CLOSED orth fraction : 0.998879
+E CAUSE↔EFFECT orth fraction: 0.999519
+D mean rel/target/cos       : 0.227425 / +0.562456 / +0.065030
+E mean rel/target/cos       : 0.220505 / +0.364717 / +0.059902
+D L19 rel/target/cos        : 0.324200 / +2.230607 / +0.079962
+E L19 rel/target/cos        : 0.260954 / -0.548187 / -0.025021
+DECISION: SUCCESS_FAILURE_DOWNSTREAM_TARGET_RETENTION_DIFFERENCE_SUPPORTED
+Saved: /content/TEST179_SUCCESS_FAILURE_DOWNSTREAM_XRAY
+==========================================================================================================================================================
