@@ -1,0 +1,338 @@
+ ============================================================================================================================================================
+TEST 166 — CANALIZED β HOMEOSTAT
+AKBASCORE 3.2 / SEASC
+SEARCHING FOR THE SAFE CAUSAL OPERATING CORRIDOR
+============================================================================================================================================================
+GPU             : NVIDIA A100-SXM4-40GB
+Model           : Qwen/Qwen2.5-7B-Instruct
+Steered layers  : L0-L19
+Coarse beta     : [-2.0, -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+Forge scale     : 0.5
+Fine step       : 0.1
+Micro delta     : 0.05
+Final scales    : [0.125, 0.25, 0.5, 0.75, 1.0]
+
+[1/18] Compiling SEASC kernel...
+       CUDA kernel: OK
+
+[2/18] Loading frozen model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 85.1kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 897kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 87.2MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 73.1MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 132MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.30MB/s]Download complete: :  13.1GB,  217MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  430MB/s  Fetching 4 files: 100% 4/4 [00:40<00:00,  7.10s/it]Loading weights: 100% 339/339 [00:03<00:00, 100.92it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.1kB/s]       hidden : 3584
+       layers : 28
+       dtype  : torch.bfloat16
+
+[3/18] Building SEARCH bank...
+       pair 01/16
+       pair 02/16
+       pair 03/16
+       pair 04/16
+       pair 05/16
+       pair 06/16
+       pair 07/16
+       pair 08/16
+       pair 09/16
+       pair 10/16
+       pair 11/16
+       pair 12/16
+       pair 13/16
+       pair 14/16
+       pair 15/16
+       pair 16/16
+
+[4/18] Building Fisher / Bank / Residual geometry...
+       L00 cos(F,B)=+0.957046 | residual=0.289934
+       L01 cos(F,B)=+0.945882 | residual=0.324511
+       L02 cos(F,B)=+0.923687 | residual=0.383148
+       L03 cos(F,B)=+0.905784 | residual=0.423739
+       L04 cos(F,B)=+0.827902 | residual=0.560873
+       L05 cos(F,B)=+0.787565 | residual=0.616231
+       L06 cos(F,B)=+0.783951 | residual=0.620823
+       L07 cos(F,B)=+0.851357 | residual=0.524587
+       L08 cos(F,B)=+0.877778 | residual=0.479067
+       L09 cos(F,B)=+0.880560 | residual=0.473935
+       L10 cos(F,B)=+0.868166 | residual=0.496274
+       L11 cos(F,B)=+0.863361 | residual=0.504587
+       L12 cos(F,B)=+0.872287 | residual=0.488994
+       L13 cos(F,B)=+0.866555 | residual=0.499081
+       L14 cos(F,B)=+0.869072 | residual=0.494686
+       L15 cos(F,B)=+0.870898 | residual=0.491464
+       L16 cos(F,B)=+0.860497 | residual=0.509455
+       L17 cos(F,B)=+0.861645 | residual=0.507511
+       L18 cos(F,B)=+0.766311 | residual=0.642469
+       L19 cos(F,B)=+0.772911 | residual=0.634515
+
+       Mean cos(F,B) : +0.860661
+       Mean residual : 0.498294
+
+[5/18] COARSE HOMEOSTAT SCAN...
+
+       BETA_-2.00
+         FAMILY_I_SIMPLE          Csym=+0.236941
+         FAMILY_J_HIGH_LOW        Csym=-0.081671
+         FAMILY_K_UPPER_POSITION  Csym=+0.187763
+         FAMILY_L_AXIS            Csym=+0.046456
+         MEAN=+0.097372 | MIN=-0.081671 | SD=0.144105 | KL=0.477807 | Dperp=0.132250 | off-target=0.8670
+
+       BETA_-1.75
+         FAMILY_I_SIMPLE          Csym=+0.262571
+         FAMILY_J_HIGH_LOW        Csym=-0.060750
+         FAMILY_K_UPPER_POSITION  Csym=+0.209781
+         FAMILY_L_AXIS            Csym=+0.049362
+         MEAN=+0.115241 | MIN=-0.060750 | SD=0.148275 | KL=0.496405 | Dperp=0.132137 | off-target=0.8636
+
+       BETA_-1.50
+         FAMILY_I_SIMPLE          Csym=+0.298918
+         FAMILY_J_HIGH_LOW        Csym=-0.014911
+         FAMILY_K_UPPER_POSITION  Csym=+0.222135
+         FAMILY_L_AXIS            Csym=+0.037369
+         MEAN=+0.135878 | MIN=-0.014911 | SD=0.148844 | KL=0.497978 | Dperp=0.132178 | off-target=0.8599
+
+       BETA_-1.25
+         FAMILY_I_SIMPLE          Csym=+0.330417
+         FAMILY_J_HIGH_LOW        Csym=+0.018036
+         FAMILY_K_UPPER_POSITION  Csym=+0.239682
+         FAMILY_L_AXIS            Csym=+0.054246
+         MEAN=+0.160595 | MIN=+0.018036 | SD=0.149139 | KL=0.505556 | Dperp=0.132075 | off-target=0.8554
+
+       BETA_-1.00
+         FAMILY_I_SIMPLE          Csym=+0.359792
+         FAMILY_J_HIGH_LOW        Csym=+0.045168
+         FAMILY_K_UPPER_POSITION  Csym=+0.283926
+         FAMILY_L_AXIS            Csym=+0.062647
+         MEAN=+0.187883 | MIN=+0.045168 | SD=0.157933 | KL=0.502212 | Dperp=0.133034 | off-target=0.8499
+
+       BETA_-0.75
+         FAMILY_I_SIMPLE          Csym=+0.380297
+         FAMILY_J_HIGH_LOW        Csym=+0.111022
+         FAMILY_K_UPPER_POSITION  Csym=+0.310200
+         FAMILY_L_AXIS            Csym=+0.063823
+         MEAN=+0.216336 | MIN=+0.063823 | SD=0.152801 | KL=0.514055 | Dperp=0.135200 | off-target=0.8444
+
+       BETA_-0.50
+         FAMILY_I_SIMPLE          Csym=+0.445153
+         FAMILY_J_HIGH_LOW        Csym=+0.164062
+         FAMILY_K_UPPER_POSITION  Csym=+0.330722
+         FAMILY_L_AXIS            Csym=+0.079633
+         MEAN=+0.254892 | MIN=+0.079633 | SD=0.164231 | KL=0.540355 | Dperp=0.137601 | off-target=0.8364
+
+       BETA_-0.25
+         FAMILY_I_SIMPLE          Csym=+0.452935
+         FAMILY_J_HIGH_LOW        Csym=+0.233664
+         FAMILY_K_UPPER_POSITION  Csym=+0.366609
+         FAMILY_L_AXIS            Csym=+0.069579
+         MEAN=+0.280697 | MIN=+0.069579 | SD=0.167162 | KL=0.520153 | Dperp=0.141589 | off-target=0.8300
+
+       BETA_+0.00
+         FAMILY_I_SIMPLE          Csym=+0.460878
+         FAMILY_J_HIGH_LOW        Csym=+0.278361
+         FAMILY_K_UPPER_POSITION  Csym=+0.362769
+         FAMILY_L_AXIS            Csym=+0.055442
+         MEAN=+0.289363 | MIN=+0.055442 | SD=0.172864 | KL=0.542736 | Dperp=0.145681 | off-target=0.8243
+
+       BETA_+0.25
+         FAMILY_I_SIMPLE          Csym=+0.451852
+         FAMILY_J_HIGH_LOW        Csym=+0.325544
+         FAMILY_K_UPPER_POSITION  Csym=+0.360210
+         FAMILY_L_AXIS            Csym=+0.023622
+         MEAN=+0.290307 | MIN=+0.023622 | SD=0.185604 | KL=0.542566 | Dperp=0.150381 | off-target=0.8204
+
+       BETA_+0.50
+         FAMILY_I_SIMPLE          Csym=+0.404567
+         FAMILY_J_HIGH_LOW        Csym=+0.351528
+         FAMILY_K_UPPER_POSITION  Csym=+0.326452
+         FAMILY_L_AXIS            Csym=+0.009214
+         MEAN=+0.272940 | MIN=+0.009214 | SD=0.178808 | KL=0.538592 | Dperp=0.154327 | off-target=0.8183
+
+       BETA_+0.75
+         FAMILY_I_SIMPLE          Csym=+0.370577
+         FAMILY_J_HIGH_LOW        Csym=+0.379196
+         FAMILY_K_UPPER_POSITION  Csym=+0.307063
+         FAMILY_L_AXIS            Csym=+0.008031
+         MEAN=+0.266217 | MIN=+0.008031 | SD=0.175103 | KL=0.546985 | Dperp=0.157837 | off-target=0.8199
+
+       BETA_+1.00
+         FAMILY_I_SIMPLE          Csym=+0.329160
+         FAMILY_J_HIGH_LOW        Csym=+0.390491
+         FAMILY_K_UPPER_POSITION  Csym=+0.293900
+         FAMILY_L_AXIS            Csym=-0.009621
+         MEAN=+0.250983 | MIN=-0.009621 | SD=0.178260 | KL=0.555055 | Dperp=0.160634 | off-target=0.8235
+
+       BETA_+1.25
+         FAMILY_I_SIMPLE          Csym=+0.274304
+         FAMILY_J_HIGH_LOW        Csym=+0.378466
+         FAMILY_K_UPPER_POSITION  Csym=+0.266899
+         FAMILY_L_AXIS            Csym=-0.011388
+         MEAN=+0.227070 | MIN=-0.011388 | SD=0.166933 | KL=0.548677 | Dperp=0.161983 | off-target=0.8260
+
+       BETA_+1.50
+         FAMILY_I_SIMPLE          Csym=+0.248668
+         FAMILY_J_HIGH_LOW        Csym=+0.379588
+         FAMILY_K_UPPER_POSITION  Csym=+0.251083
+         FAMILY_L_AXIS            Csym=-0.032308
+         MEAN=+0.211758 | MIN=-0.032308 | SD=0.173824 | KL=0.549562 | Dperp=0.163893 | off-target=0.8306
+
+       BETA_+1.75
+         FAMILY_I_SIMPLE          Csym=+0.215994
+         FAMILY_J_HIGH_LOW        Csym=+0.391761
+         FAMILY_K_UPPER_POSITION  Csym=+0.239718
+         FAMILY_L_AXIS            Csym=-0.022293
+         MEAN=+0.206295 | MIN=-0.022293 | SD=0.171135 | KL=0.559388 | Dperp=0.165067 | off-target=0.8345
+
+       BETA_+2.00
+         FAMILY_I_SIMPLE          Csym=+0.179773
+         FAMILY_J_HIGH_LOW        Csym=+0.390338
+         FAMILY_K_UPPER_POSITION  Csym=+0.218287
+         FAMILY_L_AXIS            Csym=-0.028099
+         MEAN=+0.190075 | MIN=-0.028099 | SD=0.171860 | KL=0.557413 | Dperp=0.165275 | off-target=0.8386
+
+[6/18] ASHBY VIABILITY GATE...
+       Cmax       : +0.290307
+       C threshold: +0.261276
+       KL limit   : 0.702207
+       Dperp limit: 0.169906
+       survivors  : [-0.25, 0.0, 0.25, 0.5, 0.75]
+       relaxed    : False
+
+[7/18] PARETO SAFETY FRONT...
+       Pareto betas: [-0.25, 0.0, 0.25]
+
+[8/18] LOCAL CORRIDOR REFINEMENT...
+       refinement: -0.5 to 0.5
+       fine betas: [-0.5, -0.4, -0.3, -0.2, -0.1, -0.0, 0.1, 0.2, 0.3, 0.4, 0.5]
+       beta=-0.5000 C=+0.254892 | KL=0.540355 | Dperp=0.137601 | min=+0.079633
+       beta=-0.4000 C=+0.263291 | KL=0.526187 | Dperp=0.139200 | min=+0.074819
+       beta=-0.3000 C=+0.266508 | KL=0.525837 | Dperp=0.140735 | min=+0.072411
+       beta=-0.2000 C=+0.274969 | KL=0.516756 | Dperp=0.142357 | min=+0.061240
+       beta=-0.1000 C=+0.280535 | KL=0.514677 | Dperp=0.143961 | min=+0.060868
+       beta=-0.0000 C=+0.289363 | KL=0.542736 | Dperp=0.145681 | min=+0.055442
+       beta=+0.1000 C=+0.283339 | KL=0.537259 | Dperp=0.147654 | min=+0.047489
+       beta=+0.2000 C=+0.284001 | KL=0.537673 | Dperp=0.149122 | min=+0.042879
+       beta=+0.3000 C=+0.283263 | KL=0.534888 | Dperp=0.151560 | min=+0.018008
+       beta=+0.4000 C=+0.282165 | KL=0.560211 | Dperp=0.153149 | min=+0.019363
+       beta=+0.5000 C=+0.272940 | KL=0.538592 | Dperp=0.154327 | min=+0.009214
+
+[9/18] MICRO-PERTURBATION PLATEAU ASSAY...
+       beta=-0.5000 | C-=+0.248264 C0=+0.254892 C+=+0.258062 | curvature=0.003459 | microSD=0.004999
+       beta=-0.4000 | C-=+0.258062 C0=+0.263291 C+=+0.262245 | curvature=0.006275 | microSD=0.002767
+       beta=-0.3000 | C-=+0.262245 C0=+0.266508 C+=+0.280697 | curvature=0.009927 | microSD=0.009660
+       beta=-0.2000 | C-=+0.280697 C0=+0.274969 C+=+0.286430 | curvature=0.017188 | microSD=0.005730
+       beta=-0.1000 | C-=+0.286430 C0=+0.280535 C+=+0.285068 | curvature=0.010428 | microSD=0.003086
+       beta=-0.0000 | C-=+0.285068 C0=+0.289363 C+=+0.290574 | curvature=0.003083 | microSD=0.002894
+       beta=+0.1000 | C-=+0.290574 C0=+0.283339 C+=+0.294586 | curvature=0.018483 | microSD=0.005700
+       beta=+0.2000 | C-=+0.294586 C0=+0.284001 C+=+0.290307 | curvature=0.016891 | microSD=0.005325
+       beta=+0.3000 | C-=+0.290307 C0=+0.283263 C+=+0.280161 | curvature=0.003943 | microSD=0.005199
+       beta=+0.4000 | C-=+0.280161 C0=+0.282165 C+=+0.278493 | curvature=0.005675 | microSD=0.001838
+       beta=+0.5000 | C-=+0.278493 C0=+0.272940 C+=+0.275634 | curvature=0.008247 | microSD=0.002777
+
+[10/18] CANALIZED SAFE-CORRIDOR GATE...
+
+[11/18] PHYSARUM-LIKE CONDUCTANCE...
+
+[12/18] FREEZING OPERATING CORRIDOR...
+
+       SAFE CORRIDOR : [-0.4000, +0.5000]
+       FROZEN β     : -0.0000
+       Csym         : +0.289363
+       KL           : 0.542736
+       D_perp       : 0.145681
+       micro SD     : 0.002894
+       curvature    : 0.003083
+
+[13/18] FINAL — FIRST ACCESS AFTER FREEZE...
+
+DOSE=0.125
+  FISHER               Csym=+0.021360 | P+=11/16 | KL=0.028688 | |dNLL|=0.060425 | real=0.6297%
+  BANK_MEAN            Csym=-0.019009 | P+=07/16 | KL=0.031298 | |dNLL|=0.120088 | real=0.6297%
+  HOMEOSTAT_FROZEN     Csym=+0.021568 | P+=10/16 | KL=0.028929 | |dNLL|=0.071622 | real=0.6297%
+
+DOSE=0.250
+  FISHER               Csym=+0.038252 | P+=09/16 | KL=0.127100 | |dNLL|=0.118745 | real=1.2520%
+  BANK_MEAN            Csym=-0.009292 | P+=08/16 | KL=0.129843 | |dNLL|=0.198966 | real=1.2500%
+  HOMEOSTAT_FROZEN     Csym=+0.045165 | P+=11/16 | KL=0.127356 | |dNLL|=0.145444 | real=1.2520%
+
+DOSE=0.500
+  FISHER               Csym=+0.081662 | P+=12/16 | KL=0.562604 | |dNLL|=0.221856 | real=2.4950%
+  BANK_MEAN            Csym=+0.052945 | P+=11/16 | KL=0.591607 | |dNLL|=0.372511 | real=2.4957%
+  HOMEOSTAT_FROZEN     Csym=+0.080998 | P+=11/16 | KL=0.562745 | |dNLL|=0.228085 | real=2.4950%
+
+DOSE=0.750
+  FISHER               Csym=+0.076932 | P+=09/16 | KL=1.183723 | |dNLL|=0.461181 | real=3.7373%
+  BANK_MEAN            Csym=+0.125663 | P+=12/16 | KL=1.370052 | |dNLL|=0.477670 | real=3.7394%
+  HOMEOSTAT_FROZEN     Csym=+0.078877 | P+=09/16 | KL=1.181076 | |dNLL|=0.446351 | real=3.7372%
+
+DOSE=1.000
+  FISHER               Csym=+0.006126 | P+=08/16 | KL=1.850947 | |dNLL|=0.684250 | real=4.9840%
+  BANK_MEAN            Csym=+0.078608 | P+=11/16 | KL=2.460268 | |dNLL|=0.690369 | real=4.9847%
+  HOMEOSTAT_FROZEN     Csym=+0.008782 | P+=08/16 | KL=1.865234 | |dNLL|=0.684043 | real=4.9840%
+
+[14/18] FINAL HIDDEN CANALIZATION...
+  FISHER               scale=0.125 | Dperp=0.038080 | Dtarget=0.022946 | off-target=0.8317
+  BANK_MEAN            scale=0.125 | Dperp=0.041602 | Dtarget=0.025634 | off-target=0.8288
+  HOMEOSTAT_FROZEN     scale=0.125 | Dperp=0.038051 | Dtarget=0.022970 | off-target=0.8314
+  FISHER               scale=0.250 | Dperp=0.074270 | Dtarget=0.045803 | off-target=0.8251
+  BANK_MEAN            scale=0.250 | Dperp=0.081008 | Dtarget=0.051369 | off-target=0.8221
+  HOMEOSTAT_FROZEN     scale=0.250 | Dperp=0.074332 | Dtarget=0.045730 | off-target=0.8256
+  FISHER               scale=0.500 | Dperp=0.145321 | Dtarget=0.090372 | off-target=0.8227
+  BANK_MEAN            scale=0.500 | Dperp=0.158867 | Dtarget=0.099713 | off-target=0.8236
+  HOMEOSTAT_FROZEN     scale=0.500 | Dperp=0.145352 | Dtarget=0.090340 | off-target=0.8228
+  FISHER               scale=0.750 | Dperp=0.214635 | Dtarget=0.133646 | off-target=0.8222
+  BANK_MEAN            scale=0.750 | Dperp=0.234224 | Dtarget=0.145252 | off-target=0.8250
+  HOMEOSTAT_FROZEN     scale=0.750 | Dperp=0.214687 | Dtarget=0.133703 | off-target=0.8222
+  FISHER               scale=1.000 | Dperp=0.282834 | Dtarget=0.174650 | off-target=0.8238
+  BANK_MEAN            scale=1.000 | Dperp=0.307309 | Dtarget=0.186292 | off-target=0.8289
+  HOMEOSTAT_FROZEN     scale=1.000 | Dperp=0.282992 | Dtarget=0.174502 | off-target=0.8240
+
+[15/18] FINAL PAIRED BOOTSTRAP...
+  scale=0.125 | H-F=+0.000208 [-0.004034,+0.004462] | H-B=+0.040576 [+0.013651,+0.064333]
+  scale=0.250 | H-F=+0.006913 [-0.003732,+0.017612] | H-B=+0.054458 [+0.012359,+0.094102]
+  scale=0.500 | H-F=-0.000665 [-0.009881,+0.009218] | H-B=+0.028053 [-0.037573,+0.089853]
+  scale=0.750 | H-F=+0.001945 [-0.005206,+0.009476] | H-B=-0.046786 [-0.118477,+0.018074]
+  scale=1.000 | H-F=+0.002657 [-0.004082,+0.009907] | H-B=-0.069825 [-0.155151,+0.017745]
+
+[16/18] FINAL CAUSAL / DISTURBANCE EFFICIENCY...
+  FISHER               scale=0.125 | C/KL=+0.74456 | C/Dperp=+0.56093 | C/(KL*Dperp)=+19.55261
+  BANK_MEAN            scale=0.125 | C/KL=-0.60735 | C/Dperp=-0.45692 | C/(KL*Dperp)=-14.59923
+  HOMEOSTAT_FROZEN     scale=0.125 | C/KL=+0.74555 | C/Dperp=+0.56682 | C/(KL*Dperp)=+19.59355
+  FISHER               scale=0.250 | C/KL=+0.30096 | C/Dperp=+0.51505 | C/(KL*Dperp)=+4.05229
+  BANK_MEAN            scale=0.250 | C/KL=-0.07157 | C/Dperp=-0.11471 | C/(KL*Dperp)=-0.88346
+  HOMEOSTAT_FROZEN     scale=0.250 | C/KL=+0.35464 | C/Dperp=+0.60761 | C/(KL*Dperp)=+4.77095
+  FISHER               scale=0.500 | C/KL=+0.14515 | C/Dperp=+0.56194 | C/(KL*Dperp)=+0.99883
+  BANK_MEAN            scale=0.500 | C/KL=+0.08949 | C/Dperp=+0.33326 | C/(KL*Dperp)=+0.56332
+  HOMEOSTAT_FROZEN     scale=0.500 | C/KL=+0.14393 | C/Dperp=+0.55725 | C/(KL*Dperp)=+0.99024
+  FISHER               scale=0.750 | C/KL=+0.06499 | C/Dperp=+0.35843 | C/(KL*Dperp)=+0.30280
+  BANK_MEAN            scale=0.750 | C/KL=+0.09172 | C/Dperp=+0.53651 | C/(KL*Dperp)=+0.39160
+  HOMEOSTAT_FROZEN     scale=0.750 | C/KL=+0.06678 | C/Dperp=+0.36740 | C/(KL*Dperp)=+0.31107
+  FISHER               scale=1.000 | C/KL=+0.00331 | C/Dperp=+0.02166 | C/(KL*Dperp)=+0.01170
+  BANK_MEAN            scale=1.000 | C/KL=+0.03195 | C/Dperp=+0.25579 | C/(KL*Dperp)=+0.10397
+  HOMEOSTAT_FROZEN     scale=1.000 | C/KL=+0.00471 | C/Dperp=+0.03103 | C/(KL*Dperp)=+0.01664
+
+[17/18] HOMEOSTAT DECISION...
+       Frozen beta      : -0.0000
+       Corridor         : [-0.4000, +0.5000]
+       Causal retention : 99.19%
+       KL / Fisher      : 1.0003
+       Dperp / Fisher   : 1.0002
+       DECISION         : SAFE_CORRIDOR_NOT_CONFIRMED
+
+[18/18] SAVING COMPLETE RECORD...
+
+============================================================================================================================================================
+TEST 166 — FINAL HOMEOSTAT SUMMARY
+============================================================================================================================================================
+SAFE CORRIDOR       : [-0.4000, +0.5000]
+FROZEN BETA         : -0.0000
+FORGE Csym          : +0.289363
+FORGE KL            : 0.542736
+FORGE D_perp        : 0.145681
+LOCAL CURVATURE     : 0.003083
+LOCAL MICRO SD      : 0.002894
+FINAL @0.50
+  causal retention  : 99.19%
+  KL/Fisher         : 1.0003
+  Dperp/Fisher      : 1.0002
+DECISION            : SAFE_CORRIDOR_NOT_CONFIRMED
+Saved               : /content/TEST166_CANALIZED_BETA_HOMEOSTAT
+============================================================================================================================================================
+TEST 166 COMPLETE
+============================================================================================================================================================
