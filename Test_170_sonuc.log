@@ -1,0 +1,232 @@
+ Installing required build dependency: ninja...
+==========================================================================================================================================================
+TEST 170 — ENERGY-MATCHED ENVELOPE RELEASE ABLATION
+CAUSAL_ORTH + FOUR-ZONE DEPTH REDISTRIBUTION UNDER FIXED RSS DOSE
+==========================================================================================================================================================
+Ninja: 1.13.2
+GPU: NVIDIA A100-SXM4-40GB
+Model: Qwen/Qwen2.5-7B-Instruct
+Layers: L0-L19 | direction=CAUSAL_ORTH | zones=[0-4,5-9,10-14,15-19]
+Locked RSS dose budget: 0.250235055
+Envelope candidates: ['LOCKED_SEASC', 'EARLY_SOFT', 'EARLY_SOFT_2', 'LATE_SOFT', 'MIDDLE_FOCUS', 'MID_LATE', 'LATE_FOCUS', 'EARLY_FOCUS', 'FLAT']
+
+[1/20] Compiling SEASC...
+       OK
+
+[2/20] Loading frozen model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 84.6kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 839kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 42.2MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 71.4MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 128MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.19MB/s]Download complete: :  13.1GB, 13.2MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  117MB/s  Fetching 4 files: 100% 4/4 [01:02<00:00, 15.65s/it]Loading weights: 100% 339/339 [00:03<00:00, 101.19it/s]generation_config.json: 100% 243/243 [00:00<00:00, 32.7kB/s]       hidden: 3584 dtype: torch.bfloat16
+
+[3/20] Rebuilding TEST169 Fisher / Bank geometry...
+       pair 01/16
+       pair 02/16
+       pair 03/16
+       pair 04/16
+       pair 05/16
+       pair 06/16
+       pair 07/16
+       pair 08/16
+       pair 09/16
+       pair 10/16
+       pair 11/16
+       pair 12/16
+       pair 13/16
+       pair 14/16
+       pair 15/16
+       pair 16/16
+       L00 cos(F,B)=+0.957046 residual=0.289934
+       L01 cos(F,B)=+0.945882 residual=0.324511
+       L02 cos(F,B)=+0.923687 residual=0.383148
+       L03 cos(F,B)=+0.905784 residual=0.423739
+       L04 cos(F,B)=+0.827902 residual=0.560873
+       L05 cos(F,B)=+0.787565 residual=0.616231
+       L06 cos(F,B)=+0.783951 residual=0.620823
+       L07 cos(F,B)=+0.851357 residual=0.524587
+       L08 cos(F,B)=+0.877778 residual=0.479067
+       L09 cos(F,B)=+0.880560 residual=0.473935
+       L10 cos(F,B)=+0.868166 residual=0.496274
+       L11 cos(F,B)=+0.863361 residual=0.504587
+       L12 cos(F,B)=+0.872287 residual=0.488994
+       L13 cos(F,B)=+0.866555 residual=0.499081
+       L14 cos(F,B)=+0.869072 residual=0.494686
+       L15 cos(F,B)=+0.870898 residual=0.491464
+       L16 cos(F,B)=+0.860497 residual=0.509455
+       L17 cos(F,B)=+0.861645 residual=0.507511
+       L18 cos(F,B)=+0.766311 residual=0.642469
+       L19 cos(F,B)=+0.772911 residual=0.634515
+       mean cos=+0.860661 | mean residual=0.498294
+
+[4/20] Computing frozen P8 retention basis...
+       probe 1/8 | NLL=10.108150 | mean ||g||=5.017349e+00
+       probe 2/8 | NLL=10.067118 | mean ||g||=4.504144e+00
+       probe 3/8 | NLL=12.503087 | mean ||g||=3.515239e+00
+       probe 4/8 | NLL=11.644833 | mean ||g||=3.911535e+00
+       probe 5/8 | NLL=12.823627 | mean ||g||=5.401210e+00
+       probe 6/8 | NLL=9.968038 | mean ||g||=5.083509e+00
+       probe 7/8 | NLL=9.568528 | mean ||g||=4.566213e+00
+       probe 8/8 | NLL=10.291623 | mean ||g||=5.011105e+00
+       P8 ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+
+[5/20] Reconstructing TEST169 CAUSAL_ORTH...
+       family A item 1/4
+       family A item 2/4
+       family A item 3/4
+       family A item 4/4
+       family B item 1/4
+       family B item 2/4
+       family B item 3/4
+       family B item 4/4
+       family C item 1/4
+       family C item 2/4
+       family C item 3/4
+       family C item 4/4
+       family D item 1/4
+       family D item 2/4
+       family D item 3/4
+       family D item 4/4
+       mean cos(Causal,Fisher)=+0.040625
+       mean orthogonal component=0.998925
+       mean post-Q overlap=2.21149694e-07
+
+[6/20] Energy-matched envelope search...
+       LOCKED_SEASC   C=+1.315848 worst=+1.117860 sd=0.217494 KL=2.608059 Ret=0.935389 Dp=0.296345 RSS=0.250235055
+       EARLY_SOFT     C=+1.405793 worst=+1.117352 sd=0.334467 KL=3.262989 Ret=0.765848 Dp=0.294616 RSS=0.250235055
+       EARLY_SOFT_2   C=+1.454068 worst=+1.068921 sd=0.435072 KL=3.702295 Ret=0.772330 Dp=0.284755 RSS=0.250235055
+       LATE_SOFT      C=+1.187973 worst=+0.944961 sd=0.192648 KL=2.110309 Ret=1.030904 Dp=0.297004 RSS=0.250235055
+       MIDDLE_FOCUS   C=+1.300580 worst=+1.061506 sd=0.234816 KL=3.216471 Ret=0.780158 Dp=0.305789 RSS=0.250235055
+       MID_LATE       C=+1.412473 worst=+1.107128 sd=0.353536 KL=3.460336 Ret=0.779324 Dp=0.293342 RSS=0.250235055
+       LATE_FOCUS     C=+1.458095 worst=+1.111946 sd=0.409160 KL=3.455435 Ret=0.754262 Dp=0.286196 RSS=0.250235055
+       EARLY_FOCUS    C=+1.087023 worst=+0.775187 sd=0.235684 KL=1.811061 Ret=1.139530 Dp=0.292030 RSS=0.250235055
+       FLAT           C=+1.479532 worst=+1.048568 sd=0.516505 KL=3.853343 Ret=0.792678 Dp=0.272340 RSS=0.250235055
+
+[7/20] Viability / Pareto...
+       locked C: +1.315848 | viable: 8 | safe: 0 | Pareto: ['LOCKED_SEASC', 'EARLY_SOFT', 'EARLY_SOFT_2', 'LATE_SOFT', 'MIDDLE_FOCUS', 'MID_LATE', 'LATE_FOCUS', 'FLAT']
+
+[8/20] LOFO envelope stability...
+       hold A -> LOCKED_SEASC   C=+1.232695 worst=+1.117860
+       hold B -> LOCKED_SEASC   C=+1.277785 worst=+1.117860
+       hold C -> LOCKED_SEASC   C=+1.371068 worst=+1.117860
+       hold D -> LATE_FOCUS     C=+1.573478 worst=+1.167998
+
+[9/20] Micro envelope robustness...
+       LOCKED_SEASC   micro=+1.31585/+1.31585/+1.31585 sd=0.000000 curv=+0.000000
+       EARLY_SOFT     micro=+1.40418/+1.40579/+1.40830 sd=0.002074 curv=+0.000897
+       EARLY_SOFT_2   micro=+1.44811/+1.45407/+1.45809 sd=0.005021 curv=-0.001935
+       LATE_SOFT      micro=+1.20426/+1.18797/+1.17020 sd=0.017039 curv=-0.001488
+       MIDDLE_FOCUS   micro=+1.30639/+1.30058/+1.30375 sd=0.002909 curv=+0.008976
+       MID_LATE       micro=+1.41268/+1.41247/+1.42229 sd=0.005611 curv=+0.010027
+       LATE_FOCUS     micro=+1.44910/+1.45809/+1.46707 sd=0.008985 curv=-0.000021
+       FLAT           micro=+1.48507/+1.47953/+1.48348 sd=0.002850 curv=+0.009480
+
+[10/20] FREEZE...
+       FROZEN envelope: LOCKED_SEASC
+       raw zones: [1.0, 1.0, 1.0, 1.0]
+       normalized layer multipliers: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+       RSS=0.250235055 | baseline RSS=0.250235055 | fallback=True
+       FINAL remains unopened.
+
+[11/20] FINAL — FIRST ACCESS AFTER FREEZE...
+
+       DOSE=0.125
+       LOCKED_SEASC   C=+0.799662 P+=16/16 KL=0.151858 HeldRet=0.249882
+       RELEASED       C=+0.799662 P+=16/16 KL=0.151858 HeldRet=0.249882
+
+       DOSE=0.250
+       LOCKED_SEASC   C=+1.362765 P+=16/16 KL=0.458912 HeldRet=0.379642
+       RELEASED       C=+1.362765 P+=16/16 KL=0.458912 HeldRet=0.379642
+
+       DOSE=0.500
+       LOCKED_SEASC   C=+1.459602 P+=16/16 KL=1.291344 HeldRet=0.618741
+       RELEASED       C=+1.459602 P+=16/16 KL=1.291344 HeldRet=0.618741
+
+       DOSE=0.750
+       LOCKED_SEASC   C=+1.423262 P+=16/16 KL=2.134831 HeldRet=1.018475
+       RELEASED       C=+1.423262 P+=16/16 KL=2.134831 HeldRet=1.018475
+
+       DOSE=1.000
+       LOCKED_SEASC   C=+1.336798 P+=16/16 KL=2.734012 HeldRet=0.754419
+       RELEASED       C=+1.336798 P+=16/16 KL=2.734012 HeldRet=0.754419
+
+[12/20] FINAL hidden-state canalization...
+       LOCKED_SEASC   s=0.125 Dperp=0.086937 Dtarget=0.011807 off=0.9770
+       RELEASED       s=0.125 Dperp=0.086937 Dtarget=0.011807 off=0.9770
+       LOCKED_SEASC   s=0.250 Dperp=0.166845 Dtarget=0.023543 off=0.9751
+       RELEASED       s=0.250 Dperp=0.166845 Dtarget=0.023543 off=0.9751
+       LOCKED_SEASC   s=0.500 Dperp=0.293893 Dtarget=0.045420 off=0.9715
+       RELEASED       s=0.500 Dperp=0.293893 Dtarget=0.045420 off=0.9715
+       LOCKED_SEASC   s=0.750 Dperp=0.398876 Dtarget=0.066502 off=0.9685
+       RELEASED       s=0.750 Dperp=0.398876 Dtarget=0.066502 off=0.9685
+       LOCKED_SEASC   s=1.000 Dperp=0.516081 Dtarget=0.090475 off=0.9668
+       RELEASED       s=1.000 Dperp=0.516081 Dtarget=0.090475 off=0.9668
+
+[13/20] Paired causal bootstrap...
+       s=0.125 RELEASED-LOCKED ΔC=+0.000000 [+0.000000,+0.000000]
+       s=0.250 RELEASED-LOCKED ΔC=+0.000000 [+0.000000,+0.000000]
+       s=0.500 RELEASED-LOCKED ΔC=+0.000000 [+0.000000,+0.000000]
+       s=0.750 RELEASED-LOCKED ΔC=+0.000000 [+0.000000,+0.000000]
+       s=1.000 RELEASED-LOCKED ΔC=+0.000000 [+0.000000,+0.000000]
+
+[14/20] Primary mechanism @0.50...
+       LOCKED_SEASC   C=+1.459602 KL=1.291344 HeldRet=0.618741 Dperp=0.293893 off=0.9715 P+=16/16
+       RELEASED       C=+1.459602 KL=1.291344 HeldRet=0.618741 Dperp=0.293893 off=0.9715 P+=16/16
+
+[15/20] Dose-budget verification...
+       LOCKED_SEASC   RSS=0.250235055 SUM=0.996012883 MAX=0.100000000
+       RELEASED       RSS=0.250235055 SUM=0.996012883 MAX=0.100000000
+       RSS absolute difference=0.000000000000e+00
+
+[16/20] Frozen layer profile...
+       L00 locked=0.100000 m=1.0000 released=0.100000
+       L01 locked=0.097127 m=1.0000 released=0.097127
+       L02 locked=0.090519 m=1.0000 released=0.090519
+       L03 locked=0.082304 m=1.0000 released=0.082304
+       L04 locked=0.073760 m=1.0000 released=0.073760
+       L05 locked=0.065609 m=1.0000 released=0.065609
+       L06 locked=0.058221 m=1.0000 released=0.058221
+       L07 locked=0.051748 m=1.0000 released=0.051748
+       L08 locked=0.046212 m=1.0000 released=0.046212
+       L09 locked=0.041562 m=1.0000 released=0.041562
+       L10 locked=0.037712 m=1.0000 released=0.037712
+       L11 locked=0.034558 m=1.0000 released=0.034558
+       L12 locked=0.031998 m=1.0000 released=0.031998
+       L13 locked=0.029937 m=1.0000 released=0.029937
+       L14 locked=0.028287 m=1.0000 released=0.028287
+       L15 locked=0.026974 m=1.0000 released=0.026974
+       L16 locked=0.025935 m=1.0000 released=0.025935
+       L17 locked=0.025115 m=1.0000 released=0.025115
+       L18 locked=0.024470 m=1.0000 released=0.024470
+       L19 locked=0.023966 m=1.0000 released=0.023966
+
+[17/20] TEST170 decision...
+       Frozen: LOCKED_SEASC
+       causal >=90%: True
+       held-out KL improved: False
+       held-out retention improved: False
+       Dperp improved: False
+       DECISION: NO_SAFE_ENVELOPE_RELEASE_FOUND
+
+[18/20] Saving...
+
+[19/20] Integrity...
+       P8 ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+       Direction changed during envelope search: NO
+       Frozen envelope: LOCKED_SEASC
+       RSS match error: 0.000000000000e+00
+       FINAL selection access: NONE
+       Model weights modified: NO
+       Runtime controller: OFF
+
+[20/20] COMPLETE
+==========================================================================================================================================================
+TEST 170 — ENERGY-MATCHED ENVELOPE RELEASE ABLATION — SUMMARY
+==========================================================================================================================================================
+Mean cos(Fisher,Bank): +0.860661
+Mean CAUSAL_ORTH retained component: 0.998925
+Frozen envelope: LOCKED_SEASC
+Raw zones: [1.0, 1.0, 1.0, 1.0]
+Locked RSS : 0.250235055
+Release RSS: 0.250235055
+DECISION: NO_SAFE_ENVELOPE_RELEASE_FOUND
+Saved: /content/TEST170_ENERGY_MATCHED_ENVELOPE_RELEASE
+==========================================================================================================================================================
