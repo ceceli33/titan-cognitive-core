@@ -1,0 +1,202 @@
+ ======================================================================================================================================================
+TEST 162 — FISHER → BANK-MEAN CAUSAL DECOMPOSITION
+AKBASCORE 3.1 / SEASC
+======================================================================================================================================================
+GPU            : NVIDIA A100-SXM4-40GB
+Model          : Qwen/Qwen2.5-7B-Instruct
+Steered layers : L0-L19
+Dose scales    : [0.25, 0.5, 1.0]
+
+[1/10] Compiling AkbasCore SEASC kernel...
+      CUDA kernel: OK
+
+[2/10] Loading frozen model...
+config.json: 100% 663/663 [00:00<00:00, 82.8kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 540kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 41.9MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 68.1MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 118MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.38MB/s]Download complete: :  13.1GB, 1.15MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  133MB/s  Fetching 4 files: 100% 4/4 [01:33<00:00, 20.91s/it]Loading weights: 100% 339/339 [00:03<00:00, 98.83it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.6kB/s]      hidden : 3584
+      layers : 28
+      dtype  : torch.bfloat16
+
+[3/10] Building SEARCH bank...
+      pair 01/16
+      pair 02/16
+      pair 03/16
+      pair 04/16
+      pair 05/16
+      pair 06/16
+      pair 07/16
+      pair 08/16
+      pair 09/16
+      pair 10/16
+      pair 11/16
+      pair 12/16
+      pair 13/16
+      pair 14/16
+      pair 15/16
+      pair 16/16
+
+[4/10] Building Fisher / BANK decomposition...
+      L00 cos(F,M)=+0.957046 | residual=0.289934
+      L01 cos(F,M)=+0.945882 | residual=0.324511
+      L02 cos(F,M)=+0.923687 | residual=0.383148
+      L03 cos(F,M)=+0.905784 | residual=0.423739
+      L04 cos(F,M)=+0.827902 | residual=0.560873
+      L05 cos(F,M)=+0.787565 | residual=0.616231
+      L06 cos(F,M)=+0.783951 | residual=0.620823
+      L07 cos(F,M)=+0.851357 | residual=0.524587
+      L08 cos(F,M)=+0.877778 | residual=0.479067
+      L09 cos(F,M)=+0.880560 | residual=0.473935
+      L10 cos(F,M)=+0.868166 | residual=0.496274
+      L11 cos(F,M)=+0.863361 | residual=0.504587
+      L12 cos(F,M)=+0.872287 | residual=0.488994
+      L13 cos(F,M)=+0.866555 | residual=0.499081
+      L14 cos(F,M)=+0.869072 | residual=0.494686
+      L15 cos(F,M)=+0.870898 | residual=0.491464
+      L16 cos(F,M)=+0.860497 | residual=0.509455
+      L17 cos(F,M)=+0.861645 | residual=0.507511
+      L18 cos(F,M)=+0.766311 | residual=0.642469
+      L19 cos(F,M)=+0.772911 | residual=0.634515
+      mean cos(F,BANK) : 0.860661
+      mean residual    : 0.498294
+      ORTHO_100/BANK cos: 1.000000000
+
+[5/10] Measuring baseline...
+      item 00 | margin=+0.434365
+      item 01 | margin=+1.298656
+      item 02 | margin=+1.229667
+      item 03 | margin=+1.161713
+      item 04 | margin=-0.122270
+      item 05 | margin=+2.194057
+      item 06 | margin=+0.725624
+      item 07 | margin=-0.200624
+      item 08 | margin=+0.979838
+      item 09 | margin=+1.203382
+      item 10 | margin=+0.575202
+      item 11 | margin=+0.268963
+      baseline mean = +0.812381
+
+[6/10] Running causal decomposition...
+
+DOSE=0.25
+  FISHER             Csym=+0.090148 | P+=10/12 | real=1.2520% | E=0.189329
+  BANK_MEAN          Csym=+0.082974 | P+=10/12 | real=1.2506% | E=0.188714
+  BANK_RESIDUAL      Csym=+0.014117 | P+=07/12 | real=1.2476% | E=0.188443
+  FISHER_RESIDUAL    Csym=+0.054238 | P+=09/12 | real=1.2466% | E=0.187693
+  PATH_25            Csym=+0.094812 | P+=10/12 | real=1.2517% | E=0.189384
+  PATH_50            Csym=+0.096345 | P+=10/12 | real=1.2507% | E=0.189009
+  PATH_75            Csym=+0.082452 | P+=10/12 | real=1.2504% | E=0.188844
+  ORTHO_025          Csym=+0.100013 | P+=10/12 | real=1.2514% | E=0.189252
+  ORTHO_050          Csym=+0.097181 | P+=10/12 | real=1.2507% | E=0.189030
+  ORTHO_075          Csym=+0.087052 | P+=10/12 | real=1.2503% | E=0.188825
+  ORTHO_100          Csym=+0.082174 | P+=10/12 | real=1.2505% | E=0.188707
+
+DOSE=0.50
+  FISHER             Csym=+0.167929 | P+=08/12 | real=2.4948% | E=0.752821
+  BANK_MEAN          Csym=+0.235962 | P+=10/12 | real=2.4960% | E=0.754015
+  BANK_RESIDUAL      Csym=+0.063356 | P+=07/12 | real=2.4984% | E=0.754113
+  FISHER_RESIDUAL    Csym=+0.112038 | P+=09/12 | real=2.4976% | E=0.755114
+  PATH_25            Csym=+0.180794 | P+=09/12 | real=2.4956% | E=0.753271
+  PATH_50            Csym=+0.197352 | P+=10/12 | real=2.4972% | E=0.754408
+  PATH_75            Csym=+0.202022 | P+=09/12 | real=2.4970% | E=0.754618
+  ORTHO_025          Csym=+0.189617 | P+=09/12 | real=2.4958% | E=0.753342
+  ORTHO_050          Csym=+0.190461 | P+=09/12 | real=2.4968% | E=0.754211
+  ORTHO_075          Csym=+0.212366 | P+=10/12 | real=2.4969% | E=0.754584
+  ORTHO_100          Csym=+0.229083 | P+=10/12 | real=2.4960% | E=0.753980
+
+DOSE=1.00
+  FISHER             Csym=+0.116622 | P+=08/12 | real=4.9843% | E=3.009936
+  BANK_MEAN          Csym=+0.264574 | P+=10/12 | real=4.9843% | E=3.009653
+  BANK_RESIDUAL      Csym=+0.152221 | P+=11/12 | real=4.9876% | E=3.013582
+  FISHER_RESIDUAL    Csym=+0.154804 | P+=10/12 | real=4.9847% | E=3.008997
+  PATH_25            Csym=+0.120244 | P+=09/12 | real=4.9824% | E=3.007450
+  PATH_50            Csym=+0.159735 | P+=09/12 | real=4.9822% | E=3.007787
+  PATH_75            Csym=+0.211148 | P+=09/12 | real=4.9837% | E=3.008110
+  ORTHO_025          Csym=+0.126217 | P+=09/12 | real=4.9827% | E=3.007735
+  ORTHO_050          Csym=+0.172864 | P+=09/12 | real=4.9833% | E=3.008898
+  ORTHO_075          Csym=+0.226740 | P+=09/12 | real=4.9838% | E=3.008130
+  ORTHO_100          Csym=+0.260618 | P+=10/12 | real=4.9842% | E=3.009613
+
+[7/10] Core contrasts...
+  scale=0.25 | BANK-FISHER=-0.007174 | CI95=[-0.037625,+0.022167] | p=0.672216
+     direct: ['+0.09015', '+0.09481', '+0.09635', '+0.08245', '+0.08297'] mono= False
+     ortho : ['+0.09015', '+0.10001', '+0.09718', '+0.08705', '+0.08217'] mono= False recon.err= 0.00080007
+     BANK⊥F=+0.014117 | FISHER⊥BANK=+0.054238
+  scale=0.50 | BANK-FISHER=+0.068033 | CI95=[+0.004110,+0.133221] | p=0.018799
+     direct: ['+0.16793', '+0.18079', '+0.19735', '+0.20202', '+0.23596'] mono= True
+     ortho : ['+0.16793', '+0.18962', '+0.19046', '+0.21237', '+0.22908'] mono= True recon.err= 0.00687909
+     BANK⊥F=+0.063356 | FISHER⊥BANK=+0.112038
+  scale=1.00 | BANK-FISHER=+0.147951 | CI95=[+0.058050,+0.237651] | p=0.000750
+     direct: ['+0.11662', '+0.12024', '+0.15973', '+0.21115', '+0.26457'] mono= True
+     ortho : ['+0.11662', '+0.12622', '+0.17286', '+0.22674', '+0.26062'] mono= True recon.err= 0.00395591
+     BANK⊥F=+0.152221 | FISHER⊥BANK=+0.154804
+
+[8/10] Neutral collateral...
+  FISHER             scale=0.25 | ΔNLL=+0.174484 | KL=0.135555
+  BANK_MEAN          scale=0.25 | ΔNLL=+0.116230 | KL=0.169728
+  BANK_RESIDUAL      scale=0.25 | ΔNLL=+0.013814 | KL=0.132071
+  FISHER             scale=0.50 | ΔNLL=+0.241384 | KL=0.482472
+  BANK_MEAN          scale=0.50 | ΔNLL=+0.299041 | KL=0.734975
+  BANK_RESIDUAL      scale=0.50 | ΔNLL=+0.049707 | KL=0.817363
+  FISHER             scale=1.00 | ΔNLL=-0.167839 | KL=1.360831
+  BANK_MEAN          scale=1.00 | ΔNLL=-0.013387 | KL=2.660516
+  BANK_RESIDUAL      scale=1.00 | ΔNLL=+1.045478 | KL=4.298494
+
+[9/10] Saving...
+
+[10/10] COMPLETE
+======================================================================================================================================================
+TEST 162 — FINAL SUMMARY
+======================================================================================================================================================
+Baseline mean            : +0.812381
+Mean cos(Fisher,BANK)    : +0.860661
+Mean BANK residual norm  : 0.498294
+ORTHO_100/BANK mean cos  : 1.000000000
+
+DOSE SCALE = 0.25
+  FISHER             Csym=+0.090148 | P+=10/12 | E=0.189329
+  BANK_MEAN          Csym=+0.082974 | P+=10/12 | E=0.188714
+  BANK_RESIDUAL      Csym=+0.014117 | P+=07/12 | E=0.188443
+  FISHER_RESIDUAL    Csym=+0.054238 | P+=09/12 | E=0.187693
+  PATH_25            Csym=+0.094812 | P+=10/12 | E=0.189384
+  PATH_50            Csym=+0.096345 | P+=10/12 | E=0.189009
+  PATH_75            Csym=+0.082452 | P+=10/12 | E=0.188844
+  ORTHO_025          Csym=+0.100013 | P+=10/12 | E=0.189252
+  ORTHO_050          Csym=+0.097181 | P+=10/12 | E=0.189030
+  ORTHO_075          Csym=+0.087052 | P+=10/12 | E=0.188825
+  ORTHO_100          Csym=+0.082174 | P+=10/12 | E=0.188707
+
+DOSE SCALE = 0.50
+  FISHER             Csym=+0.167929 | P+=08/12 | E=0.752821
+  BANK_MEAN          Csym=+0.235962 | P+=10/12 | E=0.754015
+  BANK_RESIDUAL      Csym=+0.063356 | P+=07/12 | E=0.754113
+  FISHER_RESIDUAL    Csym=+0.112038 | P+=09/12 | E=0.755114
+  PATH_25            Csym=+0.180794 | P+=09/12 | E=0.753271
+  PATH_50            Csym=+0.197352 | P+=10/12 | E=0.754408
+  PATH_75            Csym=+0.202022 | P+=09/12 | E=0.754618
+  ORTHO_025          Csym=+0.189617 | P+=09/12 | E=0.753342
+  ORTHO_050          Csym=+0.190461 | P+=09/12 | E=0.754211
+  ORTHO_075          Csym=+0.212366 | P+=10/12 | E=0.754584
+  ORTHO_100          Csym=+0.229083 | P+=10/12 | E=0.753980
+
+DOSE SCALE = 1.00
+  FISHER             Csym=+0.116622 | P+=08/12 | E=3.009936
+  BANK_MEAN          Csym=+0.264574 | P+=10/12 | E=3.009653
+  BANK_RESIDUAL      Csym=+0.152221 | P+=11/12 | E=3.013582
+  FISHER_RESIDUAL    Csym=+0.154804 | P+=10/12 | E=3.008997
+  PATH_25            Csym=+0.120244 | P+=09/12 | E=3.007450
+  PATH_50            Csym=+0.159735 | P+=09/12 | E=3.007787
+  PATH_75            Csym=+0.211148 | P+=09/12 | E=3.008110
+  ORTHO_025          Csym=+0.126217 | P+=09/12 | E=3.007735
+  ORTHO_050          Csym=+0.172864 | P+=09/12 | E=3.008898
+  ORTHO_075          Csym=+0.226740 | P+=09/12 | E=3.008130
+  ORTHO_100          Csym=+0.260618 | P+=10/12 | E=3.009613
+
+CORE CONTRASTS
+  scale=0.25 | BANK-FISHER=-0.007174 | CI95=[-0.037625,+0.022167] | p=0.672216 | ORTHO-mono=False | DIRECT-mono=False
+  scale=0.50 | BANK-FISHER=+0.068033 | CI95=[+0.004110,+0.133221] | p=0.018799 | ORTHO-mono=True | DIRECT-mono=True
+  scale=1.00 | BANK-FISHER=+0.147951 | CI95=[+0.058050,+0.237651] | p=0.000750 | ORTHO-mono=True | DIRECT-mono=True
+
+Saved: /content/TEST162_FISHER_BANK_DECOMPOSITION
+======================================================================================================================================================
+TEST 162 COMPLETE
+======================================================================================================================================================
