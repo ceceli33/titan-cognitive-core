@@ -1,0 +1,292 @@
+ ======================================================================================================================================================
+TEST 161 — SEMANTIC DIRECTION SUBSPACE CAUSAL ASSAY
+AKBASCORE 3.1 / SEASC
+======================================================================================================================================================
+GPU            : NVIDIA A100-SXM4-40GB
+Model          : Qwen/Qwen2.5-7B-Instruct
+Steered layers : L0-L19
+Dose scales    : [0.25, 0.5, 1.0]
+In-span draws  : 8
+Out-span draws : 8
+Ambient draws  : 8
+
+[1/15] Compiling AkbasCore SEASC kernel...
+      CUDA kernel: OK
+
+[2/15] Loading frozen model...
+config.json: 100% 663/663 [00:00<00:00, 86.5kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 912kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 47.9MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 71.9MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 124MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 2.96MB/s]Download complete: :  13.1GB, 2.43MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB, 34.7MB/s  Fetching 4 files: 100% 4/4 [01:52<00:00, 30.83s/it]Loading weights: 100% 339/339 [00:03<00:00, 97.79it/s]generation_config.json: 100% 243/243 [00:00<00:00, 30.1kB/s]      hidden : 3584
+      layers : 28
+      dtype  : torch.bfloat16
+
+DRA envelope:
+  L00: E=1.000000 | base=10.000%
+  L01: E=0.971272 | base=9.713%
+  L02: E=0.905188 | base=9.052%
+  L03: E=0.823042 | base=8.230%
+  L04: E=0.737599 | base=7.376%
+  L05: E=0.656086 | base=6.561%
+  L06: E=0.582206 | base=5.822%
+  L07: E=0.517478 | base=5.175%
+  L08: E=0.462121 | base=4.621%
+  L09: E=0.415625 | base=4.156%
+  L10: E=0.377115 | base=3.771%
+  L11: E=0.345576 | base=3.456%
+  L12: E=0.319980 | base=3.200%
+  L13: E=0.299366 | base=2.994%
+  L14: E=0.282871 | base=2.829%
+  L15: E=0.269744 | base=2.697%
+  L16: E=0.259348 | base=2.593%
+  L17: E=0.251148 | base=2.511%
+  L18: E=0.244705 | base=2.447%
+  L19: E=0.239658 | base=2.397%
+
+[3/15] Building SEARCH activation bank...
+      pair 01/16
+      pair 02/16
+      pair 03/16
+      pair 04/16
+      pair 05/16
+      pair 06/16
+      pair 07/16
+      pair 08/16
+      pair 09/16
+      pair 10/16
+      pair 11/16
+      pair 12/16
+      pair 13/16
+      pair 14/16
+      pair 15/16
+      pair 16/16
+
+[4/15] Building Fisher compasses + semantic direction subspaces...
+      L00 | rank=16 | Fisher-in-span=0.968071 | mean/Fisher=+0.957046 | PC1/Fisher=+0.010498 | E4=0.475522
+      L01 | rank=16 | Fisher-in-span=0.963579 | mean/Fisher=+0.945882 | PC1/Fisher=+0.169840 | E4=0.665652
+      L02 | rank=16 | Fisher-in-span=0.920217 | mean/Fisher=+0.923687 | PC1/Fisher=+0.027136 | E4=0.700512
+      L03 | rank=16 | Fisher-in-span=0.908772 | mean/Fisher=+0.905784 | PC1/Fisher=+0.100825 | E4=0.585102
+      L04 | rank=16 | Fisher-in-span=0.866583 | mean/Fisher=+0.827902 | PC1/Fisher=+0.047834 | E4=0.563123
+      L05 | rank=16 | Fisher-in-span=0.847669 | mean/Fisher=+0.787565 | PC1/Fisher=+0.274492 | E4=0.561595
+      L06 | rank=16 | Fisher-in-span=0.839427 | mean/Fisher=+0.783951 | PC1/Fisher=+0.294722 | E4=0.519444
+      L07 | rank=16 | Fisher-in-span=0.899142 | mean/Fisher=+0.851357 | PC1/Fisher=+0.234842 | E4=0.508407
+      L08 | rank=16 | Fisher-in-span=0.855905 | mean/Fisher=+0.877778 | PC1/Fisher=+0.072629 | E4=0.522440
+      L09 | rank=16 | Fisher-in-span=0.857170 | mean/Fisher=+0.880560 | PC1/Fisher=+0.052616 | E4=0.501678
+      L10 | rank=16 | Fisher-in-span=0.829558 | mean/Fisher=+0.868166 | PC1/Fisher=+0.051077 | E4=0.495680
+      L11 | rank=16 | Fisher-in-span=0.841412 | mean/Fisher=+0.863361 | PC1/Fisher=+0.071208 | E4=0.469235
+      L12 | rank=16 | Fisher-in-span=0.845926 | mean/Fisher=+0.872287 | PC1/Fisher=+0.068033 | E4=0.458450
+      L13 | rank=16 | Fisher-in-span=0.844689 | mean/Fisher=+0.866555 | PC1/Fisher=+0.085055 | E4=0.456729
+      L14 | rank=16 | Fisher-in-span=0.841181 | mean/Fisher=+0.869072 | PC1/Fisher=+0.062074 | E4=0.452076
+      L15 | rank=16 | Fisher-in-span=0.838337 | mean/Fisher=+0.870898 | PC1/Fisher=+0.059278 | E4=0.456341
+      L16 | rank=16 | Fisher-in-span=0.801590 | mean/Fisher=+0.860497 | PC1/Fisher=+0.049704 | E4=0.438641
+      L17 | rank=16 | Fisher-in-span=0.825047 | mean/Fisher=+0.861645 | PC1/Fisher=+0.046260 | E4=0.437933
+      L18 | rank=16 | Fisher-in-span=0.799674 | mean/Fisher=+0.766311 | PC1/Fisher=+0.052713 | E4=0.478031
+      L19 | rank=16 | Fisher-in-span=0.815156 | mean/Fisher=+0.772911 | PC1/Fisher=+0.045592 | E4=0.515449
+
+[5/15] Building fixed in-span, out-span and ambient direction draws...
+      in-span capture : 1.00000009
+      out-span capture: 0.00000000
+      ambient capture : 0.00466696
+
+[6/15] Measuring untouched baseline...
+      item 00 | margin=+0.434365
+      item 01 | margin=+1.298656
+      item 02 | margin=+1.229667
+      item 03 | margin=+1.161713
+      item 04 | margin=-0.122270
+      item 05 | margin=+2.194057
+      item 06 | margin=+0.725624
+      item 07 | margin=-0.200624
+      item 08 | margin=+0.979838
+      item 09 | margin=+1.203382
+      item 10 | margin=+0.575202
+      item 11 | margin=+0.268963
+      baseline mean=+0.812381
+
+[7/15] Running deterministic reference arms...
+  FISHER       scale=0.25 | Csym=+0.090148 | P+=10/12 | real=1.2520% | E=0.189329
+  BANK_MEAN    scale=0.25 | Csym=+0.082974 | P+=10/12 | real=1.2506% | E=0.188714
+  PCA1         scale=0.25 | Csym=+0.057330 | P+=09/12 | real=1.2504% | E=0.188761
+  FISHER       scale=0.50 | Csym=+0.167929 | P+=08/12 | real=2.4948% | E=0.752821
+  BANK_MEAN    scale=0.50 | Csym=+0.235962 | P+=10/12 | real=2.4960% | E=0.754015
+  PCA1         scale=0.50 | Csym=+0.081586 | P+=09/12 | real=2.4997% | E=0.755705
+  FISHER       scale=1.00 | Csym=+0.116622 | P+=08/12 | real=4.9843% | E=3.009936
+  BANK_MEAN    scale=1.00 | Csym=+0.264574 | P+=10/12 | real=4.9843% | E=3.009653
+  PCA1         scale=1.00 | Csym=-0.016273 | P+=05/12 | real=4.9839% | E=3.009708
+
+[8/15] Running random IN-SPAN directions...
+  scale=0.25 draw=00 | Csym=+0.011579 | P+=06/12 | E=0.190423
+  scale=0.25 draw=01 | Csym=-0.073160 | P+=02/12 | E=0.189650
+  scale=0.25 draw=02 | Csym=+0.034580 | P+=09/12 | E=0.188007
+  scale=0.25 draw=03 | Csym=-0.026732 | P+=07/12 | E=0.192015
+  scale=0.25 draw=04 | Csym=+0.098174 | P+=10/12 | E=0.191827
+  scale=0.25 draw=05 | Csym=+0.131122 | P+=11/12 | E=0.189051
+  scale=0.25 draw=06 | Csym=+0.127267 | P+=10/12 | E=0.189454
+  scale=0.25 draw=07 | Csym=-0.001122 | P+=08/12 | E=0.189093
+  scale=0.50 draw=00 | Csym=+0.029874 | P+=07/12 | E=0.754020
+  scale=0.50 draw=01 | Csym=-0.102252 | P+=03/12 | E=0.754140
+  scale=0.50 draw=02 | Csym=+0.049207 | P+=08/12 | E=0.755573
+  scale=0.50 draw=03 | Csym=-0.028214 | P+=07/12 | E=0.753333
+  scale=0.50 draw=04 | Csym=+0.217492 | P+=11/12 | E=0.752891
+  scale=0.50 draw=05 | Csym=+0.255506 | P+=11/12 | E=0.752894
+  scale=0.50 draw=06 | Csym=+0.236390 | P+=12/12 | E=0.755652
+  scale=0.50 draw=07 | Csym=-0.035310 | P+=04/12 | E=0.753163
+  scale=1.00 draw=00 | Csym=+0.072448 | P+=09/12 | E=3.011388
+  scale=1.00 draw=01 | Csym=-0.101997 | P+=02/12 | E=3.008579
+  scale=1.00 draw=02 | Csym=+0.082934 | P+=08/12 | E=3.005713
+  scale=1.00 draw=03 | Csym=+0.069264 | P+=05/12 | E=3.006866
+  scale=1.00 draw=04 | Csym=+0.399640 | P+=11/12 | E=3.009987
+  scale=1.00 draw=05 | Csym=+0.351089 | P+=10/12 | E=3.009217
+  scale=1.00 draw=06 | Csym=+0.282023 | P+=09/12 | E=3.006435
+  scale=1.00 draw=07 | Csym=-0.086099 | P+=04/12 | E=3.008552
+
+[9/15] Running random OUT-SPAN directions...
+  scale=0.25 draw=00 | Csym=+0.068637 | P+=10/12 | E=0.188694
+  scale=0.25 draw=01 | Csym=+0.014847 | P+=07/12 | E=0.188723
+  scale=0.25 draw=02 | Csym=-0.084526 | P+=01/12 | E=0.188898
+  scale=0.25 draw=03 | Csym=-0.087053 | P+=01/12 | E=0.188751
+  scale=0.25 draw=04 | Csym=-0.062083 | P+=04/12 | E=0.188804
+  scale=0.25 draw=05 | Csym=+0.044675 | P+=08/12 | E=0.188759
+  scale=0.25 draw=06 | Csym=-0.062873 | P+=03/12 | E=0.188691
+  scale=0.25 draw=07 | Csym=+0.100989 | P+=10/12 | E=0.188758
+  scale=0.50 draw=00 | Csym=+0.132468 | P+=10/12 | E=0.752978
+  scale=0.50 draw=01 | Csym=+0.026063 | P+=07/12 | E=0.752829
+  scale=0.50 draw=02 | Csym=-0.157170 | P+=01/12 | E=0.752494
+  scale=0.50 draw=03 | Csym=-0.161198 | P+=02/12 | E=0.752881
+  scale=0.50 draw=04 | Csym=-0.125611 | P+=02/12 | E=0.752617
+  scale=0.50 draw=05 | Csym=+0.112719 | P+=10/12 | E=0.753024
+  scale=0.50 draw=06 | Csym=-0.098221 | P+=05/12 | E=0.752279
+  scale=0.50 draw=07 | Csym=+0.202375 | P+=10/12 | E=0.752400
+  scale=1.00 draw=00 | Csym=+0.264110 | P+=09/12 | E=3.006741
+  scale=1.00 draw=01 | Csym=+0.017081 | P+=06/12 | E=3.007754
+  scale=1.00 draw=02 | Csym=-0.295343 | P+=00/12 | E=3.007603
+  scale=1.00 draw=03 | Csym=-0.266033 | P+=00/12 | E=3.006787
+  scale=1.00 draw=04 | Csym=-0.235012 | P+=02/12 | E=3.006809
+  scale=1.00 draw=05 | Csym=+0.262293 | P+=12/12 | E=3.008217
+  scale=1.00 draw=06 | Csym=-0.146486 | P+=03/12 | E=3.007246
+  scale=1.00 draw=07 | Csym=+0.380742 | P+=11/12 | E=3.007018
+
+[10/15] Running AMBIENT random directions...
+  scale=0.25 draw=00 | Csym=+0.027822 | P+=08/12 | E=0.188776
+  scale=0.25 draw=01 | Csym=-0.046846 | P+=03/12 | E=0.188708
+  scale=0.25 draw=02 | Csym=+0.068504 | P+=10/12 | E=0.188926
+  scale=0.25 draw=03 | Csym=+0.020071 | P+=05/12 | E=0.188853
+  scale=0.25 draw=04 | Csym=+0.056860 | P+=09/12 | E=0.188702
+  scale=0.25 draw=05 | Csym=-0.021669 | P+=05/12 | E=0.188717
+  scale=0.25 draw=06 | Csym=+0.022556 | P+=08/12 | E=0.188678
+  scale=0.25 draw=07 | Csym=-0.000241 | P+=03/12 | E=0.188917
+  scale=0.50 draw=00 | Csym=+0.072525 | P+=08/12 | E=0.753261
+  scale=0.50 draw=01 | Csym=-0.081049 | P+=04/12 | E=0.752479
+  scale=0.50 draw=02 | Csym=+0.135570 | P+=12/12 | E=0.752612
+  scale=0.50 draw=03 | Csym=+0.026238 | P+=06/12 | E=0.752178
+  scale=0.50 draw=04 | Csym=+0.139118 | P+=11/12 | E=0.753099
+  scale=0.50 draw=05 | Csym=-0.018002 | P+=05/12 | E=0.752208
+  scale=0.50 draw=06 | Csym=+0.043561 | P+=08/12 | E=0.752797
+  scale=0.50 draw=07 | Csym=-0.000125 | P+=04/12 | E=0.752562
+  scale=1.00 draw=00 | Csym=+0.184901 | P+=12/12 | E=3.006197
+  scale=1.00 draw=01 | Csym=-0.192285 | P+=01/12 | E=3.007351
+  scale=1.00 draw=02 | Csym=+0.238551 | P+=12/12 | E=3.007565
+  scale=1.00 draw=03 | Csym=+0.138474 | P+=09/12 | E=3.007715
+  scale=1.00 draw=04 | Csym=+0.271961 | P+=10/12 | E=3.007520
+  scale=1.00 draw=05 | Csym=+0.106224 | P+=07/12 | E=3.007559
+  scale=1.00 draw=06 | Csym=+0.031061 | P+=06/12 | E=3.006969
+  scale=1.00 draw=07 | Csym=+0.060815 | P+=05/12 | E=3.007455
+
+[11/15] Semantic-subspace statistics...
+  scale=0.25 | IN=+0.037714±0.074687 | OUT=-0.008423±0.074727 | Δ=+0.046137 | AUC=0.6562 | p=0.114494
+             AMB=+0.015882±0.038281 | IN-AMB=+0.021832 | AUC=0.5625 | p=0.233488
+  scale=0.50 | IN=+0.077837±0.139289 | OUT=-0.008572±0.145117 | Δ=+0.086408 | AUC=0.7031 | p=0.118544
+             AMB=+0.039730±0.075446 | IN-AMB=+0.038107 | AUC=0.5469 | p=0.252387
+  scale=1.00 | IN=+0.133663±0.190611 | OUT=-0.002331±0.272149 | Δ=+0.135994 | AUC=0.7031 | p=0.128794
+             AMB=+0.104963±0.145904 | IN-AMB=+0.028700 | AUC=0.5469 | p=0.369532
+
+[12/15] Physical-energy matching...
+  scale=0.25 | IN=0.189940 | OUT=0.188759 | OUT/IN=0.993785 | AMB/IN=0.993918
+  scale=0.50 | IN=0.753958 | OUT=0.752688 | OUT/IN=0.998315 | AMB/IN=0.998264
+  scale=1.00 | IN=3.008342 | OUT=3.007272 | OUT/IN=0.999644 | AMB/IN=0.999651
+
+[13/15] Neutral collateral...
+  FISHER       scale=0.25 | ΔNLL=+0.174484 | KL=0.135555
+  BANK_MEAN    scale=0.25 | ΔNLL=+0.116230 | KL=0.169728
+  PCA1         scale=0.25 | ΔNLL=+0.155193 | KL=0.065326
+  FISHER       scale=0.50 | ΔNLL=+0.241384 | KL=0.482472
+  BANK_MEAN    scale=0.50 | ΔNLL=+0.299041 | KL=0.734975
+  PCA1         scale=0.50 | ΔNLL=+0.295158 | KL=0.232238
+  FISHER       scale=1.00 | ΔNLL=-0.167839 | KL=1.360831
+  BANK_MEAN    scale=1.00 | ΔNLL=-0.013387 | KL=2.660516
+  PCA1         scale=1.00 | ΔNLL=+0.574025 | KL=1.126008
+
+[14/15] Diagnostic contract...
+ - SEMANTIC_SPAN_DIRECTIONAL_ADVANTAGE
+ - SEMANTIC_SPAN_ABOVE_AMBIENT
+
+[15/15] COMPLETE
+======================================================================================================================================================
+TEST 161 — FINAL SUMMARY
+======================================================================================================================================================
+
+Baseline mean margin : +0.812381
+
+SEMANTIC SUBSPACE GEOMETRY
+  mean rank          : 16.000
+  rank range         : 16-16
+  Fisher capture     : 0.860455
+  mean/Fisher cosine : +0.860661
+  PC1/Fisher cosine  : +0.093821
+
+DETERMINISTIC REFERENCES
+
+DOSE SCALE = 0.25
+  FISHER       | Csym=+0.090148 | P+=10/12 | E=0.189329
+  BANK_MEAN    | Csym=+0.082974 | P+=10/12 | E=0.188714
+  PCA1         | Csym=+0.057330 | P+=09/12 | E=0.188761
+
+DOSE SCALE = 0.50
+  FISHER       | Csym=+0.167929 | P+=08/12 | E=0.752821
+  BANK_MEAN    | Csym=+0.235962 | P+=10/12 | E=0.754015
+  PCA1         | Csym=+0.081586 | P+=09/12 | E=0.755705
+
+DOSE SCALE = 1.00
+  FISHER       | Csym=+0.116622 | P+=08/12 | E=3.009936
+  BANK_MEAN    | Csym=+0.264574 | P+=10/12 | E=3.009653
+  PCA1         | Csym=-0.016273 | P+=05/12 | E=3.009708
+
+PRIMARY CAUSAL CONTRAST
+  scale=0.25 | IN=+0.037714±0.074687 | OUT=-0.008423±0.074727 | Δ=+0.046137 | AUC=0.6562 | p=0.114494
+  scale=0.50 | IN=+0.077837±0.139289 | OUT=-0.008572±0.145117 | Δ=+0.086408 | AUC=0.7031 | p=0.118544
+  scale=1.00 | IN=+0.133663±0.190611 | OUT=-0.002331±0.272149 | Δ=+0.135994 | AUC=0.7031 | p=0.128794
+
+SECONDARY AMBIENT CONTRAST
+  scale=0.25 | IN=+0.037714 | AMBIENT=+0.015882 | Δ=+0.021832 | AUC=0.5625 | p=0.233488
+  scale=0.50 | IN=+0.077837 | AMBIENT=+0.039730 | Δ=+0.038107 | AUC=0.5469 | p=0.252387
+  scale=1.00 | IN=+0.133663 | AMBIENT=+0.104963 | Δ=+0.028700 | AUC=0.5469 | p=0.369532
+
+PHYSICAL ENERGY
+  scale=0.25 | OUT/IN=0.993785 | AMBIENT/IN=0.993918
+  scale=0.50 | OUT/IN=0.998315 | AMBIENT/IN=0.998264
+  scale=1.00 | OUT/IN=0.999644 | AMBIENT/IN=0.999651
+
+DIAGNOSTIC FLAGS
+  SEMANTIC_SPAN_DIRECTIONAL_ADVANTAGE
+  SEMANTIC_SPAN_ABOVE_AMBIENT
+
+INTERPRETATION RULE
+IN_SPAN > OUT_SPAN tests whether semantic-span membership itself has causal value.
+IN_SPAN > AMBIENT tests whether the result exceeds unrestricted random perturbation.
+FISHER > IN_SPAN means orientation inside the span still matters.
+IN_SPAN ~= OUT_SPAN rejects the simple semantic-subspace explanation.
+
+Saved:
+  /content/TEST161_SEMANTIC_SUBSPACE/BASELINE.csv
+  /content/TEST161_SEMANTIC_SUBSPACE/REFERENCE_ARMS.csv
+  /content/TEST161_SEMANTIC_SUBSPACE/IN_SPAN.csv
+  /content/TEST161_SEMANTIC_SUBSPACE/OUT_SPAN.csv
+  /content/TEST161_SEMANTIC_SUBSPACE/AMBIENT.csv
+  /content/TEST161_SEMANTIC_SUBSPACE/SPAN_STATISTICS.csv
+  /content/TEST161_SEMANTIC_SUBSPACE/ENERGY_MATCH.csv
+  /content/TEST161_SEMANTIC_SUBSPACE/COLLATERAL.csv
+  /content/TEST161_SEMANTIC_SUBSPACE/SUBSPACE_GEOMETRY.csv
+  /content/TEST161_SEMANTIC_SUBSPACE/TEST161_SEMANTIC_SUBSPACE.npz
+  /content/TEST161_SEMANTIC_SUBSPACE/REPORT.json
+======================================================================================================================================================
+TEST 161 COMPLETE
+======================================================================================================================================================
