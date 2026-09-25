@@ -1,0 +1,449 @@
+ ======================================================================================================================================================
+TEST 156 — SEMANTIC TRANSPORT X-RAY
+NATURAL TRANSPORT vs TRUE LAYER-LOCAL SEMANTIC COORDINATES
+======================================================================================================================================================
+
+[1/14] Loading frozen model...
+config.json: 100% 663/663 [00:00<00:00, 76.1kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 798kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 83.7MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 71.8MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 123MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.30MB/s]Download complete: :  13.1GB,  489MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  458MB/s  Fetching 4 files: 100% 4/4 [00:36<00:00,  6.19s/it]Loading weights: 100% 339/339 [00:04<00:00, 95.08it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.8kB/s]GPU            : NVIDIA A100-SXM4-80GB
+Model          : Qwen/Qwen2.5-7B-Instruct
+Hidden         : 3584
+Decoder layers : 28
+Layers         : [3, 6, 10, 14, 19]
+Segments       : [(3, 6), (6, 10), (10, 14), (14, 19)]
+K              : [4, 8, 16, 32]
+Methods        : ['UNWEIGHTED', 'SQRT_SIGMA', 'SIGMA', 'PROCRUSTES']
+
+[2/14] Capturing natural SEARCH atlas...
+  SEARCH: 001/192
+  SEARCH: 032/192
+  SEARCH: 064/192
+  SEARCH: 096/192
+  SEARCH: 128/192
+  SEARCH: 160/192
+  SEARCH: 192/192
+
+[3/14] Reconstructing natural transport atlas...
+L3->L6 | s1=0.625068 s4=0.226240 s8=0.125546 s16=0.049157 s32=0.012052
+L6->L10 | s1=2.794859 s4=0.999019 s8=0.428736 s16=0.192302 s32=0.039390
+L10->L14 | s1=7.181062 s4=2.870953 s8=1.153514 s16=0.495570 s32=0.118913
+L14->L19 | s1=23.969080 s4=7.697594 s8=3.673829 s16=0.986603 s32=0.287849
+
+[4/14] Fingerprint check...
+L3->L6 max_rel_error=0.9609%
+L6->L10 max_rel_error=0.8281%
+L10->L14 max_rel_error=0.9885%
+L14->L19 max_rel_error=0.5933%
+GLOBAL fingerprint max rel error = 0.9885%
+Fingerprint: PASS
+
+[5/14] Extracting immutable layer-local compasses...
+  POS: 001/8
+  POS: 008/8
+  NEG: 001/8
+  NEG: 008/8
+
+TRUE COMPASS ADJACENT COSINES
+cos(A3, A6) = +0.277398
+cos(A6, A10) = +0.180759
+cos(A10, A14) = +0.323088
+cos(A14, A19) = +0.256970
+
+[6/14] Direct semantic transport X-ray...
+
+--- DIRECT L3 -> L6 ---
+K=4   UNWEIGHTED   | cos(pred,A6)=+0.282836 | static=+0.277398 | Δ=+0.005437 | capU=0.0458 | capV(A6)=0.0922 | |raw|=0.2141
+K=4   SQRT_SIGMA   | cos(pred,A6)=+0.288240 | static=+0.277398 | Δ=+0.010842 | capU=0.0458 | capV(A6)=0.0922 | |raw|=0.2068
+K=4   SIGMA        | cos(pred,A6)=+0.292154 | static=+0.277398 | Δ=+0.014756 | capU=0.0458 | capV(A6)=0.0922 | |raw|=0.2013
+K=4   PROCRUSTES   | cos(pred,A6)=+0.282836 | static=+0.277398 | Δ=+0.005437 | capU=0.0458 | capV(A6)=0.0922 | |raw|=0.2141
+K=8   UNWEIGHTED   | cos(pred,A6)=+0.356898 | static=+0.277398 | Δ=+0.079500 | capU=0.0726 | capV(A6)=0.1477 | |raw|=0.2695
+K=8   SQRT_SIGMA   | cos(pred,A6)=+0.346192 | static=+0.277398 | Δ=+0.068794 | capU=0.0726 | capV(A6)=0.1477 | |raw|=0.2218
+K=8   SIGMA        | cos(pred,A6)=+0.327127 | static=+0.277398 | Δ=+0.049729 | capU=0.0726 | capV(A6)=0.1477 | |raw|=0.2052
+K=8   PROCRUSTES   | cos(pred,A6)=+0.356898 | static=+0.277398 | Δ=+0.079500 | capU=0.0726 | capV(A6)=0.1477 | |raw|=0.2695
+K=16  UNWEIGHTED   | cos(pred,A6)=+0.431177 | static=+0.277398 | Δ=+0.153779 | capU=0.1070 | capV(A6)=0.2277 | |raw|=0.3271
+K=16  SQRT_SIGMA   | cos(pred,A6)=+0.402110 | static=+0.277398 | Δ=+0.124712 | capU=0.1070 | capV(A6)=0.2277 | |raw|=0.2323
+K=16  SIGMA        | cos(pred,A6)=+0.354515 | static=+0.277398 | Δ=+0.077117 | capU=0.1070 | capV(A6)=0.2277 | |raw|=0.2068
+K=16  PROCRUSTES   | cos(pred,A6)=+0.431177 | static=+0.277398 | Δ=+0.153779 | capU=0.1070 | capV(A6)=0.2277 | |raw|=0.3271
+K=32  UNWEIGHTED   | cos(pred,A6)=+0.362657 | static=+0.277398 | Δ=+0.085259 | capU=0.1829 | capV(A6)=0.2481 | |raw|=0.4277
+K=32  SQRT_SIGMA   | cos(pred,A6)=+0.401873 | static=+0.277398 | Δ=+0.124475 | capU=0.1829 | capV(A6)=0.2481 | |raw|=0.2394
+K=32  SIGMA        | cos(pred,A6)=+0.356665 | static=+0.277398 | Δ=+0.079267 | capU=0.1829 | capV(A6)=0.2481 | |raw|=0.2072
+K=32  PROCRUSTES   | cos(pred,A6)=+0.362657 | static=+0.277398 | Δ=+0.085259 | capU=0.1829 | capV(A6)=0.2481 | |raw|=0.4277
+
+--- DIRECT L6 -> L10 ---
+K=4   UNWEIGHTED   | cos(pred,A10)=+0.156048 | static=+0.180759 | Δ=-0.024711 | capU=0.0939 | capV(A10)=0.0476 | |raw|=0.3065
+K=4   SQRT_SIGMA   | cos(pred,A10)=+0.159542 | static=+0.180759 | Δ=-0.021217 | capU=0.0939 | capV(A10)=0.0476 | |raw|=0.3015
+K=4   SIGMA        | cos(pred,A10)=+0.161618 | static=+0.180759 | Δ=-0.019141 | capU=0.0939 | capV(A10)=0.0476 | |raw|=0.2992
+K=4   PROCRUSTES   | cos(pred,A10)=+0.156048 | static=+0.180759 | Δ=-0.024711 | capU=0.0939 | capV(A10)=0.0476 | |raw|=0.3065
+K=8   UNWEIGHTED   | cos(pred,A10)=+0.218481 | static=+0.180759 | Δ=+0.037722 | capU=0.1350 | capV(A10)=0.0877 | |raw|=0.3675
+K=8   SQRT_SIGMA   | cos(pred,A10)=+0.197285 | static=+0.180759 | Δ=+0.016526 | capU=0.1350 | capV(A10)=0.0877 | |raw|=0.3140
+K=8   SIGMA        | cos(pred,A10)=+0.180060 | static=+0.180759 | Δ=-0.000699 | capU=0.1350 | capV(A10)=0.0877 | |raw|=0.3017
+K=8   PROCRUSTES   | cos(pred,A10)=+0.218481 | static=+0.180759 | Δ=+0.037722 | capU=0.1350 | capV(A10)=0.0877 | |raw|=0.3675
+K=16  UNWEIGHTED   | cos(pred,A10)=+0.186706 | static=+0.180759 | Δ=+0.005947 | capU=0.2141 | capV(A10)=0.1400 | |raw|=0.4627
+K=16  SQRT_SIGMA   | cos(pred,A10)=+0.191723 | static=+0.180759 | Δ=+0.010964 | capU=0.2141 | capV(A10)=0.1400 | |raw|=0.3296
+K=16  SIGMA        | cos(pred,A10)=+0.179368 | static=+0.180759 | Δ=-0.001391 | capU=0.2141 | capV(A10)=0.1400 | |raw|=0.3038
+K=16  PROCRUSTES   | cos(pred,A10)=+0.186706 | static=+0.180759 | Δ=+0.005947 | capU=0.2141 | capV(A10)=0.1400 | |raw|=0.4627
+K=32  UNWEIGHTED   | cos(pred,A10)=+0.172495 | static=+0.180759 | Δ=-0.008264 | capU=0.2495 | capV(A10)=0.2545 | |raw|=0.4995
+K=32  SQRT_SIGMA   | cos(pred,A10)=+0.190972 | static=+0.180759 | Δ=+0.010213 | capU=0.2495 | capV(A10)=0.2545 | |raw|=0.3314
+K=32  SIGMA        | cos(pred,A10)=+0.179533 | static=+0.180759 | Δ=-0.001226 | capU=0.2495 | capV(A10)=0.2545 | |raw|=0.3039
+K=32  PROCRUSTES   | cos(pred,A10)=+0.172495 | static=+0.180759 | Δ=-0.008264 | capU=0.2495 | capV(A10)=0.2545 | |raw|=0.4995
+
+--- DIRECT L10 -> L14 ---
+K=4   UNWEIGHTED   | cos(pred,A14)=+0.027620 | static=+0.323088 | Δ=-0.295468 | capU=0.0627 | capV(A14)=0.0016 | |raw|=0.2505
+K=4   SQRT_SIGMA   | cos(pred,A14)=+0.030833 | static=+0.323088 | Δ=-0.292254 | capU=0.0627 | capV(A14)=0.0016 | |raw|=0.2328
+K=4   SIGMA        | cos(pred,A14)=+0.033159 | static=+0.323088 | Δ=-0.289928 | capU=0.0627 | capV(A14)=0.0016 | |raw|=0.2220
+K=4   PROCRUSTES   | cos(pred,A14)=+0.027620 | static=+0.323088 | Δ=-0.295468 | capU=0.0627 | capV(A14)=0.0016 | |raw|=0.2505
+K=8   UNWEIGHTED   | cos(pred,A14)=+0.062538 | static=+0.323088 | Δ=-0.260550 | capU=0.0967 | capV(A14)=0.0194 | |raw|=0.3110
+K=8   SQRT_SIGMA   | cos(pred,A14)=+0.052973 | static=+0.323088 | Δ=-0.270115 | capU=0.0967 | capV(A14)=0.0194 | |raw|=0.2479
+K=8   SIGMA        | cos(pred,A14)=+0.045235 | static=+0.323088 | Δ=-0.277853 | capU=0.0967 | capV(A14)=0.0194 | |raw|=0.2255
+K=8   PROCRUSTES   | cos(pred,A14)=+0.062538 | static=+0.323088 | Δ=-0.260550 | capU=0.0967 | capV(A14)=0.0194 | |raw|=0.3110
+K=16  UNWEIGHTED   | cos(pred,A14)=+0.140823 | static=+0.323088 | Δ=-0.182264 | capU=0.1894 | capV(A14)=0.0768 | |raw|=0.4352
+K=16  SQRT_SIGMA   | cos(pred,A14)=+0.095655 | static=+0.323088 | Δ=-0.227433 | capU=0.1894 | capV(A14)=0.0768 | |raw|=0.2614
+K=16  SIGMA        | cos(pred,A14)=+0.059986 | static=+0.323088 | Δ=-0.263102 | capU=0.1894 | capV(A14)=0.0768 | |raw|=0.2267
+K=16  PROCRUSTES   | cos(pred,A14)=+0.140823 | static=+0.323088 | Δ=-0.182264 | capU=0.1894 | capV(A14)=0.0768 | |raw|=0.4352
+K=32  UNWEIGHTED   | cos(pred,A14)=+0.225165 | static=+0.323088 | Δ=-0.097923 | capU=0.2902 | capV(A14)=0.1562 | |raw|=0.5387
+K=32  SQRT_SIGMA   | cos(pred,A14)=+0.134960 | static=+0.323088 | Δ=-0.188127 | capU=0.2902 | capV(A14)=0.1562 | |raw|=0.2687
+K=32  SIGMA        | cos(pred,A14)=+0.069440 | static=+0.323088 | Δ=-0.253647 | capU=0.2902 | capV(A14)=0.1562 | |raw|=0.2270
+K=32  PROCRUSTES   | cos(pred,A14)=+0.225165 | static=+0.323088 | Δ=-0.097923 | capU=0.2902 | capV(A14)=0.1562 | |raw|=0.5387
+
+--- DIRECT L14 -> L19 ---
+K=4   UNWEIGHTED   | cos(pred,A19)=-0.011254 | static=+0.256970 | Δ=-0.268225 | capU=0.0052 | capV(A19)=0.0347 | |raw|=0.0722
+K=4   SQRT_SIGMA   | cos(pred,A19)=-0.025256 | static=+0.256970 | Δ=-0.282227 | capU=0.0052 | capV(A19)=0.0347 | |raw|=0.0504
+K=4   SIGMA        | cos(pred,A19)=-0.037576 | static=+0.256970 | Δ=-0.294546 | capU=0.0052 | capV(A19)=0.0347 | |raw|=0.0409
+K=4   PROCRUSTES   | cos(pred,A19)=-0.011254 | static=+0.256970 | Δ=-0.268225 | capU=0.0052 | capV(A19)=0.0347 | |raw|=0.0722
+K=8   UNWEIGHTED   | cos(pred,A19)=+0.020920 | static=+0.256970 | Δ=-0.236051 | capU=0.0203 | capV(A19)=0.0698 | |raw|=0.1424
+K=8   SQRT_SIGMA   | cos(pred,A19)=+0.003784 | static=+0.256970 | Δ=-0.253186 | capU=0.0203 | capV(A19)=0.0698 | |raw|=0.0834
+K=8   SIGMA        | cos(pred,A19)=-0.016418 | static=+0.256970 | Δ=-0.273389 | capU=0.0203 | capV(A19)=0.0698 | |raw|=0.0546
+K=8   PROCRUSTES   | cos(pred,A19)=+0.020920 | static=+0.256970 | Δ=-0.236051 | capU=0.0203 | capV(A19)=0.0698 | |raw|=0.1424
+K=16  UNWEIGHTED   | cos(pred,A19)=+0.037640 | static=+0.256970 | Δ=-0.219330 | capU=0.0747 | capV(A19)=0.1057 | |raw|=0.2734
+K=16  SQRT_SIGMA   | cos(pred,A19)=+0.015843 | static=+0.256970 | Δ=-0.241127 | capU=0.0747 | capV(A19)=0.1057 | |raw|=0.1077
+K=16  SIGMA        | cos(pred,A19)=-0.011492 | static=+0.256970 | Δ=-0.268462 | capU=0.0747 | capV(A19)=0.1057 | |raw|=0.0582
+K=16  PROCRUSTES   | cos(pred,A19)=+0.037640 | static=+0.256970 | Δ=-0.219330 | capU=0.0747 | capV(A19)=0.1057 | |raw|=0.2734
+K=32  UNWEIGHTED   | cos(pred,A19)=+0.101211 | static=+0.256970 | Δ=-0.155759 | capU=0.1543 | capV(A19)=0.2729 | |raw|=0.3928
+K=32  SQRT_SIGMA   | cos(pred,A19)=+0.044786 | static=+0.256970 | Δ=-0.212184 | capU=0.1543 | capV(A19)=0.2729 | |raw|=0.1164
+K=32  SIGMA        | cos(pred,A19)=-0.004669 | static=+0.256970 | Δ=-0.261640 | capU=0.1543 | capV(A19)=0.2729 | |raw|=0.0587
+K=32  PROCRUSTES   | cos(pred,A19)=+0.101211 | static=+0.256970 | Δ=-0.155759 | capU=0.1543 | capV(A19)=0.2729 | |raw|=0.3928
+
+[7/14] Chained semantic transport X-ray...
+
+CHAIN K=4 METHOD=UNWEIGHTED
+L3->L6 | cos(chain,A6)=+0.282836 | source_capture=0.045851 | |raw|=0.214134 | capture_product=0.04585120
+L6->L10 | cos(chain,A10)=+0.174915 | source_capture=0.937164 | |raw|=0.968098 | capture_product=0.04297008
+L10->L14 | cos(chain,A14)=+0.035019 | source_capture=0.943460 | |raw|=0.971344 | capture_product=0.04054056
+L14->L19 | cos(chain,A19)=-0.080790 | source_capture=0.952523 | |raw|=0.975999 | capture_product=0.03861583
+
+CHAIN K=4 METHOD=SQRT_SIGMA
+L3->L6 | cos(chain,A6)=+0.288240 | source_capture=0.045851 | |raw|=0.206792 | capture_product=0.04585120
+L6->L10 | cos(chain,A10)=+0.169947 | source_capture=0.949129 | |raw|=0.951209 | capture_product=0.04351870
+L10->L14 | cos(chain,A14)=+0.037794 | source_capture=0.964850 | |raw|=0.936562 | capture_product=0.04198900
+L14->L19 | cos(chain,A19)=-0.079318 | source_capture=0.976078 | |raw|=0.940717 | capture_product=0.04098453
+
+CHAIN K=4 METHOD=SIGMA
+L3->L6 | cos(chain,A6)=+0.292154 | source_capture=0.045851 | |raw|=0.201341 | capture_product=0.04585120
+L6->L10 | cos(chain,A10)=+0.166584 | source_capture=0.957513 | |raw|=0.949947 | capture_product=0.04390314
+L10->L14 | cos(chain,A14)=+0.038605 | source_capture=0.974601 | |raw|=0.917910 | capture_product=0.04278803
+L14->L19 | cos(chain,A19)=-0.075011 | source_capture=0.974218 | |raw|=0.931866 | capture_product=0.04168486
+
+CHAIN K=4 METHOD=PROCRUSTES
+L3->L6 | cos(chain,A6)=+0.282836 | source_capture=0.045851 | |raw|=0.214134 | capture_product=0.04585120
+L6->L10 | cos(chain,A10)=+0.174915 | source_capture=0.937164 | |raw|=0.968098 | capture_product=0.04297008
+L10->L14 | cos(chain,A14)=+0.035019 | source_capture=0.943460 | |raw|=0.971344 | capture_product=0.04054056
+L14->L19 | cos(chain,A19)=-0.080790 | source_capture=0.952523 | |raw|=0.975999 | capture_product=0.03861583
+
+CHAIN K=8 METHOD=UNWEIGHTED
+L3->L6 | cos(chain,A6)=+0.356898 | source_capture=0.072640 | |raw|=0.269525 | capture_product=0.07264049
+L6->L10 | cos(chain,A10)=+0.168924 | source_capture=0.831768 | |raw|=0.912037 | capture_product=0.06042006
+L10->L14 | cos(chain,A14)=+0.052803 | source_capture=0.892398 | |raw|=0.944693 | capture_product=0.05391873
+L14->L19 | cos(chain,A19)=-0.115800 | source_capture=0.860550 | |raw|=0.927682 | capture_product=0.04639975
+
+CHAIN K=8 METHOD=SQRT_SIGMA
+L3->L6 | cos(chain,A6)=+0.346192 | source_capture=0.072640 | |raw|=0.221762 | capture_product=0.07264049
+L6->L10 | cos(chain,A10)=+0.165709 | source_capture=0.926176 | |raw|=0.922082 | capture_product=0.06727790
+L10->L14 | cos(chain,A14)=+0.037615 | source_capture=0.976003 | |raw|=0.944282 | capture_product=0.06566340
+L14->L19 | cos(chain,A19)=-0.083876 | source_capture=0.984180 | |raw|=0.932804 | capture_product=0.06462462
+
+CHAIN K=8 METHOD=SIGMA
+L3->L6 | cos(chain,A6)=+0.327127 | source_capture=0.072640 | |raw|=0.205167 | capture_product=0.07264049
+L6->L10 | cos(chain,A10)=+0.163221 | source_capture=0.967532 | |raw|=0.949756 | capture_product=0.07028202
+L10->L14 | cos(chain,A14)=+0.037354 | source_capture=0.990567 | |raw|=0.923092 | capture_product=0.06961903
+L14->L19 | cos(chain,A19)=-0.076095 | source_capture=0.990916 | |raw|=0.927682 | capture_product=0.06898661
+
+CHAIN K=8 METHOD=PROCRUSTES
+L3->L6 | cos(chain,A6)=+0.356898 | source_capture=0.072640 | |raw|=0.269525 | capture_product=0.07264049
+L6->L10 | cos(chain,A10)=+0.168924 | source_capture=0.831768 | |raw|=0.912037 | capture_product=0.06042006
+L10->L14 | cos(chain,A14)=+0.052803 | source_capture=0.892398 | |raw|=0.944693 | capture_product=0.05391873
+L14->L19 | cos(chain,A19)=-0.115800 | source_capture=0.860550 | |raw|=0.927682 | capture_product=0.04639975
+
+CHAIN K=16 METHOD=UNWEIGHTED
+L3->L6 | cos(chain,A6)=+0.431177 | source_capture=0.106969 | |raw|=0.327068 | capture_product=0.10696898
+L6->L10 | cos(chain,A10)=+0.146844 | source_capture=0.976313 | |raw|=0.988110 | capture_product=0.10443518
+L10->L14 | cos(chain,A14)=+0.005885 | source_capture=0.967294 | |raw|=0.983537 | capture_product=0.10101950
+L14->L19 | cos(chain,A19)=-0.183252 | source_capture=0.965963 | |raw|=0.982861 | capture_product=0.09758110
+
+CHAIN K=16 METHOD=SQRT_SIGMA
+L3->L6 | cos(chain,A6)=+0.402110 | source_capture=0.106969 | |raw|=0.232264 | capture_product=0.10696898
+L6->L10 | cos(chain,A10)=+0.166538 | source_capture=0.992551 | |raw|=0.886102 | capture_product=0.10617213
+L10->L14 | cos(chain,A14)=+0.034752 | source_capture=0.994075 | |raw|=0.930147 | capture_product=0.10554305
+L14->L19 | cos(chain,A19)=-0.089033 | source_capture=0.998393 | |raw|=0.929330 | capture_product=0.10537349
+
+CHAIN K=16 METHOD=SIGMA
+L3->L6 | cos(chain,A6)=+0.354515 | source_capture=0.106969 | |raw|=0.206817 | capture_product=0.10696898
+L6->L10 | cos(chain,A10)=+0.163253 | source_capture=0.997500 | |raw|=0.940254 | capture_product=0.10670152
+L10->L14 | cos(chain,A14)=+0.037646 | source_capture=0.997421 | |raw|=0.921410 | capture_product=0.10642636
+L14->L19 | cos(chain,A19)=-0.076284 | source_capture=0.999115 | |raw|=0.927580 | capture_product=0.10633216
+
+CHAIN K=16 METHOD=PROCRUSTES
+L3->L6 | cos(chain,A6)=+0.431177 | source_capture=0.106969 | |raw|=0.327068 | capture_product=0.10696898
+L6->L10 | cos(chain,A10)=+0.146844 | source_capture=0.976313 | |raw|=0.988110 | capture_product=0.10443518
+L10->L14 | cos(chain,A14)=+0.005885 | source_capture=0.967294 | |raw|=0.983537 | capture_product=0.10101950
+L14->L19 | cos(chain,A19)=-0.183252 | source_capture=0.965963 | |raw|=0.982861 | capture_product=0.09758110
+
+CHAIN K=32 METHOD=UNWEIGHTED
+L3->L6 | cos(chain,A6)=+0.362657 | source_capture=0.182901 | |raw|=0.427680 | capture_product=0.18290129
+L6->L10 | cos(chain,A10)=+0.060503 | source_capture=0.969992 | |raw|=0.984907 | capture_product=0.17741286
+L10->L14 | cos(chain,A14)=-0.032178 | source_capture=0.972613 | |raw|=0.986238 | capture_product=0.17255412
+L14->L19 | cos(chain,A19)=-0.071679 | source_capture=0.937342 | |raw|=0.968190 | capture_product=0.16174218
+
+CHAIN K=32 METHOD=SQRT_SIGMA
+L3->L6 | cos(chain,A6)=+0.401873 | source_capture=0.182901 | |raw|=0.239437 | capture_product=0.18290129
+L6->L10 | cos(chain,A10)=+0.162968 | source_capture=0.997949 | |raw|=0.859630 | capture_product=0.18252611
+L10->L14 | cos(chain,A14)=+0.034872 | source_capture=0.999644 | |raw|=0.927504 | capture_product=0.18246119
+L14->L19 | cos(chain,A19)=-0.088654 | source_capture=0.999683 | |raw|=0.928254 | capture_product=0.18240342
+
+CHAIN K=32 METHOD=SIGMA
+L3->L6 | cos(chain,A6)=+0.356665 | source_capture=0.182901 | |raw|=0.207237 | capture_product=0.18290129
+L6->L10 | cos(chain,A10)=+0.163348 | source_capture=0.999818 | |raw|=0.937948 | capture_product=0.18286806
+L10->L14 | cos(chain,A14)=+0.037877 | source_capture=0.999823 | |raw|=0.921456 | capture_product=0.18283578
+L14->L19 | cos(chain,A19)=-0.076417 | source_capture=0.999771 | |raw|=0.927403 | capture_product=0.18279388
+
+CHAIN K=32 METHOD=PROCRUSTES
+L3->L6 | cos(chain,A6)=+0.362657 | source_capture=0.182901 | |raw|=0.427680 | capture_product=0.18290129
+L6->L10 | cos(chain,A10)=+0.060503 | source_capture=0.969992 | |raw|=0.984907 | capture_product=0.17741286
+L10->L14 | cos(chain,A14)=-0.032178 | source_capture=0.972613 | |raw|=0.986238 | capture_product=0.17255412
+L14->L19 | cos(chain,A19)=-0.071679 | source_capture=0.937342 | |raw|=0.968190 | capture_product=0.16174218
+
+[8/14] Direct vs chained error accumulation...
+K=4   UNWEIGHTED   L3->L6 | direct=+0.282836 chain=+0.282836 gap=+0.000000
+K=4   UNWEIGHTED   L6->L10 | direct=+0.156048 chain=+0.174915 gap=+0.018867
+K=4   UNWEIGHTED   L10->L14 | direct=+0.027620 chain=+0.035019 gap=+0.007400
+K=4   UNWEIGHTED   L14->L19 | direct=-0.011254 chain=-0.080790 gap=-0.069536
+K=4   SQRT_SIGMA   L3->L6 | direct=+0.288240 chain=+0.288240 gap=+0.000000
+K=4   SQRT_SIGMA   L6->L10 | direct=+0.159542 chain=+0.169947 gap=+0.010405
+K=4   SQRT_SIGMA   L10->L14 | direct=+0.030833 chain=+0.037794 gap=+0.006961
+K=4   SQRT_SIGMA   L14->L19 | direct=-0.025256 chain=-0.079318 gap=-0.054061
+K=4   SIGMA        L3->L6 | direct=+0.292154 chain=+0.292154 gap=+0.000000
+K=4   SIGMA        L6->L10 | direct=+0.161618 chain=+0.166584 gap=+0.004966
+K=4   SIGMA        L10->L14 | direct=+0.033159 chain=+0.038605 gap=+0.005446
+K=4   SIGMA        L14->L19 | direct=-0.037576 chain=-0.075011 gap=-0.037436
+K=4   PROCRUSTES   L3->L6 | direct=+0.282836 chain=+0.282836 gap=+0.000000
+K=4   PROCRUSTES   L6->L10 | direct=+0.156048 chain=+0.174915 gap=+0.018867
+K=4   PROCRUSTES   L10->L14 | direct=+0.027620 chain=+0.035019 gap=+0.007400
+K=4   PROCRUSTES   L14->L19 | direct=-0.011254 chain=-0.080790 gap=-0.069536
+K=8   UNWEIGHTED   L3->L6 | direct=+0.356898 chain=+0.356898 gap=+0.000000
+K=8   UNWEIGHTED   L6->L10 | direct=+0.218481 chain=+0.168924 gap=-0.049557
+K=8   UNWEIGHTED   L10->L14 | direct=+0.062538 chain=+0.052803 gap=-0.009735
+K=8   UNWEIGHTED   L14->L19 | direct=+0.020920 chain=-0.115800 gap=-0.136720
+K=8   SQRT_SIGMA   L3->L6 | direct=+0.346192 chain=+0.346192 gap=+0.000000
+K=8   SQRT_SIGMA   L6->L10 | direct=+0.197285 chain=+0.165709 gap=-0.031575
+K=8   SQRT_SIGMA   L10->L14 | direct=+0.052973 chain=+0.037615 gap=-0.015357
+K=8   SQRT_SIGMA   L14->L19 | direct=+0.003784 chain=-0.083876 gap=-0.087660
+K=8   SIGMA        L3->L6 | direct=+0.327127 chain=+0.327127 gap=+0.000000
+K=8   SIGMA        L6->L10 | direct=+0.180060 chain=+0.163221 gap=-0.016839
+K=8   SIGMA        L10->L14 | direct=+0.045235 chain=+0.037354 gap=-0.007881
+K=8   SIGMA        L14->L19 | direct=-0.016418 chain=-0.076095 gap=-0.059676
+K=8   PROCRUSTES   L3->L6 | direct=+0.356898 chain=+0.356898 gap=+0.000000
+K=8   PROCRUSTES   L6->L10 | direct=+0.218481 chain=+0.168924 gap=-0.049557
+K=8   PROCRUSTES   L10->L14 | direct=+0.062538 chain=+0.052803 gap=-0.009735
+K=8   PROCRUSTES   L14->L19 | direct=+0.020920 chain=-0.115800 gap=-0.136720
+K=16  UNWEIGHTED   L3->L6 | direct=+0.431177 chain=+0.431177 gap=+0.000000
+K=16  UNWEIGHTED   L6->L10 | direct=+0.186706 chain=+0.146844 gap=-0.039862
+K=16  UNWEIGHTED   L10->L14 | direct=+0.140823 chain=+0.005885 gap=-0.134938
+K=16  UNWEIGHTED   L14->L19 | direct=+0.037640 chain=-0.183252 gap=-0.220892
+K=16  SQRT_SIGMA   L3->L6 | direct=+0.402110 chain=+0.402110 gap=+0.000000
+K=16  SQRT_SIGMA   L6->L10 | direct=+0.191723 chain=+0.166538 gap=-0.025185
+K=16  SQRT_SIGMA   L10->L14 | direct=+0.095655 chain=+0.034752 gap=-0.060903
+K=16  SQRT_SIGMA   L14->L19 | direct=+0.015843 chain=-0.089033 gap=-0.104876
+K=16  SIGMA        L3->L6 | direct=+0.354515 chain=+0.354515 gap=+0.000000
+K=16  SIGMA        L6->L10 | direct=+0.179368 chain=+0.163253 gap=-0.016115
+K=16  SIGMA        L10->L14 | direct=+0.059986 chain=+0.037646 gap=-0.022340
+K=16  SIGMA        L14->L19 | direct=-0.011492 chain=-0.076284 gap=-0.064792
+K=16  PROCRUSTES   L3->L6 | direct=+0.431177 chain=+0.431177 gap=+0.000000
+K=16  PROCRUSTES   L6->L10 | direct=+0.186706 chain=+0.146844 gap=-0.039862
+K=16  PROCRUSTES   L10->L14 | direct=+0.140823 chain=+0.005885 gap=-0.134938
+K=16  PROCRUSTES   L14->L19 | direct=+0.037640 chain=-0.183252 gap=-0.220892
+K=32  UNWEIGHTED   L3->L6 | direct=+0.362657 chain=+0.362657 gap=+0.000000
+K=32  UNWEIGHTED   L6->L10 | direct=+0.172495 chain=+0.060503 gap=-0.111992
+K=32  UNWEIGHTED   L10->L14 | direct=+0.225165 chain=-0.032178 gap=-0.257343
+K=32  UNWEIGHTED   L14->L19 | direct=+0.101211 chain=-0.071679 gap=-0.172891
+K=32  SQRT_SIGMA   L3->L6 | direct=+0.401873 chain=+0.401873 gap=+0.000000
+K=32  SQRT_SIGMA   L6->L10 | direct=+0.190972 chain=+0.162968 gap=-0.028004
+K=32  SQRT_SIGMA   L10->L14 | direct=+0.134960 chain=+0.034872 gap=-0.100088
+K=32  SQRT_SIGMA   L14->L19 | direct=+0.044786 chain=-0.088654 gap=-0.133441
+K=32  SIGMA        L3->L6 | direct=+0.356665 chain=+0.356665 gap=+0.000000
+K=32  SIGMA        L6->L10 | direct=+0.179533 chain=+0.163348 gap=-0.016185
+K=32  SIGMA        L10->L14 | direct=+0.069440 chain=+0.037877 gap=-0.031563
+K=32  SIGMA        L14->L19 | direct=-0.004669 chain=-0.076417 gap=-0.071748
+K=32  PROCRUSTES   L3->L6 | direct=+0.362657 chain=+0.362657 gap=+0.000000
+K=32  PROCRUSTES   L6->L10 | direct=+0.172495 chain=+0.060503 gap=-0.111992
+K=32  PROCRUSTES   L10->L14 | direct=+0.225165 chain=-0.032178 gap=-0.257343
+K=32  PROCRUSTES   L14->L19 | direct=+0.101211 chain=-0.071679 gap=-0.172891
+
+[9/14] Semantic support decomposition...
+
+--- SUPPORT L3->L6 ---
+K=4   | A3 in U=0.045851 | A6 in V=0.092158 | coeff_cos=+0.931702 | V-ceiling=+0.303569 | actual=+0.282836 | util=+0.9317
+K=8   | A3 in U=0.072640 | A6 in V=0.147665 | coeff_cos=+0.928784 | V-ceiling=+0.384263 | actual=+0.356898 | util=+0.9288
+K=16  | A3 in U=0.106969 | A6 in V=0.227713 | coeff_cos=+0.903591 | V-ceiling=+0.477181 | actual=+0.431177 | util=+0.9036
+K=32  | A3 in U=0.182901 | A6 in V=0.248041 | coeff_cos=+0.728190 | V-ceiling=+0.498026 | actual=+0.362657 | util=+0.7282
+
+--- SUPPORT L6->L10 ---
+K=4   | A6 in U=0.093922 | A10 in V=0.047647 | coeff_cos=+0.714913 | V-ceiling=+0.218275 | actual=+0.156048 | util=+0.7149
+K=8   | A6 in U=0.135026 | A10 in V=0.087697 | coeff_cos=+0.737792 | V-ceiling=+0.296128 | actual=+0.218481 | util=+0.7378
+K=16  | A6 in U=0.214122 | A10 in V=0.139944 | coeff_cos=+0.499104 | V-ceiling=+0.374081 | actual=+0.186706 | util=+0.4991
+K=32  | A6 in U=0.249537 | A10 in V=0.254472 | coeff_cos=+0.341954 | V-ceiling=+0.504438 | actual=+0.172495 | util=+0.3420
+
+--- SUPPORT L10->L14 ---
+K=4   | A10 in U=0.062732 | A14 in V=0.001560 | coeff_cos=+0.699344 | V-ceiling=+0.039494 | actual=+0.027620 | util=+0.6993
+K=8   | A10 in U=0.096685 | A14 in V=0.019386 | coeff_cos=+0.449173 | V-ceiling=+0.139228 | actual=+0.062538 | util=+0.4492
+K=16  | A10 in U=0.189367 | A14 in V=0.076816 | coeff_cos=+0.508111 | V-ceiling=+0.277150 | actual=+0.140823 | util=+0.5081
+K=32  | A10 in U=0.290231 | A14 in V=0.156219 | coeff_cos=+0.569698 | V-ceiling=+0.395235 | actual=+0.225165 | util=+0.5697
+
+--- SUPPORT L14->L19 ---
+K=4   | A14 in U=0.005215 | A19 in V=0.034686 | coeff_cos=-0.060429 | V-ceiling=+0.186239 | actual=-0.011254 | util=-0.0604
+K=8   | A14 in U=0.020281 | A19 in V=0.069829 | coeff_cos=+0.079168 | V-ceiling=+0.264244 | actual=+0.020920 | util=+0.0792
+K=16  | A14 in U=0.074737 | A19 in V=0.105673 | coeff_cos=+0.115793 | V-ceiling=+0.325066 | actual=+0.037640 | util=+0.1158
+K=32  | A14 in U=0.154271 | A19 in V=0.272838 | coeff_cos=+0.193771 | V-ceiling=+0.522324 | actual=+0.101211 | util=+0.1938
+
+[10/14] Mode-by-mode semantic spectrum...
+
+--- MODES L3->L6 ---
+  i       sigma       <U,Aa>       <V,Ab>      product
+  1    0.625068    +0.185047    +0.294514    +0.054499
+  2    0.465966    +0.105808    +0.051386    +0.005437
+  3    0.262309    +0.020097    +0.037046    +0.000745
+  4    0.226240    +0.003088    -0.037508    -0.000116
+  5    0.175646    -0.051609    +0.012901    -0.000666
+  6    0.158377    +0.123401    +0.177245    +0.021872
+  7    0.130371    +0.052059    +0.103928    +0.005410
+  8    0.125546    +0.078664    +0.114560    +0.009012
+  9    0.106727    +0.076637    +0.106289    +0.008146
+ 10    0.097489    -0.035222    +0.012884    -0.000454
+ 11    0.089053    +0.137286    +0.174063    +0.023896
+ 12    0.079409    -0.049960    -0.122372    +0.006114
+ 13    0.064744    +0.038874    +0.066705    +0.002593
+ 14    0.059925    +0.063517    +0.066441    +0.004220
+ 15    0.051501    +0.013831    +0.089831    +0.001242
+ 16    0.049157    -0.011595    +0.079862    -0.000926
+
+--- MODES L6->L10 ---
+  i       sigma       <U,Aa>       <V,Ab>      product
+  1    2.794859    +0.296604    +0.167777    +0.049763
+  2    1.742672    -0.053436    +0.061805    -0.003303
+  3    1.123438    -0.032226    -0.114277    +0.003683
+  4    0.999019    -0.045317    +0.051170    -0.002319
+  5    0.657600    +0.058094    +0.140621    +0.008169
+  6    0.597830    -0.134861    -0.038113    +0.005140
+  7    0.477687    +0.006823    +0.014096    +0.000096
+  8    0.428736    +0.139623    +0.136472    +0.019055
+  9    0.377657    -0.253488    +0.022399    -0.005678
+ 10    0.329362    -0.036001    +0.026042    -0.000938
+ 11    0.304754    +0.027874    +0.014774    +0.000412
+ 12    0.273669    -0.051182    +0.051380    -0.002630
+ 13    0.252354    +0.091486    +0.077245    +0.007067
+ 14    0.230719    +0.035850    +0.180162    +0.006459
+ 15    0.206608    -0.002503    +0.067737    -0.000170
+ 16    0.192302    -0.022050    -0.072084    +0.001589
+
+--- MODES L10->L14 ---
+  i       sigma       <U,Aa>       <V,Ab>      product
+  1    7.181062    +0.205316    +0.037803    +0.007762
+  2    4.850935    +0.085469    +0.004234    +0.000362
+  3    3.847975    -0.115009    +0.010341    -0.001189
+  4    2.870953    +0.006690    -0.002432    -0.000016
+  5    1.731293    -0.099452    -0.098348    +0.009781
+  6    1.596564    -0.035733    +0.075374    -0.002693
+  7    1.454688    +0.150322    +0.032772    +0.004926
+  8    1.153514    +0.013755    +0.037392    +0.000514
+  9    1.054176    -0.010941    -0.068893    +0.000754
+ 10    0.944412    -0.013408    +0.076866    -0.001031
+ 11    0.852294    -0.028830    -0.130868    +0.003773
+ 12    0.708636    -0.046993    -0.040227    +0.001890
+ 13    0.631063    +0.081672    +0.130216    +0.010635
+ 14    0.530177    -0.173452    -0.024147    +0.004188
+ 15    0.519903    -0.156630    -0.093616    +0.014663
+ 16    0.495570    -0.167495    -0.041576    +0.006964
+
+--- MODES L14->L19 ---
+  i       sigma       <U,Aa>       <V,Ab>      product
+  1   23.969080    +0.035030    -0.064109    -0.002246
+  2   17.401573    +0.008105    +0.115613    +0.000937
+  3   10.138824    +0.010069    -0.127971    -0.001289
+  4    7.697594    +0.061814    +0.028869    +0.001785
+  5    7.241492    +0.115599    -0.023194    -0.002681
+  6    5.404923    -0.040562    -0.159955    +0.006488
+  7    4.421322    -0.006706    +0.045223    -0.000303
+  8    3.673829    -0.003452    -0.083508    +0.000288
+  9    2.617585    +0.038390    -0.047909    -0.001839
+ 10    2.299907    +0.187828    -0.008134    -0.001528
+ 11    1.931437    +0.022263    +0.000997    +0.000022
+ 12    1.615720    -0.060441    -0.020354    +0.001230
+ 13    1.457299    -0.107255    -0.025214    +0.002704
+ 14    1.240969    -0.030918    -0.072674    +0.002247
+ 15    1.120549    -0.027152    -0.164775    +0.004474
+ 16    0.986603    +0.018910    +0.000025    +0.000000
+
+[11/14] Summary matrix...
+   K METHOD             DIRECT       CHAIN         L19
+   4 UNWEIGHTED      +0.113812   +0.102995   -0.080790
+   4 SQRT_SIGMA      +0.113340   +0.104166   -0.079318
+   4 SIGMA           +0.112339   +0.105583   -0.075011
+   4 PROCRUSTES      +0.113812   +0.102995   -0.080790
+   8 UNWEIGHTED      +0.164709   +0.115706   -0.115800
+   8 SQRT_SIGMA      +0.150058   +0.116410   -0.083876
+   8 SIGMA           +0.134001   +0.112902   -0.076095
+   8 PROCRUSTES      +0.164709   +0.115706   -0.115800
+  16 UNWEIGHTED      +0.199087   +0.100163   -0.183252
+  16 SQRT_SIGMA      +0.176333   +0.128592   -0.089033
+  16 SIGMA           +0.145594   +0.119783   -0.076284
+  16 PROCRUSTES      +0.199087   +0.100163   -0.183252
+  32 UNWEIGHTED      +0.215382   +0.079826   -0.071679
+  32 SQRT_SIGMA      +0.193148   +0.127765   -0.088654
+  32 SIGMA           +0.150242   +0.120368   -0.076417
+  32 PROCRUSTES      +0.215382   +0.079826   -0.071679
+
+[12/14] Mechanistic diagnosis...
+Primary K16 unweighted mean direct cosine : +0.199087
+Primary K16 unweighted mean chain cosine  : +0.100163
+Primary K16 chain cosine at L19           : -0.183252
+K32 unweighted mean direct cosine         : +0.215382
+K32 SIGMA mean direct cosine              : +0.150242
+SIGMA - UNWEIGHTED                        : -0.065140
+
+DIRECT STATUS : LOW
+CHAIN STATUS  : DIRECT_MAP_MISMATCH
+
+DIAGNOSIS
+Natural cross-covariance transport does not directly reconstruct the independently extracted layer-local ABOVE/BELOW semantic coordinates well enough under the primary TEST155 mapping. TEST155 RELAY failure is therefore consistent with a semantic-map mismatch rather than disappearance of the underlying perturbation.
+
+[13/14] Saving CSV / JSON / NPZ...
+
+[14/14] COMPLETE
+======================================================================================================================================================
+Atlas fingerprint max error : 0.9885%
+K16 direct mean cosine      : +0.199087
+K16 chained mean cosine     : +0.100163
+K16 chained L19 cosine      : -0.183252
+K32 sigma advantage         : -0.065140
+Diagnosis                   : DIRECT_MAP_MISMATCH
+
+Saved:
+  /content/TEST156_SEMANTIC_TRANSPORT_XRAY/DIRECT_TRANSPORT.csv
+  /content/TEST156_SEMANTIC_TRANSPORT_XRAY/CHAIN_TRANSPORT.csv
+  /content/TEST156_SEMANTIC_TRANSPORT_XRAY/SEMANTIC_SUPPORT.csv
+  /content/TEST156_SEMANTIC_TRANSPORT_XRAY/MODE_SPECTRUM.csv
+  /content/TEST156_SEMANTIC_TRANSPORT_XRAY/SUMMARY.csv
+  /content/TEST156_SEMANTIC_TRANSPORT_XRAY/REPORT.json
+  /content/TEST156_SEMANTIC_TRANSPORT_XRAY/TEST156_SEMANTIC_TRANSPORT_XRAY.npz
+======================================================================================================================================================
+TEST 156 COMPLETE
+======================================================================================================================================================
