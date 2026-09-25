@@ -1,0 +1,432 @@
+ ==========================================================================================================================================================
+TEST 180 — FIVE-AXIS FROZEN DOWNSTREAM VALIDATION
+A/B/C/D SUCCESS vs E FAILURE — TEST179 MECHANISTIC FINGERPRINT VALIDATION
+==========================================================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB
+Model: Qwen/Qwen2.5-7B-Instruct
+Axes: A ABOVE/BELOW | B BEFORE/AFTER | C INSIDE/OUTSIDE | D OPEN/CLOSED | E CAUSE/EFFECT
+Locked SEASC RSS: 0.250235055
+Primary scale: 0.5
+
+[1/24] Compiling frozen SEASC...
+       OK
+
+[2/24] Loading frozen model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 87.1kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 824kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 65.6MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 64.2MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 112MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 2.96MB/s]Download complete: :  13.1GB,  188MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  579MB/s  Fetching 4 files: 100% 4/4 [00:38<00:00,  6.73s/it]Loading weights: 100% 339/339 [00:03<00:00, 98.91it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.5kB/s]       hidden: 3584 dtype: torch.bfloat16
+
+[3/24] Loading five frozen semantic axis definitions...
+
+[4/24] Reconstructing five independent Fisher/Bank axes...
+
+       AXIS A — ABOVE↔BELOW
+       A pair 01/16
+       A pair 02/16
+       A pair 03/16
+       A pair 04/16
+       A pair 05/16
+       A pair 06/16
+       A pair 07/16
+       A pair 08/16
+       A pair 09/16
+       A pair 10/16
+       A pair 11/16
+       A pair 12/16
+       A pair 13/16
+       A pair 14/16
+       A pair 15/16
+       A pair 16/16
+       mean cos(F,B)=+0.813128 residual=0.566641
+
+       AXIS B — BEFORE↔AFTER
+       B pair 01/16
+       B pair 02/16
+       B pair 03/16
+       B pair 04/16
+       B pair 05/16
+       B pair 06/16
+       B pair 07/16
+       B pair 08/16
+       B pair 09/16
+       B pair 10/16
+       B pair 11/16
+       B pair 12/16
+       B pair 13/16
+       B pair 14/16
+       B pair 15/16
+       B pair 16/16
+       mean cos(F,B)=+0.791220 residual=0.601977
+
+       AXIS C — INSIDE↔OUTSIDE
+       C pair 01/16
+       C pair 02/16
+       C pair 03/16
+       C pair 04/16
+       C pair 05/16
+       C pair 06/16
+       C pair 07/16
+       C pair 08/16
+       C pair 09/16
+       C pair 10/16
+       C pair 11/16
+       C pair 12/16
+       C pair 13/16
+       C pair 14/16
+       C pair 15/16
+       C pair 16/16
+       mean cos(F,B)=+0.804486 residual=0.575455
+
+       AXIS D — OPEN↔CLOSED
+       D pair 01/16
+       D pair 02/16
+       D pair 03/16
+       D pair 04/16
+       D pair 05/16
+       D pair 06/16
+       D pair 07/16
+       D pair 08/16
+       D pair 09/16
+       D pair 10/16
+       D pair 11/16
+       D pair 12/16
+       D pair 13/16
+       D pair 14/16
+       D pair 15/16
+       D pair 16/16
+       mean cos(F,B)=+0.841642 residual=0.534012
+
+       AXIS E — CAUSE↔EFFECT
+       E pair 01/16
+       E pair 02/16
+       E pair 03/16
+       E pair 04/16
+       E pair 05/16
+       E pair 06/16
+       E pair 07/16
+       E pair 08/16
+       E pair 09/16
+       E pair 10/16
+       E pair 11/16
+       E pair 12/16
+       E pair 13/16
+       E pair 14/16
+       E pair 15/16
+       E pair 16/16
+       mean cos(F,B)=+0.814657 residual=0.567868
+
+[5/24] Building frozen P8...
+       probe 1/8
+       probe 2/8
+       probe 3/8
+       probe 4/8
+       probe 5/8
+       probe 6/8
+       probe 7/8
+       probe 8/8
+       P8 ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+
+[6/24] Loading frozen causal-gradient families...
+
+[7/24] Reconstructing five frozen causal-gradient vectors...
+
+       AXIS A — ABOVE↔BELOW
+       A family A 1/4
+       A family A 2/4
+       A family A 3/4
+       A family A 4/4
+       A family B 1/4
+       A family B 2/4
+       A family B 3/4
+       A family B 4/4
+       A family C 1/4
+       A family C 2/4
+       A family C 3/4
+       A family C 4/4
+       A family D 1/4
+       A family D 2/4
+       A family D 3/4
+       A family D 4/4
+       mean causal/Fisher cos=+0.041119
+       mean Fisher-orthogonal component=0.998408
+
+       AXIS B — BEFORE↔AFTER
+       B family A 1/4
+       B family A 2/4
+       B family A 3/4
+       B family A 4/4
+       B family B 1/4
+       B family B 2/4
+       B family B 3/4
+       B family B 4/4
+       B family C 1/4
+       B family C 2/4
+       B family C 3/4
+       B family C 4/4
+       B family D 1/4
+       B family D 2/4
+       B family D 3/4
+       B family D 4/4
+       mean causal/Fisher cos=+0.040847
+       mean Fisher-orthogonal component=0.998726
+
+       AXIS C — INSIDE↔OUTSIDE
+       C family A 1/4
+       C family A 2/4
+       C family A 3/4
+       C family A 4/4
+       C family B 1/4
+       C family B 2/4
+       C family B 3/4
+       C family B 4/4
+       C family C 1/4
+       C family C 2/4
+       C family C 3/4
+       C family C 4/4
+       C family D 1/4
+       C family D 2/4
+       C family D 3/4
+       C family D 4/4
+       mean causal/Fisher cos=+0.044403
+       mean Fisher-orthogonal component=0.998608
+
+       AXIS D — OPEN↔CLOSED
+       D family A 1/4
+       D family A 2/4
+       D family A 3/4
+       D family A 4/4
+       D family B 1/4
+       D family B 2/4
+       D family B 3/4
+       D family B 4/4
+       D family C 1/4
+       D family C 2/4
+       D family C 3/4
+       D family C 4/4
+       D family D 1/4
+       D family D 2/4
+       D family D 3/4
+       D family D 4/4
+       mean causal/Fisher cos=+0.034938
+       mean Fisher-orthogonal component=0.998879
+
+       AXIS E — CAUSE↔EFFECT
+       E family A 1/4
+       E family A 2/4
+       E family A 3/4
+       E family A 4/4
+       E family B 1/4
+       E family B 2/4
+       E family B 3/4
+       E family B 4/4
+       E family C 1/4
+       E family C 2/4
+       E family C 3/4
+       E family C 4/4
+       E family D 1/4
+       E family D 2/4
+       E family D 3/4
+       E family D 4/4
+       mean causal/Fisher cos=+0.029664
+       mean Fisher-orthogonal component=0.999519
+
+[8/24] Preparing fresh X-ray sets...
+
+[9/24] Capturing five-axis trajectories...
+
+       AXIS A — ABOVE↔BELOW
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+
+       AXIS B — BEFORE↔AFTER
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+
+       AXIS C — INSIDE↔OUTSIDE
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+
+       AXIS D — OPEN↔CLOSED
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+
+       AXIS E — CAUSE↔EFFECT
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+
+[10/24] Computing layerwise downstream geometry...
+       L00 | A rel=0.000 tar=+0.000 cos=+0.000 | B rel=0.000 tar=+0.000 cos=+0.000 | C rel=0.000 tar=+0.000 cos=+0.000 | D rel=0.000 tar=+0.000 cos=+0.000 | E rel=0.000 tar=+0.000 cos=+0.000
+       L01 | A rel=0.059 tar=+0.019 cos=+0.021 | B rel=0.072 tar=+0.206 cos=+0.185 | C rel=0.068 tar=-0.283 cos=-0.270 | D rel=0.051 tar=+0.011 cos=+0.014 | E rel=0.072 tar=+0.250 cos=+0.227
+       L02 | A rel=0.100 tar=+0.739 cos=+0.400 | B rel=0.121 tar=-0.236 cos=-0.106 | C rel=0.081 tar=+0.326 cos=+0.220 | D rel=0.080 tar=+0.579 cos=+0.388 | E rel=0.117 tar=+0.260 cos=+0.122
+       L03 | A rel=0.181 tar=+0.340 cos=+0.100 | B rel=0.141 tar=+0.731 cos=+0.276 | C rel=0.127 tar=+0.407 cos=+0.172 | D rel=0.132 tar=+0.094 cos=+0.038 | E rel=0.165 tar=+0.715 cos=+0.230
+       L04 | A rel=0.229 tar=+1.017 cos=+0.190 | B rel=0.196 tar=+0.701 cos=+0.156 | C rel=0.159 tar=-0.293 cos=-0.080 | D rel=0.169 tar=+0.757 cos=+0.194 | E rel=0.215 tar=+0.143 cos=+0.029
+       L05 | A rel=0.240 tar=+1.727 cos=+0.233 | B rel=0.199 tar=+1.311 cos=+0.214 | C rel=0.147 tar=+0.433 cos=+0.096 | D rel=0.186 tar=+0.398 cos=+0.068 | E rel=0.219 tar=-0.176 cos=-0.026
+       L06 | A rel=0.280 tar=-0.392 cos=-0.044 | B rel=0.235 tar=+1.298 cos=+0.171 | C rel=0.167 tar=+0.452 cos=+0.084 | D rel=0.214 tar=+0.913 cos=+0.133 | E rel=0.227 tar=+1.399 cos=+0.191
+       L07 | A rel=0.282 tar=-0.574 cos=-0.063 | B rel=0.264 tar=-0.842 cos=-0.099 | C rel=0.172 tar=-0.507 cos=-0.091 | D rel=0.237 tar=+0.003 cos=+0.000 | E rel=0.248 tar=+1.820 cos=+0.226
+       L08 | A rel=0.313 tar=+0.701 cos=+0.065 | B rel=0.288 tar=+0.741 cos=+0.074 | C rel=0.192 tar=+0.217 cos=+0.032 | D rel=0.279 tar=+1.376 cos=+0.145 | E rel=0.327 tar=-0.230 cos=-0.020
+       L09 | A rel=0.287 tar=-0.351 cos=-0.029 | B rel=0.316 tar=+0.390 cos=+0.030 | C rel=0.193 tar=-0.162 cos=-0.020 | D rel=0.299 tar=-0.982 cos=-0.079 | E rel=0.320 tar=+0.225 cos=+0.016
+       L10 | A rel=0.281 tar=+0.510 cos=+0.041 | B rel=0.314 tar=+1.052 cos=+0.075 | C rel=0.182 tar=+0.892 cos=+0.110 | D rel=0.293 tar=+0.050 cos=+0.004 | E rel=0.318 tar=-0.793 cos=-0.057
+       L11 | A rel=0.269 tar=+0.910 cos=+0.073 | B rel=0.293 tar=+1.000 cos=+0.072 | C rel=0.166 tar=+1.019 cos=+0.131 | D rel=0.279 tar=+0.430 cos=+0.033 | E rel=0.279 tar=-0.508 cos=-0.039
+       L12 | A rel=0.251 tar=+0.815 cos=+0.068 | B rel=0.289 tar=+1.541 cos=+0.113 | C rel=0.171 tar=+0.669 cos=+0.082 | D rel=0.289 tar=+0.575 cos=+0.042 | E rel=0.254 tar=-0.204 cos=-0.017
+       L13 | A rel=0.234 tar=-1.344 cos=-0.105 | B rel=0.300 tar=+2.618 cos=+0.161 | C rel=0.200 tar=+1.599 cos=+0.147 | D rel=0.274 tar=-0.642 cos=-0.043 | E rel=0.229 tar=+0.784 cos=+0.063
+       L14 | A rel=0.206 tar=+0.340 cos=+0.027 | B rel=0.296 tar=+2.123 cos=+0.121 | C rel=0.206 tar=+0.135 cos=+0.011 | D rel=0.267 tar=+0.720 cos=+0.045 | E rel=0.224 tar=+0.229 cos=+0.017
+       L15 | A rel=0.209 tar=+0.081 cos=+0.006 | B rel=0.310 tar=+1.847 cos=+0.101 | C rel=0.211 tar=-0.125 cos=-0.010 | D rel=0.270 tar=+0.374 cos=+0.023 | E rel=0.225 tar=+0.846 cos=+0.065
+       L16 | A rel=0.239 tar=+0.794 cos=+0.055 | B rel=0.337 tar=+2.241 cos=+0.110 | C rel=0.232 tar=+0.987 cos=+0.070 | D rel=0.287 tar=+1.136 cos=+0.065 | E rel=0.236 tar=+0.625 cos=+0.044
+       L17 | A rel=0.250 tar=+0.074 cos=+0.004 | B rel=0.340 tar=+2.485 cos=+0.108 | C rel=0.255 tar=+1.490 cos=+0.086 | D rel=0.293 tar=+1.782 cos=+0.089 | E rel=0.230 tar=+1.317 cos=+0.087
+       L18 | A rel=0.266 tar=-0.317 cos=-0.016 | B rel=0.352 tar=+3.202 cos=+0.123 | C rel=0.276 tar=+1.947 cos=+0.097 | D rel=0.325 tar=+1.446 cos=+0.061 | E rel=0.245 tar=+1.142 cos=+0.064
+       L19 | A rel=0.259 tar=+0.946 cos=+0.043 | B rel=0.368 tar=+2.982 cos=+0.097 | C rel=0.296 tar=+2.079 cos=+0.083 | D rel=0.324 tar=+2.231 cos=+0.080 | E rel=0.261 tar=-0.548 cos=-0.025
+
+[11/24] Zone summaries...
+       A EARLY rel=0.1138 target=+0.4230 cos=+0.1420 growth=2.805
+       A MID1  rel=0.2807 target=+0.2221 cos=+0.0324 growth=11.048
+       A MID2  rel=0.2482 target=+0.2460 cos=+0.0209 growth=15.274
+       A LATE  rel=0.2447 target=+0.3157 cos=+0.0185 growth=19.442
+       B EARLY rel=0.1060 target=+0.2803 cos=+0.1021 growth=2.580
+       B MID1  rel=0.2605 target=+0.5795 cos=+0.0780 growth=10.406
+       B MID2  rel=0.2983 target=+1.6666 cos=+0.1084 growth=18.523
+       B LATE  rel=0.3414 target=+2.5514 cos=+0.1079 growth=27.103
+       C EARLY rel=0.0868 target=+0.0313 cos=+0.0084 growth=2.114
+       C MID1  rel=0.1742 target=+0.0866 cos=+0.0202 growth=6.891
+       C MID2  rel=0.1850 target=+0.8628 cos=+0.0963 growth=11.572
+       C LATE  rel=0.2541 target=+1.2755 cos=+0.0653 growth=20.230
+       D EARLY rel=0.0866 target=+0.2882 cos=+0.1267 growth=2.125
+       D MID1  rel=0.2430 target=+0.3416 cos=+0.0536 growth=9.726
+       D MID2  rel=0.2804 target=+0.2265 cos=+0.0162 growth=17.386
+       D LATE  rel=0.2998 target=+1.3935 cos=+0.0637 growth=23.817
+       E EARLY rel=0.1139 target=+0.2735 cos=+0.1216 growth=2.783
+       E MID1  rel=0.2680 target=+0.6076 cos=+0.0775 growth=10.714
+       E MID2  rel=0.2607 target=-0.0985 cos=-0.0064 growth=16.000
+       E LATE  rel=0.2394 target=+0.6762 cos=+0.0468 growth=19.004
+
+[12/24] Late-layer target-retention fingerprint...
+       A ABOVE↔BELOW     late target=+0.315720 late cos=+0.018500 L19 target=+0.945855 angle=87.53°
+       B BEFORE↔AFTER    late target=+2.551418 late cos=+0.107899 L19 target=+2.982019 angle=84.45°
+       C INSIDE↔OUTSIDE  late target=+1.275453 late cos=+0.065259 L19 target=+2.078866 angle=85.25°
+       D OPEN↔CLOSED     late target=+1.393452 late cos=+0.063651 L19 target=+2.230607 angle=85.41°
+       E CAUSE↔EFFECT    late target=+0.676225 late cos=+0.046830 L19 target=-0.548187 angle=91.43°
+
+[13/24] Target-sign survival...
+       A: positive=14/20 late=4/5 sign changes=8
+       B: positive=17/20 late=5/5 sign changes=4
+       C: positive=14/20 late=4/5 sign changes=9
+       D: positive=17/20 late=5/5 sign changes=4
+       E: positive=13/20 late=4/5 sign changes=7
+
+[14/24] Rotation profile...
+       A L19 angle=87.527°
+       B L19 angle=84.453°
+       C L19 angle=85.247°
+       D L19 angle=85.414°
+       E L19 angle=91.434°
+
+[15/24] Family coherence...
+       A pairwise family mean=+0.030715
+       B pairwise family mean=+0.077766
+       C pairwise family mean=+0.034083
+       D pairwise family mean=+0.006105
+       E pairwise family mean=-0.000971
+
+[16/24] PCA / effective rank...
+       complete
+
+[17/24] Bootstrap late target retention...
+       A late target=+0.315720 [+0.283509,+0.352492]
+       B late target=+2.551418 [+2.508781,+2.601499]
+       C late target=+1.275454 [+1.241284,+1.311586]
+       D late target=+1.393452 [+1.358026,+1.426057]
+       E late target=+0.676225 [+0.641961,+0.701606]
+
+[18/24] A/B/C/D success-group vs E...
+       successful axes late target mean=+1.384011
+       failed E late target=+0.676225
+       successful axes late cos mean=+0.063827
+       failed E late cos=+0.046830
+
+[19/24] Leave-one-success-out descriptive check...
+       hold A: train floor=+1.275453 held=+0.315720 E=+0.676225
+       hold B: train floor=+0.315720 held=+2.551418 E=+0.676225
+       hold C: train floor=+0.315720 held=+1.275453 E=+0.676225
+       hold D: train floor=+0.315720 held=+1.393452 E=+0.676225
+
+[20/24] TEST180 validation decision...
+       successful late-positive: 4 /4
+       successful L19-positive: 4 /4
+       E late-positive: True
+       E L19-positive: False
+       DECISION: FOUR_SUCCESS_AXES_LATE_TARGET_SIGNATURE_REPLICATED__FAILED_AXIS_BREAKS_SIGNATURE
+
+[21/24] Scientific flags...
+       five_axes: True
+       successful_axes: ['A_ABOVE_BELOW', 'B_BEFORE_AFTER', 'C_INSIDE_OUTSIDE', 'D_OPEN_CLOSED']
+       failed_axis: E_CAUSE_EFFECT
+       xray_only: True
+       fresh_xray_prompts: True
+       previous_final_prompts_reused: False
+       final_used_for_selection: False
+       vector_selection: False
+       layer_selection: False
+       rank_selection: False
+       envelope_selection: False
+       runtime_controller: False
+       weights_modified: False
+       universal_rule_proven: False
+       test179_hypothesis_under_validation: True
+
+[22/24] Saving...
+       Saved: /content/TEST180_FIVE_AXIS_FROZEN_DOWNSTREAM_VALIDATION
+
+[23/24] Scientific boundary...
+       TEST180 performs no new vector or hyperparameter selection.
+       A/B/C/D are previously successful forge lineages; E is the previously failed fifth-axis lineage.
+       The test asks whether the TEST179 late target-retention observation generalizes across successful axes.
+       Similar source Fisher-orthogonality is not assumed sufficient for downstream behavioral success.
+       A repeated late-layer signature would be a mechanistic correlate, not proof of a universal law.
+       Failure of E to share the signature would not by itself prove that late target retention is the unique cause of failure.
+
+[24/24] COMPLETE
+==========================================================================================================================================================
+TEST 180 — FIVE-AXIS FROZEN DOWNSTREAM VALIDATION — SUMMARY
+==========================================================================================================================================================
+A ABOVE↔BELOW     PRIOR-SUCCESS orth=0.998408 late_rel=0.244655 late_target=+0.315720 late_cos=+0.018500 L19_target=+0.945855 L19_angle=87.53°
+B BEFORE↔AFTER    PRIOR-SUCCESS orth=0.998726 late_rel=0.341368 late_target=+2.551418 late_cos=+0.107899 L19_target=+2.982019 L19_angle=84.45°
+C INSIDE↔OUTSIDE  PRIOR-SUCCESS orth=0.998608 late_rel=0.254122 late_target=+1.275453 late_cos=+0.065259 L19_target=+2.078866 L19_angle=85.25°
+D OPEN↔CLOSED     PRIOR-SUCCESS orth=0.998879 late_rel=0.299803 late_target=+1.393452 late_cos=+0.063651 L19_target=+2.230607 L19_angle=85.41°
+E CAUSE↔EFFECT    PRIOR-FAILURE orth=0.999519 late_rel=0.239444 late_target=+0.676225 late_cos=+0.046830 L19_target=-0.548187 L19_angle=91.43°
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+Successful axes late-positive : 4 /4
+Successful axes L19-positive  : 4 /4
+Failed E late-positive        : True
+Failed E L19-positive         : False
+DECISION: FOUR_SUCCESS_AXES_LATE_TARGET_SIGNATURE_REPLICATED__FAILED_AXIS_BREAKS_SIGNATURE
+Saved: /content/TEST180_FIVE_AXIS_FROZEN_DOWNSTREAM_VALIDATION
+==========================================================================================================================================================
