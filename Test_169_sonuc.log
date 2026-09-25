@@ -1,0 +1,300 @@
+ ==========================================================================================================================================================
+TEST 169 — GUARDED CAUSAL-GRADIENT SYNTHETIC VECTOR FORGE
+FISHER + RETENTION-NULL CAUSAL ACTIVATION GRADIENT
+==========================================================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB
+Model: Qwen/Qwen2.5-7B-Instruct
+Layers: L0-L19 | guard=P8 | coarse alpha: [-2.0, -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+
+[1/20] Compiling SEASC...
+       OK
+
+[2/20] Loading frozen model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 82.6kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 884kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 31.5MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 76.7MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 132MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.31MB/s]Download complete: :  13.1GB, 6.01MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB, 73.6MB/s  Fetching 4 files: 100% 4/4 [01:09<00:00, 18.58s/it]Loading weights: 100% 339/339 [00:03<00:00, 99.26it/s]generation_config.json: 100% 243/243 [00:00<00:00, 32.9kB/s]       hidden: 3584 dtype: torch.bfloat16
+
+[3/20] Building Fisher / Bank / Residual reference geometry...
+       pair 01/16
+       pair 02/16
+       pair 03/16
+       pair 04/16
+       pair 05/16
+       pair 06/16
+       pair 07/16
+       pair 08/16
+       pair 09/16
+       pair 10/16
+       pair 11/16
+       pair 12/16
+       pair 13/16
+       pair 14/16
+       pair 15/16
+       pair 16/16
+       L00 cos(F,B)=+0.957046 residual=0.289934
+       L01 cos(F,B)=+0.945882 residual=0.324511
+       L02 cos(F,B)=+0.923687 residual=0.383148
+       L03 cos(F,B)=+0.905784 residual=0.423739
+       L04 cos(F,B)=+0.827902 residual=0.560873
+       L05 cos(F,B)=+0.787565 residual=0.616231
+       L06 cos(F,B)=+0.783951 residual=0.620823
+       L07 cos(F,B)=+0.851357 residual=0.524587
+       L08 cos(F,B)=+0.877778 residual=0.479067
+       L09 cos(F,B)=+0.880560 residual=0.473935
+       L10 cos(F,B)=+0.868166 residual=0.496274
+       L11 cos(F,B)=+0.863361 residual=0.504587
+       L12 cos(F,B)=+0.872287 residual=0.488994
+       L13 cos(F,B)=+0.866555 residual=0.499081
+       L14 cos(F,B)=+0.869072 residual=0.494686
+       L15 cos(F,B)=+0.870898 residual=0.491464
+       L16 cos(F,B)=+0.860497 residual=0.509455
+       L17 cos(F,B)=+0.861645 residual=0.507511
+       L18 cos(F,B)=+0.766311 residual=0.642469
+       L19 cos(F,B)=+0.772911 residual=0.634515
+       mean cos=+0.860661 | mean residual=0.498294
+
+[4/20] Computing P8 retention-sensitive activation gradients...
+       probe 1/8 | NLL=10.108150 | mean ||g||=5.017349e+00
+       probe 2/8 | NLL=10.067118 | mean ||g||=4.504144e+00
+       probe 3/8 | NLL=12.503087 | mean ||g||=3.515239e+00
+       probe 4/8 | NLL=11.644833 | mean ||g||=3.911535e+00
+       probe 5/8 | NLL=12.823627 | mean ||g||=5.401210e+00
+       probe 6/8 | NLL=9.968038 | mean ||g||=5.083509e+00
+       probe 7/8 | NLL=9.568528 | mean ||g||=4.566213e+00
+       probe 8/8 | NLL=10.291623 | mean ||g||=5.011105e+00
+       P8 ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+       Fisher overlap=0.002564 | Bank overlap=0.002598
+
+[5/20] Forging causal-margin activation-gradient source...
+       family A item 1/4
+       family A item 2/4
+       family A item 3/4
+       family A item 4/4
+       family B item 1/4
+       family B item 2/4
+       family B item 3/4
+       family B item 4/4
+       family C item 1/4
+       family C item 2/4
+       family C item 3/4
+       family C item 4/4
+       family D item 1/4
+       family D item 2/4
+       family D item 3/4
+       family D item 4/4
+       mean cos(Causal,Fisher)=+0.040625
+       causal retention overlap=0.026588
+       mean causal component orthogonal to Fisher=0.998925
+
+[6/20] Coarse synthetic alpha search...
+       α=-2.00 C=-1.245906 worst=-1.527049 sd=0.289229 KL=2.173339 Ret=0.684456 Dp=0.269128
+       α=-1.75 C=-1.228673 worst=-1.502743 sd=0.294876 KL=2.106413 Ret=0.724255 Dp=0.262490
+       α=-1.50 C=-1.202866 worst=-1.505922 sd=0.321493 KL=1.938970 Ret=0.763209 Dp=0.255309
+       α=-1.25 C=-1.170535 worst=-1.493421 sd=0.329949 KL=1.752828 Ret=0.821017 Dp=0.245240
+       α=-1.00 C=-1.103505 worst=-1.436372 sd=0.340166 KL=1.556873 Ret=0.922739 Dp=0.228847
+       α=-0.75 C=-1.021530 worst=-1.346426 sd=0.336553 KL=1.211829 Ret=0.868016 Dp=0.207822
+       α=-0.50 C=-0.860805 worst=-1.146949 sd=0.328172 KL=0.881678 Ret=0.779303 Dp=0.177774
+       α=-0.25 C=-0.553526 worst=-1.007047 sd=0.350165 KL=0.602278 Ret=0.820010 Dp=0.147411
+       α=+0.00 C=+0.235545 worst=+0.138137 sd=0.083692 KL=0.637215 Ret=0.751176 Dp=0.144425
+       α=+0.25 C=+0.804559 worst=+0.645640 sd=0.185141 KL=0.913701 Ret=0.653059 Dp=0.175677
+       α=+0.50 C=+1.002087 worst=+0.821305 sd=0.165903 KL=1.209482 Ret=0.756757 Dp=0.214281
+       α=+0.75 C=+1.106433 worst=+0.960365 sd=0.151209 KL=1.554126 Ret=0.794723 Dp=0.241834
+       α=+1.00 C=+1.168877 worst=+1.042999 sd=0.140827 KL=1.737949 Ret=0.940468 Dp=0.260655
+       α=+1.25 C=+1.209185 worst=+1.053833 sd=0.140454 KL=1.962932 Ret=0.972711 Dp=0.272311
+       α=+1.50 C=+1.237384 worst=+1.060603 sd=0.152292 KL=2.125754 Ret=1.053001 Dp=0.280835
+       α=+1.75 C=+1.258962 worst=+1.059868 sd=0.158225 KL=2.202643 Ret=1.030913 Dp=0.285950
+       α=+2.00 C=+1.276596 worst=+1.080021 sd=0.168560 KL=2.290916 Ret=1.065758 Dp=0.289433
+
+[7/20] Coarse viability / Pareto...
+       Cmax: +1.276596 | viable: 5 | safe: 0 | Pareto: [2.0, 1.5, 1.75, 1.25, 1.0]
+       coarse center: +2.000
+
+[8/20] Fine search...
+       α=+1.750 C=+1.258962 worst=+1.059868 KL=2.202643 Ret=1.030913 Dp=0.285950
+       α=+1.850 C=+1.266363 worst=+1.072230 KL=2.269914 Ret=1.060484 Dp=0.288095
+       α=+1.950 C=+1.268837 worst=+1.079938 KL=2.306590 Ret=1.069865 Dp=0.289016
+       α=+2.050 C=+1.277021 worst=+1.076890 KL=2.286904 Ret=1.077051 Dp=0.290193
+       α=+2.150 C=+1.276335 worst=+1.069262 KL=2.337862 Ret=1.043297 Dp=0.290811
+       α=+2.250 C=+1.283281 worst=+1.084647 KL=2.361093 Ret=1.044339 Dp=0.291841
+
+[9/20] LOFO stability...
+       hold A -> α=+2.250 C=+1.222272 worst=+1.084647
+       hold B -> α=+2.250 C=+1.248991 worst=+1.084647
+       hold C -> α=+2.250 C=+1.312368 worst=+1.084647
+       hold D -> α=+1.750 C=+1.325327 worst=+1.207350
+
+[10/20] Micro stability...
+       α=+1.750 micro=+1.25954/+1.25896/+1.26496 sd=0.003309 curv=+0.006574
+       α=+1.850 micro=+1.26496/+1.26636/+1.26651 sd=0.000854 curv=-0.001260
+       α=+1.950 micro=+1.26651/+1.26884/+1.27660 sd=0.005283 curv=+0.005427
+       α=+2.050 micro=+1.27660/+1.27702/+1.27808 sd=0.000762 curv=+0.000630
+       α=+2.150 micro=+1.27808/+1.27634/+1.28114 sd=0.002430 curv=+0.006541
+       α=+2.250 micro=+1.28114/+1.28328/+1.29110 sd=0.005243 curv=+0.005672
+
+[11/20] FREEZE...
+       FROZEN α = +2.250000
+       C=+1.283281 worst=+1.084647 microSD=0.005243 KL=2.361093 Ret=1.044339
+       LOFO alphas: [2.25, 2.25, 2.25, 1.75]
+       FINAL remains unopened.
+
+[12/20] FINAL — FIRST ACCESS AFTER FREEZE...
+
+       DOSE=0.125
+       FISHER_RAW     C=+0.021360 P+=11/16 KL=0.020546 Ret|dNLL|=0.265679
+       FISHER_GUARD   C=+0.016869 P+=08/16 KL=0.012542 Ret|dNLL|=0.153239
+       BANK_RAW       C=-0.019009 P+=07/16 KL=0.020509 Ret|dNLL|=0.190811
+       BANK_GUARD     C=-0.020266 P+=04/16 KL=0.017412 Ret|dNLL|=0.213528
+       CAUSAL_ORTH    C=+0.799662 P+=16/16 KL=0.151858 Ret|dNLL|=0.191950
+       SYNTH_RAW      C=+0.742799 P+=16/16 KL=0.143152 Ret|dNLL|=0.198306
+       SYNTH_GUARD    C=+0.746258 P+=16/16 KL=0.138929 Ret|dNLL|=0.201771
+
+       DOSE=0.250
+       FISHER_RAW     C=+0.038252 P+=09/16 KL=0.111985 Ret|dNLL|=0.511684
+       FISHER_GUARD   C=+0.046307 P+=12/16 KL=0.074688 Ret|dNLL|=0.341277
+       BANK_RAW       C=-0.009292 P+=08/16 KL=0.079767 Ret|dNLL|=0.393203
+       BANK_GUARD     C=-0.013924 P+=09/16 KL=0.063767 Ret|dNLL|=0.419060
+       CAUSAL_ORTH    C=+1.362765 P+=16/16 KL=0.458912 Ret|dNLL|=0.405388
+       SYNTH_RAW      C=+1.282569 P+=16/16 KL=0.435183 Ret|dNLL|=0.478352
+       SYNTH_GUARD    C=+1.277353 P+=16/16 KL=0.436131 Ret|dNLL|=0.486849
+
+       DOSE=0.500
+       FISHER_RAW     C=+0.081662 P+=12/16 KL=0.591788 Ret|dNLL|=0.885298
+       FISHER_GUARD   C=+0.080459 P+=11/16 KL=0.383201 Ret|dNLL|=0.727141
+       BANK_RAW       C=+0.052945 P+=11/16 KL=0.427192 Ret|dNLL|=0.813059
+       BANK_GUARD     C=+0.033716 P+=10/16 KL=0.303896 Ret|dNLL|=0.886783
+       CAUSAL_ORTH    C=+1.459602 P+=16/16 KL=1.291344 Ret|dNLL|=0.935389
+       SYNTH_RAW      C=+1.406414 P+=16/16 KL=1.191136 Ret|dNLL|=1.054101
+       SYNTH_GUARD    C=+1.401038 P+=16/16 KL=1.190131 Ret|dNLL|=1.044339
+
+       DOSE=0.750
+       FISHER_RAW     C=+0.076932 P+=09/16 KL=1.272864 Ret|dNLL|=1.099586
+       FISHER_GUARD   C=+0.079940 P+=08/16 KL=0.950289 Ret|dNLL|=0.927694
+       BANK_RAW       C=+0.125663 P+=12/16 KL=1.161182 Ret|dNLL|=0.881530
+       BANK_GUARD     C=+0.091744 P+=11/16 KL=0.882724 Ret|dNLL|=1.044894
+       CAUSAL_ORTH    C=+1.423262 P+=16/16 KL=2.134831 Ret|dNLL|=0.943328
+       SYNTH_RAW      C=+1.367489 P+=16/16 KL=2.011146 Ret|dNLL|=1.389565
+       SYNTH_GUARD    C=+1.370855 P+=16/16 KL=2.015975 Ret|dNLL|=1.374574
+
+       DOSE=1.000
+       FISHER_RAW     C=+0.006126 P+=08/16 KL=1.850390 Ret|dNLL|=1.124184
+       FISHER_GUARD   C=-0.018599 P+=06/16 KL=1.498133 Ret|dNLL|=1.099214
+       BANK_RAW       C=+0.078608 P+=11/16 KL=2.466681 Ret|dNLL|=0.895298
+       BANK_GUARD     C=+0.036016 P+=10/16 KL=1.814293 Ret|dNLL|=1.151714
+       CAUSAL_ORTH    C=+1.336798 P+=16/16 KL=2.734012 Ret|dNLL|=0.846631
+       SYNTH_RAW      C=+1.238056 P+=16/16 KL=2.592710 Ret|dNLL|=1.247288
+       SYNTH_GUARD    C=+1.242325 P+=16/16 KL=2.570682 Ret|dNLL|=1.266766
+
+[13/20] FINAL hidden-state canalization...
+       FISHER_RAW     s=0.125 Dperp=0.038080 Dtarget=0.022946 off=0.8317
+       FISHER_GUARD   s=0.125 Dperp=0.038101 Dtarget=0.022946 off=0.8310
+       BANK_RAW       s=0.125 Dperp=0.041602 Dtarget=0.025634 off=0.8288
+       BANK_GUARD     s=0.125 Dperp=0.040958 Dtarget=0.025277 off=0.8288
+       CAUSAL_ORTH    s=0.125 Dperp=0.086937 Dtarget=0.011807 off=0.9770
+       SYNTH_RAW      s=0.125 Dperp=0.085054 Dtarget=0.015310 off=0.9681
+       SYNTH_GUARD    s=0.125 Dperp=0.085237 Dtarget=0.015347 off=0.9682
+       FISHER_RAW     s=0.250 Dperp=0.074270 Dtarget=0.045803 off=0.8251
+       FISHER_GUARD   s=0.250 Dperp=0.073554 Dtarget=0.045767 off=0.8224
+       BANK_RAW       s=0.250 Dperp=0.081008 Dtarget=0.051369 off=0.8221
+       BANK_GUARD     s=0.250 Dperp=0.078817 Dtarget=0.051039 off=0.8173
+       CAUSAL_ORTH    s=0.250 Dperp=0.166845 Dtarget=0.023543 off=0.9751
+       SYNTH_RAW      s=0.250 Dperp=0.162912 Dtarget=0.030677 off=0.9655
+       SYNTH_GUARD    s=0.250 Dperp=0.162256 Dtarget=0.030590 off=0.9654
+       FISHER_RAW     s=0.500 Dperp=0.145321 Dtarget=0.090372 off=0.8227
+       FISHER_GUARD   s=0.500 Dperp=0.143988 Dtarget=0.090344 off=0.8207
+       BANK_RAW       s=0.500 Dperp=0.158867 Dtarget=0.099713 off=0.8236
+       BANK_GUARD     s=0.500 Dperp=0.154795 Dtarget=0.099071 off=0.8193
+       CAUSAL_ORTH    s=0.500 Dperp=0.293893 Dtarget=0.045420 off=0.9715
+       SYNTH_RAW      s=0.500 Dperp=0.290086 Dtarget=0.059557 off=0.9611
+       SYNTH_GUARD    s=0.500 Dperp=0.290001 Dtarget=0.059450 off=0.9611
+       FISHER_RAW     s=0.750 Dperp=0.214635 Dtarget=0.133646 off=0.8222
+       FISHER_GUARD   s=0.750 Dperp=0.212840 Dtarget=0.133765 off=0.8201
+       BANK_RAW       s=0.750 Dperp=0.234224 Dtarget=0.145252 off=0.8250
+       BANK_GUARD     s=0.750 Dperp=0.228850 Dtarget=0.144061 off=0.8219
+       CAUSAL_ORTH    s=0.750 Dperp=0.398876 Dtarget=0.066502 off=0.9685
+       SYNTH_RAW      s=0.750 Dperp=0.394425 Dtarget=0.085769 off=0.9577
+       SYNTH_GUARD    s=0.750 Dperp=0.394623 Dtarget=0.085798 off=0.9578
+       FISHER_RAW     s=1.000 Dperp=0.282834 Dtarget=0.174650 off=0.8238
+       FISHER_GUARD   s=1.000 Dperp=0.280722 Dtarget=0.174622 off=0.8220
+       BANK_RAW       s=1.000 Dperp=0.307309 Dtarget=0.186292 off=0.8289
+       BANK_GUARD     s=1.000 Dperp=0.300773 Dtarget=0.185225 off=0.8257
+       CAUSAL_ORTH    s=1.000 Dperp=0.516081 Dtarget=0.090475 off=0.9668
+       SYNTH_RAW      s=1.000 Dperp=0.490788 Dtarget=0.111512 off=0.9552
+       SYNTH_GUARD    s=1.000 Dperp=0.490702 Dtarget=0.111617 off=0.9551
+
+[14/20] Paired causal bootstrap...
+       s=0.125 SYNTH_GUARD-SYNTH_RAW    ΔC=+0.003459 [-0.005780,+0.013056]
+       s=0.125 SYNTH_GUARD-FISHER_RAW   ΔC=+0.724898 [+0.602089,+0.852402]
+       s=0.125 SYNTH_GUARD-FISHER_GUARD ΔC=+0.729389 [+0.605716,+0.861147]
+       s=0.125 SYNTH_GUARD-BANK_RAW     ΔC=+0.765267 [+0.637691,+0.903120]
+       s=0.125 SYNTH_GUARD-BANK_GUARD   ΔC=+0.766524 [+0.639417,+0.901616]
+       s=0.125 SYNTH_GUARD-CAUSAL_ORTH  ΔC=-0.053404 [-0.068101,-0.039745]
+       s=0.250 SYNTH_GUARD-SYNTH_RAW    ΔC=-0.005216 [-0.013609,+0.003536]
+       s=0.250 SYNTH_GUARD-FISHER_RAW   ΔC=+1.239100 [+1.054748,+1.421771]
+       s=0.250 SYNTH_GUARD-FISHER_GUARD ΔC=+1.231046 [+1.045148,+1.413184]
+       s=0.250 SYNTH_GUARD-BANK_RAW     ΔC=+1.286645 [+1.113299,+1.462628]
+       s=0.250 SYNTH_GUARD-BANK_GUARD   ΔC=+1.291277 [+1.116596,+1.468832]
+       s=0.250 SYNTH_GUARD-CAUSAL_ORTH  ΔC=-0.085413 [-0.107696,-0.063074]
+       s=0.500 SYNTH_GUARD-SYNTH_RAW    ΔC=-0.005377 [-0.012809,+0.001964]
+       s=0.500 SYNTH_GUARD-FISHER_RAW   ΔC=+1.319375 [+1.167834,+1.476419]
+       s=0.500 SYNTH_GUARD-FISHER_GUARD ΔC=+1.320579 [+1.170744,+1.474450]
+       s=0.500 SYNTH_GUARD-BANK_RAW     ΔC=+1.348093 [+1.220622,+1.468020]
+       s=0.500 SYNTH_GUARD-BANK_GUARD   ΔC=+1.367321 [+1.235274,+1.491828]
+       s=0.500 SYNTH_GUARD-CAUSAL_ORTH  ΔC=-0.058564 [-0.095070,-0.024045]
+       s=0.750 SYNTH_GUARD-SYNTH_RAW    ΔC=+0.003366 [-0.002587,+0.009571]
+       s=0.750 SYNTH_GUARD-FISHER_RAW   ΔC=+1.293923 [+1.145769,+1.444383]
+       s=0.750 SYNTH_GUARD-FISHER_GUARD ΔC=+1.290915 [+1.146845,+1.435834]
+       s=0.750 SYNTH_GUARD-BANK_RAW     ΔC=+1.245192 [+1.094911,+1.384401]
+       s=0.750 SYNTH_GUARD-BANK_GUARD   ΔC=+1.279111 [+1.130968,+1.419095]
+       s=0.750 SYNTH_GUARD-CAUSAL_ORTH  ΔC=-0.052407 [-0.094279,-0.019557]
+       s=1.000 SYNTH_GUARD-SYNTH_RAW    ΔC=+0.004268 [-0.002978,+0.011877]
+       s=1.000 SYNTH_GUARD-FISHER_RAW   ΔC=+1.236199 [+1.062686,+1.421269]
+       s=1.000 SYNTH_GUARD-FISHER_GUARD ΔC=+1.260924 [+1.094669,+1.436297]
+       s=1.000 SYNTH_GUARD-BANK_RAW     ΔC=+1.163717 [+1.016236,+1.317389]
+       s=1.000 SYNTH_GUARD-BANK_GUARD   ΔC=+1.206309 [+1.060433,+1.358394]
+       s=1.000 SYNTH_GUARD-CAUSAL_ORTH  ΔC=-0.094473 [-0.174349,-0.007672]
+
+[15/20] Primary table @0.50...
+       FISHER_RAW     C=+0.081662 KL=0.591788 Ret=0.885298 Dperp=0.145321 P+=12/16
+       FISHER_GUARD   C=+0.080459 KL=0.383201 Ret=0.727141 Dperp=0.143988 P+=11/16
+       BANK_RAW       C=+0.052945 KL=0.427192 Ret=0.813059 Dperp=0.158867 P+=11/16
+       BANK_GUARD     C=+0.033716 KL=0.303896 Ret=0.886783 Dperp=0.154795 P+=10/16
+       CAUSAL_ORTH    C=+1.459602 KL=1.291344 Ret=0.935389 Dperp=0.293893 P+=16/16
+       SYNTH_RAW      C=+1.406414 KL=1.191136 Ret=1.054101 Dperp=0.290086 P+=16/16
+       SYNTH_GUARD    C=+1.401038 KL=1.190131 Ret=1.044339 Dperp=0.290001 P+=16/16
+
+[16/20] Synthetic geometry / nullspace...
+       SYNTH_RAW    Q mean=2.05997613e-07 max=4.52453889e-07
+       SYNTH_GUARD  Q mean=6.19371148e-09 max=9.67858771e-09
+       CAUSAL_ORTH  Q mean=2.21149694e-07 max=5.05270975e-07
+       mean cos(Synth,FisherGuard)=+0.406138
+       mean cos(Synth,CausalOrth) =+0.913812
+
+[17/20] TEST169 decision...
+       Nonzero synthetic alpha : True
+       Causal > FisherGuard    : True
+       KL within 5% FisherGuard: False
+       Ret within 5%           : False
+       causal CI > 0           : True
+       DECISION: NONZERO_SYNTHETIC_VECTOR_FROZEN_ADVANTAGE_NOT_CONFIRMED
+
+[18/20] Saving...
+
+[19/20] Integrity...
+       P8 ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+       Frozen alpha: 2.25
+       FINAL selection access: NONE
+       SEASC runtime controller: OFF
+       Model weights modified: NO
+
+[20/20] COMPLETE
+==========================================================================================================================================================
+TEST 169 — GUARDED CAUSAL-GRADIENT SYNTHETIC VECTOR FORGE — SUMMARY
+==========================================================================================================================================================
+Mean cos(Fisher,Bank): +0.860661
+Mean causal orthogonal component: 0.998925
+FROZEN alpha: +2.250000
+LOFO alphas: [2.25, 2.25, 2.25, 1.75]
+Mean cos(Synth,FisherGuard): +0.406138
+DECISION: NONZERO_SYNTHETIC_VECTOR_FROZEN_ADVANTAGE_NOT_CONFIRMED
+Saved: /content/TEST169_GUARDED_CAUSAL_GRADIENT_FORGE
+==========================================================================================================================================================
