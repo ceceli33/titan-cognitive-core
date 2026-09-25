@@ -1,0 +1,186 @@
+ ======================================================================================================================================================
+TEST 163 — SENTETİK NEDENSEL VEKTÖR DÖKÜMHANESİ
+AKBASCORE 3.2 / SEASC
+======================================================================================================================================================
+GPU            : NVIDIA A100-SXM4-40GB
+Model          : Qwen/Qwen2.5-7B-Instruct
+Steered layers : L0-L19
+Forge scale    : 0.5
+Final scales   : [0.25, 0.5, 1.0]
+
+[1/12] Compiling SEASC kernel...
+       CUDA kernel: OK
+
+[2/12] Loading frozen model...
+config.json: 100% 663/663 [00:00<00:00, 83.6kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 826kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+vocab.json: 100% 2.78M/2.78M [00:00<00:00, 85.1MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 71.5MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 128MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.00MB/s]Download complete: :  13.1GB, 48.0MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  260MB/s  Fetching 4 files: 100% 4/4 [00:43<00:00,  8.34s/it]Loading weights: 100% 339/339 [00:03<00:00, 100.72it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.3kB/s]       hidden : 3584
+       layers : 28
+       dtype  : torch.bfloat16
+
+[3/12] Building SEARCH bank...
+       pair 01/16
+       pair 02/16
+       pair 03/16
+       pair 04/16
+       pair 05/16
+       pair 06/16
+       pair 07/16
+       pair 08/16
+       pair 09/16
+       pair 10/16
+       pair 11/16
+       pair 12/16
+       pair 13/16
+       pair 14/16
+       pair 15/16
+       pair 16/16
+
+[4/12] Building causal candidate basis...
+       L00 cos(F,B)=+0.957046 | residual=0.289934
+       L01 cos(F,B)=+0.945882 | residual=0.324511
+       L02 cos(F,B)=+0.923687 | residual=0.383148
+       L03 cos(F,B)=+0.905784 | residual=0.423739
+       L04 cos(F,B)=+0.827902 | residual=0.560873
+       L05 cos(F,B)=+0.787565 | residual=0.616231
+       L06 cos(F,B)=+0.783951 | residual=0.620823
+       L07 cos(F,B)=+0.851357 | residual=0.524587
+       L08 cos(F,B)=+0.877778 | residual=0.479067
+       L09 cos(F,B)=+0.880560 | residual=0.473935
+       L10 cos(F,B)=+0.868166 | residual=0.496274
+       L11 cos(F,B)=+0.863361 | residual=0.504587
+       L12 cos(F,B)=+0.872287 | residual=0.488994
+       L13 cos(F,B)=+0.866555 | residual=0.499081
+       L14 cos(F,B)=+0.869072 | residual=0.494686
+       L15 cos(F,B)=+0.870898 | residual=0.491464
+       L16 cos(F,B)=+0.860497 | residual=0.509455
+       L17 cos(F,B)=+0.861645 | residual=0.507511
+       L18 cos(F,B)=+0.766311 | residual=0.642469
+       L19 cos(F,B)=+0.772911 | residual=0.634515
+
+[5/12] Forging synthetic candidates...
+       BETA_-1.00       cosBANK=+0.486739 cosF=+0.860661
+       BETA_-0.50       cosBANK=+0.680107 cosF=+0.957816
+       BETA_+0.00       cosBANK=+0.860661 cosF=+1.000000
+       BETA_+0.25       cosBANK=+0.926660 cosF=+0.988829
+       BETA_+0.50       cosBANK=+0.970460 cosF=+0.957816
+       BETA_+0.75       cosBANK=+0.993457 cosF=+0.912928
+       BETA_+1.00       cosBANK=+1.000000 cosF=+0.860661
+       BETA_+1.25       cosBANK=+0.995030 cosF=+0.806147
+       BETA_+1.50       cosBANK=+0.982748 cosF=+0.752713
+       BETA_+2.00       cosBANK=+0.947657 cosF=+0.655479
+       FISHER           cosBANK=+0.860661 cosF=+1.000000
+       BANK_MEAN        cosBANK=+1.000000 cosF=+0.860661
+       BANK_RESIDUAL    cosBANK=+0.498294 cosF=+0.000000
+
+[6/12] FORGE baseline...
+       FORGE baseline mean = +0.840149
+
+[7/12] FORGE causal candidate assay...
+  BETA_-1.00       Csym=+0.105688 | KL=0.309704 | ΔNLL=+0.202166 | SCORE=+0.069986
+  BETA_-0.50       Csym=+0.135853 | KL=0.373531 | ΔNLL=+0.290885 | SCORE=+0.088088
+  BETA_+0.00       Csym=+0.138431 | KL=0.466060 | ΔNLL=+0.296691 | SCORE=+0.085459
+  BETA_+0.25       Csym=+0.170374 | KL=0.517243 | ΔNLL=+0.332653 | SCORE=+0.111247
+  BETA_+0.50       Csym=+0.174286 | KL=0.570026 | ΔNLL=+0.376905 | SCORE=+0.108094
+  BETA_+0.75       Csym=+0.197830 | KL=0.632850 | ΔNLL=+0.260728 | SCORE=+0.140114
+  BETA_+1.00       Csym=+0.209699 | KL=0.668853 | ΔNLL=+0.278693 | SCORE=+0.148387
+  BETA_+1.25       Csym=+0.218763 | KL=0.698475 | ΔNLL=+0.244011 | SCORE=+0.159438
+  BETA_+1.50       Csym=+0.226664 | KL=0.756817 | ΔNLL=+0.156026 | SCORE=+0.173220
+  BETA_+2.00       Csym=+0.201735 | KL=0.823376 | ΔNLL=+0.171155 | SCORE=+0.143450
+  FISHER           Csym=+0.136642 | KL=0.473407 | ΔNLL=+0.311731 | SCORE=+0.081798
+  BANK_MEAN        Csym=+0.219854 | KL=0.653608 | ΔNLL=+0.277715 | SCORE=+0.159402
+  BANK_RESIDUAL    Csym=+0.060713 | KL=0.830300 | ΔNLL=-0.032925 | SCORE=+0.015906
+
+       FROZEN SYNTHETIC WINNER : BETA_+1.50
+       FORGE Csym             : +0.226664
+       FORGE score            : +0.173220
+
+[8/12] FINAL baseline — first access...
+       FINAL baseline mean = +1.110992
+
+[9/12] FINAL causal validation...
+
+DOSE=0.25
+  FISHER             Csym=+0.110166 | P+=10/12 | real=1.2521% | E=0.189344
+  BANK_MEAN          Csym=+0.079937 | P+=10/12 | real=1.2499% | E=0.188582
+  BANK_RESIDUAL      Csym=-0.039414 | P+=05/12 | real=1.2478% | E=0.188489
+  SYNTHETIC_FROZEN   Csym=+0.058113 | P+=08/12 | real=1.2507% | E=0.188858
+
+DOSE=0.50
+  FISHER             Csym=+0.156745 | P+=10/12 | real=2.4949% | E=0.752871
+  BANK_MEAN          Csym=+0.118274 | P+=11/12 | real=2.4962% | E=0.754048
+  BANK_RESIDUAL      Csym=-0.056958 | P+=05/12 | real=2.4987% | E=0.754336
+  SYNTHETIC_FROZEN   Csym=+0.102927 | P+=08/12 | real=2.4966% | E=0.753994
+
+DOSE=1.00
+  FISHER             Csym=+0.135802 | P+=10/12 | real=4.9842% | E=3.009775
+  BANK_MEAN          Csym=+0.085861 | P+=07/12 | real=4.9843% | E=3.009726
+  BANK_RESIDUAL      Csym=-0.021413 | P+=07/12 | real=4.9871% | E=3.012769
+  SYNTHETIC_FROZEN   Csym=+0.111519 | P+=07/12 | real=4.9828% | E=3.007271
+
+[10/12] FINAL collateral...
+  FISHER             scale=0.25 | ΔNLL=+0.129985 | KL=0.131923
+  BANK_MEAN          scale=0.25 | ΔNLL=+0.072404 | KL=0.174201
+  BANK_RESIDUAL      scale=0.25 | ΔNLL=+0.056814 | KL=0.121673
+  SYNTHETIC_FROZEN   scale=0.25 | ΔNLL=+0.091585 | KL=0.175382
+  FISHER             scale=0.50 | ΔNLL=+0.045836 | KL=0.479724
+  BANK_MEAN          scale=0.50 | ΔNLL=+0.139441 | KL=0.776678
+  BANK_RESIDUAL      scale=0.50 | ΔNLL=+0.057898 | KL=0.856565
+  SYNTHETIC_FROZEN   scale=0.50 | ΔNLL=+0.113185 | KL=0.861683
+  FISHER             scale=1.00 | ΔNLL=-0.312315 | KL=1.403012
+  BANK_MEAN          scale=1.00 | ΔNLL=-0.140596 | KL=2.797663
+  BANK_RESIDUAL      scale=1.00 | ΔNLL=+0.980927 | KL=4.776250
+  SYNTHETIC_FROZEN   scale=1.00 | ΔNLL=+0.092370 | KL=3.485278
+
+[11/12] FINAL contrasts...
+
+  scale=0.25
+    SYN-FISHER = -0.052053 CI95=[-0.134964,+0.018335] p=0.914754
+    SYN-BANK   = -0.021824 CI95=[-0.047841,-0.001199] p=0.983251
+
+  scale=0.50
+    SYN-FISHER = -0.053818 CI95=[-0.153943,+0.042315] p=0.859207
+    SYN-BANK   = -0.015347 CI95=[-0.045504,+0.013560] p=0.844358
+
+  scale=1.00
+    SYN-FISHER = -0.024283 CI95=[-0.124717,+0.072456] p=0.677416
+    SYN-BANK   = +0.025658 CI95=[+0.004603,+0.048611] p=0.007250
+
+[12/12] Saving...
+
+======================================================================================================================================================
+TEST 163 — FINAL SUMMARY
+======================================================================================================================================================
+Frozen synthetic vector : BETA_+1.50
+FORGE score             : +0.173220
+Mean cos(Fisher,BANK)   : +0.860661
+Mean BANK residual norm : 0.498294
+
+DOSE SCALE = 0.25
+  FISHER             Csym=+0.110166 | P+=10/12 | KL=0.131923 | ΔNLL=+0.129985
+  BANK_MEAN          Csym=+0.079937 | P+=10/12 | KL=0.174201 | ΔNLL=+0.072404
+  BANK_RESIDUAL      Csym=-0.039414 | P+=05/12 | KL=0.121673 | ΔNLL=+0.056814
+  SYNTHETIC_FROZEN   Csym=+0.058113 | P+=08/12 | KL=0.175382 | ΔNLL=+0.091585
+
+DOSE SCALE = 0.50
+  FISHER             Csym=+0.156745 | P+=10/12 | KL=0.479724 | ΔNLL=+0.045836
+  BANK_MEAN          Csym=+0.118274 | P+=11/12 | KL=0.776678 | ΔNLL=+0.139441
+  BANK_RESIDUAL      Csym=-0.056958 | P+=05/12 | KL=0.856565 | ΔNLL=+0.057898
+  SYNTHETIC_FROZEN   Csym=+0.102927 | P+=08/12 | KL=0.861683 | ΔNLL=+0.113185
+
+DOSE SCALE = 1.00
+  FISHER             Csym=+0.135802 | P+=10/12 | KL=1.403012 | ΔNLL=-0.312315
+  BANK_MEAN          Csym=+0.085861 | P+=07/12 | KL=2.797663 | ΔNLL=-0.140596
+  BANK_RESIDUAL      Csym=-0.021413 | P+=07/12 | KL=4.776250 | ΔNLL=+0.980927
+  SYNTHETIC_FROZEN   Csym=+0.111519 | P+=07/12 | KL=3.485278 | ΔNLL=+0.092370
+
+FINAL CONTRASTS
+  scale=0.25 | SYN-FISHER=-0.052053 [-0.134964,+0.018335] | SYN-BANK=-0.021824 [-0.047841,-0.001199]
+  scale=0.50 | SYN-FISHER=-0.053818 [-0.153943,+0.042315] | SYN-BANK=-0.015347 [-0.045504,+0.013560]
+  scale=1.00 | SYN-FISHER=-0.024283 [-0.124717,+0.072456] | SYN-BANK=+0.025658 [+0.004603,+0.048611]
+
+DECISION : BANK_MEAN_REMAINS_BEST
+Saved    : /content/TEST163_SYNTHETIC_CAUSAL_VECTOR_FOUNDRY
+======================================================================================================================================================
+TEST 163 COMPLETE
+======================================================================================================================================================
