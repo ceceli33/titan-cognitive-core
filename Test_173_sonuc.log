@@ -1,0 +1,282 @@
+ Installing required build dependency: ninja...
+==========================================================================================================================================================
+TEST 173 — SOURCE-LAYER COLLATERAL NULLING ABLATION
+CAUSAL_ORTH vs CAUSAL_SAFE(K=8) vs LAYER-LOCAL HYBRIDS
+==========================================================================================================================================================
+Ninja: 1.13.2
+GPU: NVIDIA A100-SXM4-40GB
+Model: Qwen/Qwen2.5-7B-Instruct
+Layers: L0-L19 | frozen K=8 | primary dose=0.50
+Locked SEASC RSS dose budget: 0.250235055
+
+[1/24] Compiling SEASC...
+       OK
+
+[2/24] Loading frozen model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 82.3kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 858kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 80.9MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 69.9MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 116MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.16MB/s]Download complete: :  13.1GB,  494MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  490MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.77s/it]Loading weights: 100% 339/339 [00:03<00:00, 101.54it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.8kB/s]       hidden: 3584 dtype: torch.bfloat16
+
+[3/24] Rebuilding TEST169 Fisher / Bank geometry...
+       pair 01/16
+       pair 02/16
+       pair 03/16
+       pair 04/16
+       pair 05/16
+       pair 06/16
+       pair 07/16
+       pair 08/16
+       pair 09/16
+       pair 10/16
+       pair 11/16
+       pair 12/16
+       pair 13/16
+       pair 14/16
+       pair 15/16
+       pair 16/16
+       L00 cos(F,B)=+0.957046 residual=0.289934
+       L01 cos(F,B)=+0.945882 residual=0.324511
+       L02 cos(F,B)=+0.923687 residual=0.383148
+       L03 cos(F,B)=+0.905784 residual=0.423739
+       L04 cos(F,B)=+0.827902 residual=0.560873
+       L05 cos(F,B)=+0.787565 residual=0.616231
+       L06 cos(F,B)=+0.783951 residual=0.620823
+       L07 cos(F,B)=+0.851357 residual=0.524587
+       L08 cos(F,B)=+0.877778 residual=0.479067
+       L09 cos(F,B)=+0.880560 residual=0.473935
+       L10 cos(F,B)=+0.868166 residual=0.496274
+       L11 cos(F,B)=+0.863361 residual=0.504587
+       L12 cos(F,B)=+0.872287 residual=0.488994
+       L13 cos(F,B)=+0.866555 residual=0.499081
+       L14 cos(F,B)=+0.869072 residual=0.494686
+       L15 cos(F,B)=+0.870898 residual=0.491464
+       L16 cos(F,B)=+0.860497 residual=0.509455
+       L17 cos(F,B)=+0.861645 residual=0.507511
+       L18 cos(F,B)=+0.766311 residual=0.642469
+       L19 cos(F,B)=+0.772911 residual=0.634515
+       mean cos=+0.860661 | mean residual=0.498294
+
+[4/24] Computing frozen P8 retention basis...
+       probe 1/8 | NLL=10.108150 | mean ||g||=5.017349e+00
+       probe 2/8 | NLL=10.067118 | mean ||g||=4.504144e+00
+       probe 3/8 | NLL=12.503087 | mean ||g||=3.515239e+00
+       probe 4/8 | NLL=11.644833 | mean ||g||=3.911535e+00
+       probe 5/8 | NLL=12.823627 | mean ||g||=5.401210e+00
+       probe 6/8 | NLL=9.968038 | mean ||g||=5.083509e+00
+       probe 7/8 | NLL=9.568528 | mean ||g||=4.566213e+00
+       probe 8/8 | NLL=10.291623 | mean ||g||=5.011105e+00
+       P8 ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+
+[5/24] Reconstructing TEST169 CAUSAL_ORTH...
+       family A item 1/4
+       family A item 2/4
+       family A item 3/4
+       family A item 4/4
+       family B item 1/4
+       family B item 2/4
+       family B item 3/4
+       family B item 4/4
+       family C item 1/4
+       family C item 2/4
+       family C item 3/4
+       family C item 4/4
+       family D item 1/4
+       family D item 2/4
+       family D item 3/4
+       family D item 4/4
+       mean cos(Causal,Fisher)=+0.040625
+       mean Fisher-orthogonal component=0.998925
+       mean P8 overlap=2.21149694e-07
+
+[6/24] Rebuilding TEST171 collateral basis...
+       neutral 1/8 | NLL=10.886089 | mean ||g_act||=5.622915e+02
+       neutral 2/8 | NLL=11.839475 | mean ||g_act||=5.220968e+02
+       neutral 3/8 | NLL=11.787427 | mean ||g_act||=4.307135e+02
+       neutral 4/8 | NLL=10.572948 | mean ||g_act||=4.240309e+02
+       neutral 5/8 | NLL=10.917864 | mean ||g_act||=5.194454e+02
+       neutral 6/8 | NLL=11.511093 | mean ||g_act||=4.948602e+02
+       neutral 7/8 | NLL=13.429094 | mean ||g_act||=4.935550e+02
+       neutral 8/8 | NLL=9.970058 | mean ||g_act||=4.371637e+02
+       Frozen collateral ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+
+[7/24] Reconstructing TEST171 CAUSAL_SAFE...
+       mean raw collateral energy=0.009823
+       mean cos(SAFE,ORTH)=0.995383
+       mean ||ORTH-SAFE||=0.093620
+       mean SAFE CollQ=1.03775769e-02
+
+[8/24] Building source-layer ablation arms...
+       ORTH_ALL     cleaned=00/20 layers=NONE
+       SAFE_ALL     cleaned=20/20 layers=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+       SAFE_L00_04  cleaned=05/20 layers=[0, 1, 2, 3, 4]
+       SAFE_L05_09  cleaned=05/20 layers=[5, 6, 7, 8, 9]
+       SAFE_L10_14  cleaned=05/20 layers=[10, 11, 12, 13, 14]
+       SAFE_L15_19  cleaned=05/20 layers=[15, 16, 17, 18, 19]
+       SAFE_L00_09  cleaned=10/20 layers=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+       SAFE_L10_19  cleaned=10/20 layers=[10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+       SAFE_L00_14  cleaned=15/20 layers=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+       SAFE_L05_19  cleaned=15/20 layers=[5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+
+[9/24] DEV baselines @0.50...
+       ORTH_ALL     C=+1.448640 P+=8/8 KL=2.446845 |dNLL|=0.871044
+       SAFE_ALL     C=+1.507114 P+=8/8 KL=1.992870 |dNLL|=0.694581
+
+[10/24] DEV 5-layer source blocks...
+       SAFE_L00_04  C=+1.466734 P+=8/8 KL=2.238812 |dNLL|=0.579575
+       SAFE_L05_09  C=+1.462173 P+=8/8 KL=2.213441 |dNLL|=0.771580
+       SAFE_L10_14  C=+1.478939 P+=8/8 KL=2.405064 |dNLL|=1.145731
+       SAFE_L15_19  C=+1.456940 P+=8/8 KL=2.398590 |dNLL|=0.872320
+
+[11/24] DEV prefix / suffix masks...
+       SAFE_L00_09  C=+1.482581 P+=8/8 KL=2.044411 |dNLL|=0.616719
+       SAFE_L10_19  C=+1.480308 P+=8/8 KL=2.377761 |dNLL|=1.139055
+       SAFE_L00_14  C=+1.501603 P+=8/8 KL=2.088210 |dNLL|=0.686661
+       SAFE_L05_19  C=+1.484851 P+=8/8 KL=2.167473 |dNLL|=1.066643
+
+[12/24] DEV viability / burden...
+       SAFE_L00_04  layers=05 viable=True KL5=True RetOK=True Cx=1.0125 KLx=0.9150 Rx=0.6654 burden=0.8635
+       SAFE_L05_09  layers=05 viable=True KL5=True RetOK=True Cx=1.0093 KLx=0.9046 Rx=0.8858 burden=0.9128
+       SAFE_L10_14  layers=05 viable=True KL5=False RetOK=False Cx=1.0209 KLx=0.9829 Rx=1.3154 burden=1.0655
+       SAFE_L15_19  layers=05 viable=True KL5=False RetOK=True Cx=1.0057 KLx=0.9803 Rx=1.0015 burden=0.9877
+       SAFE_L00_09  layers=10 viable=True KL5=True RetOK=True Cx=1.0234 KLx=0.8355 Rx=0.7080 burden=0.8249
+       SAFE_L10_19  layers=10 viable=True KL5=False RetOK=False Cx=1.0219 KLx=0.9718 Rx=1.3077 burden=1.0568
+       SAFE_L00_14  layers=15 viable=True KL5=True RetOK=True Cx=1.0366 KLx=0.8534 Rx=0.7883 burden=0.8538
+       SAFE_L05_19  layers=15 viable=True KL5=True RetOK=False Cx=1.0250 KLx=0.8858 Rx=1.2246 burden=0.9840
+
+[13/24] Freezing source-layer mask...
+       FROZEN: SAFE_L00_04
+       cleaned source layers: [0, 1, 2, 3, 4]
+       fallback: False
+       FINAL remains unopened.
+
+[14/24] DEV leave-one-item-out robustness...
+       hold 1/8 C=+1.445297 ORTH=+1.438979 ratio=1.0044
+       hold 2/8 C=+1.508299 ORTH=+1.492819 ratio=1.0104
+       hold 3/8 C=+1.465263 ORTH=+1.445577 ratio=1.0136
+       hold 4/8 C=+1.483541 ORTH=+1.465493 ratio=1.0123
+       hold 5/8 C=+1.463029 ORTH=+1.437185 ratio=1.0180
+       hold 6/8 C=+1.454371 ORTH=+1.437584 ratio=1.0117
+       hold 7/8 C=+1.495202 ORTH=+1.470736 ratio=1.0166
+       hold 8/8 C=+1.418869 ORTH=+1.400743 ratio=1.0129
+       minimum LOO causal ratio=1.0044
+
+[15/24] Frozen-mask geometry...
+       L00 clean=1 cosO=+0.993876 cosS=+1.000000 CollQ=0.025321
+       L01 clean=1 cosO=+0.992461 cosS=+1.000000 CollQ=0.014430
+       L02 clean=1 cosO=+0.996441 cosS=+1.000000 CollQ=0.010166
+       L03 clean=1 cosO=+0.996319 cosS=+1.000000 CollQ=0.007892
+       L04 clean=1 cosO=+0.996336 cosS=+1.000000 CollQ=0.005218
+       L05 clean=0 cosO=+1.000000 cosS=+0.995688 CollQ=0.096627
+       L06 clean=0 cosO=+1.000000 cosS=+0.995807 CollQ=0.092978
+       L07 clean=0 cosO=+1.000000 cosS=+0.997029 CollQ=0.077955
+       L08 clean=0 cosO=+1.000000 cosS=+0.993620 CollQ=0.115221
+       L09 clean=0 cosO=+1.000000 cosS=+0.995005 CollQ=0.101198
+       L10 clean=0 cosO=+1.000000 cosS=+0.994576 CollQ=0.105437
+       L11 clean=0 cosO=+1.000000 cosS=+0.995889 CollQ=0.092451
+       L12 clean=0 cosO=+1.000000 cosS=+0.990466 CollQ=0.139693
+       L13 clean=0 cosO=+1.000000 cosS=+0.990872 CollQ=0.140674
+       L14 clean=0 cosO=+1.000000 cosS=+0.998314 CollQ=0.064572
+       L15 clean=0 cosO=+1.000000 cosS=+0.997977 CollQ=0.065918
+       L16 clean=0 cosO=+1.000000 cosS=+0.995710 CollQ=0.095324
+       L17 clean=0 cosO=+1.000000 cosS=+0.996122 CollQ=0.092979
+       L18 clean=0 cosO=+1.000000 cosS=+0.997036 CollQ=0.083799
+       L19 clean=0 cosO=+1.000000 cosS=+0.998120 CollQ=0.062662
+
+[16/24] FINAL opened — frozen mask evaluation...
+
+       DOSE=0.125
+       ORTH_ALL       C=+0.850349 P+=8/8 KL=0.194007 |dNLL|=0.237777
+       SAFE_ALL       C=+0.837198 P+=8/8 KL=0.144038 |dNLL|=0.223372
+       FROZEN_PARTIAL C=+0.849900 P+=8/8 KL=0.156435 |dNLL|=0.212645
+
+       DOSE=0.250
+       ORTH_ALL       C=+1.351973 P+=8/8 KL=0.773314 |dNLL|=0.378431
+       SAFE_ALL       C=+1.337818 P+=8/8 KL=0.581929 |dNLL|=0.283730
+       FROZEN_PARTIAL C=+1.349274 P+=8/8 KL=0.652149 |dNLL|=0.303775
+
+       DOSE=0.500
+       ORTH_ALL       C=+1.470278 P+=8/8 KL=2.545712 |dNLL|=0.697275
+       SAFE_ALL       C=+1.514854 P+=8/8 KL=1.993921 |dNLL|=0.368771
+       FROZEN_PARTIAL C=+1.494049 P+=8/8 KL=2.386641 |dNLL|=0.393019
+
+       DOSE=0.750
+       ORTH_ALL       C=+1.525643 P+=8/8 KL=4.101571 |dNLL|=1.152096
+       SAFE_ALL       C=+1.581316 P+=8/8 KL=3.252594 |dNLL|=0.636014
+       FROZEN_PARTIAL C=+1.558084 P+=8/8 KL=3.825934 |dNLL|=0.659504
+
+       DOSE=1.000
+       ORTH_ALL       C=+1.458988 P+=8/8 KL=4.678865 |dNLL|=1.002093
+       SAFE_ALL       C=+1.561826 P+=8/8 KL=3.539709 |dNLL|=0.755933
+       FROZEN_PARTIAL C=+1.487337 P+=8/8 KL=4.630075 |dNLL|=0.730673
+
+[17/24] FINAL paired causal bootstrap...
+       s=0.125 P-O=-0.000448[-0.014852,+0.016239] | P-S=+0.012702[-0.008394,+0.032624]
+       s=0.250 P-O=-0.002698[-0.020895,+0.013907] | P-S=+0.011457[-0.012506,+0.036456]
+       s=0.500 P-O=+0.023770[+0.004014,+0.042831] | P-S=-0.020805[-0.047896,+0.007518]
+       s=0.750 P-O=+0.032440[+0.009877,+0.056790] | P-S=-0.023232[-0.041116,-0.005142]
+       s=1.000 P-O=+0.028349[-0.009253,+0.068719] | P-S=-0.074489[-0.106612,-0.045899]
+
+[18/24] FINAL neutral bootstrap...
+       s=0.125 KL  P-O=-0.037572[-0.051280,-0.024274] | P-S=+0.012398[+0.001765,+0.024598]
+       s=0.125 RET P-O=-0.025132[-0.084415,+0.030921] | P-S=-0.010727[-0.070202,+0.053261]
+       s=0.250 KL  P-O=-0.121164[-0.175772,-0.060626] | P-S=+0.070221[+0.033185,+0.108088]
+       s=0.250 RET P-O=-0.074656[-0.180791,+0.026958] | P-S=+0.020045[-0.074183,+0.120210]
+       s=0.500 KL  P-O=-0.159072[-0.274373,-0.031352] | P-S=+0.392720[+0.148406,+0.642318]
+       s=0.500 RET P-O=-0.304256[-0.480301,-0.119820] | P-S=+0.024248[-0.082058,+0.126116]
+       s=0.750 KL  P-O=-0.275637[-0.417287,-0.130611] | P-S=+0.573341[+0.148929,+1.001490]
+       s=0.750 RET P-O=-0.492592[-0.684166,-0.263982] | P-S=+0.023490[-0.137795,+0.185710]
+       s=1.000 KL  P-O=-0.048790[-0.247918,+0.156810] | P-S=+1.090366[+0.569230,+1.620382]
+       s=1.000 RET P-O=-0.271420[-0.587579,+0.064367] | P-S=-0.025260[-0.155545,+0.108477]
+
+[19/24] Primary FINAL @0.50...
+       ORTH_ALL       C=+1.470278 P+=8/8 KL=2.545712 |dNLL|=0.697275
+       SAFE_ALL       C=+1.514854 P+=8/8 KL=1.993921 |dNLL|=0.368771
+       FROZEN_PARTIAL C=+1.494049 P+=8/8 KL=2.386641 |dNLL|=0.393019
+       PARTIAL/ORTH causal=1.0162 KL=0.9375 Ret=0.5637
+       PARTIAL/SAFE causal=0.9863 KL=1.1970 Ret=1.0658
+
+[20/24] Source-layer localization map...
+       SAFE_L00_04  ΔC=+0.018094 ΔKL=-0.208032 Δ|dNLL|=-0.291468 KLgain/layer=+0.041606
+       SAFE_L05_09  ΔC=+0.013533 ΔKL=-0.233404 Δ|dNLL|=-0.099464 KLgain/layer=+0.046681
+       SAFE_L10_14  ΔC=+0.030299 ΔKL=-0.041781 Δ|dNLL|=+0.274688 KLgain/layer=+0.008356
+       SAFE_L15_19  ΔC=+0.008301 ΔKL=-0.048255 Δ|dNLL|=+0.001277 KLgain/layer=+0.009651
+       strongest DEV KL cleanup per layer: SAFE_L05_09
+
+[21/24] TEST173 decision...
+       partial mask frozen: True
+       FINAL causal >=90% ORTH: True
+       FINAL KL < ORTH: True
+       causal bootstrap guard: True
+       primary KL bootstrap upper < 0: True
+       DECISION: SOURCE_LOCALIZED_COLLATERAL_CLEANUP_SUPPORTED
+
+[22/24] Saving...
+
+[23/24] Integrity...
+       P8 ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+       Frozen collateral K: 8
+       Frozen source mask: SAFE_L00_04
+       Frozen source layers: [0, 1, 2, 3, 4]
+       Mask frozen before FINAL: YES
+       TEST171/172 FINAL used for selection: NO
+       SEASC envelope changed: NO
+       RSS dose budget: 0.250235055
+       All L0-L19 injections active: YES
+       Model weights modified: NO
+       Runtime controller: OFF
+
+[24/24] COMPLETE
+==========================================================================================================================================================
+TEST 173 — SOURCE-LAYER COLLATERAL NULLING ABLATION — SUMMARY
+==========================================================================================================================================================
+Mean cos(Fisher,Bank): +0.860661
+Mean raw collateral energy in CAUSAL_ORTH: 0.009823
+Frozen mask: SAFE_L00_04
+Frozen cleaned layers: [0, 1, 2, 3, 4]
+Primary FINAL ORTH    : C=+1.470278 KL=2.545712 |dNLL|=0.697275
+Primary FINAL SAFE    : C=+1.514854 KL=1.993921 |dNLL|=0.368771
+Primary FINAL PARTIAL : C=+1.494049 KL=2.386641 |dNLL|=0.393019
+Strongest DEV block: SAFE_L05_09
+DECISION: SOURCE_LOCALIZED_COLLATERAL_CLEANUP_SUPPORTED
+Saved: /content/TEST173_SOURCE_LAYER_COLLATERAL_NULLING_ABLATION
+==========================================================================================================================================================
