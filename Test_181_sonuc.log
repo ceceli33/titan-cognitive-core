@@ -1,0 +1,258 @@
+ ==========================================================================================================================================================
+TEST 181 — TERMINAL REVERSAL CAUSAL ABLATION
+TEST180 CAUSE↔EFFECT FAILURE — L19 INTERVENTION TEST
+==========================================================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB
+Model: Qwen/Qwen2.5-7B-Instruct
+Axis: E CAUSE↔EFFECT
+Locked SEASC RSS: 0.250235055
+Primary scale: 0.5
+
+[1/28] Compiling frozen SEASC...
+       OK
+
+[2/28] Loading frozen model...
+Loading weights: 100% 339/339 [00:03<00:00, 98.29it/s]       hidden: 3584 dtype: torch.bfloat16
+
+[3/28] Loading frozen E CAUSE↔EFFECT axis...
+
+[4/28] Reconstructing E Fisher / Bank...
+       E pair 01/16
+       E pair 02/16
+       E pair 03/16
+       E pair 04/16
+       E pair 05/16
+       E pair 06/16
+       E pair 07/16
+       E pair 08/16
+       E pair 09/16
+       E pair 10/16
+       E pair 11/16
+       E pair 12/16
+       E pair 13/16
+       E pair 14/16
+       E pair 15/16
+       E pair 16/16
+       E mean cos(F,B)=+0.814657 residual=0.567868
+
+[5/28] Building shared frozen P8...
+       probe 1/8
+       probe 2/8
+       probe 3/8
+       probe 4/8
+       probe 5/8
+       probe 6/8
+       probe 7/8
+       probe 8/8
+       ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+
+[6/28] Loading frozen E causal-gradient forge...
+
+[7/28] Reconstructing frozen E causal vector...
+       E family A 1/4
+       E family A 2/4
+       E family A 3/4
+       E family A 4/4
+       E family B 1/4
+       E family B 2/4
+       E family B 3/4
+       E family B 4/4
+       E family C 1/4
+       E family C 2/4
+       E family C 3/4
+       E family C 4/4
+       E family D 1/4
+       E family D 2/4
+       E family D 3/4
+       E family D 4/4
+       mean causal/Fisher cos=+0.029664
+       mean Fisher-orthogonal component=0.999519
+
+[8/28] Freezing terminal intervention arms...
+       NORMAL       L18=+1.0 L19=+1.0
+       L19_OFF      L18=+1.0 L19=+0.0
+       L19_FLIP     L18=+1.0 L19=-1.0
+       L18_19_OFF   L18=+0.0 L19=+0.0
+
+[10/28] Preparing fresh mechanistic X-ray prompts...
+
+[11/28] Capturing baseline trajectories...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+
+       Capturing NORMAL...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+
+       Capturing L19_OFF...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+
+       Capturing L19_FLIP...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+
+       Capturing L18_19_OFF...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+
+[12/28] Computing terminal-ablation geometry...
+       L00 | NORMAL tar=+0.000 cos=+0.000 | L19_OFF tar=+0.000 cos=+0.000 | L19_FLIP tar=+0.000 cos=+0.000 | L18_19_OFF tar=+0.000 cos=+0.000
+       L01 | NORMAL tar=+0.250 cos=+0.226 | L19_OFF tar=+0.250 cos=+0.226 | L19_FLIP tar=+0.250 cos=+0.226 | L18_19_OFF tar=+0.250 cos=+0.226
+       L02 | NORMAL tar=+0.260 cos=+0.121 | L19_OFF tar=+0.260 cos=+0.121 | L19_FLIP tar=+0.260 cos=+0.121 | L18_19_OFF tar=+0.260 cos=+0.121
+       L03 | NORMAL tar=+0.711 cos=+0.228 | L19_OFF tar=+0.711 cos=+0.228 | L19_FLIP tar=+0.711 cos=+0.228 | L18_19_OFF tar=+0.711 cos=+0.228
+       L04 | NORMAL tar=+0.149 cos=+0.030 | L19_OFF tar=+0.149 cos=+0.030 | L19_FLIP tar=+0.149 cos=+0.030 | L18_19_OFF tar=+0.149 cos=+0.030
+       L05 | NORMAL tar=-0.164 cos=-0.024 | L19_OFF tar=-0.164 cos=-0.024 | L19_FLIP tar=-0.164 cos=-0.024 | L18_19_OFF tar=-0.164 cos=-0.024
+       L06 | NORMAL tar=+1.390 cos=+0.190 | L19_OFF tar=+1.390 cos=+0.190 | L19_FLIP tar=+1.390 cos=+0.190 | L18_19_OFF tar=+1.390 cos=+0.190
+       L07 | NORMAL tar=+1.803 cos=+0.225 | L19_OFF tar=+1.803 cos=+0.225 | L19_FLIP tar=+1.803 cos=+0.225 | L18_19_OFF tar=+1.803 cos=+0.225
+       L08 | NORMAL tar=-0.235 cos=-0.021 | L19_OFF tar=-0.235 cos=-0.021 | L19_FLIP tar=-0.235 cos=-0.021 | L18_19_OFF tar=-0.235 cos=-0.021
+       L09 | NORMAL tar=+0.209 cos=+0.015 | L19_OFF tar=+0.209 cos=+0.015 | L19_FLIP tar=+0.209 cos=+0.015 | L18_19_OFF tar=+0.209 cos=+0.015
+       L10 | NORMAL tar=-0.835 cos=-0.060 | L19_OFF tar=-0.835 cos=-0.060 | L19_FLIP tar=-0.835 cos=-0.060 | L18_19_OFF tar=-0.835 cos=-0.060
+       L11 | NORMAL tar=-0.547 cos=-0.042 | L19_OFF tar=-0.547 cos=-0.042 | L19_FLIP tar=-0.547 cos=-0.042 | L18_19_OFF tar=-0.547 cos=-0.042
+       L12 | NORMAL tar=-0.186 cos=-0.015 | L19_OFF tar=-0.186 cos=-0.015 | L19_FLIP tar=-0.186 cos=-0.015 | L18_19_OFF tar=-0.186 cos=-0.015
+       L13 | NORMAL tar=+0.840 cos=+0.067 | L19_OFF tar=+0.840 cos=+0.067 | L19_FLIP tar=+0.840 cos=+0.067 | L18_19_OFF tar=+0.840 cos=+0.067
+       L14 | NORMAL tar=+0.238 cos=+0.018 | L19_OFF tar=+0.238 cos=+0.018 | L19_FLIP tar=+0.238 cos=+0.018 | L18_19_OFF tar=+0.238 cos=+0.018
+       L15 | NORMAL tar=+0.905 cos=+0.068 | L19_OFF tar=+0.905 cos=+0.068 | L19_FLIP tar=+0.905 cos=+0.068 | L18_19_OFF tar=+0.905 cos=+0.068
+       L16 | NORMAL tar=+0.628 cos=+0.044 | L19_OFF tar=+0.628 cos=+0.044 | L19_FLIP tar=+0.628 cos=+0.044 | L18_19_OFF tar=+0.628 cos=+0.044
+       L17 | NORMAL tar=+1.281 cos=+0.084 | L19_OFF tar=+1.281 cos=+0.084 | L19_FLIP tar=+1.281 cos=+0.084 | L18_19_OFF tar=+1.281 cos=+0.084
+       L18 | NORMAL tar=+1.073 cos=+0.059 | L19_OFF tar=+1.073 cos=+0.059 | L19_FLIP tar=+1.073 cos=+0.059 | L18_19_OFF tar=+1.073 cos=+0.059
+       L19 | NORMAL tar=-0.558 cos=-0.025 | L19_OFF tar=-0.558 cos=-0.025 | L19_FLIP tar=-0.558 cos=-0.025 | L18_19_OFF tar=-0.601 cos=-0.028
+
+[13/28] Terminal fingerprint...
+       NORMAL       late=+0.665817 L18=+1.072731 L19=-0.557561 cos=-0.025454 angle=91.46°
+       L19_OFF      late=+0.665817 L18=+1.072731 L19=-0.557561 cos=-0.025454 angle=91.46°
+       L19_FLIP     late=+0.665817 L18=+1.072731 L19=-0.557561 cos=-0.025454 angle=91.46°
+       L18_19_OFF   late=+0.657077 L18=+1.072731 L19=-0.601260 cos=-0.027911 angle=91.60°
+
+[14/28] Preparing fresh behavioral datasets...
+       DEV: 8
+       FINAL: 8
+       NEUTRAL: 8
+
+[18/28] Running fresh DEV diagnostic...
+       NORMAL       C=+0.188684 P+=5/8
+       L19_OFF      C=+0.105894 P+=5/8
+       L19_FLIP     C=+0.023493 P+=5/8
+       L18_19_OFF   C=+0.213579 P+=5/8
+       No arm is selected from DEV.
+
+[19/28] Opening FINAL for all preregistered arms...
+       NORMAL       C=+0.447630 P+=7/8
+       L19_OFF      C=+0.336347 P+=6/8
+       L19_FLIP     C=+0.245512 P+=5/8
+       L18_19_OFF   C=+0.451564 P+=6/8
+
+[20/28] Running held-out neutral disturbance...
+       NORMAL       |dNLL|=1.005379
+       L19_OFF      |dNLL|=1.039321
+       L19_FLIP     |dNLL|=1.067963
+       L18_19_OFF   |dNLL|=1.019572
+
+[21/28] Bootstrap arm-vs-NORMAL behavioral effects...
+       L19_OFF      ΔC=-0.111283 [-0.129803,-0.093745] ΔNeutral=+0.033943 [-0.006437,+0.065214]
+       L19_FLIP     ΔC=-0.202118 [-0.229640,-0.174606] ΔNeutral=+0.062585 [-0.006184,+0.123389]
+       L18_19_OFF   ΔC=+0.003934 [-0.053311,+0.057865] ΔNeutral=+0.014193 [-0.049505,+0.069324]
+
+[22/28] Bootstrap terminal target changes...
+       L19_OFF      ΔL19-target=+0.000000 [+0.000000,+0.000000]
+       L19_FLIP     ΔL19-target=+0.000000 [+0.000000,+0.000000]
+       L18_19_OFF   ΔL19-target=-0.043699 [-0.049831,-0.036891]
+
+[23/28] Geometry ↔ behavior coupling...
+       NORMAL       L19=-0.557561 C=+0.447630 ΔL19=+0.000000 ΔC=+0.000000
+       L19_OFF      L19=-0.557561 C=+0.336347 ΔL19=+0.000000 ΔC=-0.111283
+       L19_FLIP     L19=-0.557561 C=+0.245512 ΔL19=+0.000000 ΔC=-0.202118
+       L18_19_OFF   L19=-0.601260 C=+0.451564 ΔL19=-0.043699 ΔC=+0.003934
+
+[24/28] TEST181 diagnostic decision...
+       NORMAL C : +0.447630
+       L19_OFF C: +0.336347
+       L19_FLIP C: +0.245512
+       L18_19_OFF C: +0.451564
+       NORMAL L19: -0.557561
+       OFF L19   : -0.557561
+       FLIP L19  : -0.557561
+       2OFF L19  : -0.601260
+       significant rescue arms: []
+       DECISION: TERMINAL_INTERVENTION_POINT_ESTIMATE_RESCUE_ONLY
+
+[25/28] Integrity...
+       test180_mechanism_preserved: True
+       axis: CAUSE_EFFECT
+       same_model: True
+       same_seasc: True
+       same_envelope: True
+       same_p8_lineage: True
+       same_causal_forge_lineage: True
+       primary_scale: 0.5
+       arms_preregistered: True
+       fresh_xray: True
+       fresh_dev: True
+       fresh_final: True
+       fresh_neutral: True
+       final_used_for_selection: False
+       vector_search: False
+       rank_search: False
+       layer_search: False
+       envelope_search: False
+       controller: False
+       weights_modified: False
+
+[26/28] Saving...
+       Saved: /content/TEST181_TERMINAL_REVERSAL_CAUSAL_ABLATION
+
+[27/28] Scientific boundary...
+       TEST181 intervenes on the terminal SEASC injection schedule; it does not modify or reselect the E synthetic vector.
+       L19_OFF and L19_FLIP test whether the terminal intervention contributes causally to the TEST180 terminal trajectory.
+       L18_19_OFF is a preregistered neighboring-layer control.
+       A behavioral rescue requires FINAL improvement, not merely a change in L19 geometry.
+       A significant rescue would support a causal role for the terminal intervention, but would not prove that terminal reversal is the unique cause of TEST178 failure.
+       Failure to rescue would indicate that the TEST180 L19 reversal is more likely a downstream symptom or an incomplete mechanistic marker.
+
+[28/28] COMPLETE
+==========================================================================================================================================================
+TEST 181 — TERMINAL REVERSAL CAUSAL ABLATION — SUMMARY
+==========================================================================================================================================================
+NORMAL       C=+0.447630 P+=7/8 Neutral=1.005379 late_target=+0.665817 L19_target=-0.557561 L19_cos=-0.025454 L19_angle=91.46°
+L19_OFF      C=+0.336347 P+=6/8 Neutral=1.039321 late_target=+0.665817 L19_target=-0.557561 L19_cos=-0.025454 L19_angle=91.46°
+L19_FLIP     C=+0.245512 P+=5/8 Neutral=1.067963 late_target=+0.665817 L19_target=-0.557561 L19_cos=-0.025454 L19_angle=91.46°
+L18_19_OFF   C=+0.451564 P+=6/8 Neutral=1.019572 late_target=+0.657077 L19_target=-0.601260 L19_cos=-0.027911 L19_angle=91.60°
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+L19_OFF      vs NORMAL ΔC=-0.111283 [-0.129803,-0.093745] ΔNeutral=+0.033943 [-0.006437,+0.065214]
+L19_FLIP     vs NORMAL ΔC=-0.202118 [-0.229640,-0.174606] ΔNeutral=+0.062585 [-0.006184,+0.123389]
+L18_19_OFF   vs NORMAL ΔC=+0.003934 [-0.053311,+0.057865] ΔNeutral=+0.014193 [-0.049505,+0.069324]
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+Significant behavioral rescue arms: []
+DECISION: TERMINAL_INTERVENTION_POINT_ESTIMATE_RESCUE_ONLY
+Saved: /content/TEST181_TERMINAL_REVERSAL_CAUSAL_ABLATION
+==========================================================================================================================================================
