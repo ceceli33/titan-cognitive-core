@@ -1,0 +1,177 @@
+ ================================================================================================================================
+TEST 207 — MODEL-NATIVE SEMANTIC PATH SYNTHESIS
+================================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct | SEASC RSS=0.250235051
+[1/14] Model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 86.6kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 777kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 77.2MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 70.4MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 127MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.43MB/s]Download complete: :  13.1GB, 1.07GB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  540MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.66s/it]Loading weights: 100% 339/339 [00:03<00:00, 95.41it/s]generation_config.json: 100% 243/243 [00:00<00:00, 31.4kB/s][2/14] TEST205 competitive addressing...
+L00 top1=0.75 margin=+0.00098 ON
+L01 top1=0.25 margin=-0.01027 OFF
+L02 top1=0.25 margin=-0.01349 OFF
+L03 top1=0.25 margin=-0.00500 OFF
+L04 top1=0.50 margin=-0.01175 OFF
+L05 top1=0.25 margin=-0.03782 OFF
+L06 top1=0.25 margin=-0.00573 OFF
+L07 top1=0.25 margin=-0.00752 OFF
+L08 top1=0.75 margin=+0.00945 ON
+L09 top1=0.25 margin=-0.02098 OFF
+L10 top1=0.25 margin=+0.00406 OFF
+L11 top1=0.75 margin=+0.01360 ON
+L12 top1=0.75 margin=-0.00112 OFF
+L13 top1=0.25 margin=-0.01739 OFF
+L14 top1=0.50 margin=-0.00398 OFF
+L15 top1=0.75 margin=+0.00630 ON
+L16 top1=0.50 margin=+0.00399 OFF
+L17 top1=0.50 margin=-0.02668 OFF
+L18 top1=0.25 margin=-0.00055 OFF
+L19 top1=0.50 margin=+0.00165 OFF
+ACTIVE: [0, 8, 11, 15]
+[3/14] Frozen query-only routes...
+Q1 expected=M1 predicted=M1 weights=[0.3079, 0.244, 0.2433, 0.2049]
+Q2 expected=M2 predicted=M2 weights=[0.2496, 0.2996, 0.2523, 0.1985]
+Q3 expected=M3 predicted=M3 weights=[0.2392, 0.2478, 0.3271, 0.1859]
+Q4 expected=M4 predicted=M4 weights=[0.2495, 0.2379, 0.2331, 0.2795]
+[4/14] Model-native context-node bank...
+NODES: 42 (20, 42, 3584)
+[5/14] Endogenous nearest-context path search...
+Q1 Neral Voss -> Tovin Marel -> Selka Dorn -> Parel Nox -> violet key -> the amber compass
+Q2 Tovin Marel -> Neral Voss -> Selka Dorn -> Parel Nox -> amber compass -> the silver lantern
+Q3 Selka Dorn -> Tovin Marel -> Neral Voss -> Parel Nox -> amber compass -> the violet key
+Q4 Parel Nox -> Tovin Marel -> violet key -> amber compass -> silver lantern -> the bronze sphere
+[6/14] Path controls...
+[7/14] Frozen-norm SEASC hook engine...
+[8/14] Vanilla + PATH dose sweep...
+[9/14] DIRECT/PATH/control comparison...
+[10/14] X-Ray...
+[11/14] Path geometry...
+Q1 direct↔path mean cos=+0.3991 path-depth smoothness=+0.4197
+Q2 direct↔path mean cos=+0.3530 path-depth smoothness=+0.3990
+Q3 direct↔path mean cos=+0.3167 path-depth smoothness=+0.4728
+Q4 direct↔path mean cos=+0.4284 path-depth smoothness=+0.4872
+[12/14] Weight sentinel...
+[13/14] RESULTS
+
+================================================================================================================================
+TEST 207 RESULTS
+================================================================================================================================
+M1: Neral Voss | keeps | the amber compass
+M2: Tovin Marel | carries | the silver lantern
+M3: Selka Dorn | owns | the violet key
+M4: Parel Nox | guards | the bronze sphere
+ACTIVE: [0, 8, 11, 15]
+
+DISCOVERED MODEL-NATIVE PATHS
+Q1 L11: Neral Voss -> Tovin Marel -> Selka Dorn -> Parel Nox -> violet key -> the amber compass
+Q2 L11: Tovin Marel -> Neral Voss -> Selka Dorn -> Parel Nox -> amber compass -> the silver lantern
+Q3 L11: Selka Dorn -> Tovin Marel -> Neral Voss -> Parel Nox -> amber compass -> the violet key
+Q4 L11: Parel Nox -> Tovin Marel -> violet key -> amber compass -> silver lantern -> the bronze sphere
+
+PATH DOSE SWEEP
+
+Q1: What does Neral Voss keep?
+ VANILLA targetLP=-66.4239 meanTok=-22.1413 bestWrong=-52.3234 margin=-14.1005 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ PATH 0.25 targetLP=-66.2095 ΔlogP=+0.2144 meanTok=-22.0698 margin=-14.7785 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ PATH 0.50 targetLP=-65.5186 ΔlogP=+0.9053 meanTok=-21.8395 margin=-15.1541 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ PATH 1.00 targetLP=-62.9580 ΔlogP=+3.4659 meanTok=-20.9860 margin=-15.0694 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question.
+
+Q2: What does Tovin Marel carry?
+ VANILLA targetLP=-63.5263 meanTok=-21.1754 bestWrong=-51.7521 margin=-11.7742 | The prompt does not provide any information about what Tovin Marel carries. There is not enough information to answer the question.
+ PATH 0.25 targetLP=-63.1498 ΔlogP=+0.3765 meanTok=-21.0499 margin=-11.8769 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ PATH 0.50 targetLP=-62.7287 ΔlogP=+0.7976 meanTok=-20.9096 margin=-11.4519 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ PATH 1.00 targetLP=-61.5835 ΔlogP=+1.9428 meanTok=-20.5278 margin=-10.4902 | The prompt does not provide any information about Tovin Marel or what he carries. More context is needed to answer this question accurately.
+
+Q3: What does Selka Dorn own?
+ VANILLA targetLP=-53.7741 meanTok=-17.9247 bestWrong=-58.7833 margin=+5.0091 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ PATH 0.25 targetLP=-54.1744 ΔlogP=-0.4003 meanTok=-18.0581 margin=+5.9289 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ PATH 0.50 targetLP=-53.9679 ΔlogP=-0.1938 meanTok=-17.9893 margin=+6.9583 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ PATH 1.00 targetLP=-53.3228 ΔlogP=+0.4513 meanTok=-17.7743 margin=+8.0855 | The prompt does not provide any specific information about what Selka Dorn owns. Without additional context or details, it's not possible to determine what Selka Dorn owns.
+
+Q4: What does Parel Nox guard?
+ VANILLA targetLP=-46.8772 meanTok=-15.6257 bestWrong=-44.1373 margin=-2.7398 | Based on the limited information provided, Parel Nox appears to guard the city of Cape Town, South Africa, as "Parel Nox" is a name given to one of the major hills
+ PATH 0.25 targetLP=-46.9571 ΔlogP=-0.0800 meanTok=-15.6524 margin=-2.5228 | Based on the limited information provided, Parel Nox appears to guard the city of Rotterdam in the Netherlands. However, without additional context, it's not clear if Parel Nox is a person
+ PATH 0.50 targetLP=-46.8338 ΔlogP=+0.0434 meanTok=-15.6113 margin=-2.2129 | Based on the limited information provided, Parel Nox appears to guard the city of Rotterdam in the Netherlands. However, without additional context, it's not clear if Parel Nox is a person
+ PATH 1.00 targetLP=-47.0809 ΔlogP=-0.2037 meanTok=-15.6936 margin=-1.8484 | Based on the limited information provided, Parel Nox appears to guard the city of Rotterdam in the Netherlands. This conclusion is drawn from the context that Parel Nox is a well-known statue located
+
+DIRECT vs PATH vs CONTROLS @ .50
+
+DIRECT
+ Q1 targetLP=-65.6558 meanTok=-21.8853 margin=-14.2940 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ Q2 targetLP=-62.1989 meanTok=-20.7330 margin=-10.8391 | The prompt does not provide any information about what Tovin Marel carries. There is not enough information to answer the question.
+ Q3 targetLP=-50.6188 meanTok=-16.8729 margin=+5.6844 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ Q4 targetLP=-46.2408 meanTok=-15.4136 margin=-2.2648 | The prompt does not provide specific information about what Parel Nox guards. Without additional context, it's not possible to determine what Parel Nox guards based solely on the given question.
+ mean_margin=-5.4284
+
+PATH
+ Q1 targetLP=-65.5186 meanTok=-21.8395 margin=-15.1541 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ Q2 targetLP=-62.7287 meanTok=-20.9096 margin=-11.4519 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ Q3 targetLP=-53.9679 meanTok=-17.9893 margin=+6.9583 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ Q4 targetLP=-46.8338 meanTok=-15.6113 margin=-2.2129 | Based on the limited information provided, Parel Nox appears to guard the city of Rotterdam in the Netherlands. However, without additional context, it's not clear if Parel Nox is a person
+ mean_margin=-5.4652
+
+SHUFFLE
+ Q1 targetLP=-67.1362 meanTok=-22.3787 margin=-14.5347 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ Q2 targetLP=-61.6855 meanTok=-20.5618 margin=-10.8483 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ Q3 targetLP=-52.8514 meanTok=-17.6171 margin=+4.4284 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ Q4 targetLP=-46.1717 meanTok=-15.3906 margin=-1.9601 | Based on the limited information provided, Parel Nox appears to guard the city of Rotterdam in the Netherlands. This is inferred from context clues often associated with fictional characters named "Parel Nox"
+ mean_margin=-5.7287
+
+WRONG
+ Q1 targetLP=-64.4888 meanTok=-21.4963 margin=-13.1702 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ Q2 targetLP=-63.3941 meanTok=-21.1314 margin=-12.0981 | The prompt does not provide any information about what Tovin Marel carries. More context or details are needed to answer this question accurately.
+ Q3 targetLP=-52.5318 meanTok=-17.5106 margin=+2.5928 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is not possible to determine what Selka Dorn owns.
+ Q4 targetLP=-47.5095 meanTok=-15.8365 margin=-4.1792 | Based on the limited information provided, Parel Nox appears to guard the city of Rotterdam in the Netherlands. However, without additional context, it's not clear if Parel Nox is a character
+ mean_margin=-6.7137
+
+NEG
+ Q1 targetLP=-66.3623 meanTok=-22.1208 margin=-12.6379 | The prompt does not provide any information about what Neral Voss keeps. There is not enough context to answer this question accurately.
+ Q2 targetLP=-63.9270 meanTok=-21.3090 margin=-12.1244 | The prompt does not provide any information about what Tovin Marel carries. Therefore, there is insufficient information to answer the question.
+ Q3 targetLP=-55.2169 meanTok=-18.4056 margin=+2.7273 | The prompt does not provide any information about what Selka Dorn owns. Therefore, I cannot determine what Selka Dorn owns based solely on the given information.
+ Q4 targetLP=-51.6084 meanTok=-17.2028 margin=-4.0995 | The prompt does not provide specific information about what Parel Nox guards. Without additional context, it's not possible to determine what Parel Nox guards.
+ mean_margin=-6.5336
+
+X-RAY Q1 @ .50
+DIRECT   L19=  6.012% L27= 11.648%
+PATH     L19=  5.459% L27=  9.810%
+SHUFFLE  L19=  5.323% L27=  8.671%
+WRONG    L19=  5.968% L27=  8.861%
+NEG      L19=  5.271% L27=  9.542%
+
+PATH LAYER X-RAY
+L00   5.001% INJECT
+L01   4.460% OBSERVE
+L02   3.746% OBSERVE
+L03   3.722% OBSERVE
+L04   3.345% OBSERVE
+L05   2.737% OBSERVE
+L06   2.589% OBSERVE
+L07   2.401% OBSERVE
+L08   3.404% INJECT
+L09   3.494% OBSERVE
+L10   3.803% OBSERVE
+L11   4.508% INJECT
+L12   4.777% OBSERVE
+L13   4.554% OBSERVE
+L14   4.221% OBSERVE
+L15   4.268% INJECT
+L16   4.740% OBSERVE
+L17   4.597% OBSERVE
+L18   5.175% OBSERVE
+L19   5.459% OBSERVE
+L20   5.890% MOTOR-OFF
+L21   6.134% MOTOR-OFF
+L22   6.609% MOTOR-OFF
+L23   6.971% MOTOR-OFF
+L24   6.915% MOTOR-OFF
+L25   6.831% MOTOR-OFF
+L26   6.520% MOTOR-OFF
+L27   9.810% MOTOR-OFF
+--------------------------------------------------------------------------------------------------------------------------------
+Weights: PASS | L20-L27 injection: ZERO | Blind questions contain no target object
+Addressing: frozen question-only competitive TEST205 key bank
+Synthesis: endogenous node geometry -> nearest-context chain -> layer-local path tangents
+SEASC motor: frozen-norm direct injection; physical envelope unchanged
+Controls: DIRECT target direction / PATH / PATH-SHUFFLE / WRONG-PATH / NEG-PATH
+Likelihood: exact multi-token SUM logP + mean-token logP
+================================================================================================================================
+[14/14] TEST 207 COMPLETE
