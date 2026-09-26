@@ -1,0 +1,235 @@
+ ==========================================================================================================================================
+TEST 189 — FULL-SPACE BEHAVIORAL TRANSPORT X-RAY
+CAUSE↔EFFECT — PRE27 → RAW27 — FULL 3584D Δ27 × INDEPENDENT BEHAVIOR GRADIENT
+==========================================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+SEASC RSS=0.250235055 | scale=0.5
+
+[1/28] CUDA...
+       OK
+
+[2/28] Model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 74.2kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 854kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 86.7MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 69.9MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 122MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.03MB/s]Download complete: :  13.1GB,  398MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  491MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.94s/it]Loading weights: 100% 339/339 [00:03<00:00, 99.69it/s]generation_config.json: 100% 243/243 [00:00<00:00, 29.4kB/s]       hidden: 3584 dtype: torch.bfloat16 layers: 28
+
+[3/28] Frozen E axis...
+
+[4/28] Fisher/Bank...
+       01/16
+       02/16
+       03/16
+       04/16
+       05/16
+       06/16
+       07/16
+       08/16
+       09/16
+       10/16
+       11/16
+       12/16
+       13/16
+       14/16
+       15/16
+       16/16
+       mean cos(F,B)=+0.814657
+
+[5/28] P8...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+       ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+
+[6/28] Frozen forge...
+       A 1/4
+       A 2/4
+       A 3/4
+       A 4/4
+       B 1/4
+       B 2/4
+       B 3/4
+       B 4/4
+       C 1/4
+       C 2/4
+       C 3/4
+       C 4/4
+       D 1/4
+       D 2/4
+       D 3/4
+       D 4/4
+       ORTH ready | fixed coordinate=ORTH19
+
+[7/28] Frozen GRAD / XRAY / HOLDOUT sets...
+       GRAD=8 XRAY=8 HOLDOUT=8
+
+[8/28] Frozen SEASC hooks...
+       ready
+
+[9/28] Exact PRE27 / RAW27 recorder...
+       ready
+
+[10/28] Validated PRE27 leaf-replacement gradient engine...
+       ready
+
+[11/28] Gradient preflight...
+       replacement relerr=0.000e+00
+       upstream relerr   =0.000e+00
+       score error       =0.000e+00
+       logits relerr     =0.000e+00
+       gradient norm     =2.927864e-01
+       PREFLIGHT PASSED
+
+[12/28] Independent behavior gradients...
+       1/8 repl=0.0e+00 ups=0.0e+00 score=0.0e+00 logits=0.0e+00
+       2/8 repl=0.0e+00 ups=0.0e+00 score=0.0e+00 logits=0.0e+00
+       3/8 repl=0.0e+00 ups=0.0e+00 score=0.0e+00 logits=0.0e+00
+       4/8 repl=0.0e+00 ups=0.0e+00 score=0.0e+00 logits=0.0e+00
+       5/8 repl=0.0e+00 ups=0.0e+00 score=0.0e+00 logits=0.0e+00
+       6/8 repl=0.0e+00 ups=0.0e+00 score=0.0e+00 logits=0.0e+00
+       7/8 repl=0.0e+00 ups=0.0e+00 score=0.0e+00 logits=0.0e+00
+       8/8 repl=0.0e+00 ups=0.0e+00 score=0.0e+00 logits=0.0e+00
+       sign flips=0/8
+       mean consensus cos=+0.684167
+       min consensus cos =+0.602635
+       cos(G,ORTH19)     =+0.024628
+       G_BEH frozen before XRAY/HOLDOUT
+
+[13/28] XRAY full-space transport...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+
+[14/28] Full-space behavior projection...
+       B_PRE = +1.765904
+       B_RAW = +1.539786
+       ΔB27  = -0.226119
+       identity maxerr=4.768e-07
+       P+(ΔB27)=2/8
+
+[15/28] Normalized behavior alignment...
+       cos(PRE,G)=+0.021909
+       cos(RAW,G)=+0.015998
+       cos(Δ,G)  =-0.004636
+       P+ cosΔG  =2/8
+
+[16/28] Behavior-sensitive Δ27 component...
+       ||Δ_G||       =0.565708
+       ||Δ||         =51.938072
+       Δ G-norm frac =0.010916
+       Δ G-energy frac=0.00016109
+
+[17/28] ORTH19 vs behavior component...
+       mean Δ@ORTH19=-1.012847
+       mean Δ@G     =-0.226119
+       |ORTH19| norm frac=0.019597
+       |G_BEH| norm frac =0.010916
+       cos(G,ORTH19)=+0.024628
+
+[18/28] Per-prompt XRAY...
+       1: B +2.2979→+1.8453 ΔB=-0.4525 cosΔG=-0.0094 ΔU=-0.4347
+       2: B +2.8424→+2.1701 ΔB=-0.6723 cosΔG=-0.0120 ΔU=-1.2861
+       3: B +2.6437→+2.5675 ΔB=-0.0762 cosΔG=-0.0016 ΔU=-1.3710
+       4: B +0.8550→+1.4314 ΔB=+0.5763 cosΔG=+0.0111 ΔU=-0.8967
+       5: B +1.6192→+0.4165 ΔB=-1.2027 cosΔG=-0.0250 ΔU=-1.1914
+       6: B +2.3118→+1.8266 ΔB=-0.4852 cosΔG=-0.0091 ΔU=-1.7450
+       7: B +2.4975→+2.2191 ΔB=-0.2784 cosΔG=-0.0052 ΔU=-0.8099
+       8: B -0.9403→-0.1583 ΔB=+0.7820 cosΔG=+0.0140 ΔU=-0.3681
+
+[19/28] XRAY bootstrap...
+       DELTA_B         -0.226119 [-0.634474,+0.208284]
+       COS_DELTA_G     -0.004636 [-0.012688,+0.003646]
+       B_PRE           +1.765904 [+0.846816,+2.462554]
+       B_RAW           +1.539786 [+0.892131,+2.105567]
+       G_NORM_FRAC     +0.010916 [+0.006825,+0.015838]
+       DELTA_ORTH19    -1.012847 [-1.313836,-0.711839]
+
+[20/28] XRAY sign-flip permutation null...
+       observed |mean ΔB|=0.226119
+       sign-flip p=0.357513 (50000 permutations)
+
+[21/28] HOLDOUT replication...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+       B_PRE=+2.834131
+       B_RAW=+2.350402
+       ΔB27 =-0.483730
+       cos(Δ,G)=-0.009212
+       P+(ΔB)=2/8
+
+[22/28] HOLDOUT per-prompt...
+       1: B +2.9391→+2.5353 ΔB=-0.4038 cosΔG=-0.0085 ΔU=-1.1691
+       2: B +2.1949→+1.7436 ΔB=-0.4513 cosΔG=-0.0085 ΔU=-1.1736
+       3: B +2.9890→+2.5017 ΔB=-0.4873 cosΔG=-0.0101 ΔU=-1.1472
+       4: B +1.7849→+1.6817 ΔB=-0.1032 cosΔG=-0.0021 ΔU=-1.1634
+       5: B +2.6892→+1.9717 ΔB=-0.7175 cosΔG=-0.0129 ΔU=-1.6327
+       6: B +4.5401→+2.6385 ΔB=-1.9016 cosΔG=-0.0357 ΔU=-0.2126
+       7: B +2.9906→+3.0491 ΔB=+0.0586 cosΔG=+0.0012 ΔU=-1.3662
+       8: B +2.5454→+2.6817 ΔB=+0.1362 cosΔG=+0.0029 ΔU=-1.1997
+
+[23/28] HOLDOUT bootstrap + permutation...
+       DELTA_B         -0.483730 [-0.947642,-0.124329]
+       COS_DELTA_G     -0.009212 [-0.017823,-0.002447]
+       B_PRE           +2.834131 [+2.356987,+3.409807]
+       B_RAW           +2.350401 [+2.025675,+2.658904]
+       G_NORM_FRAC     +0.010231 [+0.004437,+0.018292]
+       DELTA_ORTH19    -1.133072 [-1.357288,-0.835425]
+       HOLD sign-flip p=0.047139
+
+[24/28] XRAY ↔ HOLDOUT consistency...
+       XRAY ΔB   =-0.226119
+       HOLD ΔB   =-0.483730
+       same sign =True
+       XRAY cosΔG=-0.004636
+       HOLD cosΔG=-0.009212
+
+[25/28] Mean-vector geometry...
+       cos(mean XRAY Δ,G) =-0.004861
+       cos(mean HOLD Δ,G) =-0.010499
+       cos(mean XRAY Δ,mean HOLD Δ)=+0.973703
+       cos(G,ORTH19)=+0.024628
+       cos(mean XRAY Δ,ORTH19)=-0.021773
+       cos(mean HOLD Δ,ORTH19)=-0.024592
+
+[26/28] TEST189 decision...
+       XRAY ΔB CI   = [-0.634474,+0.208284]
+       HOLD ΔB CI   = [-0.947642,-0.124329]
+       XRAY perm p  = 0.357513
+       HOLD perm p  = 0.047139
+       DECISION: FULLSPACE_L27_BEHAVIORAL_TRANSPORT_WEAK_SIGNAL
+       Geometric/mechanistic result only; no behavioral intervention claim.
+
+[27/28] Saving...
+       Saved: /content/TEST189_FULLSPACE_BEHAVIOR_TRANSPORT
+
+[28/28] COMPLETE
+==========================================================================================================================================
+TEST 189 — FULL-SPACE BEHAVIORAL TRANSPORT X-RAY — SUMMARY
+==========================================================================================================================================
+mean cos(F,B)=+0.814657
+behavior consensus mean cos=+0.684167 min=+0.602635
+cos(G,ORTH19)=+0.024628
+XRAY: B_PRE=+1.765904 B_RAW=+1.539786 ΔB=-0.226119 P+=2/8
+XRAY: cos(Δ,G)=-0.004636 G-norm-frac=0.010916 perm-p=0.357513
+HOLD: B_PRE=+2.834131 B_RAW=+2.350402 ΔB=-0.483730 P+=2/8
+HOLD: cos(Δ,G)=-0.009212 G-norm-frac=0.010231 perm-p=0.047139
+cos(mean XRAY Δ,mean HOLD Δ)=+0.973703
+PCA used: False | K selected: NONE | New vector injected: False | FINAL opened: False
+DECISION: FULLSPACE_L27_BEHAVIORAL_TRANSPORT_WEAK_SIGNAL
+Saved: /content/TEST189_FULLSPACE_BEHAVIOR_TRANSPORT
+==========================================================================================================================================
