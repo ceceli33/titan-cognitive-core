@@ -1,0 +1,177 @@
+ ==========================================================================================================================================
+TEST 186 — L27 CAUSAL RESCUE ABLATION
+CAUSE↔EFFECT — NORMAL vs L27_BYPASS vs L27_ORTH_RESCUE
+==========================================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+SEASC RSS=0.250235055 | scale=0.5
+
+[1/28] CUDA...
+       OK
+
+[2/28] Model...
+config.json: 100% 663/663 [00:00<00:00, 85.8kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 815kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 36.7MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 74.3MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 132MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.25MB/s]Download complete: :  13.1GB,  808MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  441MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.66s/it]Loading weights: 100% 339/339 [00:03<00:00, 99.22it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.4kB/s]       hidden: 3584 dtype: torch.bfloat16 layers: 28
+
+[3/28] Frozen E axis...
+
+[4/28] Fisher/Bank...
+       01/16
+       02/16
+       03/16
+       04/16
+       05/16
+       06/16
+       07/16
+       08/16
+       09/16
+       10/16
+       11/16
+       12/16
+       13/16
+       14/16
+       15/16
+       16/16
+       mean cos(F,B)=+0.814657
+
+[5/28] P8...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+       ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+
+[6/28] Frozen forge...
+       A 1/4
+       A 2/4
+       A 3/4
+       A 4/4
+       B 1/4
+       B 2/4
+       B 3/4
+       B 4/4
+       C 1/4
+       C 2/4
+       C 3/4
+       C 4/4
+       D 1/4
+       D 2/4
+       D 3/4
+       D 4/4
+       ORTH ready | rescue coordinate=ORTH19
+
+[7/28] Frozen arms / data...
+       arms: ['NORMAL', 'L27_BYPASS', 'L27_ORTH_RESCUE']
+       DEV=8 FINAL=8 NEUTRAL=8
+
+[8/28] Intervention engine...
+
+[9/28] Causal metric...
+
+[10/28] DEV diagnostic — arms already frozen...
+       NORMAL           C=+1.288413 P+=8/8
+       L27_BYPASS       C=+0.775696 P+=8/8
+       L27_ORTH_RESCUE  C=+1.288413 P+=8/8
+       No arm selected from DEV.
+
+[11/28] FINAL causal...
+       NORMAL           C=+0.760450 P+=7/8
+       L27_BYPASS       C=+0.574674 P+=8/8
+       L27_ORTH_RESCUE  C=+0.760450 P+=7/8
+
+[12/28] FINAL neutral KL...
+       NORMAL           KL=2.393080
+       L27_BYPASS       KL=1.954876
+       L27_ORTH_RESCUE  KL=2.393080
+
+[13/28] FINAL neutral |ΔNLL|...
+       NORMAL           |ΔNLL|=0.416100
+       L27_BYPASS       |ΔNLL|=1.634016
+       L27_ORTH_RESCUE  |ΔNLL|=0.416100
+
+[14/28] Fresh intervention X-ray...
+       n=8
+
+[15/28] L27 intervention recorder...
+       NORMAL done
+       L27_BYPASS done
+       L27_ORTH_RESCUE done
+
+[16/28] X-ray symmetric deltas @ORTH19...
+       NORMAL           POST19=+0.464281 PRE27=+0.715652 RAW27=-0.297196 OUT27=-0.297196 NORM_IN=-0.297196
+       L27_BYPASS       POST19=+0.464281 PRE27=+0.715652 RAW27=-0.297196 OUT27=+0.715652 NORM_IN=+0.715652
+       L27_ORTH_RESCUE  POST19=+0.464281 PRE27=+0.715652 RAW27=-0.297196 OUT27=-0.296809 NORM_IN=-0.296809
+
+[17/28] Intervention integrity...
+       NORMAL           rawΔ@U=-1.012847 interventionΔ@U=+0.000000
+       L27_BYPASS       rawΔ@U=-1.012847 interventionΔ@U=+1.012847
+       L27_ORTH_RESCUE  rawΔ@U=-1.012847 interventionΔ@U=+0.000387
+
+[18/28] Bootstrap FINAL causal...
+       L27_BYPASS       ΔC=-0.185776 [-0.465099,+0.141024]
+       L27_ORTH_RESCUE  ΔC=+0.000000 [+0.000000,+0.000000]
+
+[19/28] Bootstrap neutral KL...
+       L27_BYPASS       ΔKL=-0.438204 [-0.751871,-0.203777]
+       L27_ORTH_RESCUE  ΔKL=+0.000000 [+0.000000,+0.000000]
+
+[20/28] Bootstrap neutral |ΔNLL|...
+       L27_BYPASS       ΔRet=+1.217916 [+0.676098,+1.659981]
+       L27_ORTH_RESCUE  ΔRet=+0.000000 [+0.000000,+0.000000]
+
+[21/28] Primary FINAL table...
+       NORMAL           C=+0.760450 P+=7/8 KL=2.393080 Ret=0.416100 terminal=-0.297196
+       L27_BYPASS       C=+0.574674 P+=8/8 KL=1.954876 Ret=1.634016 terminal=+0.715652
+       L27_ORTH_RESCUE  C=+0.760450 P+=7/8 KL=2.393080 Ret=0.416100 terminal=-0.296809
+
+[22/28] Causal rescue test...
+       NORMAL terminal=-0.297196 C=+0.760450
+       BYPASS terminal=+0.715652 C=+0.574674
+       RESCUE terminal=-0.296809 C=+0.760450
+       BYPASS causal CI > 0: False
+       RESCUE causal CI > 0: False
+
+[23/28] TEST186 decision...
+       DECISION: L27_TERMINAL_GEOMETRY_RESCUED__BEHAVIORAL_CAUSAL_RESCUE_NOT_CONFIRMED
+
+[24/28] Effect ratios...
+       L27_BYPASS       C/N=0.7557 KL/N=0.8169 Ret/N=3.9270
+       L27_ORTH_RESCUE  C/N=1.0000 KL/N=1.0000 Ret/N=1.0000
+
+[25/28] Saving...
+       Saved: /content/TEST186_L27_CAUSAL_RESCUE
+
+[26/28] Integrity...
+       TEST185 frozen SEASC L0-L19 preserved: True
+       L20-L26 untouched: True
+       Only L27 intervention: True
+       Fixed rescue coordinate ORTH19: True
+       No rescue coefficient search: True
+       DEV selection: False
+       FINAL selection: False
+       Controller: False
+       Weight modification: False
+
+[27/28] Scientific boundary...
+       BYPASS tests the causal role of the whole L27 transformation.
+       ORTH_RESCUE tests only the negative L27 displacement component along fixed ORTH19.
+       ORTH_RESCUE does not inject a tuned magnitude; it cancels only the observed negative within-pass L27 component.
+       A geometric terminal rescue alone is not sufficient evidence of behavioral causal rescue.
+       Behavioral rescue requires FINAL causal improvement; bootstrap CI is reported without FINAL-based tuning.
+
+[28/28] COMPLETE
+==========================================================================================================================================
+TEST 186 — L27 CAUSAL RESCUE ABLATION — SUMMARY
+==========================================================================================================================================
+NORMAL           C=+0.760450 P+=7/8 KL=2.393080 Ret=0.416100 terminal=-0.297196
+L27_BYPASS       C=+0.574674 P+=8/8 KL=1.954876 Ret=1.634016 terminal=+0.715652
+L27_ORTH_RESCUE  C=+0.760450 P+=7/8 KL=2.393080 Ret=0.416100 terminal=-0.296809
+L27_BYPASS ΔC=-0.185776 [-0.465099,+0.141024]
+L27_ORTH_RESCUE ΔC=+0.000000 [+0.000000,+0.000000]
+DECISION: L27_TERMINAL_GEOMETRY_RESCUED__BEHAVIORAL_CAUSAL_RESCUE_NOT_CONFIRMED
+Saved: /content/TEST186_L27_CAUSAL_RESCUE
+==========================================================================================================================================
