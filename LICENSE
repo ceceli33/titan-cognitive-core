@@ -1,579 +1,169 @@
-# LICENSE
+======================================================================
+AKBASCORE — ATTRIBUTION AND ACADEMIC / COMMERCIAL USE NOTICE
+======================================================================
 
-## MIT License
-
-**Copyright (c) 2026 Mustafa Akbaş — AkbasCore**
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
----
-
-# AkbasCore Licensing, Authorship and Research Notice
-
-> **Important:** The MIT License above is the software license governing the
-> AkbasCore source code distributed under this repository.
->
-> The sections below document authorship, project identity, research
-> provenance, terminology, citation practice and third-party components.
-> They do not modify or add restrictions to the MIT License.
-
----
-
-## 1. Software License Scope
-
-AkbasCore source code distributed under this repository is licensed under the
-**MIT License** stated above.
-
-This includes, where present:
-
-- Python source code;
-- CUDA kernels;
-- C/C++ extension code;
-- model-loading and hook infrastructure;
-- activation-extraction code;
-- compass-construction implementations;
-- SEASC injection implementations;
-- DRA envelope implementations;
-- telemetry and measurement code;
-- experimental scripts;
-- evaluation harnesses;
-- visualization and reporting utilities;
-- reference demonstrations.
-
-Under the MIT License, the software may be used, copied, modified, merged,
-published, distributed, sublicensed and/or sold, subject to the conditions
-stated in the MIT License.
-
-In particular, copies or substantial portions of the Software must preserve:
-
-```text
 Copyright (c) 2026 Mustafa Akbaş — AkbasCore
-```
 
-together with the MIT permission notice.
+AkbasCore is developed and maintained by Mustafa Akbaş as an independent
+research project.
 
----
+ACADEMIC, UNIVERSITY, RESEARCH AND COMMERCIAL USE
 
-# 2. Project Authorship
+The MIT License above permits use of the Software for academic,
+educational, university, research, private and commercial purposes,
+including modification, distribution, sublicensing and incorporation
+into commercial products, subject to the conditions of the MIT License.
 
-**Project:** AkbasCore  
-**Developer / Researcher:** Mustafa Akbaş  
-**Current architecture:** AkbasCore 3.2 — SEASC + Composite Compass Foundry  
-**Research status:** Independent research / experimental reference implementation  
-**Year:** 2026  
+ATTRIBUTION REQUIRED BY THE MIT LICENSE
 
-AkbasCore is an independent research project developed by **Mustafa Akbaş**.
+The MIT License requires:
 
-The repository and its associated versioned research records document the
-development of the AkbasCore experimental activation-steering architecture,
-including its historical and current research lines.
+"The above copyright notice and this permission notice shall be included
+in all copies or substantial portions of the Software."
 
-These include:
+Accordingly, where AkbasCore Software or substantial portions of it are
+copied, modified, incorporated, redistributed or otherwise distributed
+under the MIT License, the following copyright attribution must remain
+with the applicable license notice:
 
-```text
-Damped Resonance Alignment (DRA)
-        ↓
-Layerwise activation steering
-        ↓
-SEASC physical-dose architecture
-        ↓
-Runtime-to-weight experiments
-        ↓
-Cross-vector interference
-        ↓
-Retention Guard experiments
-        ↓
-Natural transport analysis
-        ↓
-Semantic transport analysis
-        ↓
-Compass Foundry
-        ↓
-Subspace-Fisher reference geometry
-        ↓
-Fisher / Bank-Mean decomposition
-        ↓
-Composite Compass Foundry
-        ↓
-AkbasCore 3.2
-```
+Copyright (c) 2026 Mustafa Akbaş — AkbasCore
 
-Earlier experimental mechanisms remain part of the historical research record
-but are not automatically components of the current AkbasCore 3.2 Reference
-Core.
+Removal of the required copyright and permission notice from copies or
+substantial portions of the Software is not authorized by the MIT
+License.
 
----
+This requirement applies equally to academic and commercial
+distribution of the Software.
 
-# 3. Current AkbasCore 3.2 Architecture
+SCIENTIFIC AND ACADEMIC CITATION
 
-AkbasCore 3.2 is documented as an integrated inference-time
-activation-steering motor.
+Software-license attribution and scholarly citation are separate
+concepts.
 
-Its current reference architecture combines:
+Where AkbasCore software, experiments, architecture, terminology,
+published measurements, research methodology or versioned research
+records materially contribute to an academic paper, thesis,
+dissertation, university project, technical report or other scholarly
+work, citation of the relevant AkbasCore publication / archival record
+is requested according to normal academic practice.
 
-```text
-Pusula Dökümhanesi
-Composite Compass Foundry
-        +
-SEASC
-Frozen-Norm Direct Physical Dose
-        +
-DRA Zarfı
-Static Normalized Depth Envelope
-```
+A citation should identify, where applicable:
 
-The current reference motor performs the following conceptual operation:
-
-```text
-Matched model activations
-        │
-        ▼
-Pusula Dökümhanesi
-        │
-        ▼
-Layerwise Pusula
-        │
-        ▼
-SEASC physical dose
-        │
-        ▼
-Static DRA depth envelope
-        │
-        ▼
-Hidden-state intervention
-        │
-        ▼
-Transformer continues
-```
-
-For layer \(L\), the reference SEASC intervention is documented as:
-
-$$
-h'_L
-=
-h_L
-+
-\rho_L
-\|h_L\|_{\mathrm{pre}}
-A_L
-$$
-
-with:
-
-$$
-\rho_L
-=
-\mathrm{İvme}\,E(L)
-$$
-
-where \(A_L\) is the layerwise unit Pusula and \(E(L)\) is the normalized DRA
-depth envelope.
-
-The current architecture is documented in detail in the repository README,
-versioned source code, experiment records and archival releases.
-
----
-
-# 4. Composite Compass Foundry
-
-AkbasCore 3.2 introduces the current **Composite Compass Foundry** architecture.
-
-Its reference geometry contains:
-
-```text
-F_L  → Subspace-Fisher reference
-B_L  → Banka Pusulası / Bank-Mean Compass
-R_L  → Artık Yön / Residual Direction
-β    → Bileşim Katsayısı / Composition Coefficient
-A_L  → Bileşik Pusula / Composite Compass
-```
-
-The documented decomposition is:
-
-$$
-c_L=\langle F_L,B_L\rangle
-$$
-
-$$
-R_L
-=
-\operatorname{normalize}
-\left(
-B_L-c_LF_L
-\right)
-$$
-
-and:
-
-$$
-A_L(\beta)
-=
-\operatorname{normalize}
-\left[
-c_LF_L
-+
-\beta\sqrt{1-c_L^2}R_L
-\right]
-$$
-
-The current AkbasCore 3.2 reference lock is:
-
-```text
-β = 1.0
-```
-
-Under the documented orientation convention, this reconstructs the Bank-Mean
-direction:
-
-```text
-β = 0  → Subspace-Fisher reference
-β = 1  → Bank-Mean runtime actuator
-```
-
-Subspace-Fisher remains reference geometry and telemetry in the current
-architecture.
-
----
-
-# 5. Canonical AkbasCore Terminology
-
-The following terminology identifies components, measurements and architectural
-relationships in the AkbasCore research record.
-
-### Compass Architecture
-
-| AkbasCore term | English gloss |
-| --- | --- |
-| **Pusula** | Compass |
-| **Pusula Dökümhanesi** | Compass Foundry |
-| **Banka Pusulası** | Bank-Mean Compass |
-| **Artık Yön** | Residual Direction |
-| **Bileşik Pusula** | Composite Compass |
-| **Bileşim Katsayısı (β)** | Composition Coefficient |
-
-### Physical Steering Architecture
-
-| AkbasCore term | English gloss |
-| --- | --- |
-| **Dondurulmuş Norm** | Frozen Norm |
-| **Fiziksel Doz** | Physical Dose |
-| **Zarf / DRA Zarfı** | Envelope / DRA Envelope |
-| **İvme** | Steering Dose |
-| **Sönüm** | Decay Rate |
-| **Zirve** | Envelope Amplitude |
-| **Taban** | Permanent Floor |
-
-### Historical AkbasCore Terminology
-
-Earlier research branches additionally used terms including:
-
-```text
-Katkı
-Terazi
-Bileşim
-Oran
-Doyum
-Karşıt
-Sapma
-Fren
-Sınır
-Sensör
-Aktüatör
-Mercek
-Bütçe Bölüşümü
-Kontrastif Aktüatör
-Eşleştirilmiş Negatif
-Katman Başına Vektör
-Yoğunluk
-Bozulma
-Tekrar
-Uzunluk Çöküşü
-Kalite
-Çifte Ayrışma
-```
-
-These historical terms should be interpreted according to the corresponding
-versioned AkbasCore release.
-
-Their presence in the research record does not imply that they remain active
-components of AkbasCore 3.2.
-
----
-
-# 6. Standard Mathematical and Scientific Techniques
-
-AkbasCore uses established mathematical and computational techniques as
-building blocks.
-
-No claim of original invention is made here over standard techniques such as:
-
-- vector normalization;
-- cosine similarity;
-- difference-of-means construction;
-- covariance estimation;
-- singular value decomposition (SVD);
-- low-rank approximation;
-- regularization;
-- orthogonal projection;
-- Fisher/LDA-style geometry;
-- principal-component analysis;
-- bootstrap estimation;
-- gradient-based optimization;
-- standard transformer hidden-state extraction.
-
-These techniques retain their ordinary mathematical and scientific provenance.
-
-The AkbasCore research record concerns the documented architecture,
-experimental construction, integration, measurements, terminology and
-versioned implementations of the project.
-
----
-
-# 7. Methodology and Research Record
-
-The MIT License grants permissions concerning the Software.
-
-It should not be interpreted as a statement that standard copyright law grants
-exclusive ownership over abstract ideas, mathematical concepts, scientific
-facts, procedures or methods of operation.
-
-Likewise, this document does not attempt to create such rights merely by
-describing the AkbasCore methodology.
-
-The AkbasCore repository instead provides a public, versioned record of:
-
-- authorship;
-- source-code development;
-- architecture definitions;
-- equations;
-- experimental designs;
-- terminology;
-- measured results;
-- negative results;
-- revisions;
-- version history;
-- release history;
-- archival research records.
-
-The purpose of this record is to make the provenance and development history
-of AkbasCore independently inspectable.
-
----
-
-# 8. Scientific Attribution
-
-Software licensing and scientific citation are related but distinct matters.
-
-The MIT License requires preservation of the copyright and permission notice
-when copies or substantial portions of the Software are distributed.
-
-Scientific work that materially relies on AkbasCore's documented architecture,
-experiments, results or terminology should additionally cite the relevant
-versioned AkbasCore research record according to normal scholarly practice.
-
-For reproducibility, citation should preferably identify:
-
-```text
-Author
-Project
-Version
-Release
-Year
+Mustafa Akbaş
+AkbasCore
+Relevant version / release
+Relevant publication or experimental record
 Repository
-Archival DOI, where available
-```
+Year
+DOI
 
-rather than citing only the continuously updated `main` branch.
+This scholarly citation request is not represented as an additional
+condition of the MIT License.
 
----
+AUTHORSHIP AND PROVENANCE
 
-# 9. Suggested Current Citation
+Permission to use, modify or commercially exploit MIT-licensed
+AkbasCore Software does not change the historical authorship or
+provenance of the original AkbasCore project.
 
-For work specifically based on the current architecture:
+The original AkbasCore project and its versioned research record are
+authored and developed by Mustafa Akbaş.
 
-```text
-Mustafa Akbaş.
-AkbasCore 3.2 — SEASC + Composite Compass Foundry.
-Independent research / experimental reference implementation.
-2026.
-```
+Forks, modifications and derivative software may identify their own
+authors and modifications, but should not misrepresent the authorship,
+origin or documented development history of the original AkbasCore
+project.
 
-When an archival DOI is available for the specific 3.2 release, the DOI should
-be added to the citation.
+The repository's timestamped commits, Releases, source files,
+experimental records and archival DOI deposits constitute the public
+versioned record of AkbasCore development.
 
-For historical experiments, cite the corresponding version or archival record
-rather than retroactively citing AkbasCore 3.2.
+CURRENT RESEARCH LINE
 
----
+The documented AkbasCore research lineage includes:
 
-# 10. Versioned Research Record
+Damped Resonance Alignment (DRA)
+SEASC
+Pusula Dökümhanesi
+Sentetik Pusula Üretimi
+Katman Pusulası
+Pusula Demeti
+Dondurulmuş Norm
+Fiziksel Doz
+Norma Bağlı Pusula Enjeksiyonu
+Kesim Sınırı
+Sessiz Kuyruk
+İz Bırakma
+İz Taşınımı
+Taşınım İzi
+Yerel Taşınım İşleci
+Taşınım Zinciri
+İnşa Uzayı
+Kapsama
+İnşa Kapasitesi
+Kristalleşme
+Koruma Kalkanı
+KIZILELMA Live X-Ray
 
-AkbasCore has evolved through multiple experimental generations.
+These names document components, measurements and experimental
+abstractions developed and used within the AkbasCore research program.
 
-Historical releases and archival records should remain associated with the
-architecture that existed at the time of publication.
+Nothing in this notice claims exclusive ownership over pre-existing
+mathematics, scientific facts, standard algorithms or independently
+developed techniques.
 
-Examples include:
+COMMERCIAL USE
 
-| Research line | Archival DOI |
-| --- | --- |
-| AkbasCore 1.2 — Damped Resonance Alignment | `10.5281/zenodo.21356271` |
-| AkbasCore 1.2 — Damped Resonance Alignment | `10.5281/zenodo.22396352` |
-| AkbasCore 2.0 — DRA / MANIFOLD experimental branch | `10.5281/zenodo.22715555` |
-| AkbasCore 2.1 — DRA / Synthetic Injection | `10.5281/zenodo.22735745` |
-| AkbasCore 3.0 — SEASC | `10.5281/zenodo.22894413` |
-| Runtime-to-Weight experimental record | `10.5281/zenodo.22907085` |
+Commercial use is expressly permitted under the MIT License.
 
-These records document different stages of the project.
+This includes, subject to the MIT License:
 
-They should not be interpreted as if every historical architecture were
-identical to the current AkbasCore 3.2 motor.
+- commercial research;
+- commercial software development;
+- integration into products and services;
+- modification;
+- redistribution;
+- sublicensing;
+- sale of copies of the Software.
 
----
+Where copies or substantial portions of AkbasCore Software are
+distributed, the copyright and permission notice required by the MIT
+License must be preserved.
 
-# 11. Base Models and Third-Party Components
+Commercial permission does not alter the historical authorship of the
+original AkbasCore project.
 
-AkbasCore does not replace or supersede the licenses of third-party models,
-libraries, frameworks or other dependencies.
+NO ENDORSEMENT
 
-Base models and third-party software remain subject to their respective
-licenses.
+Use of the name "Mustafa Akbaş" or "AkbasCore" for attribution does not
+imply endorsement, sponsorship, certification or approval of a third
+party, product, service, fork or modified implementation by Mustafa
+Akbaş.
 
-Reference models used throughout the research history include:
+Attribution must not be presented in a manner that falsely suggests
+such endorsement.
 
-```text
-TinyLlama-1.1B-Chat-v1.0
-Qwen/Qwen2.5-1.5B-Instruct
-Qwen/Qwen2.5-7B-Instruct
-```
+SUMMARY
 
-AkbasCore's MIT License applies only to AkbasCore software for which the
-AkbasCore copyright holder has the authority to grant that license.
+Academic use:    PERMITTED
+University use:  PERMITTED
+Research use:    PERMITTED
+Commercial use:  PERMITTED
+Modification:    PERMITTED
+Distribution:    PERMITTED
 
-It does not relicense:
+For copies or substantial portions of the Software:
 
-- model weights;
-- tokenizer assets;
-- third-party libraries;
-- CUDA;
-- PyTorch;
-- Transformers;
-- external datasets;
-- or other independently licensed dependencies.
+Copyright notice: REQUIRED BY MIT
+Permission notice: REQUIRED BY MIT
 
-Users are responsible for complying with the applicable licenses of those
-components.
+Original project attribution:
 
----
+Mustafa Akbaş — AkbasCore
 
-# 12. No Warranty
+Scientific work materially based on the AkbasCore research record
+should cite the relevant versioned publication or archival record
+according to normal scholarly practice.
 
-AkbasCore is experimental research software.
-
-The MIT warranty disclaimer stated at the beginning of this document applies.
-
-In particular, AkbasCore is not provided as a guarantee of:
-
-```text
-model safety
-alignment
-correctness
-reliability
-fitness for production
-cross-model generalization
-cross-language generalization
-or behavioral predictability
-```
-
-Experimental results reported in this repository describe the tested
-configurations and should not automatically be generalized to other models,
-datasets, prompts, hardware or deployment conditions.
-
----
-
-# 13. Project Identity
-
-```text
-Project
-    AkbasCore
-
-Developer / Researcher
-    Mustafa Akbaş
-
-Current Version
-    AkbasCore 3.2
-
-Architecture
-    SEASC + Composite Compass Foundry
-
-Runtime Actuator
-    Banka Pusulası / Bank-Mean Compass
-
-Reference Geometry
-    Subspace-Fisher
-
-Composite Lock
-    β = 1.0
-
-Physical Injection
-    SEASC Frozen-Norm Direct Dose
-
-Depth Profile
-    Static Normalized DRA Envelope
-
-Reference Model
-    Qwen/Qwen2.5-7B-Instruct
-
-Research Status
-    Independent experimental Reference Core
-
-Software License
-    MIT License
-
-Copyright
-    Copyright (c) 2026 Mustafa Akbaş — AkbasCore
-```
-
----
-
-# 14. Final License Notice
-
-**AkbasCore software is licensed under the MIT License stated at the beginning
-of this file.**
-
-The explanatory sections following the MIT text document the identity,
-authorship, scientific provenance, terminology, research record and
-third-party boundaries of the AkbasCore project.
-
-**They do not add restrictions to, replace, or modify the MIT License.**
-
-For software copies or substantial portions of the Software, preserve the
-copyright and MIT permission notice as required by the license:
-
-```text
-Copyright (c) 2026 Mustafa Akbaş — AkbasCore
-```
-
-For scientific work materially based on AkbasCore, citation of the relevant
-versioned research record is requested according to normal scholarly practice.
-
----
-
-**AkbasCore — Mustafa Akbaş · 2026**  
-**Software License: MIT**
+AkbasCore — Mustafa Akbaş
+Copyright (c) 2026
