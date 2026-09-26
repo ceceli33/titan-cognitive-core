@@ -1,0 +1,305 @@
+ 
+==========================================================================================================================================
+TEST 194 — COMPOSED TAIL TRANSPORT LAW
+A/B/C/D/E — BUILD-FROZEN M20→M27 COMPOSITION × INDEPENDENT HOLDOUT
+==========================================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+SEASC RSS=0.250235055 | scale=0.5 | ridge_rel=0.0001
+
+[1/28] CUDA...
+       OK
+
+[2/28] Model...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 80.0kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 827kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 13.9MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 70.3MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 128MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 2.92MB/s]
+Download complete: : 
+
+ 13.1GB, 1.04GB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  473MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:41<00:00,  5.94s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 94.39it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 31.7kB/s]
+       hidden: 3584 dtype: torch.bfloat16 layers: 28
+
+[3/28] TEST193 axis lock...
+       A/B/C/D/E ready
+
+[4/28] Layer-local compasses...
+       A ABOVE↔BELOW ready
+       B BEFORE↔AFTER ready
+       C INSIDE↔OUTSIDE ready
+       D OPEN↔CLOSED ready
+       E CAUSE↔EFFECT ready
+
+[5/28] TEST193 BUILD/HOLDOUT lock...
+       5 axes × BUILD8 × HOLDOUT8
+
+[6/28] SEASC...
+       ready
+
+[7/28] PRE/RAW L20-L27 recorder...
+       ready
+
+[8/28] BUILD collection...
+       A BUILD 1/8
+       A BUILD 2/8
+       A BUILD 3/8
+       A BUILD 4/8
+       A BUILD 5/8
+       A BUILD 6/8
+       A BUILD 7/8
+       A BUILD 8/8
+       B BUILD 1/8
+       B BUILD 2/8
+       B BUILD 3/8
+       B BUILD 4/8
+       B BUILD 5/8
+       B BUILD 6/8
+       B BUILD 7/8
+       B BUILD 8/8
+       C BUILD 1/8
+       C BUILD 2/8
+       C BUILD 3/8
+       C BUILD 4/8
+       C BUILD 5/8
+       C BUILD 6/8
+       C BUILD 7/8
+       C BUILD 8/8
+       D BUILD 1/8
+       D BUILD 2/8
+       D BUILD 3/8
+       D BUILD 4/8
+       D BUILD 5/8
+       D BUILD 6/8
+       D BUILD 7/8
+       D BUILD 8/8
+       E BUILD 1/8
+       E BUILD 2/8
+       E BUILD 3/8
+       E BUILD 4/8
+       E BUILD 5/8
+       E BUILD 6/8
+       E BUILD 7/8
+       E BUILD 8/8
+
+[9/28] Tail continuity...
+       A: max RAW[L]→PRE[L+1] relerr=0.0000000000
+       B: max RAW[L]→PRE[L+1] relerr=0.0000000000
+       C: max RAW[L]→PRE[L+1] relerr=0.0000000000
+       D: max RAW[L]→PRE[L+1] relerr=0.0000000000
+       E: max RAW[L]→PRE[L+1] relerr=0.0000000000
+
+[10/28] Fit BUILD-only local operators...
+       A: L20=3.48e-02 L21=5.32e-02 L22=8.12e-02 L23=1.44e-01 L24=2.13e-01 L25=3.34e-01 L26=4.70e-01 L27=7.54e-01
+       B: L20=3.45e-02 L21=5.59e-02 L22=8.47e-02 L23=1.51e-01 L24=2.24e-01 L25=3.37e-01 L26=4.73e-01 L27=7.52e-01
+       C: L20=3.29e-02 L21=5.42e-02 L22=9.06e-02 L23=1.65e-01 L24=2.44e-01 L25=3.61e-01 L26=4.87e-01 L27=7.77e-01
+       D: L20=3.50e-02 L21=6.08e-02 L22=8.94e-02 L23=1.69e-01 L24=2.62e-01 L25=4.08e-01 L26=5.64e-01 L27=9.25e-01
+       E: L20=3.83e-02 L21=6.22e-02 L22=1.04e-01 L23=1.81e-01 L24=2.58e-01 L25=3.81e-01 L26=5.43e-01 L27=8.65e-01
+       operators frozen before HOLDOUT
+
+[11/28] BUILD composed trajectory sanity...
+       A: L20 cos=+1.000000 → L27 cos=+0.999997
+       B: L20 cos=+1.000000 → L27 cos=+0.999998
+       C: L20 cos=+1.000000 → L27 cos=+0.999995
+       D: L20 cos=+1.000000 → L27 cos=+0.999995
+       E: L20 cos=+1.000000 → L27 cos=+0.999993
+
+[12/28] BUILD LOFO composed terminal test...
+       A: composed=+0.925520 identity=+0.146231 gain=+0.779289 P+=8/8
+       B: composed=+0.835645 identity=+0.148879 gain=+0.686766 P+=8/8
+       C: composed=+0.927845 identity=+0.151281 gain=+0.776564 P+=8/8
+       D: composed=+0.966950 identity=+0.160553 gain=+0.806397 P+=8/8
+       E: composed=+0.951734 identity=+0.186468 gain=+0.765266 P+=8/8
+
+[13/28] HOLDOUT collection...
+       A HOLD 1/8
+       A HOLD 2/8
+       A HOLD 3/8
+       A HOLD 4/8
+       A HOLD 5/8
+       A HOLD 6/8
+       A HOLD 7/8
+       A HOLD 8/8
+       B HOLD 1/8
+       B HOLD 2/8
+       B HOLD 3/8
+       B HOLD 4/8
+       B HOLD 5/8
+       B HOLD 6/8
+       B HOLD 7/8
+       B HOLD 8/8
+       C HOLD 1/8
+       C HOLD 2/8
+       C HOLD 3/8
+       C HOLD 4/8
+       C HOLD 5/8
+       C HOLD 6/8
+       C HOLD 7/8
+       C HOLD 8/8
+       D HOLD 1/8
+       D HOLD 2/8
+       D HOLD 3/8
+       D HOLD 4/8
+       D HOLD 5/8
+       D HOLD 6/8
+       D HOLD 7/8
+       D HOLD 8/8
+       E HOLD 1/8
+       E HOLD 2/8
+       E HOLD 3/8
+       E HOLD 4/8
+       E HOLD 5/8
+       E HOLD 6/8
+       E HOLD 7/8
+       E HOLD 8/8
+
+[14/28] Teacher-forced one-step control...
+       A: L20=+0.947280 L27=+0.926421
+       B: L20=+0.921196 L27=+0.870741
+       C: L20=+0.953094 L27=+0.932474
+       D: L20=+0.966434 L27=+0.969123
+       E: L20=+0.974471 L27=+0.958052
+
+[15/28] Free-run composed HOLDOUT trajectory...
+       A: L20=+0.947 L21=+0.940 L22=+0.936 L23=+0.933 L24=+0.929 L25=+0.918 L26=+0.923 L27=+0.923
+       B: L20=+0.921 L21=+0.903 L22=+0.889 L23=+0.884 L24=+0.872 L25=+0.860 L26=+0.862 L27=+0.857
+       C: L20=+0.953 L21=+0.953 L22=+0.947 L23=+0.948 L24=+0.937 L25=+0.930 L26=+0.928 L27=+0.928
+       D: L20=+0.966 L21=+0.961 L22=+0.961 L23=+0.963 L24=+0.965 L25=+0.962 L26=+0.966 L27=+0.968
+       E: L20=+0.974 L21=+0.973 L22=+0.966 L23=+0.964 L24=+0.962 L25=+0.958 L26=+0.957 L27=+0.955
+
+[16/28] Terminal RAW27 prediction...
+       A: composed=+0.923117 teacher=+0.926421 identity=+0.142575 Δidentity=+0.780543 comp-teacher=-0.003304
+       B: composed=+0.857397 teacher=+0.870741 identity=+0.143079 Δidentity=+0.714318 comp-teacher=-0.013344
+       C: composed=+0.927649 teacher=+0.932474 identity=+0.157019 Δidentity=+0.770630 comp-teacher=-0.004825
+       D: composed=+0.967845 teacher=+0.969123 identity=+0.147404 Δidentity=+0.820441 comp-teacher=-0.001277
+       E: composed=+0.955299 teacher=+0.958052 identity=+0.181625 Δidentity=+0.773673 comp-teacher=-0.002753
+
+[17/28] Composition error accumulation...
+       A: L20 err=0.317 L21 err=0.335 L22 err=0.346 L23 err=0.352 L24 err=0.358 L25 err=0.384 L26 err=0.371 L27 err=0.373
+       B: L20 err=0.383 L21 err=0.423 L22 err=0.450 L23 err=0.460 L24 err=0.481 L25 err=0.502 L26 err=0.498 L27 err=0.505
+       C: L20 err=0.300 L21 err=0.301 L22 err=0.320 L23 err=0.317 L24 err=0.346 L25 err=0.364 L26 err=0.372 L27 err=0.373
+       D: L20 err=0.255 L21 err=0.273 L22 err=0.274 L23 err=0.267 L24 err=0.261 L25 err=0.271 L26 err=0.256 L27 err=0.251
+       E: L20 err=0.223 L21 err=0.228 L22 err=0.255 L23 err=0.265 L24 err=0.271 L25 err=0.286 L26 err=0.288 L27 err=0.294
+
+[18/28] Teacher-forced vs free-run gap...
+       A: L20=+0.000 L21=-0.001 L22=-0.002 L23=-0.002 L24=-0.003 L25=-0.004 L26=-0.004 L27=-0.003
+       B: L20=+0.000 L21=-0.003 L22=-0.007 L23=-0.009 L24=-0.011 L25=-0.012 L26=-0.012 L27=-0.013
+       C: L20=+0.000 L21=-0.001 L22=-0.003 L23=-0.003 L24=-0.003 L25=-0.004 L26=-0.005 L27=-0.005
+       D: L20=+0.000 L21=-0.001 L22=-0.001 L23=-0.002 L24=-0.001 L25=-0.002 L26=-0.002 L27=-0.001
+       E: L20=+0.000 L21=-0.001 L22=-0.001 L23=-0.002 L24=-0.002 L25=-0.003 L26=-0.003 L27=-0.003
+
+[19/28] Bootstrap terminal composed-vs-identity Δcos...
+       A: +0.780543 [+0.751460,+0.804572]
+       B: +0.714318 [+0.685789,+0.741330]
+       C: +0.770630 [+0.760046,+0.780995]
+       D: +0.820441 [+0.814363,+0.825902]
+       E: +0.773673 [+0.765676,+0.781012]
+
+[20/28] Exact n=8 terminal sign-flip...
+       A: p=0.007812
+       B: p=0.007812
+       C: p=0.007812
+       D: p=0.007812
+       E: p=0.007812
+
+[21/28] Foreign-axis composed operator control...
+             HOLD-A    HOLD-B    HOLD-C    HOLD-D    HOLD-E
+       OP-A  +0.92312  +0.16074  +0.15452  +0.13695  +0.13918
+       OP-B  +0.18216  +0.85740  +0.11000  +0.10402  +0.17362
+       OP-C  +0.17285  +0.06103  +0.92765  +0.18645  +0.11723
+       OP-D  +0.09112  +0.09124  +0.21304  +0.96785  +0.11084
+       OP-E  +0.08242  +0.08575  -0.01046  +0.01959  +0.95530
+
+[22/28] Composed axis specificity...
+       A: own=+0.923117 foreign=+0.147848 gap=+0.775269
+       B: own=+0.857397 foreign=+0.142451 gap=+0.714946
+       C: own=+0.927649 foreign=+0.134388 gap=+0.793261
+       D: own=+0.967845 foreign=+0.126559 gap=+0.841286
+       E: own=+0.955299 foreign=+0.044328 gap=+0.910971
+
+[23/28] Foreign composition error matrix...
+             HOLD-A    HOLD-B    HOLD-C    HOLD-D    HOLD-E
+       OP-A   0.37288   0.99309   0.99200   0.99161   0.99016
+       OP-B   0.98733   0.50527   1.01587   0.99843   0.98987
+       OP-C   0.98607   1.01251   0.37255   0.98687   0.99666
+       OP-D   0.99916   1.00239   0.98401   0.25121   0.99583
+       OP-E   1.00580   1.01021   1.00815   1.02587   0.29375
+
+[24/28] Global free-run layer summary...
+       L20: composed=+0.952495 teacher=+0.952495 identity=+0.742620 err=0.295720
+       L21: composed=+0.946171 teacher=+0.947586 identity=+0.577379 err=0.311859
+       L22: composed=+0.939929 teacher=+0.942678 identity=+0.443560 err=0.329216
+       L23: composed=+0.938149 teacher=+0.941714 identity=+0.369383 err=0.332214
+       L24: composed=+0.933160 teacher=+0.937196 identity=+0.313902 err=0.343454
+       L25: composed=+0.925557 teacher=+0.930454 identity=+0.272640 err=0.361331
+       L26: composed=+0.927271 teacher=+0.932117 identity=+0.210104 err=0.356884
+       L27: composed=+0.926261 teacher=+0.931362 identity=+0.154340 err=0.359132
+
+[25/28] TEST194 decision...
+       A terminal replicated=True
+       B terminal replicated=True
+       C terminal replicated=True
+       D terminal replicated=True
+       E terminal replicated=True
+       DECISION: COMPOSED_AXIS_SPECIFIC_TAIL_TRANSPORT_LAWS_REPLICATED
+       Predictive BUILD-span composition only; no full-state dynamical-system claim.
+
+[26/28] Saving CSV...
+       CSV ready
+
+[27/28] Saving NPZ / report...
+       Saved: /content/TEST194_COMPOSED_TAIL_TRANSPORT
+
+[28/28] COMPLETE
+==========================================================================================================================================
+TEST 194 — COMPOSED TAIL TRANSPORT LAW — SUMMARY
+==========================================================================================================================================
+A: composed=+0.923117 teacher=+0.926421 identity=+0.142575 Δ=+0.780543 BOOT=[+0.751460,+0.804572] p=0.007812 specificity=+0.775269
+B: composed=+0.857397 teacher=+0.870741 identity=+0.143079 Δ=+0.714318 BOOT=[+0.685789,+0.741330] p=0.007812 specificity=+0.714946
+C: composed=+0.927649 teacher=+0.932474 identity=+0.157019 Δ=+0.770630 BOOT=[+0.760046,+0.780995] p=0.007812 specificity=+0.793261
+D: composed=+0.967845 teacher=+0.969123 identity=+0.147404 Δ=+0.820441 BOOT=[+0.814363,+0.825902] p=0.007812 specificity=+0.841286
+E: composed=+0.955299 teacher=+0.958052 identity=+0.181625 Δ=+0.773673 BOOT=[+0.765676,+0.781012] p=0.007812 specificity=+0.910971
+Replicated axes=5/5 | mean specificity gap=+0.807147
+L20: composed=+0.952495 teacher=+0.952495 identity=+0.742620
+L21: composed=+0.946171 teacher=+0.947586 identity=+0.577379
+L22: composed=+0.939929 teacher=+0.942678 identity=+0.443560
+L23: composed=+0.938149 teacher=+0.941714 identity=+0.369383
+L24: composed=+0.933160 teacher=+0.937196 identity=+0.313902
+L25: composed=+0.925557 teacher=+0.930454 identity=+0.272640
+L26: composed=+0.927271 teacher=+0.932117 identity=+0.210104
+L27: composed=+0.926261 teacher=+0.931362 identity=+0.154340
+Free-run starts from true HOLDOUT PRE20 only; no true intermediate HOLDOUT states used.
+Full 3584D dynamical-system claim: False | New vector: False | FINAL: False
+DECISION: COMPOSED_AXIS_SPECIFIC_TAIL_TRANSPORT_LAWS_REPLICATED
+Saved: /content/TEST194_COMPOSED_TAIL_TRANSPORT
+
+
+==========================================================================================================================================
