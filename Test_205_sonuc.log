@@ -1,0 +1,213 @@
+ ================================================================================================================================
+TEST 205 — ENDOGENOUS COMPETITIVE ASSOCIATIVE MEMORY
+================================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct | SEASC RSS=0.250235051
+[1/14] Model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 85.7kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 831kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 76.8MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 72.8MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 132MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.27MB/s]Download complete: :  13.1GB,  498MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  468MB/s  Fetching 4 files: 100% 4/4 [00:40<00:00,  7.35s/it]Loading weights: 100% 339/339 [00:03<00:00, 101.04it/s]generation_config.json: 100% 243/243 [00:00<00:00, 34.8kB/s][2/14] Layer-local competitive key bank...
+KEY: (20, 4, 3584)
+[3/14] Position-aligned teacher value bank...
+VALUE: (20, 4, 3584)
+[4/14] Competitive motor-off profiling...
+L00 top1=0.25 margin=+0.00082 OFF
+L01 top1=0.25 margin=-0.03304 OFF
+L02 top1=0.25 margin=-0.01923 OFF
+L03 top1=0.50 margin=-0.00287 OFF
+L04 top1=0.25 margin=-0.01849 OFF
+L05 top1=0.25 margin=-0.02850 OFF
+L06 top1=0.25 margin=-0.00843 OFF
+L07 top1=0.25 margin=-0.00528 OFF
+L08 top1=1.00 margin=+0.01538 ON
+L09 top1=0.25 margin=-0.03878 OFF
+L10 top1=0.25 margin=-0.00057 OFF
+L11 top1=0.50 margin=+0.00737 OFF
+L12 top1=0.75 margin=+0.00630 ON
+L13 top1=0.25 margin=-0.02952 OFF
+L14 top1=0.50 margin=-0.00951 OFF
+L15 top1=1.00 margin=+0.01731 ON
+L16 top1=0.75 margin=-0.00018 OFF
+L17 top1=0.50 margin=-0.02193 OFF
+L18 top1=0.75 margin=+0.01179 ON
+L19 top1=0.50 margin=+0.00608 OFF
+ACTIVE: [8, 12, 15, 18]
+[5/14] Query-only frozen CAM routes...
+Q1 correct-memory mean=0.2931 | Neral Voss
+Q2 correct-memory mean=0.2945 | Tovin Marel
+Q3 correct-memory mean=0.3389 | Selka Dorn
+Q4 correct-memory mean=0.3157 | Parel Nox
+[6/14] Attractor/Capsid/Anti-Insufficiency preparation...
+[7/14] Hook engine...
+[8/14] Core CAM dose sweep...
+[9/14] Full branch comparison @ scale=.50...
+[10/14] Stochastic barrier + noise-only controls...
+[11/14] X-Ray...
+[12/14] Weight sentinel...
+[13/14] RESULTS
+
+================================================================================================================================
+TEST 205 RESULTS
+================================================================================================================================
+M1: Neral Voss | keeps | the amber compass
+M2: Tovin Marel | carries | the silver lantern
+M3: Selka Dorn | owns | the violet key
+M4: Parel Nox | guards | the bronze sphere
+ACTIVE LAYERS: [8, 12, 15, 18]
+
+COMPETITIVE MEMORY ROUTING
+Q1 expected=M1 predicted=M1 weights=[0.2931, 0.2399, 0.2535, 0.2135]
+Q2 expected=M2 predicted=M2 weights=[0.2356, 0.2945, 0.257, 0.2129]
+Q3 expected=M3 predicted=M3 weights=[0.2338, 0.2354, 0.3389, 0.1919]
+Q4 expected=M4 predicted=M4 weights=[0.233, 0.2198, 0.2315, 0.3157]
+
+CAM DOSE SWEEP
+
+Q1: What does Neral Voss keeps?
+ VANILLA targetLP=-62.7255 bestWrong=-50.4353 margin=-12.2901 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ CAM 0.25 targetLP=-63.0315 ΔlogP=-0.3060 bestWrong=-50.7800 margin=-12.2515 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ CAM 0.50 targetLP=-63.2235 ΔlogP=-0.4981 bestWrong=-50.7728 margin=-12.4507 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ CAM 1.00 targetLP=-63.3816 ΔlogP=-0.6561 bestWrong=-50.8980 margin=-12.4836 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+
+Q2: What does Tovin Marel carries?
+ VANILLA targetLP=-65.0670 bestWrong=-54.0625 margin=-11.0045 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ CAM 0.25 targetLP=-65.2486 ΔlogP=-0.1816 bestWrong=-54.2869 margin=-10.9617 | The prompt does not provide any information about what Tovin Marel carries. Therefore, there is insufficient information to determine what Tovin Marel carries.
+ CAM 0.50 targetLP=-65.1326 ΔlogP=-0.0656 bestWrong=-54.0902 margin=-11.0425 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ CAM 1.00 targetLP=-65.2048 ΔlogP=-0.1378 bestWrong=-54.2020 margin=-11.0027 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+
+Q3: What does Selka Dorn owns?
+ VANILLA targetLP=-56.1570 bestWrong=-63.0348 margin=+6.8777 | The prompt does not provide any information about what Selka Dorn owns. Therefore, I cannot determine what Selka Dorn owns based solely on the given information.
+ CAM 0.25 targetLP=-56.1043 ΔlogP=+0.0527 bestWrong=-62.9442 margin=+6.8399 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ CAM 0.50 targetLP=-56.0063 ΔlogP=+0.1507 bestWrong=-62.7670 margin=+6.7607 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ CAM 1.00 targetLP=-56.4444 ΔlogP=-0.2874 bestWrong=-63.2091 margin=+6.7647 | The prompt does not provide any information about what Selka Dorn owns. Therefore, I cannot determine what Selka Dorn owns based solely on the given information.
+
+Q4: What does Parel Nox guards?
+ VANILLA targetLP=-49.2930 bestWrong=-50.6652 margin=+1.3721 | The prompt does not provide specific information about what Parel Nox guards. Without additional context, it's not possible to determine what Parel Nox guards based solely on the given question.
+ CAM 0.25 targetLP=-49.4667 ΔlogP=-0.1736 bestWrong=-50.8410 margin=+1.3744 | The prompt does not provide specific information about what Parel Nox guards. Without additional context, it's not possible to determine what Parel Nox guards based solely on the given question.
+ CAM 0.50 targetLP=-48.9758 ΔlogP=+0.3173 bestWrong=-50.0527 margin=+1.0769 | The prompt does not provide specific information about what Parel Nox guards. Without additional context, it's not possible to determine what Parel Nox guards based solely on the given question.
+ CAM 1.00 targetLP=-49.1475 ΔlogP=+0.1455 bestWrong=-50.5983 margin=+1.4508 | The prompt does not provide specific information about what Parel Nox guards. Without additional context, it's not possible to determine what Parel Nox guards based solely on the given question.
+
+BRANCH COMPARISON @ .50
+
+ CAM
+ Q1 targetLP=-63.2235 margin=-12.4507 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ Q2 targetLP=-65.1326 margin=-11.0425 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ Q3 targetLP=-56.0063 margin=+6.7607 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ Q4 targetLP=-48.9758 margin=+1.0769 | The prompt does not provide specific information about what Parel Nox guards. Without additional context, it's not possible to determine what Parel Nox guards based solely on the given question.
+ mean_margin= -3.9139
+
+ ATTR
+ Q1 targetLP=-62.9306 margin=-12.2311 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ Q2 targetLP=-65.2084 margin=-11.0134 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ Q3 targetLP=-55.8919 margin=+6.8979 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ Q4 targetLP=-49.2875 margin=+1.3007 | The prompt does not provide specific information about what Parel Nox guards. Without additional context, it's not possible to determine what Parel Nox guards based solely on the given question.
+ mean_margin= -3.7615
+
+ CAPSID
+ Q1 targetLP=-62.9089 margin=-12.2750 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ Q2 targetLP=-65.4460 margin=-11.0917 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ Q3 targetLP=-56.0492 margin=+7.1375 | The prompt does not provide any information about what Selka Dorn owns. Therefore, I cannot determine what Selka Dorn owns based solely on the given information.
+ Q4 targetLP=-48.9250 margin=+1.4102 | The prompt does not provide specific information about what Parel Nox guards. Without additional context, it's not possible to determine what Parel Nox guards based solely on the given question.
+ mean_margin= -3.7048
+
+ ANTI
+ Q1 targetLP=-62.7704 margin=-12.2107 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ Q2 targetLP=-65.2773 margin=-11.0817 | The prompt does not provide any information about what Tovin Marel carries. Therefore, there is insufficient information to determine what Tovin Marel carries.
+ Q3 targetLP=-55.8577 margin=+6.8437 | The prompt does not provide any information about what Selka Dorn owns. Therefore, I cannot determine what Selka Dorn owns based solely on the given information.
+ Q4 targetLP=-49.1662 margin=+1.4391 | The prompt does not provide specific information about what Parel Nox guards. Without additional context, it's not possible to determine what Parel Nox guards based solely on the given question.
+ mean_margin= -3.7524
+
+ ANTI_ONLY
+ Q1 targetLP=-63.2194 margin=-12.5081 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question.
+ Q2 targetLP=-65.2563 margin=-11.1613 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ Q3 targetLP=-56.1976 margin=+6.8437 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ Q4 targetLP=-49.4251 margin=+1.2488 | The prompt does not provide specific information about what Parel Nox guards. Without additional context, it's not possible to determine what Parel Nox guards based solely on the given question.
+ mean_margin= -3.8942
+
+ SLIP
+ Q1 targetLP=-62.6402 margin=-12.2400 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ Q2 targetLP=-65.1408 margin=-11.0412 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ Q3 targetLP=-56.0318 margin=+6.8688 | The prompt does not provide any information about what Selka Dorn owns. Therefore, I cannot determine what Selka Dorn owns based solely on the given information.
+ Q4 targetLP=-49.3364 margin=+1.3515 | The prompt does not provide specific information about what Parel Nox guards. Without additional context, it's not possible to determine what Parel Nox guards based solely on the given question.
+ mean_margin= -3.7652
+
+ NEG
+ Q1 targetLP=-62.9195 margin=-12.2551 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question.
+ Q2 targetLP=-65.1999 margin=-11.0937 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ Q3 targetLP=-55.8777 margin=+6.9178 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ Q4 targetLP=-49.2276 margin=+1.2914 | The prompt does not provide specific information about what Parel Nox guards. Without additional context, it's not possible to determine what Parel Nox guards based solely on the given question.
+ mean_margin= -3.7849
+
+ ORTH
+ Q1 targetLP=-62.9354 margin=-12.3180 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ Q2 targetLP=-65.2526 margin=-11.0802 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ Q3 targetLP=-56.4788 margin=+6.8219 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ Q4 targetLP=-49.5925 margin=+1.2361 | The prompt does not provide specific information about what Parel Nox guards. Without additional context, it's not possible to determine what Parel Nox guards based solely on the given question.
+ mean_margin= -3.8351
+
+ KSHUF
+ Q1 targetLP=-62.8733 margin=-12.0381 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ Q2 targetLP=-65.1269 margin=-10.9983 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ Q3 targetLP=-56.2310 margin=+7.0156 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ Q4 targetLP=-49.2463 margin=+1.3446 | The prompt does not provide specific information about what Parel Nox guards. Without additional context, it's not possible to determine what Parel Nox guards based solely on the given question.
+ mean_margin= -3.6691
+
+ VSHUF
+ Q1 targetLP=-62.9226 margin=-12.3871 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question.
+ Q2 targetLP=-65.1087 margin=-10.9483 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ Q3 targetLP=-56.4918 margin=+6.7537 | The prompt does not provide any information about what Selka Dorn owns. Therefore, I cannot determine what Selka Dorn owns based solely on the given information.
+ Q4 targetLP=-49.3372 margin=+1.3578 | The prompt does not provide specific information about what Parel Nox guards. Without additional context, it's not possible to determine what Parel Nox guards based solely on the given question.
+ mean_margin= -3.806
+
+STOCHASTIC-BARRIER
+Q1 margins=[-12.2573, -12.1929, -12.1988, -12.5037] mean=-12.2882 sd=0.1270
+Q2 margins=[-10.983, -11.1364, -11.1137, -11.0097] mean=-11.0607 sd=0.0655
+Q3 margins=[6.595, 6.9624, 6.7568, 6.9132] mean=+6.8068 sd=0.1439
+Q4 margins=[1.3369, 1.3072, 1.0893, 1.3664] mean=+1.2749 sd=0.1092
+
+X-RAY Q1 @ .50
+CAM      L19=  1.183% L27=  2.218%
+ATTR     L19=  1.186% L27=  2.338%
+CAPSID   L19=  1.426% L27=  2.247%
+ANTI     L19=  1.583% L27=  2.895%
+SLIP     L19=  0.961% L27=  1.623%
+ORTH     L19=  1.237% L27=  1.952%
+
+CAM LAYER X-RAY
+L00   0.000% MASKED
+L01   0.000% MASKED
+L02   0.000% MASKED
+L03   0.000% MASKED
+L04   0.000% MASKED
+L05   0.000% MASKED
+L06   0.000% MASKED
+L07   0.000% MASKED
+L08   0.068% INJECT
+L09   0.311% MASKED
+L10   0.510% MASKED
+L11   0.646% MASKED
+L12   0.846% INJECT
+L13   0.973% MASKED
+L14   1.058% MASKED
+L15   1.205% INJECT
+L16   1.326% MASKED
+L17   1.072% MASKED
+L18   1.116% INJECT
+L19   1.183% MASKED
+L20   1.228% MOTOR-OFF
+L21   1.230% MOTOR-OFF
+L22   1.287% MOTOR-OFF
+L23   1.501% MOTOR-OFF
+L24   1.516% MOTOR-OFF
+L25   1.337% MOTOR-OFF
+L26   1.209% MOTOR-OFF
+L27   2.218% MOTOR-OFF
+--------------------------------------------------------------------------------------------------------------------------------
+Weights: PASS | L20-L27 injection: ZERO | Source facts absent from blind questions
+Routing: question-only vanilla hidden states → frozen competitive weights; candidate answers NEVER enter routing.
+CAM: softmax competitive endogenous key→value memory
+ATTR: iterative associative retrieval | CAPSID: endogenous low-rank carrier subspace
+ANTI: value + answer-vs-insufficiency residual | SLIP: distributed final-token transport
+STOCH: seeded small hidden perturbation | CONTROLS: -V / V⊥ / K-shuffle / V-shuffle
+Likelihood: exact autoregressive multi-token SUM logP
+================================================================================================================================
+[14/14] TEST 205 COMPLETE
