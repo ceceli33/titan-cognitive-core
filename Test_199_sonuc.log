@@ -1,0 +1,77 @@
+ ======================================================================================================================
+TEST 199 — AUTOMATIC FREE-TEXT RELATIONAL COMPASS SYNTHESIS
+======================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+SEASC RSS=0.250235055
+SOURCE TEXT: Mustafa Akbas is associated with the Turkish flag.
+[1/8] Loading model...
+config.json: 100% 663/663 [00:00<00:00, 86.0kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 863kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 83.5MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 73.7MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 126MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.50MB/s]Download complete: :  13.1GB,  555MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  523MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.79s/it]Loading weights: 100% 339/339 [00:03<00:00, 98.96it/s]generation_config.json: 100% 243/243 [00:00<00:00, 31.3kB/s][2/8] Parsing free text automatically...
+FACTS:
+ F1: Mustafa Akbas | associated with | Turkish flag
+ALTERNATIVES: ['German flag', 'French flag', 'Italian flag', 'British flag']
+[3/8] Automatic matched family: TARGET=6 CONTROL=6
+[4/8] Synthetic compass built: 20×3584 | norm=1.000000
+[5/8] Blind retrieval + full-sequence likelihood...
+[6/8] Controls...
+[7/8] Reporting...
+
+======================================================================================================================
+TEST 199 RESULTS
+======================================================================================================================
+SOURCE: Mustafa Akbas is associated with the Turkish flag.
+
+Q1: Which flag is Mustafa Akbas associated with?
+TARGET: Turkish flag
+ scale=0.00 | OUT=The prompt does not provide enough information to determine which flag Mustafa Akbas is associated with. More context or information about Mustafa Akbas and his associations would be needed to answer this question accurately. | targetLP=-8.0001 | bestAltLP=-11.0375 | margin=+3.0374
+ scale=0.10 | OUT=The prompt does not provide enough information to determine which flag Mustafa Akbas is associated with. More context or information about Mustafa Akbas and his associations would be needed to answer this question accurately. | targetLP=-7.6350 | bestAltLP=-10.7427 | margin=+3.1078
+ scale=0.20 | OUT=The prompt does not provide enough information to determine which flag Mustafa Akbas is associated with. More context or details about Mustafa Akbas and his association with a specific flag are needed. | targetLP=-6.9862 | bestAltLP=-10.3015 | margin=+3.3153
+ scale=0.30 | OUT=Based on the information provided, Mustafa Akbas is associated with the Turkish national flag. However, without more context, I cannot provide additional details about his specific connection to it. | targetLP=-6.5874 | bestAltLP=-10.2107 | margin=+3.6232
+ scale=0.40 | OUT=Based on the limited information provided, Mustafa Akbas is associated with the Turkish national flag. However, without more context, it's not possible to specify which particular flag or instance he might be referring to. | targetLP=-6.1468 | bestAltLP=-10.2825 | margin=+4.1356
+ scale=0.50 | OUT=Based on the limited information provided, Mustafa Akbas is associated with the Turkish national flag. However, without more context, it's not possible to provide additional details or confirm specific instances where this association is relevant. | targetLP=-5.8017 | bestAltLP=-10.4966 | margin=+4.6949
+ reverse@0.50: The prompt does not provide any information about which flag Mustafa Akbas is associated with. Therefore, it is impossible to determine the answer from the given information.
+
+X-RAY Q1 @ scale=.50
+L00 ACTIVE       5.004%
+L01 ACTIVE       7.443%
+L02 ACTIVE       9.730%
+L03 ACTIVE      13.454%
+L04 ACTIVE      15.634%
+L05 ACTIVE      16.034%
+L06 ACTIVE      18.528%
+L07 ACTIVE      20.256%
+L08 ACTIVE      22.043%
+L09 ACTIVE      19.629%
+L10 ACTIVE      20.992%
+L11 ACTIVE      21.609%
+L12 ACTIVE      22.506%
+L13 ACTIVE      22.614%
+L14 ACTIVE      22.463%
+L15 ACTIVE      24.102%
+L16 ACTIVE      26.022%
+L17 ACTIVE      25.801%
+L18 ACTIVE      30.134%
+L19 ACTIVE      31.257%
+L20 MOTOR OFF   32.698%
+L21 MOTOR OFF   35.211%
+L22 MOTOR OFF   40.300%
+L23 MOTOR OFF   42.240%
+L24 MOTOR OFF   41.345%
+L25 MOTOR OFF   37.979%
+L26 MOTOR OFF   36.356%
+L27 MOTOR OFF   61.582%
+
+----------------------------------------------------------------------------------------------------------------------
+L19 displacement : 31.257%
+L27 displacement : 61.582%
+Weight sentinel  : PASS
+Injection         : L0-L19 ONLY
+L20-L27           : MOTOR OFF
+----------------------------------------------------------------------------------------------------------------------
+TEST199 SUCCESS RULE:
+The system must automatically parse SOURCE_TEXT, build its own matched relational family, synthesize the 20×3584 compass,
+and increase target full-sequence likelihood/margin across blind retrieval prompts without requiring a hand-written A↔B pair.
+Generation agreement strengthens the result; hidden displacement alone is not success.
+======================================================================================================================
+[8/8] TEST 199 COMPLETE
