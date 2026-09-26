@@ -1,0 +1,166 @@
+ ==========================================================================================================================================
+TEST 184 — FINAL RMSNORM GEOMETRY X-RAY
+CAUSE↔EFFECT — POST19 → RMS SCALE → LEARNED WEIGHT → FINAL
+==========================================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+SEASC RSS=0.250235055 | scale=0.5
+
+[1/24] CUDA...
+       OK
+
+[2/24] Model...
+config.json: 100% 663/663 [00:00<00:00, 84.1kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 872kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 46.5MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 72.6MB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 118MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.53MB/s]Download complete: :  13.1GB,  437MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  464MB/s  Fetching 4 files: 100% 4/4 [00:40<00:00,  7.84s/it]Loading weights: 100% 339/339 [00:03<00:00, 100.07it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.4kB/s]       hidden: 3584 dtype: torch.bfloat16 norm_eps: 1e-06
+
+[3/24] Frozen E axis...
+
+[4/24] Fisher/Bank...
+       01/16
+       02/16
+       03/16
+       04/16
+       05/16
+       06/16
+       07/16
+       08/16
+       09/16
+       10/16
+       11/16
+       12/16
+       13/16
+       14/16
+       15/16
+       16/16
+       mean cos(F,B)=+0.814657
+
+[5/24] P8...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+       ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+
+[6/24] Frozen forge...
+       A 1/4
+       A 2/4
+       A 3/4
+       A 4/4
+       B 1/4
+       B 2/4
+       B 3/4
+       B 4/4
+       C 1/4
+       C 2/4
+       C 3/4
+       C 4/4
+       D 1/4
+       D 2/4
+       D 3/4
+       D 4/4
+       ORTH ready
+
+[7/24] Terminal compass geometry...
+       ORTH18→ORTH19 cos=+0.064720 angle=86.289°
+
+[8/24] Fresh X-ray...
+       n=8
+
+[9/24] Exact POST19 / RMSNorm recorder...
+
+[10/24] BASE / PLUS / MINUS...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+
+[11/24] Exactness checks...
+       BASE  POST19→NORM_IN err=2.665191917e+02 | manual→actual err=6.751383170e-01
+       PLUS  POST19→NORM_IN err=2.646693840e+02 | manual→actual err=6.431634128e-01
+       MINUS POST19→NORM_IN err=2.759250374e+02 | manual→actual err=6.615166441e-01
+
+[12/24] Symmetric deltas...
+
+[13/24] Fixed-coordinate decomposition...
+       post19   | O18=+2.940075 cos=+0.127920 | O19=+0.414409 cos=+0.018498
+       norm_in  | O18=+1.366171 cos=+0.014130 | O19=-0.218570 cos=-0.001850
+       scaled   | O18=+0.367239 cos=+0.017218 | O19=-0.094702 cos=-0.004019
+       weighted | O18=+1.703198 cos=+0.019834 | O19=-0.290518 cos=-0.003050
+       norm_out | O18=+1.706365 cos=+0.019864 | O19=-0.289264 cos=-0.003036
+
+[14/24] RMS scalar asymmetry...
+       BASE  rsqrt(RMS²+eps)=0.22057426
+       PLUS  rsqrt(RMS²+eps)=0.22449926
+       MINUS rsqrt(RMS²+eps)=0.21295530
+       PLUS-MINUS Δscale    =+0.0115439650
+
+[15/24] Scalar RMS normalization contribution...
+       ORTH18: INPUT=+1.366171 → SCALE=+0.367239 Δ=-0.998932
+       ORTH19: INPUT=-0.218570 → SCALE=-0.094702 Δ=+0.123868
+
+[16/24] Learned RMSNorm-weight contribution...
+       ORTH18: SCALE=+0.367239 → WEIGHT=+1.703198 Δ=+1.335960
+       ORTH19: SCALE=-0.094702 → WEIGHT=-0.290518 Δ=-0.195816
+
+[17/24] Manual weighted → actual final...
+       ORTH18: MANUAL=+1.703198 → ACTUAL=+1.706365 Δ=+0.003166653
+       ORTH19: MANUAL=-0.290518 → ACTUAL=-0.289264 Δ=+0.001254052
+
+[18/24] RMSNorm learned-weight geometry...
+       weight min=-0.173828 mean=3.838784 max=10.750000 std=0.677545
+       ORTH18: cos(W⊙u,u)=+0.992188 angle=7.166°
+       ORTH19: cos(W⊙u,u)=+0.990798 angle=7.779°
+
+[19/24] Per-prompt ORTH19 sign trace...
+       1: IN=-0.0710 SCALE=-0.0761 WEIGHT=-0.2164 FINAL=-0.2135
+       2: IN=+0.3822 SCALE=+0.0232 WEIGHT=+0.1752 FINAL=+0.1747
+       3: IN=-0.8892 SCALE=-0.2611 WEIGHT=-0.5760 FINAL=-0.5769
+       4: IN=-0.3164 SCALE=-0.1269 WEIGHT=-0.5200 FINAL=-0.5201
+       5: IN=-0.2249 SCALE=-0.1171 WEIGHT=-0.3336 FINAL=-0.3249
+       6: IN=-0.5893 SCALE=-0.1678 WEIGHT=-0.4708 FINAL=-0.4711
+       7: IN=+0.2491 SCALE=+0.0309 WEIGHT=+0.1615 FINAL=+0.1598
+       8: IN=-0.2891 SCALE=-0.0627 WEIGHT=-0.5440 FINAL=-0.5420
+
+[20/24] Bootstrap ORTH19 transitions...
+       INPUT→SCALE    Δ=+0.123868 [-0.084517,+0.335876]
+       SCALE→WEIGHT   Δ=-0.195816 [-0.339540,-0.040185]
+       WEIGHT→FINAL   Δ=+0.001254 [-0.000552,+0.003698]
+
+[21/24] TEST184 decision...
+       INPUT  =-0.218570
+       SCALE  =-0.094702 Δ=+0.123868
+       WEIGHT =-0.290518 Δ=-0.195816
+       FINAL  =-0.289264 Δ=+0.001254022
+       DECISION: FINAL_RMSNORM_MECHANISM_NOT_RESOLVED
+
+[22/24] Saving...
+       Saved: /content/TEST184_FINAL_RMSNORM_XRAY
+
+[23/24] Scientific boundary...
+       POST19 and final RMSNorm input are captured directly.
+       RMS scalar and learned element-wise weight are reconstructed separately in FP32.
+       PLUS/MINUS symmetric displacement is recomputed at every stage; this is not a linearized approximation.
+       No vector, rank, layer, envelope or controller is selected.
+       TEST184 localizes terminal normalization geometry; it does not establish behavioral causality.
+
+[24/24] COMPLETE
+==========================================================================================================================================
+TEST 184 — FINAL RMSNORM GEOMETRY X-RAY — SUMMARY
+==========================================================================================================================================
+ORTH18→ORTH19 cos=+0.064720 angle=86.289°
+ORTH19 INPUT =-0.218570
+       SCALE =-0.094702  Δ=+0.123868
+       WEIGHT=-0.290518  Δ=-0.195816
+       FINAL =-0.289264  Δmanual=+0.001254022
+RMS scale BASE=0.22057426 PLUS=0.22449926 MINUS=0.21295530
+DECISION: FINAL_RMSNORM_MECHANISM_NOT_RESOLVED
+Saved: /content/TEST184_FINAL_RMSNORM_XRAY
+==========================================================================================================================================
