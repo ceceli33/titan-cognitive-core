@@ -1,0 +1,115 @@
+ 
+========================================================================================================================
+TEST 200 — NOVEL RELATION GENERALIZATION
+========================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+SEASC RSS=0.250235055
+SOURCE TEXT: Neral Voss keeps the amber compass.
+[1/9] Loading model...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 86.6kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 801kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 84.2MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 73.3MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 131MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.34MB/s]
+Download complete: : 
+
+ 13.1GB,  309MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  515MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:39<00:00,  6.63s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 97.61it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 32.2kB/s]
+[2/9] Automatic source parsing...
+F1: Neral Voss | keeps | amber compass
+ALTERNATIVES: ['golden necklace', 'silver sword', 'bronze shield', 'iron dagger']
+[3/9] Matched family automatically built: TARGET=6 CONTROL=6
+[4/9] Compass synthesized: 20×3584 | mean norm=1.000000
+[5/9] Blind retrieval and sequence likelihood...
+[6/9] Direction-reversal control...
+[7/9] X-Ray...
+[8/9] Reporting...
+
+========================================================================================================================
+TEST 200 RESULTS
+========================================================================================================================
+SOURCE: Neral Voss keeps the amber compass.
+
+Q1: What does Neral Voss keep?
+TARGET: amber compass
+ scale=0.00 | OUT=The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately. | targetLP=-20.9673 | bestAltLP=-11.7887 | margin=-9.1785
+ scale=0.10 | OUT=The prompt does not provide any information about what Neral Voss keeps. There is not enough context to determine what Neral Voss keeps. | targetLP=-20.7763 | bestAltLP=-11.6897 | margin=-9.0866
+ scale=0.20 | OUT=The prompt does not provide specific information about what Neral Voss keeps. More context or details are needed to answer this question accurately. | targetLP=-20.7797 | bestAltLP=-11.6953 | margin=-9.0845
+ scale=0.30 | OUT=The prompt does not provide specific information about what Neral Voss keeps. More context or details are needed to answer this question accurately. | targetLP=-20.5986 | bestAltLP=-12.0469 | margin=-8.5517
+ scale=0.40 | OUT=The prompt does not provide specific information about what Neral Voss keeps. Without additional context, I cannot determine what Neral Voss keeps. | targetLP=-20.3730 | bestAltLP=-12.4272 | margin=-7.9458
+ scale=0.50 | OUT=Based on the information provided, Neral Voss keeps journals. This can be inferred from the context given in earlier prompts where it was stated that "Neral Voss keeps journals." Without additional context, this is the definitive answer regarding what | targetLP=-20.4664 | bestAltLP=-12.7675 | margin=-7.6989
+ reverse@0.50 | OUT=The prompt does not provide any information about what Neral Voss keeps. Additional context or information is needed to answer the question. | margin=-8.5878
+
+X-RAY Q1 @ scale=.50
+L00 ACTIVE       4.998%
+L01 ACTIVE       7.924%
+L02 ACTIVE      10.235%
+L03 ACTIVE      12.827%
+L04 ACTIVE      15.225%
+L05 ACTIVE      14.196%
+L06 ACTIVE      16.524%
+L07 ACTIVE      17.918%
+L08 ACTIVE      19.244%
+L09 ACTIVE      16.811%
+L10 ACTIVE      17.808%
+L11 ACTIVE      17.808%
+L12 ACTIVE      18.358%
+L13 ACTIVE      18.134%
+L14 ACTIVE      18.342%
+L15 ACTIVE      19.418%
+L16 ACTIVE      21.230%
+L17 ACTIVE      20.518%
+L18 ACTIVE      24.106%
+L19 ACTIVE      26.584%
+L20 MOTOR OFF   28.884%
+L21 MOTOR OFF   31.123%
+L22 MOTOR OFF   33.938%
+L23 MOTOR OFF   36.627%
+L24 MOTOR OFF   36.620%
+L25 MOTOR OFF   35.811%
+L26 MOTOR OFF   33.820%
+L27 MOTOR OFF   48.040%
+
+------------------------------------------------------------------------------------------------------------------------
+L19 displacement : 26.584%
+L27 displacement : 48.040%
+Weight sentinel  : PASS
+Injection         : L0-L19 ONLY
+L20-L27           : MOTOR OFF
+------------------------------------------------------------------------------------------------------------------------
+TEST200 SUCCESS RULE:
+A novel SOURCE_TEXT must be parsed without hand-written A↔B pairs; its relation family and 20×3584 compass must be synthesized automatically.
+Positive evidence requires target sequence-likelihood/margin growth plus blind-generation movement toward the extracted object; reverse direction is a control.
+Hidden-state displacement alone is not success.
+========================================================================================================================
+
+
+[9/9] TEST 200 COMPLETE
