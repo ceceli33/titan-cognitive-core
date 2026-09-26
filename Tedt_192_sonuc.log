@@ -1,0 +1,238 @@
+ ==========================================================================================================================================
+TEST 192 — CROSS-AXIS TAIL TRANSPORT CHANNEL FORMATION X-RAY
+A/B/C/D/E — L20→L27 UNSTEERED TAIL — BUILD-FROZEN TRANSPORT AXES × INDEPENDENT HOLDOUT
+==========================================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+SEASC RSS=0.250235055 | scale=0.5
+
+[1/24] CUDA...
+       OK
+
+[2/24] Model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 81.8kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 886kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 43.8MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 74.5MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 132MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.18MB/s]Download complete: :  13.1GB,  161MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  519MB/s  Fetching 4 files: 100% 4/4 [00:38<00:00,  6.57s/it]Loading weights: 100% 339/339 [00:03<00:00, 99.60it/s]generation_config.json: 100% 243/243 [00:00<00:00, 29.5kB/s]       hidden: 3584 dtype: torch.bfloat16 layers: 28
+
+[3/24] Locked TEST191 axis definitions...
+       A/B/C/D/E ready
+
+[4/24] Layer-local compasses...
+       A ABOVE↔BELOW ready
+       B BEFORE↔AFTER ready
+       C INSIDE↔OUTSIDE ready
+       D OPEN↔CLOSED ready
+       E CAUSE↔EFFECT ready
+
+[5/24] TEST191 BUILD / HOLDOUT prompts...
+       5 axes × BUILD8 × HOLDOUT8
+
+[6/24] Axis-specific SEASC...
+       ready
+
+[7/24] PRE20 + RAW20-L27 recorder...
+       ready
+
+[8/24] BUILD tail transport...
+       A BUILD 1/8
+       A BUILD 2/8
+       A BUILD 3/8
+       A BUILD 4/8
+       A BUILD 5/8
+       A BUILD 6/8
+       A BUILD 7/8
+       A BUILD 8/8
+       B BUILD 1/8
+       B BUILD 2/8
+       B BUILD 3/8
+       B BUILD 4/8
+       B BUILD 5/8
+       B BUILD 6/8
+       B BUILD 7/8
+       B BUILD 8/8
+       C BUILD 1/8
+       C BUILD 2/8
+       C BUILD 3/8
+       C BUILD 4/8
+       C BUILD 5/8
+       C BUILD 6/8
+       C BUILD 7/8
+       C BUILD 8/8
+       D BUILD 1/8
+       D BUILD 2/8
+       D BUILD 3/8
+       D BUILD 4/8
+       D BUILD 5/8
+       D BUILD 6/8
+       D BUILD 7/8
+       D BUILD 8/8
+       E BUILD 1/8
+       E BUILD 2/8
+       E BUILD 3/8
+       E BUILD 4/8
+       E BUILD 5/8
+       E BUILD 6/8
+       E BUILD 7/8
+       E BUILD 8/8
+
+[9/24] Freeze BUILD T_L axes...
+       A: L20=+0.875 L21=+0.887 L22=+0.897 L23=+0.898 L24=+0.905 L25=+0.897 L26=+0.911 L27=+0.916
+       B: L20=+0.855 L21=+0.830 L22=+0.831 L23=+0.842 L24=+0.846 L25=+0.839 L26=+0.855 L27=+0.856
+       C: L20=+0.956 L21=+0.955 L22=+0.952 L23=+0.954 L24=+0.946 L25=+0.941 L26=+0.943 L27=+0.945
+       D: L20=+0.941 L21=+0.939 L22=+0.943 L23=+0.947 L24=+0.952 L25=+0.947 L26=+0.955 L27=+0.958
+       E: L20=+0.966 L21=+0.968 L22=+0.963 L23=+0.964 L24=+0.963 L25=+0.960 L26=+0.963 L27=+0.962
+       all T_L frozen before HOLDOUT
+
+[10/24] BUILD LOFO...
+       A: L20 held=+0.834 → L27 held=+0.890
+       B: L20 held=+0.808 → L27 held=+0.809
+       C: L20 held=+0.942 → L27 held=+0.928
+       D: L20 held=+0.923 → L27 held=+0.944
+       E: L20 held=+0.955 → L27 held=+0.951
+
+[11/24] HOLDOUT tail transport...
+       A HOLD 1/8
+       A HOLD 2/8
+       A HOLD 3/8
+       A HOLD 4/8
+       A HOLD 5/8
+       A HOLD 6/8
+       A HOLD 7/8
+       A HOLD 8/8
+       B HOLD 1/8
+       B HOLD 2/8
+       B HOLD 3/8
+       B HOLD 4/8
+       B HOLD 5/8
+       B HOLD 6/8
+       B HOLD 7/8
+       B HOLD 8/8
+       C HOLD 1/8
+       C HOLD 2/8
+       C HOLD 3/8
+       C HOLD 4/8
+       C HOLD 5/8
+       C HOLD 6/8
+       C HOLD 7/8
+       C HOLD 8/8
+       D HOLD 1/8
+       D HOLD 2/8
+       D HOLD 3/8
+       D HOLD 4/8
+       D HOLD 5/8
+       D HOLD 6/8
+       D HOLD 7/8
+       D HOLD 8/8
+       E HOLD 1/8
+       E HOLD 2/8
+       E HOLD 3/8
+       E HOLD 4/8
+       E HOLD 5/8
+       E HOLD 6/8
+       E HOLD 7/8
+       E HOLD 8/8
+
+[12/24] Within-axis HOLDOUT replication...
+       A: L20=+0.866 L21=+0.870 L22=+0.878 L23=+0.877 L24=+0.881 L25=+0.869 L26=+0.885 L27=+0.893
+       B: L20=+0.858 L21=+0.833 L22=+0.831 L23=+0.837 L24=+0.836 L25=+0.826 L26=+0.838 L27=+0.838
+       C: L20=+0.927 L21=+0.929 L22=+0.927 L23=+0.931 L24=+0.922 L25=+0.917 L26=+0.918 L27=+0.921
+       D: L20=+0.916 L21=+0.916 L22=+0.924 L23=+0.929 L24=+0.936 L25=+0.931 L26=+0.941 L27=+0.945
+       E: L20=+0.956 L21=+0.958 L22=+0.952 L23=+0.951 L24=+0.951 L25=+0.947 L26=+0.949 L27=+0.949
+
+[13/24] Bootstrap HOLDOUT cosine...
+       A: L20 +0.866[+0.847,+0.881] L27 +0.893[+0.863,+0.919]
+       B: L20 +0.858[+0.824,+0.888] L27 +0.838[+0.791,+0.881]
+       C: L20 +0.927[+0.917,+0.938] L27 +0.921[+0.910,+0.932]
+       D: L20 +0.916[+0.890,+0.937] L27 +0.945[+0.930,+0.957]
+       E: L20 +0.956[+0.946,+0.964] L27 +0.949[+0.940,+0.959]
+
+[14/24] Cross-axis T_L matrices...
+       L20: offdiag mean=+0.036753 min=-0.108404 max=+0.224770
+       L21: offdiag mean=+0.025340 min=-0.109330 max=+0.228944
+       L22: offdiag mean=+0.008209 min=-0.165685 max=+0.212020
+       L23: offdiag mean=+0.002353 min=-0.179057 max=+0.234416
+       L24: offdiag mean=+0.011553 min=-0.151124 max=+0.268550
+       L25: offdiag mean=+0.004080 min=-0.162514 max=+0.270658
+       L26: offdiag mean=-0.005324 min=-0.182230 max=+0.266302
+       L27: offdiag mean=-0.010871 min=-0.205870 max=+0.232200
+
+[15/24] A-D vs E cross-axis trajectory...
+       L20: A-D=+0.030000 E↔A-D=+0.046882 all=+0.036753
+       L21: A-D=+0.006958 E↔A-D=+0.052913 all=+0.025340
+       L22: A-D=-0.009039 E↔A-D=+0.034081 all=+0.008209
+       L23: A-D=-0.025491 E↔A-D=+0.044120 all=+0.002353
+       L24: A-D=-0.003830 E↔A-D=+0.034626 all=+0.011553
+       L25: A-D=-0.009071 E↔A-D=+0.023808 all=+0.004080
+       L26: A-D=-0.017895 E↔A-D=+0.013532 all=-0.005324
+       L27: A-D=-0.024218 E↔A-D=+0.009150 all=-0.010871
+
+[16/24] HOLDOUT-mean cross-axis matrices...
+       L20: offdiag mean=+0.036498 min=-0.117433
+       L21: offdiag mean=+0.017510 min=-0.144604
+       L22: offdiag mean=-0.000161 min=-0.194587
+       L23: offdiag mean=-0.004720 min=-0.206365
+       L24: offdiag mean=+0.004414 min=-0.176908
+       L25: offdiag mean=-0.002637 min=-0.174626
+       L26: offdiag mean=-0.011191 min=-0.189539
+       L27: offdiag mean=-0.016453 min=-0.198045
+
+[17/24] Layer-to-layer T_L rotation...
+       A: 20→21=+0.565 21→22=+0.693 22→23=+0.809 23→24=+0.844 24→25=+0.858 25→26=+0.805 26→27=+0.736
+       B: 20→21=+0.604 21→22=+0.707 22→23=+0.803 23→24=+0.841 24→25=+0.867 25→26=+0.827 26→27=+0.771
+       C: 20→21=+0.612 21→22=+0.683 22→23=+0.815 23→24=+0.847 24→25=+0.875 25→26=+0.827 26→27=+0.766
+       D: 20→21=+0.622 21→22=+0.676 22→23=+0.814 23→24=+0.842 24→25=+0.866 25→26=+0.812 26→27=+0.761
+       E: 20→21=+0.619 21→22=+0.711 22→23=+0.842 23→24=+0.862 24→25=+0.871 25→26=+0.845 26→27=+0.740
+
+[18/24] L20→L27 net rotation...
+       A: cos(T20,T27)=+0.113186 angle=83.501°
+       B: cos(T20,T27)=+0.143200 angle=81.767°
+       C: cos(T20,T27)=+0.136087 angle=82.178°
+       D: cos(T20,T27)=+0.146325 angle=81.586°
+       E: cos(T20,T27)=+0.114725 angle=83.412°
+
+[19/24] L27 TEST191-equivalent summary...
+       A: BUILDcos=+0.916310 LOFOmin=+0.997613 HOLDcos=+0.893468 BUILD↔HOLD=+0.982642
+       B: BUILDcos=+0.856059 LOFOmin=+0.994982 HOLDcos=+0.837729 BUILD↔HOLD=+0.954408
+       C: BUILDcos=+0.945195 LOFOmin=+0.997861 HOLDcos=+0.921046 BUILD↔HOLD=+0.969553
+       D: BUILDcos=+0.957546 LOFOmin=+0.998491 HOLDcos=+0.945181 BUILD↔HOLD=+0.980987
+       E: BUILDcos=+0.962454 LOFOmin=+0.998847 HOLDcos=+0.949256 BUILD↔HOLD=+0.988638
+
+[20/24] Formation localization...
+       A: first replicated layer=20
+       B: first replicated layer=20
+       C: first replicated layer=20
+       D: first replicated layer=20
+       E: first replicated layer=20
+       first general cross-axis common layer=NONE
+
+[21/24] TEST192 decision...
+       DECISION: AXIS_SPECIFIC_TAIL_TRANSPORT_REPLICATES__NO_SINGLE_GENERAL_CHANNEL
+       Layer-resolved geometric/mechanistic result only.
+
+[22/24] Saving CSV...
+       CSV ready
+
+[23/24] Saving NPZ / report...
+       Saved: /content/TEST192_CROSS_AXIS_TAIL_FORMATION
+
+[24/24] COMPLETE
+==========================================================================================================================================
+TEST 192 — CROSS-AXIS TAIL TRANSPORT CHANNEL FORMATION — SUMMARY
+==========================================================================================================================================
+L20: cross-axis=+0.036753 A-D=+0.030000 E↔A-D=+0.046882
+L21: cross-axis=+0.025340 A-D=+0.006958 E↔A-D=+0.052913
+L22: cross-axis=+0.008209 A-D=-0.009039 E↔A-D=+0.034081
+L23: cross-axis=+0.002353 A-D=-0.025491 E↔A-D=+0.044120
+L24: cross-axis=+0.011553 A-D=-0.003830 E↔A-D=+0.034626
+L25: cross-axis=+0.004080 A-D=-0.009071 E↔A-D=+0.023808
+L26: cross-axis=-0.005324 A-D=-0.017895 E↔A-D=+0.013532
+L27: cross-axis=-0.010871 A-D=-0.024218 E↔A-D=+0.009150
+A: first=20 T20→T27=+0.113186 L27 HOLD=+0.893468 BUILD↔HOLD=+0.982642
+B: first=20 T20→T27=+0.143200 L27 HOLD=+0.837729 BUILD↔HOLD=+0.954408
+C: first=20 T20→T27=+0.136087 L27 HOLD=+0.921046 BUILD↔HOLD=+0.969553
+D: first=20 T20→T27=+0.146325 L27 HOLD=+0.945181 BUILD↔HOLD=+0.980987
+E: first=20 T20→T27=+0.114725 L27 HOLD=+0.949256 BUILD↔HOLD=+0.988638
+First general common layer: None
+PCA: False | K: NONE | Behavior gradient: False | New vector: False | FINAL: False
+DECISION: AXIS_SPECIFIC_TAIL_TRANSPORT_REPLICATES__NO_SINGLE_GENERAL_CHANNEL
+Saved: /content/TEST192_CROSS_AXIS_TAIL_FORMATION
+==========================================================================================================================================
