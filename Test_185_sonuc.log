@@ -1,0 +1,209 @@
+ ==========================================================================================================================================
+TEST 185 — UNSTEERED TAIL TRANSPORT X-RAY
+CAUSE↔EFFECT — L19 POST → L20-L27 → FINAL RMSNORM
+==========================================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+SEASC RSS=0.250235055 | scale=0.5
+
+[1/24] CUDA...
+       OK
+
+[2/24] Model...
+config.json: 100% 663/663 [00:00<00:00, 80.9kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 766kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 85.4MB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+merges.txt: 100% 1.67M/1.67M [00:00<00:00, 74.2MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 110MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.20MB/s]Download complete: :  13.1GB,  229MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  261MB/s  Fetching 4 files: 100% 4/4 [00:43<00:00,  8.21s/it]Loading weights: 100% 339/339 [00:03<00:00, 99.98it/s]generation_config.json: 100% 243/243 [00:00<00:00, 32.8kB/s]       hidden: 3584 dtype: torch.bfloat16 layers: 28
+
+[3/24] Frozen E axis...
+
+[4/24] Fisher/Bank...
+       01/16
+       02/16
+       03/16
+       04/16
+       05/16
+       06/16
+       07/16
+       08/16
+       09/16
+       10/16
+       11/16
+       12/16
+       13/16
+       14/16
+       15/16
+       16/16
+       mean cos(F,B)=+0.814657
+
+[5/24] P8...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+       ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+
+[6/24] Frozen forge...
+       A 1/4
+       A 2/4
+       A 3/4
+       A 4/4
+       B 1/4
+       B 2/4
+       B 3/4
+       B 4/4
+       C 1/4
+       C 2/4
+       C 3/4
+       C 4/4
+       D 1/4
+       D 2/4
+       D 3/4
+       D 4/4
+       ORTH ready | fixed tail coordinate=ORTH19
+
+[7/24] Fresh X-ray...
+       n=8
+
+[8/24] Exact L19→L27 tail recorder...
+
+[9/24] BASE / PLUS / MINUS...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+
+[10/24] Symmetric tail deltas...
+
+[11/24] Physical continuity...
+       POST19→PRE20     relerr=0.0000000000
+       RAW20→PRE21      relerr=0.0000000000
+       RAW21→PRE22      relerr=0.0000000000
+       RAW22→PRE23      relerr=0.0000000000
+       RAW23→PRE24      relerr=0.0000000000
+       RAW24→PRE25      relerr=0.0000000000
+       RAW25→PRE26      relerr=0.0000000000
+       RAW26→PRE27      relerr=0.0000000000
+       RAW27→NORM_IN    relerr=0.0000000000
+
+[12/24] Fixed ORTH19 tail trajectory...
+       POST19   target=+0.464281 cos=+0.020757 norm=22.385830 P+=8/8
+       PRE20    target=+0.464281 cos=+0.020757 norm=22.385830 P+=8/8
+       RAW20    target=+0.843175 cos=+0.030992 norm=27.240639 P+=8/8
+       PRE21    target=+0.843175 cos=+0.030992 norm=27.240639 P+=8/8
+       RAW21    target=+1.056986 cos=+0.031749 norm=33.385170 P+=8/8
+       PRE22    target=+1.056986 cos=+0.031749 norm=33.385170 P+=8/8
+       RAW22    target=+1.064319 cos=+0.025327 norm=42.301849 P+=8/8
+       PRE23    target=+1.064319 cos=+0.025327 norm=42.301849 P+=8/8
+       RAW23    target=+0.926890 cos=+0.019063 norm=49.141220 P+=8/8
+       PRE24    target=+0.926890 cos=+0.019063 norm=49.141220 P+=8/8
+       RAW24    target=+0.850991 cos=+0.014936 norm=57.328983 P+=7/8
+       PRE25    target=+0.850991 cos=+0.014936 norm=57.328983 P+=7/8
+       RAW25    target=+0.533292 cos=+0.007740 norm=68.972260 P+=7/8
+       PRE26    target=+0.533292 cos=+0.007740 norm=68.972260 P+=7/8
+       RAW26    target=+0.715652 cos=+0.008687 norm=82.189819 P+=7/8
+       PRE27    target=+0.715652 cos=+0.008687 norm=82.189819 P+=7/8
+       RAW27    target=-0.297196 cos=-0.003120 norm=97.106827 P+=3/8
+       NORM_IN  target=-0.297196 cos=-0.003120 norm=97.106827 P+=3/8
+       NORM_OUT target=-0.367864 cos=-0.004350 norm=84.900253 P+=1/8
+
+[13/24] Tail block contributions @ORTH19...
+       L20: +0.464281 → +0.843175 Δ=+0.378894
+       L21: +0.843175 → +1.056986 Δ=+0.213811
+       L22: +1.056986 → +1.064319 Δ=+0.007332
+       L23: +1.064319 → +0.926890 Δ=-0.137429
+       L24: +0.926890 → +0.850991 Δ=-0.075899
+       L25: +0.850991 → +0.533292 Δ=-0.317699
+       L26: +0.533292 → +0.715652 Δ=+0.182359
+       L27: +0.715652 → -0.297196 Δ=-1.012847
+
+[14/24] First mean sign crossing...
+       RAW26 +0.715652 → RAW27 -0.297196
+
+[15/24] Per-prompt first crossing...
+       1: NONE
+       2: RAW26→RAW27
+       3: RAW26→RAW27
+       4: RAW23→RAW24
+       5: RAW26→RAW27
+       6: RAW26→RAW27
+       7: NONE
+       8: NONE
+
+[16/24] Cumulative ORTH19 change from POST19...
+       POST19→RAW20: target=+0.843175 cumulative Δ=+0.378894
+       POST19→RAW21: target=+1.056986 cumulative Δ=+0.592705
+       POST19→RAW22: target=+1.064319 cumulative Δ=+0.600037
+       POST19→RAW23: target=+0.926890 cumulative Δ=+0.462608
+       POST19→RAW24: target=+0.850991 cumulative Δ=+0.386710
+       POST19→RAW25: target=+0.533292 cumulative Δ=+0.069011
+       POST19→RAW26: target=+0.715652 cumulative Δ=+0.251370
+       POST19→RAW27: target=-0.297196 cumulative Δ=-0.761477
+
+[17/24] Tail vs RMSNorm separation...
+       POST19  =+0.464281
+       RAW27   =-0.297196 tail Δ=-0.761477
+       NORM_IN =-0.297196 continuity Δ=+0.000000000
+       NORM_OUT=-0.367864 RMSNorm Δ=-0.070669
+
+[18/24] Bootstrap tail block effects...
+       L20 Δ=+0.378894 [+0.307718,+0.438349]
+       L21 Δ=+0.213811 [+0.143256,+0.279935]
+       L22 Δ=+0.007332 [-0.155545,+0.144188]
+       L23 Δ=-0.137429 [-0.252999,-0.025856]
+       L24 Δ=-0.075898 [-0.225227,+0.102939]
+       L25 Δ=-0.317699 [-0.375527,-0.260565]
+       L26 Δ=+0.182359 [+0.061162,+0.309842]
+       L27 Δ=-1.012847 [-1.314393,-0.705642]
+
+[19/24] Bootstrap total tail transport...
+       POST19→RAW27 Δ=-0.761477 [-1.140992,-0.377292]
+       RMSNorm Δ       =-0.070669 [-0.192687,+0.045043]
+
+[20/24] Dominant negative tail contribution...
+       L27 Δ=-1.012847
+
+[21/24] TEST185 decision...
+       POST19 positive: True
+       RAW27 negative: True
+       NORM_IN negative: True
+       first crossing: ('RAW26', 'RAW27')
+       DECISION: TERMINAL_SIGN_REVERSAL_LOCALIZED_TO_UNSTEERED_TAIL__FIRST_CROSSING_RAW26_TO_RAW27
+
+[22/24] Saving...
+       Saved: /content/TEST185_UNSTEERED_TAIL_XRAY
+
+[23/24] Scientific boundary...
+       SEASC is applied only to frozen L0-L19 exactly as before.
+       L20-L27 receive no injection and no controller.
+       Tail transport is measured in one fixed ORTH19 coordinate.
+       POST19→PRE20 and RAW[L]→PRE[L+1] continuity is checked directly.
+       TEST185 localizes tail transport; it does not select a new steering schedule.
+
+[24/24] COMPLETE
+==========================================================================================================================================
+TEST 185 — UNSTEERED TAIL TRANSPORT X-RAY — SUMMARY
+==========================================================================================================================================
+POST19   @ORTH19=+0.464281
+L20      +0.464281 → +0.843175  Δ=+0.378894
+L21      +0.843175 → +1.056986  Δ=+0.213811
+L22      +1.056986 → +1.064319  Δ=+0.007332
+L23      +1.064319 → +0.926890  Δ=-0.137429
+L24      +0.926890 → +0.850991  Δ=-0.075899
+L25      +0.850991 → +0.533292  Δ=-0.317699
+L26      +0.533292 → +0.715652  Δ=+0.182359
+L27      +0.715652 → -0.297196  Δ=-1.012847
+RAW27    @ORTH19=-0.297196
+NORM_IN  @ORTH19=-0.297196
+NORM_OUT @ORTH19=-0.367864
+TOTAL TAIL Δ=-0.761477 [-1.140992,-0.377292]
+FIRST CROSSING: RAW26→RAW27
+DECISION: TERMINAL_SIGN_REVERSAL_LOCALIZED_TO_UNSTEERED_TAIL__FIRST_CROSSING_RAW26_TO_RAW27
+Saved: /content/TEST185_UNSTEERED_TAIL_XRAY
+==========================================================================================================================================
