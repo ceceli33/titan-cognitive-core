@@ -1,0 +1,450 @@
+ ==========================================================================================================================================
+TEST 197 — BUILD-SPAN CAPACITY SCALING
+A/B/C/D/E — NESTED BUILD 8→16→24→32 × FIXED NOVEL SURFACE8
+==========================================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+SEASC RSS=0.250235055 | scale=0.5 | ridge_rel=0.0001
+
+[1/27] CUDA...
+       OK
+
+[2/27] Model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 87.5kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 780kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 86.9MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 74.2MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 120MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.51MB/s]Download complete: :  13.1GB,  269MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  480MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  7.64s/it]Loading weights: 100% 339/339 [00:03<00:00, 98.27it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.4kB/s]       hidden: 3584 dtype: torch.bfloat16 layers: 28
+
+[3/27] TEST196 axis lock...
+       ready
+
+[4/27] Layer-local compasses...
+       A ABOVE↔BELOW ready
+       B BEFORE↔AFTER ready
+       C INSIDE↔OUTSIDE ready
+       D OPEN↔CLOSED ready
+       E CAUSE↔EFFECT ready
+
+[5/27] Nested BUILD32 / SURFACE8 lock...
+       Nested BUILD sizes: [8, 16, 24, 32]
+       SURFACE8 fixed and excluded from BUILD
+
+[6/27] SEASC...
+       ready
+
+[7/27] Tail recorder...
+       ready
+
+[8/27] BUILD32 collection...
+       A BUILD32 1/32
+       A BUILD32 2/32
+       A BUILD32 3/32
+       A BUILD32 4/32
+       A BUILD32 5/32
+       A BUILD32 6/32
+       A BUILD32 7/32
+       A BUILD32 8/32
+       A BUILD32 9/32
+       A BUILD32 10/32
+       A BUILD32 11/32
+       A BUILD32 12/32
+       A BUILD32 13/32
+       A BUILD32 14/32
+       A BUILD32 15/32
+       A BUILD32 16/32
+       A BUILD32 17/32
+       A BUILD32 18/32
+       A BUILD32 19/32
+       A BUILD32 20/32
+       A BUILD32 21/32
+       A BUILD32 22/32
+       A BUILD32 23/32
+       A BUILD32 24/32
+       A BUILD32 25/32
+       A BUILD32 26/32
+       A BUILD32 27/32
+       A BUILD32 28/32
+       A BUILD32 29/32
+       A BUILD32 30/32
+       A BUILD32 31/32
+       A BUILD32 32/32
+       B BUILD32 1/32
+       B BUILD32 2/32
+       B BUILD32 3/32
+       B BUILD32 4/32
+       B BUILD32 5/32
+       B BUILD32 6/32
+       B BUILD32 7/32
+       B BUILD32 8/32
+       B BUILD32 9/32
+       B BUILD32 10/32
+       B BUILD32 11/32
+       B BUILD32 12/32
+       B BUILD32 13/32
+       B BUILD32 14/32
+       B BUILD32 15/32
+       B BUILD32 16/32
+       B BUILD32 17/32
+       B BUILD32 18/32
+       B BUILD32 19/32
+       B BUILD32 20/32
+       B BUILD32 21/32
+       B BUILD32 22/32
+       B BUILD32 23/32
+       B BUILD32 24/32
+       B BUILD32 25/32
+       B BUILD32 26/32
+       B BUILD32 27/32
+       B BUILD32 28/32
+       B BUILD32 29/32
+       B BUILD32 30/32
+       B BUILD32 31/32
+       B BUILD32 32/32
+       C BUILD32 1/32
+       C BUILD32 2/32
+       C BUILD32 3/32
+       C BUILD32 4/32
+       C BUILD32 5/32
+       C BUILD32 6/32
+       C BUILD32 7/32
+       C BUILD32 8/32
+       C BUILD32 9/32
+       C BUILD32 10/32
+       C BUILD32 11/32
+       C BUILD32 12/32
+       C BUILD32 13/32
+       C BUILD32 14/32
+       C BUILD32 15/32
+       C BUILD32 16/32
+       C BUILD32 17/32
+       C BUILD32 18/32
+       C BUILD32 19/32
+       C BUILD32 20/32
+       C BUILD32 21/32
+       C BUILD32 22/32
+       C BUILD32 23/32
+       C BUILD32 24/32
+       C BUILD32 25/32
+       C BUILD32 26/32
+       C BUILD32 27/32
+       C BUILD32 28/32
+       C BUILD32 29/32
+       C BUILD32 30/32
+       C BUILD32 31/32
+       C BUILD32 32/32
+       D BUILD32 1/32
+       D BUILD32 2/32
+       D BUILD32 3/32
+       D BUILD32 4/32
+       D BUILD32 5/32
+       D BUILD32 6/32
+       D BUILD32 7/32
+       D BUILD32 8/32
+       D BUILD32 9/32
+       D BUILD32 10/32
+       D BUILD32 11/32
+       D BUILD32 12/32
+       D BUILD32 13/32
+       D BUILD32 14/32
+       D BUILD32 15/32
+       D BUILD32 16/32
+       D BUILD32 17/32
+       D BUILD32 18/32
+       D BUILD32 19/32
+       D BUILD32 20/32
+       D BUILD32 21/32
+       D BUILD32 22/32
+       D BUILD32 23/32
+       D BUILD32 24/32
+       D BUILD32 25/32
+       D BUILD32 26/32
+       D BUILD32 27/32
+       D BUILD32 28/32
+       D BUILD32 29/32
+       D BUILD32 30/32
+       D BUILD32 31/32
+       D BUILD32 32/32
+       E BUILD32 1/32
+       E BUILD32 2/32
+       E BUILD32 3/32
+       E BUILD32 4/32
+       E BUILD32 5/32
+       E BUILD32 6/32
+       E BUILD32 7/32
+       E BUILD32 8/32
+       E BUILD32 9/32
+       E BUILD32 10/32
+       E BUILD32 11/32
+       E BUILD32 12/32
+       E BUILD32 13/32
+       E BUILD32 14/32
+       E BUILD32 15/32
+       E BUILD32 16/32
+       E BUILD32 17/32
+       E BUILD32 18/32
+       E BUILD32 19/32
+       E BUILD32 20/32
+       E BUILD32 21/32
+       E BUILD32 22/32
+       E BUILD32 23/32
+       E BUILD32 24/32
+       E BUILD32 25/32
+       E BUILD32 26/32
+       E BUILD32 27/32
+       E BUILD32 28/32
+       E BUILD32 29/32
+       E BUILD32 30/32
+       E BUILD32 31/32
+       E BUILD32 32/32
+
+[9/27] BUILD continuity...
+       A: max relerr=0.0000000000
+       B: max relerr=0.0000000000
+       C: max relerr=0.0000000000
+       D: max relerr=0.0000000000
+       E: max relerr=0.0000000000
+
+[10/27] Fixed SURFACE8 collection...
+       A SURFACE 1/8
+       A SURFACE 2/8
+       A SURFACE 3/8
+       A SURFACE 4/8
+       A SURFACE 5/8
+       A SURFACE 6/8
+       A SURFACE 7/8
+       A SURFACE 8/8
+       B SURFACE 1/8
+       B SURFACE 2/8
+       B SURFACE 3/8
+       B SURFACE 4/8
+       B SURFACE 5/8
+       B SURFACE 6/8
+       B SURFACE 7/8
+       B SURFACE 8/8
+       C SURFACE 1/8
+       C SURFACE 2/8
+       C SURFACE 3/8
+       C SURFACE 4/8
+       C SURFACE 5/8
+       C SURFACE 6/8
+       C SURFACE 7/8
+       C SURFACE 8/8
+       D SURFACE 1/8
+       D SURFACE 2/8
+       D SURFACE 3/8
+       D SURFACE 4/8
+       D SURFACE 5/8
+       D SURFACE 6/8
+       D SURFACE 7/8
+       D SURFACE 8/8
+       E SURFACE 1/8
+       E SURFACE 2/8
+       E SURFACE 3/8
+       E SURFACE 4/8
+       E SURFACE 5/8
+       E SURFACE 6/8
+       E SURFACE 7/8
+       E SURFACE 8/8
+
+[11/27] SURFACE continuity...
+       A: max relerr=0.0000000000
+       B: max relerr=0.0000000000
+       C: max relerr=0.0000000000
+       D: max relerr=0.0000000000
+       E: max relerr=0.0000000000
+
+[12/27] Operator/span functions...
+       ready
+
+[13/27] Fit nested BUILD capacities...
+       N=08 A: ranks 8 8 8 8 8 8 8 8
+       N=08 B: ranks 8 8 8 8 8 8 8 8
+       N=08 C: ranks 8 8 8 8 8 8 8 8
+       N=08 D: ranks 8 8 8 8 8 8 8 8
+       N=08 E: ranks 8 8 8 8 8 8 8 8
+       N=16 A: ranks 16 16 16 16 16 16 16 16
+       N=16 B: ranks 16 16 16 16 16 16 16 16
+       N=16 C: ranks 16 16 16 16 16 16 16 16
+       N=16 D: ranks 16 16 16 16 16 16 16 16
+       N=16 E: ranks 16 16 16 16 16 16 16 16
+       N=24 A: ranks 24 24 24 24 24 24 24 24
+       N=24 B: ranks 24 24 24 24 24 24 24 24
+       N=24 C: ranks 24 24 24 24 24 24 24 24
+       N=24 D: ranks 24 24 24 24 24 24 24 24
+       N=24 E: ranks 24 24 24 24 24 24 24 24
+       N=32 A: ranks 32 32 32 32 32 32 32 32
+       N=32 B: ranks 32 32 32 32 32 32 32 32
+       N=32 C: ranks 32 32 32 32 32 32 32 32
+       N=32 D: ranks 32 32 32 32 32 32 32 32
+       N=32 E: ranks 32 32 32 32 32 32 32 32
+       all capacities frozen
+
+[14/27] SURFACE coverage scaling...
+       N=08 A: mean=0.639697
+       N=08 B: mean=0.653386
+       N=08 C: mean=0.647914
+       N=08 D: mean=0.653715
+       N=08 E: mean=0.829962
+       N=16 A: mean=0.667697
+       N=16 B: mean=0.672755
+       N=16 C: mean=0.663088
+       N=16 D: mean=0.675165
+       N=16 E: mean=0.865939
+       N=24 A: mean=0.677826
+       N=24 B: mean=0.683137
+       N=24 C: mean=0.673985
+       N=24 D: mean=0.686535
+       N=24 E: mean=0.890905
+       N=32 A: mean=0.689770
+       N=32 B: mean=0.696251
+       N=32 C: mean=0.692929
+       N=32 D: mean=0.694703
+       N=32 E: mean=0.902057
+
+[15/27] Teacher-forced prediction scaling...
+       N=08 A: L20=+0.6690 L27=+0.6411
+       N=08 B: L20=+0.7137 L27=+0.6227
+       N=08 C: L20=+0.6809 L27=+0.6306
+       N=08 D: L20=+0.6709 L27=+0.6430
+       N=08 E: L20=+0.8519 L27=+0.8394
+       N=16 A: L20=+0.6954 L27=+0.6603
+       N=16 B: L20=+0.7230 L27=+0.6397
+       N=16 C: L20=+0.6950 L27=+0.6450
+       N=16 D: L20=+0.6927 L27=+0.6564
+       N=16 E: L20=+0.8781 L27=+0.8647
+       N=24 A: L20=+0.7030 L27=+0.6703
+       N=24 B: L20=+0.7353 L27=+0.6469
+       N=24 C: L20=+0.7023 L27=+0.6552
+       N=24 D: L20=+0.7032 L27=+0.6683
+       N=24 E: L20=+0.9028 L27=+0.8892
+       N=32 A: L20=+0.7099 L27=+0.6836
+       N=32 B: L20=+0.7470 L27=+0.6568
+       N=32 C: L20=+0.7141 L27=+0.6702
+       N=32 D: L20=+0.7080 L27=+0.6721
+       N=32 E: L20=+0.9095 L27=+0.9020
+
+[16/27] Free-run PRE20→RAW27 scaling...
+       N=08 A: L27=+0.635279 gain=+0.473749
+       N=08 B: L27=+0.614154 gain=+0.462546
+       N=08 C: L27=+0.607358 gain=+0.432357
+       N=08 D: L27=+0.634240 gain=+0.474330
+       N=08 E: L27=+0.830607 gain=+0.656139
+       N=16 A: L27=+0.646417 gain=+0.484887
+       N=16 B: L27=+0.618875 gain=+0.467268
+       N=16 C: L27=+0.591324 gain=+0.416324
+       N=16 D: L27=+0.634701 gain=+0.474792
+       N=16 E: L27=+0.848526 gain=+0.674058
+       N=24 A: L27=+0.644958 gain=+0.483428
+       N=24 B: L27=+0.606531 gain=+0.454923
+       N=24 C: L27=+0.599520 gain=+0.424520
+       N=24 D: L27=+0.646392 gain=+0.486482
+       N=24 E: L27=+0.870646 gain=+0.696179
+       N=32 A: L27=+0.653834 gain=+0.492303
+       N=32 B: L27=+0.599862 gain=+0.448254
+       N=32 C: L27=+0.613148 gain=+0.438148
+       N=32 D: L27=+0.645221 gain=+0.485312
+       N=32 E: L27=+0.881474 gain=+0.707007
+
+[17/27] Global capacity curve...
+       N=08: coverage=0.684935 teacher=+0.669637 free_L27=+0.664327 free_err=0.740958
+       N=16: coverage=0.708929 teacher=+0.692085 free_L27=+0.667969 free_err=0.738735
+       N=24: coverage=0.722478 teacher=+0.704334 free_L27=+0.673609 free_err=0.733351
+       N=32: coverage=0.735142 teacher=+0.716287 free_L27=+0.678708 free_err=0.727619
+
+[18/27] Axis capacity curves...
+       A:
+          N=08 cov=0.639697 teacher=+0.622657 free=+0.635279
+          N=16 cov=0.667697 teacher=+0.649038 free=+0.646417
+          N=24 cov=0.677826 teacher=+0.657581 free=+0.644958
+          N=32 cov=0.689770 teacher=+0.669185 free=+0.653834
+       B:
+          N=08 cov=0.653386 teacher=+0.634404 free=+0.614154
+          N=16 cov=0.672755 teacher=+0.652348 free=+0.618875
+          N=24 cov=0.683137 teacher=+0.660227 free=+0.606531
+          N=32 cov=0.696251 teacher=+0.671822 free=+0.599862
+       C:
+          N=08 cov=0.647914 teacher=+0.630476 free=+0.607358
+          N=16 cov=0.663088 teacher=+0.643673 free=+0.591324
+          N=24 cov=0.673985 teacher=+0.652325 free=+0.599520
+          N=32 cov=0.692929 teacher=+0.670864 free=+0.613148
+       D:
+          N=08 cov=0.653715 teacher=+0.639119 free=+0.634240
+          N=16 cov=0.675165 teacher=+0.657535 free=+0.634701
+          N=24 cov=0.686535 teacher=+0.667850 free=+0.646392
+          N=32 cov=0.694703 teacher=+0.674152 free=+0.645221
+       E:
+          N=08 cov=0.829962 teacher=+0.821528 free=+0.830607
+          N=16 cov=0.865939 teacher=+0.857832 free=+0.848526
+          N=24 cov=0.890905 teacher=+0.883689 free=+0.870646
+          N=32 cov=0.902057 teacher=+0.895411 free=+0.881474
+
+[19/27] Monotonicity...
+       A: cov 3/3 Δ=+0.050073 | teacher 3/3 Δ=+0.046528 | free 2/3 Δ=+0.018554
+       B: cov 3/3 Δ=+0.042865 | teacher 3/3 Δ=+0.037418 | free 1/3 Δ=-0.014292
+       C: cov 3/3 Δ=+0.045015 | teacher 3/3 Δ=+0.040389 | free 2/3 Δ=+0.005791
+       D: cov 3/3 Δ=+0.040988 | teacher 3/3 Δ=+0.035034 | free 2/3 Δ=+0.010982
+       E: cov 3/3 Δ=+0.072095 | teacher 3/3 Δ=+0.073883 | free 3/3 Δ=+0.050867
+
+[20/27] N=8→32 sample-level Δcoverage→Δprediction...
+       N=320 r=+0.869363 rho=+0.816145
+
+[21/27] Bootstrap N32−N8 terminal free-run...
+       A: Δ=+0.018554 [+0.011713,+0.026236]
+       B: Δ=-0.014292 [-0.029952,+0.000813]
+       C: Δ=+0.005791 [-0.006047,+0.016525]
+       D: Δ=+0.010982 [+0.001611,+0.022047]
+       E: Δ=+0.050867 [+0.042421,+0.060804]
+
+[22/27] Exact n=8 sign-flip...
+       A: p=0.007812
+       B: p=0.156250
+       C: p=0.375000
+       D: p=0.070312
+       E: p=0.007812
+
+[23/27] Layerwise N8→N32 effect...
+       L20: coverage 0.7820→0.8173 Δ=+0.0353 | prediction 0.7173→0.7577 Δ=+0.0404
+       L21: coverage 0.7202→0.7677 Δ=+0.0474 | prediction 0.6795→0.7266 Δ=+0.0471
+       L22: coverage 0.6824→0.7355 Δ=+0.0531 | prediction 0.6603→0.7086 Δ=+0.0483
+       L23: coverage 0.6631→0.7181 Δ=+0.0550 | prediction 0.6521→0.7043 Δ=+0.0523
+       L24: coverage 0.6539→0.7098 Δ=+0.0559 | prediction 0.6613→0.7073 Δ=+0.0460
+       L25: coverage 0.6637→0.7144 Δ=+0.0507 | prediction 0.6357→0.6895 Δ=+0.0538
+       L26: coverage 0.6372→0.6940 Δ=+0.0568 | prediction 0.6756→0.7194 Δ=+0.0438
+       L27: coverage 0.6770→0.7245 Δ=+0.0475 | prediction 0.6753→0.7169 Δ=+0.0416
+
+[24/27] TEST197 decision...
+       A: pass=True
+       B: pass=False
+       C: pass=False
+       D: pass=True
+       E: pass=True
+       DECISION: BUILD_SPAN_CAPACITY_SCALING_PARTIALLY_REPLICATED
+       Capacity intervention is on measurement support only; transformer weights/tail remain untouched.
+
+[25/27] Saving CSV...
+       CSV ready
+
+[26/27] Saving report...
+       Saved: /content/TEST197_BUILD_SPAN_CAPACITY
+
+[27/27] COMPLETE
+==========================================================================================================================================
+TEST 197 — BUILD-SPAN CAPACITY SCALING — SUMMARY
+==========================================================================================================================================
+N=08: coverage=0.684935 teacher=+0.669637 free_L27=+0.664327 free_err=0.740958
+N=16: coverage=0.708929 teacher=+0.692085 free_L27=+0.667969 free_err=0.738735
+N=24: coverage=0.722478 teacher=+0.704334 free_L27=+0.673609 free_err=0.733351
+N=32: coverage=0.735142 teacher=+0.716287 free_L27=+0.678708 free_err=0.727619
+------------------------------------------------------------------------------------------------------------------------------------------
+A: Δcoverage=+0.050073 Δteacher=+0.046528 Δfree=+0.018554 BOOT=[+0.011713,+0.026236] p=0.007812
+B: Δcoverage=+0.042865 Δteacher=+0.037418 Δfree=-0.014292 BOOT=[-0.029952,+0.000813] p=0.156250
+C: Δcoverage=+0.045015 Δteacher=+0.040389 Δfree=+0.005791 BOOT=[-0.006047,+0.016525] p=0.375000
+D: Δcoverage=+0.040988 Δteacher=+0.035034 Δfree=+0.010982 BOOT=[+0.001611,+0.022047] p=0.070312
+E: Δcoverage=+0.072095 Δteacher=+0.073883 Δfree=+0.050867 BOOT=[+0.042421,+0.060804] p=0.007812
+------------------------------------------------------------------------------------------------------------------------------------------
+GLOBAL N8→N32 coverage gain=+0.050207
+GLOBAL N8→N32 teacher gain=+0.046650
+GLOBAL N8→N32 free-run gain=+0.014380
+Sample Δcoverage→Δprediction: r=+0.869363 rho=+0.816145
+Nested BUILD only | Same SURFACE8 | Same ridge | L20-L27 motor OFF | No FINAL | No weight change
+DECISION: BUILD_SPAN_CAPACITY_SCALING_PARTIALLY_REPLICATED
+Saved: /content/TEST197_BUILD_SPAN_CAPACITY
+==========================================================================================================================================
