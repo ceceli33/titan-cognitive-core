@@ -1,0 +1,645 @@
+# ================================================================================================
+# KIZILELMA LIVE X-RAY · AkbasCore SEASC · single-cell Google Colab demonstrator (mobile-first UI)
+# SEE THE INTERVENTION, NOT JUST THE OUTPUT.   EXTRACT → BUILD → INJECT → STOP → OBSERVE
+# Model: Qwen/Qwen2.5-7B-Instruct | SEASC active: L0–L19 | L20–L27: ENGINE OFF (observation only)
+# No fine-tuning | No LoRA | No weight change | No external steering vector
+# ================================================================================================
+import os,sys,io,math,time,uuid,random,shutil,threading,subprocess,importlib.util,textwrap,html
+from pathlib import Path
+for mod,pkg in [("ninja","ninja"),("gradio","gradio"),("matplotlib","matplotlib"),("PIL","pillow")]:
+    if importlib.util.find_spec(mod) is None:subprocess.check_call([sys.executable,"-m","pip","install","-q",pkg])
+import numpy as np,torch,transformers,gradio as gr,matplotlib
+matplotlib.use("Agg");import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle,FancyBboxPatch
+from PIL import Image
+from transformers import AutoTokenizer,AutoModelForCausalLM
+from torch.utils.cpp_extension import load_inline
+
+os.environ["MAX_JOBS"]="2";os.environ["TOKENIZERS_PARALLELISM"]="false"
+if not torch.cuda.is_available():raise RuntimeError("CUDA GPU required (Runtime → Change runtime type → A100).")
+DEVICE=torch.device("cuda");SEED=197
+random.seed(SEED);np.random.seed(SEED);torch.manual_seed(SEED);torch.cuda.manual_seed_all(SEED)
+MODEL_ID="Qwen/Qwen2.5-7B-Instruct";STEER_LAYERS=20;TOTAL_LAYERS=28;MAX_CTX=4096
+IVME,SONUM,ZIRVE,TABAN=.10,.30,.70,.20;EPS=1e-10
+SYSTEM="You are a concise reasoning assistant. Answer the user's request directly."
+ROOT=Path("/content/AKBASCORE_KIZILELMA");ROOT.mkdir(parents=True,exist_ok=True)
+OV_NAME,TX_NAME="AkbasCore_KIZILELMA_Overview.jpg","AkbasCore_KIZILELMA_Technical_XRay.jpg"
+
+# ---- Locked SEASC layer envelope (unchanged) ----
+def env(L):
+    x=ZIRVE*math.exp(-SONUM*L)*(1+SONUM*L)+TABAN
+    return x/(ZIRVE+TABAN)
+RHO=np.asarray([IVME*env(L) for L in range(STEER_LAYERS)],dtype=np.float64)
+RSS=float(np.sqrt(np.sum(RHO**2)))
+def norm(x):return x/x.norm(dim=-1,keepdim=True).clamp_min(EPS)
+
+print("="*100);print("AKBASCORE SEASC — KIZILELMA LIVE X-RAY");print("SEE THE INTERVENTION, NOT JUST THE OUTPUT.");print("="*100)
+print("GPU:",torch.cuda.get_device_name(0));print("Model:",MODEL_ID)
+print(f"SEASC RSS={RSS:.9f} (expected ≈0.250235055)");print("Building CUDA engine...")
+
+# ---- CUDA: frozen-norm direct injection  h' = h + d·‖h‖·a  (unchanged engine) ----
+BUILD_DIR="/tmp/akbascore_kizilelma"
+shutil.rmtree(BUILD_DIR,ignore_errors=True);os.makedirs(BUILD_DIR,exist_ok=True)
+CPP=r"""
+#include <torch/extension.h>
+torch::Tensor seasc_batch_cuda(torch::Tensor h,torch::Tensor a,torch::Tensor d);
+torch::Tensor seasc_batch(torch::Tensor h,torch::Tensor a,torch::Tensor d){
+TORCH_CHECK(h.is_cuda()&&a.is_cuda()&&d.is_cuda(),"CUDA required");
+return seasc_batch_cuda(h,a,d);}
+PYBIND11_MODULE(TORCH_EXTENSION_NAME,m){m.def("seasc_batch",&seasc_batch);}
+"""
+CUDA=r"""
+#include <torch/extension.h>
+#include <ATen/cuda/CUDAContext.h>
+#include <c10/cuda/CUDAException.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
+template<typename scalar_t>
+__global__ void k(scalar_t* h,const float* a,const float* d,int B,int S,int H){
+int v=blockIdx.x,b=v/S;if(b>=B)return;extern __shared__ float sh[];
+long long hb=(long long)v*H,ab=(long long)b*H;float ss=0.f;
+for(int j=threadIdx.x;j<H;j+=blockDim.x){float x=(float)h[hb+j];ss+=x*x;}
+sh[threadIdx.x]=ss;__syncthreads();
+for(unsigned s=blockDim.x/2;s;s>>=1){if(threadIdx.x<s)sh[threadIdx.x]+=sh[threadIdx.x+s];__syncthreads();}
+float z=d[b]*sqrtf(fmaxf(sh[0],1e-20f));
+for(int j=threadIdx.x;j<H;j+=blockDim.x)
+h[hb+j]=(scalar_t)((float)h[hb+j]+z*a[ab+j]);}
+torch::Tensor seasc_batch_cuda(torch::Tensor h,torch::Tensor a,torch::Tensor d){
+auto o=h.contiguous().clone();auto aa=a.to(h.device(),torch::kFloat32).contiguous();
+auto dd=d.to(h.device(),torch::kFloat32).contiguous();
+int B=o.size(0),S=o.size(1),H=o.size(2);constexpr int T=256;
+cudaStream_t stream=at::cuda::getCurrentCUDAStream();
+AT_DISPATCH_FLOATING_TYPES_AND2(at::ScalarType::Half,at::ScalarType::BFloat16,o.scalar_type(),"seasc",[&]{
+k<scalar_t><<<B*S,T,T*sizeof(float),stream>>>
+(o.data_ptr<scalar_t>(),aa.data_ptr<float>(),dd.data_ptr<float>(),B,S,H);});
+C10_CUDA_KERNEL_LAUNCH_CHECK();return o;}
+"""
+seasc_ext=load_inline(name="akbascore_kizilelma_cuda",cpp_sources=CPP,cuda_sources=CUDA,functions=None,
+ extra_cflags=["-O3","-std=c++17"],extra_cuda_cflags=["-O3","--use_fast_math"],with_cuda=True,
+ build_directory=BUILD_DIR,verbose=False)
+print("CUDA: OK");print("Loading Qwen2.5-7B-Instruct...")
+
+# ---- Model (dtype kwarg is version-aware: 'dtype' ≥4.56, 'torch_dtype' before) ----
+_tv=tuple(int("".join(c for c in x if c.isdigit()) or 0) for x in transformers.__version__.split(".")[:2])
+DT_KW="dtype" if _tv>=(4,56) else "torch_dtype"
+tok=AutoTokenizer.from_pretrained(MODEL_ID)
+if tok.pad_token_id is None:tok.pad_token=tok.eos_token
+model=AutoModelForCausalLM.from_pretrained(MODEL_ID,device_map={"":0},attn_implementation="sdpa",**{DT_KW:torch.bfloat16})
+model.eval()
+for p in model.parameters():p.requires_grad_(False)
+layers=model.model.layers;H=model.config.hidden_size;PDT=next(model.parameters()).dtype
+if len(layers)!=TOTAL_LAYERS:raise RuntimeError(f"Expected {TOTAL_LAYERS} layers, got {len(layers)}")
+if PDT!=torch.bfloat16:raise RuntimeError(f"Expected bfloat16 weights, got {PDT}")
+print(f"Model: OK | hidden={H} | layers={len(layers)} | dtype={PDT}")
+FP_T=[layers[0].self_attn.q_proj.weight,layers[STEER_LAYERS-1].mlp.down_proj.weight,layers[-1].mlp.down_proj.weight,model.model.norm.weight]
+@torch.inference_mode()
+def weight_fp():return tuple(float(t.sum(dtype=torch.float32)) for t in FP_T)
+FP0=weight_fp();GPU_LOCK=threading.Lock()
+
+def chat(x):
+    return tok.apply_chat_template([{"role":"system","content":SYSTEM},{"role":"user","content":x}],tokenize=False,add_generation_prompt=True)
+
+# ---- Verified presets (unchanged 8-pair families) ----
+PRESETS={
+"Spatial — ABOVE ↔ BELOW":{"a":"ABOVE","b":"BELOW","pairs":[
+("The lamp is above the table.","The lamp is below the table."),("The bird is above the branch.","The bird is below the branch."),
+("The sign is above the doorway.","The sign is below the doorway."),("The shelf is above the cabinet.","The shelf is below the cabinet."),
+("The cloud is above the hill.","The cloud is below the hill."),("The clock is above the window.","The clock is below the window."),
+("The bridge is above the river.","The bridge is below the river."),("The picture is above the sofa.","The picture is below the sofa.")],
+"prompt":"Describe the position of the bird relative to the branch."},
+"Temporal — BEFORE ↔ AFTER":{"a":"BEFORE","b":"AFTER","pairs":[
+("The alarm occurs before the evacuation.","The alarm occurs after the evacuation."),("The flash occurs before the thunder.","The flash occurs after the thunder."),
+("The ignition occurs before the motion.","The ignition occurs after the motion."),("The warning occurs before the shutdown.","The warning occurs after the shutdown."),
+("The sunrise occurs before noon.","The sunrise occurs after noon."),("The opening occurs before the closing.","The opening occurs after the closing."),
+("The question occurs before the answer.","The question occurs after the answer."),("The launch occurs before the landing.","The launch occurs after the landing.")],
+"prompt":"Explain the temporal relationship between a warning and a shutdown."},
+"State — OPEN ↔ CLOSED":{"a":"OPEN","b":"CLOSED","pairs":[
+("The door is open.","The door is closed."),("The window is open.","The window is closed."),("The gate is open.","The gate is closed."),
+("The box is open.","The box is closed."),("The drawer is open.","The drawer is closed."),("The lid is open.","The lid is closed."),
+("The cabinet is open.","The cabinet is closed."),("The hatch is open.","The hatch is closed.")],
+"prompt":"Describe the state of a gate that permits passage."},
+"Causal — CAUSE ↔ EFFECT":{"a":"CAUSE","b":"EFFECT","pairs":[
+("The spark is the cause of the fire.","The fire is the effect of the spark."),("The impact is the cause of the crack.","The crack is the effect of the impact."),
+("The rainfall is the cause of the flooding.","The flooding is the effect of the rainfall."),("The heat is the cause of the melting.","The melting is the effect of the heat."),
+("The collision is the cause of the damage.","The damage is the effect of the collision."),("The pressure is the cause of the deformation.","The deformation is the effect of the pressure."),
+("The infection is the cause of the fever.","The fever is the effect of the infection."),("The vibration is the cause of the loosening.","The loosening is the effect of the vibration.")],
+"prompt":"Explain the relationship between a spark and the fire that follows."}}
+CARRIERS=["The relevant concept is {x}.","The described relation is {x}.","The intended state is {x}.","The key semantic direction is {x}.",
+"The situation is characterized by {x}.","The correct conceptual side is {x}.","The relation should be understood as {x}.","The target concept in this sentence is {x}."]
+P0="Spatial — ABOVE ↔ BELOW"
+
+def clean_label(s):return " ".join(str(s or "").split())[:40]
+def lines(t):return [x.strip() for x in (t or "").splitlines() if x.strip()]
+def esc(s):return html.escape(str(s),quote=True)
+def md(s):return esc(s).replace("|","&#124;").replace("`","&#96;").replace("*","&#42;").replace("_","&#95;").replace("$","&#36;")
+def mt(s):return str(s).replace("$",r"\$")   # matplotlib: a bare '$' would trigger mathtext parsing errors
+def pair_text(pairs,side):return "\n".join(x[side] for x in pairs)
+def preset_load(name):p=PRESETS[name];return p["a"],p["b"],pair_text(p["pairs"],0),pair_text(p["pairs"],1),p["prompt"]
+def custom_examples(a,b):
+    a=clean_label(a) or "SIDE A";b=clean_label(b) or "SIDE B"
+    return "\n".join(t.format(x=a) for t in CARRIERS),"\n".join(t.format(x=b) for t in CARRIERS)
+def source_of(a,b,ea,eb):
+    for n,p in PRESETS.items():
+        if a==p["a"] and b==p["b"] and lines(ea)==[x[0] for x in p["pairs"]] and lines(eb)==[x[1] for x in p["pairs"]]:return n
+    return None
+
+# ---- Compass extraction: A_L = normalize(mean h_L(A) − mean h_L(B)), last prompt token, L0–L19 ----
+@torch.inference_mode()
+def capture20(text):
+    e=tok(chat(text),return_tensors="pt").to(DEVICE)
+    o=model(**e,output_hidden_states=True,use_cache=False,return_dict=True)
+    p=int(e.attention_mask[0].sum())-1
+    r=torch.stack([o.hidden_states[L+1][0,p].float().detach() for L in range(STEER_LAYERS)])  # hidden_states[L+1] = output of layer L
+    del o;return r
+
+def build_compass(ea,eb):
+    A,B=lines(ea),lines(eb)
+    if len(A)<2 or len(B)<2:raise gr.Error("Use at least two example sentences on each side.")
+    if len(A)!=len(B):raise gr.Error(f"SIDE A has {len(A)} sentences and SIDE B has {len(B)}. They must be matched pairs, so use the same count.")
+    if len(A)>32:raise gr.Error("Use at most 32 matched pairs.")
+    if max(map(len,A+B))>400:raise gr.Error("Keep each example sentence under 400 characters.")
+    HA=torch.stack([capture20(x) for x in A]);HB=torch.stack([capture20(x) for x in B])
+    raw=HA.mean(0)-HB.mean(0);compass=norm(raw).contiguous()
+    return compass,raw,A,B
+
+# ---- SEASC hooks: registered on L0–L19 ONLY. L20–L27 never receive a hook. ----
+def seasc_hooks(compass,sign,scale,telemetry=None,counter=None):
+    def mk(li):
+        def hk(m,args,out):
+            raw=out[0] if isinstance(out,tuple) else out;B=raw.shape[0]
+            a=(float(sign)*compass[li][None].expand(B,-1)).float().contiguous()
+            dose=float(RHO[li])*float(scale)
+            d=torch.full((B,),dose,device=raw.device,dtype=torch.float32)
+            if telemetry is not None and li not in telemetry:
+                hn=float(raw[0,-1].float().norm())   # norm of exactly the tensor handed to the kernel (pre-injection)
+                telemetry[li]={"hidden_norm":hn,"rho":float(RHO[li]),"scale":float(scale),"effective_dose":dose,"injection_norm":hn*dose}
+            if counter is not None:counter[li]=counter.get(li,0)+1
+            new=seasc_ext.seasc_batch(raw,a,d)
+            return new if not isinstance(out,tuple) else (new,)+tuple(out[1:])
+        return hk
+    hooks=[]
+    try:
+        for L in range(STEER_LAYERS):hooks.append(layers[L].register_forward_hook(mk(L)))
+    except Exception:
+        for h in hooks:h.remove()
+        raise
+    return hooks
+
+# ---- X-Ray: vanilla vs steered hidden state at the last prompt token, all 28 layers ----
+@torch.inference_mode()
+def xray_prompt(prompt,compass,sign,scale):
+    e=tok(chat(prompt),return_tensors="pt").to(DEVICE);pos=int(e.attention_mask[0].sum())-1
+    def cap(store):
+        def mk(li):
+            def hk(m,args,out):
+                h=out[0] if isinstance(out,tuple) else out
+                store[li]=h[0,pos].float().detach().clone()
+            return hk
+        return [layers[L].register_forward_hook(mk(L)) for L in range(TOTAL_LAYERS)]
+    vanilla,steered,telemetry={},{},{}
+    hooks=[]
+    try:
+        hooks+=cap(vanilla);model(**e,use_cache=False,return_dict=True)
+    finally:
+        for h in hooks:h.remove()
+    hooks=[]
+    try:  # SEASC hooks registered FIRST → capture hooks see the already-injected output
+        hooks+=seasc_hooks(compass,sign,scale,telemetry);hooks+=cap(steered)
+        model(**e,use_cache=False,return_dict=True)
+    finally:
+        for h in hooks:h.remove()
+    disp=[float((steered[L]-vanilla[L]).norm()/vanilla[L].norm().clamp_min(EPS)) for L in range(TOTAL_LAYERS)]
+    return telemetry,disp
+
+# ---- Generation: greedy, identical config for both runs. With use_cache=True the prefill injects all
+#      prompt positions and every decode step injects the new token in L0–L19. ----
+@torch.inference_mode()
+def generate_text(prompt,compass=None,sign=1,scale=.5,max_new=96,counter=None):
+    e=tok(chat(prompt),return_tensors="pt").to(DEVICE);n=e.input_ids.shape[1];hooks=[]
+    try:
+        if compass is not None and scale>0:hooks=seasc_hooks(compass,sign,scale,counter=counter)
+        out=model.generate(**e,max_new_tokens=int(max_new),do_sample=False,temperature=None,top_p=None,top_k=None,
+                           use_cache=True,pad_token_id=tok.pad_token_id,eos_token_id=tok.eos_token_id)
+    finally:
+        for h in hooks:h.remove()
+    return tok.decode(out[0,n:],skip_special_tokens=True).strip(),int(out.shape[1]-n)
+
+# ================================================================================================
+# POSTERS (JPEG) — all plotted values come from the live run
+# ================================================================================================
+plt.rcParams["font.family"]="DejaVu Sans"
+C_A,C_AT,C_B,C_BT,C_ON,C_OFF,C_FG,C_NEU="#0072B2","#0369A1","#E69F00","#B45309","#047857","#6D28D9","#0F172A","#334155"
+
+def save_jpg(fig,path):
+    buf=io.BytesIO();fig.savefig(buf,format="png",dpi=fig.dpi,facecolor="white");plt.close(fig);buf.seek(0)
+    with Image.open(buf) as im:
+        im=im.convert("RGBA");bg=Image.new("RGB",im.size,(255,255,255));bg.paste(im,mask=im.getchannel("A"))
+    bg.save(path,"JPEG",quality=92,optimize=True,progressive=False,subsampling=0)
+    with Image.open(path) as chk:
+        if chk.format!="JPEG" or chk.mode!="RGB":raise RuntimeError("JPEG validation failed")
+    return str(path)
+
+def wrap_lines(t,w,nmax):
+    ls=textwrap.wrap(" ".join((t or "").split()),w) or ["(empty output)"]
+    if len(ls)>nmax:ls=ls[:nmax];ls[-1]=ls[-1][:w-3].rstrip()+"..."
+    return "\n".join(ls)
+
+def draw_timeline(ax):
+    ax.set_xlim(-.6,28.4);ax.set_ylim(0,1.7);ax.axis("off")
+    for L in range(TOTAL_LAYERS):
+        x=L+(.8 if L>=STEER_LAYERS else 0);c=C_ON if L<STEER_LAYERS else C_OFF
+        ax.add_patch(Rectangle((x-.42,0),.84,1,facecolor=c,edgecolor="white",lw=1))
+        ax.text(x,.5,f"L{L}",ha="center",va="center",color="white",fontsize=9,weight="bold")
+    ax.plot([19.9,19.9],[-.08,1.35],color=C_FG,lw=3.5,clip_on=False)
+    ax.text(19.9,1.42,"ENGINE STOPS HERE",ha="center",va="bottom",fontsize=12,weight="bold",color=C_FG)
+
+def draw_disp(ax,disp):
+    ys=np.asarray(disp)*100;xs=np.arange(TOTAL_LAYERS);top=max(float(ys.max())*1.3,1.0)
+    ax.axvspan(-.5,19.5,color=C_ON,alpha=.10,lw=0);ax.axvspan(19.5,27.5,color=C_OFF,alpha=.13,lw=0)
+    ax.plot(xs[:20],ys[:20],"-o",color=C_ON,lw=2.5,ms=5);ax.plot(xs[19:],ys[19:],"-o",color=C_OFF,lw=2.5,ms=5)
+    ax.axvline(19.5,color=C_FG,lw=2.5,ls="--");ax.set_ylim(0,top);ax.set_xlim(-.5,27.5)
+    ax.text(9.5,top*.94,"SEASC ACTIVE — injection in every layer",ha="center",va="top",color=C_ON,fontsize=12,weight="bold")
+    ax.text(23.5,top*.94,"NO INJECTION\n(downstream effect only)",ha="center",va="top",color=C_OFF,fontsize=12,weight="bold")
+    ax.set_xticks(xs);ax.set_xticklabels([f"L{x}" for x in xs],fontsize=9);ax.set_ylabel("Moved vs Vanilla (%)",fontsize=11)
+    ax.grid(alpha=.25)
+    for s in ("top","right"):ax.spines[s].set_visible(False)
+
+def make_overview(path,a,b,prompt,vanilla,seasc,disp,scale,sign,src,compass,n):
+    fig=plt.figure(figsize=(16,10),dpi=120,facecolor="white")
+    def T(x,y,s,**k):k.setdefault("color",C_FG);return fig.text(x,y,mt(s),**k)
+    T(.05,.962,"KIZILELMA LIVE X-RAY",fontsize=30,weight="bold",va="center")
+    T(.05,.924,"AkbasCore SEASC   |   See the intervention, not just the output.   |   Qwen2.5-7B-Instruct, inference-time activation steering",fontsize=13,va="center",color=C_NEU)
+    w=.15;g=(.90-5*w)/4
+    for i,(s,c) in enumerate([("EXTRACT",C_A),("BUILD",C_A),("INJECT",C_ON),("STOP",C_FG),("OBSERVE",C_OFF)]):
+        x=.05+i*(w+g)
+        fig.add_artist(FancyBboxPatch((x,.855),w,.038,boxstyle="round,pad=0,rounding_size=0.012",transform=fig.transFigure,facecolor=c,edgecolor="none"))
+        T(x+w/2,.874,s,ha="center",va="center",fontsize=14,weight="bold",color="white")
+        if i<4:T(x+w+g/2,.874,"→",ha="center",va="center",fontsize=18,weight="bold")
+    # left: the compass pair
+    A_,B_=a[:18],b[:18];fs=22 if max(len(A_),len(B_))<=9 else 16 if max(len(A_),len(B_))<=12 else 12
+    T(.215,.815,"COMPASS",ha="center",va="center",fontsize=11,weight="bold",color=C_NEU)
+    T(.200,.785,A_,ha="right",va="center",fontsize=fs,weight="bold",color=C_AT)
+    T(.215,.785,"↔",ha="center",va="center",fontsize=fs,weight="bold")
+    T(.230,.785,B_,ha="left",va="center",fontsize=fs,weight="bold",color=C_BT)
+    T(.215,.755,f"Steered toward: {(a if sign>0 else b)[:24]}",ha="center",va="center",fontsize=12,weight="bold")
+    T(.215,.733,f"strength {scale:.2f}   |   {'verified 8-pair preset' if src else 'custom sentences (exploratory)'}",ha="center",va="center",fontsize=11)
+    # right: how the real vector was made (live values)
+    fig.add_artist(FancyBboxPatch((.37,.722),.58,.116,boxstyle="round,pad=0,rounding_size=0.01",transform=fig.transFigure,facecolor="#F0F7FF",edgecolor=C_A,lw=2,zorder=-1))
+    T(.385,.822,"HOW THE STEERING VECTOR WAS MADE  —  real numbers from this run, nothing pre-made",fontsize=12,weight="bold",color=C_AT,va="center")
+    tr=lambda s,k:s if len(s)<=k else s[:k-1]+"…"
+    T(.385,.800,f"{n} \"{tr(a,10)}\" vs {n} \"{tr(b,10)}\" sentences → Qwen's own hidden states → mean(A) − mean(B) → normalize",fontsize=10.5,va="center")
+    mat=compass.detach().cpu().numpy();c=float(np.percentile(np.abs(mat),99)) or 1e-6
+    axh=fig.add_axes([.385,.735,.25,.048]);axh.imshow(mat,aspect="auto",cmap="RdBu_r",vmin=-c,vmax=c);axh.set_xticks([]);axh.set_yticks([])
+    for s in axh.spines.values():s.set_edgecolor(C_FG);s.set_linewidth(1)
+    T(.648,.772,"← the real vectors: 20 layers × 3,584 values",fontsize=11,weight="bold",va="center")
+    T(.648,.752,"L00 = ["+", ".join(f"{x:+.4f}" for x in mat[0,:4])+", …]",fontsize=10.5,family="DejaVu Sans Mono",va="center")
+    T(.648,.732,"One direction per layer, then added back into L0–L19 only.",fontsize=10.5,va="center")
+    draw_timeline(fig.add_axes([.05,.595,.90,.085]))
+    T(.05,.575,"● SEASC ACTIVE — INJECTION ON  (L0–L19)",fontsize=13,weight="bold",color=C_ON,va="center")
+    T(.95,.575,"■ ENGINE OFF — NO INJECTION  (L20–L27)",fontsize=13,weight="bold",color=C_OFF,va="center",ha="right")
+    draw_disp(fig.add_axes([.07,.345,.88,.19]),disp)
+    T(.05,.303,"This curve shows how far the SEASC run moved from the Vanilla hidden state at each layer (last prompt token). After L19 nothing is injected.",fontsize=12,va="center")
+    T(.05,.276,"Prompt: "+wrap_lines(prompt,150,1),fontsize=12,va="center",weight="bold")
+    for x,title,txt,c2 in [(.05,"VANILLA — intervention OFF",vanilla,C_NEU),(.515,"SEASC — intervention ON (L0–L19)",seasc,C_ON)]:
+        ax=fig.add_axes([x,.07,.435,.185]);ax.axis("off")
+        ax.add_patch(FancyBboxPatch((.005,.03),.99,.94,boxstyle="round,pad=0,rounding_size=0.05",transform=ax.transAxes,facecolor="#F8FAFC",edgecolor=c2,lw=3,clip_on=False))
+        ax.text(.03,.9,title,transform=ax.transAxes,fontsize=14,weight="bold",color=c2,va="top")
+        ax.text(.03,.72,mt(wrap_lines(txt,74,6)),transform=ax.transAxes,fontsize=11,color=C_FG,va="top",linespacing=1.35)
+    T(.5,.032,"Same model ✓   Same prompt ✓   Same decoding ✓   |   Weights changed: NO   Fine-tuning: NO   LoRA: NO   External vector: NO",fontsize=13,weight="bold",ha="center",va="center")
+    return save_jpg(fig,path)
+
+def make_technical(path,a,b,compass,telemetry,disp,scale,sign):
+    fig=plt.figure(figsize=(16,12),dpi=120,facecolor="white")
+    def T(x,y,s,**k):k.setdefault("color",C_FG);return fig.text(x,y,mt(s),**k)
+    T(.05,.968,"KIZILELMA TECHNICAL X-RAY",fontsize=24,weight="bold",va="center")
+    T(.05,.94,f"AkbasCore SEASC   |   {a[:30]} ↔ {b[:30]}   |   sign {sign:+d}   |   global scale {scale:.2f}   |   hidden {H}   |   BF16, SDPA   |   Qwen2.5-7B-Instruct",fontsize=13,va="center")
+    mat=compass.detach().cpu().numpy();c=float(np.percentile(np.abs(mat),99)) or 1e-6
+    ax1=fig.add_axes([.07,.665,.80,.235])
+    im=ax1.imshow(mat,aspect="auto",cmap="RdBu_r",vmin=-c,vmax=c)
+    ax1.set_yticks(range(STEER_LAYERS));ax1.set_yticklabels([f"L{x:02d}" for x in range(STEER_LAYERS)],fontsize=8)
+    ax1.set_xlabel(f"compass dimension (0 … {H-1})",fontsize=11)
+    ax1.set_title(mt(f"① Full 20 × {H} layer-local compass fingerprint (real values from this run; color clipped at ±{c:.4f} = 99th percentile)"),fontsize=13,weight="bold",loc="left")
+    fig.colorbar(im,cax=fig.add_axes([.885,.665,.012,.235]))
+    ax2=fig.add_axes([.07,.395,.86,.19])
+    inj=[telemetry[L]["injection_norm"] for L in range(STEER_LAYERS)]+[0.0]*(TOTAL_LAYERS-STEER_LAYERS)
+    ax2.bar(range(TOTAL_LAYERS),inj,color=[C_ON]*STEER_LAYERS+[C_OFF]*(TOTAL_LAYERS-STEER_LAYERS))
+    ax2.axvspan(19.5,27.5,color=C_OFF,alpha=.10,lw=0);ax2.axvline(19.5,color=C_FG,lw=2.5,ls="--")
+    top=max(max(inj)*1.3,1e-3);ax2.set_ylim(0,top);ax2.set_xlim(-.5,27.5)
+    ax2.text(23.5,top*.5,"ENGINE OFF\ninjection = 0",ha="center",va="center",color=C_OFF,fontsize=12,weight="bold")
+    ax2.set_xticks(range(TOTAL_LAYERS));ax2.set_xticklabels([f"L{x}" for x in range(TOTAL_LAYERS)],fontsize=9)
+    ax2.set_ylabel("‖injected vector‖",fontsize=11);ax2.grid(axis="y",alpha=.25)
+    ax2.set_title("② Measured injection magnitude  ρ_L · scale · ‖h_L‖  (last prompt token; bars) and dose ρ_L · scale (dashed)",fontsize=13,weight="bold",loc="left")
+    dz=[telemetry[L]["effective_dose"] for L in range(STEER_LAYERS)]
+    ax2b=ax2.twinx();ax2b.plot(range(STEER_LAYERS),dz,"--",color=C_FG,lw=1.5,marker=".");ax2b.set_ylim(0,max(max(dz)*1.3,1e-6));ax2b.set_ylabel("dose",fontsize=10)
+    ax3=fig.add_axes([.07,.125,.86,.19]);draw_disp(ax3,disp)
+    ax3.set_title("③ Observed Vanilla → SEASC hidden-state displacement (relative, last prompt token)",fontsize=13,weight="bold",loc="left")
+    T(.05,.058,f"Locked envelope: IVME={IVME}  SONUM={SONUM}  ZIRVE={ZIRVE}  TABAN={TABAN}   |   base RSS(ρ)={RSS:.9f}   |   effective RSS={RSS*scale:.9f}",fontsize=11,va="center")
+    T(.05,.03,"No external vector | No LoRA | No fine-tuning | No weight modification | SEASC injection: L0–L19 | L20–L27 observation only",fontsize=11,va="center",weight="bold")
+    return save_jpg(fig,path)
+
+# ================================================================================================
+# MOBILE-FIRST UI · Level 1: choose → run → compare · Level 2: expandable "how" · Level 3: Technical Details
+# ================================================================================================
+PRESET_OF={f"{p['a']} ↔ {p['b']}":k for k,p in PRESETS.items()}
+CUSTOM="＋ Custom concept";C0=f"{PRESETS[P0]['a']} ↔ {PRESETS[P0]['b']}"
+PHASES=["Extract","Build","Inject","Stop","Observe"]
+
+def steps_html(k):  # 0 idle · 1..5 active phase · 6 all done
+    out=[]
+    for i,s in enumerate(PHASES,1):
+        cls="ph done" if i<k else "ph now" if i==k else "ph";mark="✓ " if i<k else ""
+        out.append(f'<span class="{cls}">{mark}{s}</span>')
+    return '<div class="kz phases">'+'<span class="sep">›</span>'.join(out)+'</div>'
+def card(title,body,kind="info"):return f'<div class="kz card {kind}"><div class="h">{title}</div><div class="small">{body}</div></div>'
+def step_label(n,t):return f'<div class="kz stepl"><span class="n">{n}</span>{t}</div>'
+def concept_card(c,a,b):
+    cat="CUSTOM · exploratory" if c==CUSTOM or c not in PRESET_OF else PRESET_OF[c].split(" — ")[0].upper()
+    return (f'<div class="kz ccard"><div class="cat">{esc(cat)}</div><div class="pair"><span class="ca">{esc(a or "SIDE A")}</span>'
+            f' <span class="dx">↔</span> <span class="cb">{esc(b or "SIDE B")}</span></div></div>')
+def dir_update(a,b,v="A"):
+    return gr.update(choices=[(f"Toward {a or 'SIDE A'}","A"),(f"Toward {b or 'SIDE B'}","B")],value=v if v in ("A","B") else "A")
+
+def compass_card(compass,n,src):
+    v=compass[0].detach().cpu().numpy();nr=compass.norm(dim=-1).cpu().numpy()
+    vals="".join(f"<span>{x:+.5f}</span>" for x in v[:16])
+    srct="Verified 8-pair preset." if src else "Custom sentences (exploratory, not validated like the presets)."
+    return (f'<div class="kz card on"><div class="h">✓ 20 LAYER-LOCAL COMPASSES CREATED</div>'
+            f'<div class="big">20 layers × 3,584 real values</div>'
+            f'<div class="small">Extracted from Qwen\'s own hidden states ({n} + {n} sentences). No external steering vector.<br>'
+            f'Each layer has its own 3,584-dimensional direction. {srct}</div>'
+            f'<details><summary>View real vector values ›</summary><div class="small">L00 compass: first 16 of 3,584 values, norm {nr[0]:.6f}. '
+            f'Real values from this run.</div><div class="vals">{vals}</div></details></div>')
+
+def engine_map(scale,k=0,stopped=False):
+    on=float(scale)>0
+    gsub="SEASC INJECTION ON" if on else "Target layers · effective injection: ZERO"
+    prog=""
+    if k and not stopped:
+        verb="Injecting" if on else "Passing (dose 0)"
+        prog=f'<div class="prog"><div style="width:{100*k/STEER_LAYERS:.0f}%"></div></div><div class="small">{verb}… L{k-1:02d}</div>'
+    lit=" lit" if stopped else ""
+    return (f'<div class="kz eng"><div class="blk g"><div class="bt">● L0 – L19</div><div class="bs">{gsub}</div>{prog}</div>'
+            f'<div class="stopband{lit}">ENGINE STOPS HERE<small>No injection after L19</small></div>'
+            f'<div class="blk p"><div class="bt">■ L20 – L27</div><div class="bs">ENGINE OFF · NO INJECTION</div><div class="small">Observation only</div></div></div>')
+
+def layer_grid(k=0,stopped=False,disp=None):
+    def cell(L):
+        g=L<STEER_LAYERS;cls="lc g" if g else "lc p"
+        if g and (L<k or stopped):cls+=" hit"
+        val=f"<small>{disp[L]*100:.1f}%</small>" if disp else ""
+        return f'<div class="{cls}">L{L}{val}</div>'
+    a="".join(cell(L) for L in range(STEER_LAYERS));o="".join(cell(L) for L in range(STEER_LAYERS,TOTAL_LAYERS))
+    note="Percent = how far the SEASC hidden state moved from Vanilla (last prompt token)." if disp else "Filled boxes = layers already passed by the engine."
+    return (f'<div class="kz"><div class="lh g">● INJECTION ON</div><div class="lg lg5">{a}</div><div class="lstop">STOP · no injection after L19</div>'
+            f'<div class="lh p">■ ENGINE OFF</div><div class="lg lg4">{o}</div><div class="small" style="margin-top:6px">{note}</div></div>')
+
+def downstream(disp):
+    mx=max(max(disp),1e-12);rows=[]
+    for L in range(STEER_LAYERS-1,TOTAL_LAYERS):
+        cls="bar g" if L<STEER_LAYERS else "bar p"
+        rows.append(f'<span>L{L}</span><div><div class="{cls}" style="width:{max(2,100*disp[L]/mx):.0f}%"></div></div><span class="v">{disp[L]*100:.1f}%</span>')
+    return (f'<div class="kz card off"><div class="h">DOWNSTREAM EFFECT</div>'
+            f'<div class="small">How far the SEASC run\'s internal state differs from Vanilla. Built up in L0–L19: {disp[0]*100:.1f}% → {disp[STEER_LAYERS-1]*100:.1f}%.</div>'
+            f'<div class="ds">{"".join(rows)}</div><div class="small" style="margin-top:6px"><b>No injection after L19.</b> The remaining change is downstream propagation.</div></div>')
+
+def badges(fp=None):
+    it=["Same model ✓","Same prompt ✓","Same decoding ✓","Weights: checked after run" if fp is None else ("Weights unchanged ✓" if fp else "Weights CHANGED ✗")]
+    return '<div class="kz badges">'+"".join(f'<span class="bdg">{t}</span>' for t in it)+'</div>'
+def seasc_head(scale):
+    t="Intervention ON · L0–L19" if float(scale)>0 else "Target L0–L19 · effective injection ZERO"
+    return f'<div class="kz oh s"><b>SEASC</b><span>{t}</span></div>'
+VANILLA_HEAD='<div class="kz oh"><b>VANILLA</b><span>Intervention OFF</span></div>'
+
+def tech_md(a,b,A,B,compass,raw,telemetry,disp,scale,sign,calls,ntok,fp_ok,tail0):
+    cn=compass.norm(dim=-1).tolist();rn=raw.norm(dim=-1).tolist()
+    rows=["| Layer | Zone | ρ_L | dose | ‖h‖ before | ‖injection‖ | ‖A_L‖ | ‖meanA−meanB‖ | displacement | hook calls (gen) |","|---|---|---|---|---|---|---|---|---|---|"]
+    for L in range(TOTAL_LAYERS):
+        if L<STEER_LAYERS:
+            t=telemetry[L];rows.append(f"| L{L:02d} | ● ACTIVE | {t['rho']:.6f} | {t['effective_dose']:.6f} | {t['hidden_norm']:.2f} | {t['injection_norm']:.3f} | {cn[L]:.6f} | {rn[L]:.3f} | {disp[L]*100:.2f}% | {calls.get(L,0)} |")
+        else:rows.append(f"| L{L:02d} | ■ OFF | — | 0 | — | **0** | — | — | {disp[L]*100:.2f}% | **0** |")
+    prev="\n".join("- **L%02d** `[%s, …]`"%(L,", ".join(f"{x:+.6f}" for x in compass[L,:16].tolist())) for L in (0,5,10,15,19))
+    sents="\n".join(f"{i+1}. {md(x)} ↔ {md(y)}" for i,(x,y) in enumerate(zip(A,B)))
+    table="\n".join(rows)
+    fp_s="unchanged ✓" if fp_ok else "CHANGED ✗";t_s="0 ✓" if tail0 else "not 0 ✗"
+    return (f"### This run\n**Compass:** {md(a)} ↔ {md(b)} · sign {sign:+d} · strength (global scale) {scale:.2f} · base RSS(ρ) {RSS:.9f} · effective RSS {RSS*scale:.9f}\n\n"
+            f"**Integrity:** Fine-tuning NO · LoRA NO · External steering vector NO · Weight sentinel (4 tensors, before vs after) {fp_s} · "
+            f"SEASC hook calls in L20–L27 during generation: {t_s} · SEASC generation: {ntok} new tokens\n\n"
+            f"**Formula:** `E(L) = [ZIRVE·exp(−SONUM·L)·(1+SONUM·L) + TABAN] / (ZIRVE+TABAN)`, `ρ_L = IVME·E(L)`, "
+            f"`h'_L = h_L + ρ_L·scale·‖h_L‖·A_L` (norm frozen before the add, every token position, L0–L19 only). "
+            f"IVME={IVME}, SONUM={SONUM}, ZIRVE={ZIRVE}, TABAN={TABAN}.\n\n"
+            f"### Sentences used ({len(A)} matched pairs)\n{sents}\n\n### Compass previews (first 16 of {H} values)\n{prev}\n\n### Per-layer telemetry\n{table}")
+
+HERO=('<div class="kz hero"><div class="hero-title">KIZILELMA LIVE X-RAY</div><div class="hero-brand">AkbasCore SEASC</div>'
+      '<div class="hero-subtitle">See the intervention, not just the output.</div></div>')
+LEAD='<div class="kz lead">A direction is pulled out of the model itself, pushed back into layers 0–19, then the engine stops. Compare the answers.</div>'
+HOW=('<div class="kz small">Qwen reads every <span class="ca">SIDE A</span> sentence and its matched <span class="cb">SIDE B</span> sentence. '
+     'At each of layers 0–19 we record its hidden state at the last prompt token, average each side, subtract B from A and normalize. '
+     'That gives 20 directions, one per layer, built only from the model\'s own activity. No external vector, no training, no weight change.</div>')
+BOUNDARY=card("⚠ Scientific boundary",
+      "This demo extracts layer-local directions from the model's own hidden states, applies a measured inference-time activation "
+      "intervention in L0–L19, and observes the resulting Vanilla → SEASC difference across layers. <b>L20–L27 receive no SEASC injection.</b> "
+      "It does <b>not</b> claim a complete representation of a concept, universal steering, a full explanation of transformer dynamics or of "
+      "the causal mechanism, or a full 3584×3584 transport operator. Custom mode is exploratory and not validated to the same standard as the four presets.","warn")
+RESEARCH="""**Research background: TEST192–197 (not part of this demo engine)**
+
+- **TEST192**: in the unsteered tail, concept-specific and prompt-replicable transport trajectories were observed; a single universal channel was not supported.
+- **TEST193**: low-rank local predictive operators fitted on the BUILD span were used to study L20–L27 local transport.
+- **TEST194**: these local operators were composed recursively; held-out transfer was shown.
+- **TEST195**: transfer to a new linguistic/surface prompt set was tested.
+- **TEST196**: a strong association was found between novel-surface prediction and BUILD-span coverage.
+- **TEST197**: BUILD support 8→16→24→32. Global coverage 0.684935 → 0.735142; teacher-forced prediction 0.669637 → 0.716287; free-run terminal 0.664327 → 0.678708; N8→N32 sample-level r(Δcoverage, Δprediction) = +0.869363. Recursive free-run did **not** improve monotonically on every axis.
+
+Downstream dynamics are **not** solved; these results only show that downstream behaviour has been studied experimentally."""
+
+CSS="""
+:root{--kz-a:#0369a1;--kz-b:#b45309;--kz-on:#047857;--kz-off:#6d28d9;--kz-warn:#92400e;--kz-fg:#0f172a;--kz-card:#ffffff;--kz-bd:#cbd5e1;--kz-on-bg:#ecfdf5;--kz-off-bg:#f5f3ff}
+.dark{--kz-a:#38bdf8;--kz-b:#fbbf24;--kz-on:#34d399;--kz-off:#c4b5fd;--kz-warn:#fcd34d;--kz-fg:#f8fafc;--kz-card:#0f172a;--kz-bd:#475569;--kz-on-bg:#052e22;--kz-off-bg:#1e1333}
+html,body{overflow-x:hidden!important}
+.gradio-container{width:100%!important;max-width:900px!important;margin:0 auto!important;padding-left:10px!important;padding-right:10px!important;box-sizing:border-box!important;--layout-gap:10px;
+ --body-text-color-subdued:var(--body-text-color)!important;--block-info-text-color:var(--body-text-color)!important;--block-label-text-color:var(--body-text-color)!important;--block-title-text-color:var(--body-text-color)!important}
+.gradio-container *,.gradio-container *::before,.gradio-container *::after{box-sizing:border-box}
+.kz{color:var(--kz-fg)!important;font-size:16px;line-height:1.45;max-width:100%;overflow-wrap:break-word}
+.kz *{color:inherit;max-width:100%}
+.ca{color:var(--kz-a)!important;font-weight:700}.cb{color:var(--kz-b)!important;font-weight:700}
+.hero{text-align:center;padding:8px 2px 0}
+.hero-title{font-size:clamp(24px,7vw,34px);line-height:1.05;font-weight:800;letter-spacing:.3px}
+.hero-brand{font-size:13px;margin-top:4px;font-weight:600}
+.hero-subtitle{font-size:15px;line-height:1.3;margin-top:2px}
+.phases{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:2px 4px;font-size:14px}
+.ph{padding:1px 8px;border-radius:999px}.ph.now{background:var(--kz-on);color:var(--kz-card)!important;font-weight:700}.ph.done{color:var(--kz-on)!important;font-weight:600}
+.lead{text-align:center;font-size:14px;line-height:1.35}
+.stepl{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;letter-spacing:.3px;margin-top:4px}
+.stepl .n{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;flex:0 0 24px;border-radius:50%;background:var(--kz-fg);color:var(--kz-card)!important;font-size:13px}
+.ccard{border:2px solid var(--kz-bd);border-radius:12px;padding:6px 10px;text-align:center;background:var(--kz-card)}
+.ccard .cat{font-size:12px;font-weight:600;letter-spacing:1px}
+.ccard .pair{font-size:clamp(20px,6vw,26px);font-weight:800;line-height:1.2}.ccard .ca,.ccard .cb{font-weight:800}
+.card{background:var(--kz-card);border:2px solid var(--kz-bd);border-left-width:6px;border-radius:12px;padding:10px 12px}
+.card.on{border-left-color:var(--kz-on)}.card.off{border-left-color:var(--kz-off)}.card.info{border-left-color:var(--kz-a)}.card.warn{border-left-color:var(--kz-warn)}
+.card .h{font-size:18px;font-weight:800;line-height:1.25;margin-bottom:2px}.card .big{font-size:17px;font-weight:700}
+.small{font-size:15px;line-height:1.4}
+.kz details summary{cursor:pointer;font-weight:700;font-size:15px;margin-top:6px;color:var(--kz-a)!important}
+.vals{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px 8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;margin-top:4px}
+.eng .blk{border:2px solid;border-radius:12px;padding:8px 12px}
+.eng .blk.g{border-color:var(--kz-on);background:var(--kz-on-bg)}.eng .blk.p{border-color:var(--kz-off);background:var(--kz-off-bg);border-style:dashed}
+.eng .bt{font-size:19px;font-weight:800}.eng .bs{font-size:15px;font-weight:700}
+.eng .g .bt,.eng .g .bs{color:var(--kz-on)!important}.eng .p .bt,.eng .p .bs{color:var(--kz-off)!important}
+.stopband{margin:6px 0;text-align:center;border-top:3px solid var(--kz-fg);border-bottom:3px solid var(--kz-fg);padding:5px 4px;font-weight:800;font-size:16px}
+.stopband small{display:block;font-weight:500;font-size:14px}
+.stopband.lit{background:var(--kz-fg)}.stopband.lit,.stopband.lit *{color:var(--kz-card)!important}
+.prog{height:8px;border-radius:4px;background:var(--kz-card);border:1px solid var(--kz-on);margin-top:6px;overflow:hidden}.prog>div{height:100%;background:var(--kz-on)}
+.lh{font-size:14px;font-weight:800;margin:4px 0}.lh.g{color:var(--kz-on)!important}.lh.p{color:var(--kz-off)!important}
+.lg{display:grid;gap:4px}.lg5{grid-template-columns:repeat(5,minmax(0,1fr))}.lg4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.lc{border:2px solid;border-radius:8px;text-align:center;font-size:13px;font-weight:700;padding:3px 0;line-height:1.2}
+.lc small{display:block;font-size:12px;font-weight:500}
+.lc.g{border-color:var(--kz-on)}.lc.p{border-color:var(--kz-off);border-style:dashed}
+.lc.g.hit{background:var(--kz-on);color:var(--kz-card)!important}
+.lstop{text-align:center;font-weight:800;font-size:13px;margin:8px 0 2px;border-top:3px solid var(--kz-fg);padding-top:4px}
+.ds{display:grid;grid-template-columns:44px minmax(0,1fr) 58px;gap:4px 8px;align-items:center;font-size:14px;margin-top:6px}
+.ds .bar{height:10px;border-radius:4px}.ds .bar.g{background:var(--kz-on)}.ds .bar.p{background:var(--kz-off)}
+.ds .v{text-align:right;font-variant-numeric:tabular-nums}
+.badges{display:flex;flex-wrap:wrap;gap:6px}
+.bdg{border:1.5px solid var(--kz-bd);border-radius:999px;padding:3px 10px;font-size:14px;font-weight:600;background:var(--kz-card)}
+.oh{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;font-size:15px}.oh b{font-size:18px}.oh.s,.oh.s *{color:var(--kz-on)!important}
+#vout textarea,#sout textarea{font-size:16px!important;line-height:1.5!important}
+#vout{border:2px solid var(--kz-bd)!important;border-radius:12px}#sout{border:3px solid var(--kz-on)!important;border-radius:12px}
+#sidea textarea,#sidea input{border:2px solid var(--kz-a)!important;font-size:17px!important}
+#sideb textarea,#sideb input{border:2px solid var(--kz-b)!important;font-size:17px!important}
+#runbtn{font-size:18px!important;min-height:52px}
+#tech{overflow-x:hidden}#tech table{display:block;overflow-x:auto;max-width:100%;font-size:13px}
+.kz-row{flex-wrap:wrap!important}
+@media (max-width:700px){.kz-row{flex-direction:column!important}.kz-row>*{width:100%!important;min-width:0!important;flex:1 1 100%!important}}
+"""
+
+GR6=int(gr.__version__.split(".")[0])>=6   # Gradio 6 moved css= from Blocks() to launch()
+with gr.Blocks(title="KIZILELMA Live X-Ray — AkbasCore SEASC",**({} if GR6 else {"css":CSS})) as demo:
+    gr.HTML(HERO);steps_h=gr.HTML(steps_html(0));gr.HTML(LEAD)
+    # ---- Level 1: choose → ask → steer → run ----
+    gr.HTML(step_label(1,"CHOOSE A CONCEPT"))
+    concept=gr.Dropdown(list(PRESET_OF)+[CUSTOM],value=C0,show_label=False,container=False)
+    concept_h=gr.HTML(concept_card(C0,PRESETS[P0]["a"],PRESETS[P0]["b"]))
+    with gr.Column(visible=False) as custom_grp:
+        with gr.Row(elem_classes="kz-row"):
+            side_a=gr.Textbox(value=PRESETS[P0]["a"],label="SIDE A",max_lines=1,elem_id="sidea")
+            side_b=gr.Textbox(value=PRESETS[P0]["b"],label="SIDE B",max_lines=1,elem_id="sideb")
+        rebuild=gr.Button("Rebuild matched sentences from my two words",size="sm")
+        gr.HTML('<div class="kz small">Custom mode is exploratory. After changing the words, tap <b>Rebuild</b>. The sentences are editable in "How was this compass built?".</div>')
+    with gr.Accordion("How was this compass built?",open=False) as how_acc:
+        gr.HTML(HOW)
+        ex_a=gr.Textbox(lines=8,label="SIDE A sentences",value=pair_text(PRESETS[P0]["pairs"],0))
+        ex_b=gr.Textbox(lines=8,label="SIDE B sentences (matched line by line)",value=pair_text(PRESETS[P0]["pairs"],1))
+    gr.HTML(step_label(2,"ASK THE MODEL"))
+    prompt=gr.Textbox(lines=2,value=PRESETS[P0]["prompt"],show_label=False,container=False)
+    gr.HTML(step_label(3,"STEER TOWARD"))
+    direction=gr.Radio(choices=[(f"Toward {PRESETS[P0]['a']}","A"),(f"Toward {PRESETS[P0]['b']}","B")],value="A",show_label=False,container=False)
+    scale=gr.Slider(0,1,value=.50,step=.05,label="Strength (0 = control run, nothing injected)")
+    with gr.Accordion("More settings",open=False):
+        max_new=gr.Slider(24,160,value=96,step=8,label="Max new tokens")
+    run=gr.Button("▶ RUN X-RAY",variant="primary",size="lg",elem_id="runbtn")
+    status_h=gr.HTML("")
+    # ---- Level 1 results ----
+    compass_h=gr.HTML("")
+    engine_h=gr.HTML(engine_map(.5))
+    with gr.Accordion("Show layer-by-layer view",open=False):
+        layers_h=gr.HTML(layer_grid())
+    down_h=gr.HTML("")
+    gr.HTML(step_label("✓","COMPARE"));badges_h=gr.HTML(badges())
+    with gr.Row(elem_classes="kz-row"):
+        with gr.Column(min_width=280):
+            gr.HTML(VANILLA_HEAD);vanilla_out=gr.Textbox(lines=6,max_lines=24,show_label=False,elem_id="vout")
+        with gr.Column(min_width=280):
+            seasc_h=gr.HTML(seasc_head(.5));seasc_out=gr.Textbox(lines=6,max_lines=24,show_label=False,elem_id="sout")
+    gr.HTML(step_label("⤓","SHAREABLE X-RAY"))
+    with gr.Row(elem_classes="kz-row"):
+        ov_img=gr.Image(label="Overview JPEG",type="filepath",interactive=False)
+        tx_img=gr.Image(label="Technical X-Ray JPEG",type="filepath",interactive=False)
+    with gr.Row(elem_classes="kz-row"):
+        ov_file=gr.File(label="Download Overview",interactive=False)
+        tx_file=gr.File(label="Download Technical",interactive=False)
+    clear=gr.Button("Delete generated X-Ray images",variant="stop",size="sm")
+    # ---- Level 3: researcher ----
+    with gr.Accordion("🔬 Technical Details",open=False):
+        tech_out=gr.Markdown("Run the X-Ray to fill in telemetry, compass values and integrity checks.",elem_id="tech")
+        gr.HTML(BOUNDARY);gr.Markdown(RESEARCH)
+
+    def on_concept(c):
+        if c==CUSTOM:
+            a2,b2="HOT","COLD";ea,eb=custom_examples(a2,b2)
+            return gr.update(visible=True),concept_card(c,a2,b2),a2,b2,ea,eb,"Describe how a cup of tea feels.",dir_update(a2,b2),gr.update(open=True)
+        a2,b2,ea,eb,p=preset_load(PRESET_OF[c])
+        return gr.update(visible=False),concept_card(c,a2,b2),a2,b2,ea,eb,p,dir_update(a2,b2),gr.update(open=False)
+    def on_sides(c,a,b,d):
+        a,b=clean_label(a),clean_label(b);return concept_card(c,a,b),dir_update(a,b,d)
+
+    def run_demo(a,b,ea,eb,prompt,direction,scale,max_new):
+        a,b=clean_label(a),clean_label(b);prompt=(prompt or "").strip();scale=float(scale);max_new=int(max_new)
+        if not a or not b:raise gr.Error("Define both opposing sides (SIDE A and SIDE B).")
+        if a.lower()==b.lower():raise gr.Error("SIDE A and SIDE B must be different concepts.")
+        if not prompt:raise gr.Error("Enter a question for the model.")
+        n_in=len(tok(chat(prompt)).input_ids)
+        if n_in+max_new>MAX_CTX:raise gr.Error(f"The prompt is {n_in} tokens; with {max_new} new tokens it exceeds the demo limit of {MAX_CTX}. Shorten the prompt.")
+        if not GPU_LOCK.acquire(blocking=False):raise gr.Error("Another X-Ray is running. Try again in a few seconds.")
+        try:
+            sign=1 if direction=="A" else -1;tgt=a if sign>0 else b;src=source_of(a,b,ea,eb)
+            for p in ROOT.glob("run_*"):
+                if p.is_dir() and p.parent==ROOT:shutil.rmtree(p,ignore_errors=True)
+            run_dir=ROOT/f"run_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}";run_dir.mkdir(parents=True)
+            yield {steps_h:steps_html(1),status_h:card("Extracting…","Qwen is reading both sides. Its own hidden states are recorded at L0–L19.","info"),
+                   compass_h:"",engine_h:engine_map(scale),layers_h:layer_grid(),down_h:"",badges_h:badges(),seasc_h:seasc_head(scale),
+                   vanilla_out:"",seasc_out:"",tech_out:"Running…",ov_img:None,tx_img:None,ov_file:None,tx_file:None}
+            compass,raw,A,B=build_compass(ea,eb)
+            yield {steps_h:steps_html(2),status_h:card("Compass built","One real direction per layer, from the model itself.","on"),compass_h:compass_card(compass,len(A),src)}
+            telemetry,disp=xray_prompt(prompt,compass,sign,scale)
+            if sorted(telemetry)!=list(range(STEER_LAYERS)):raise RuntimeError("Telemetry mismatch: injection must occur exactly in L0–L19.")
+            msg=f"Pushing toward <b>{esc(tgt)}</b> in L0–L19 (replay of the measured pass)." if scale>0 else "Strength is 0: the hooks run but add exactly nothing (control)."
+            yield {steps_h:steps_html(3),status_h:card("Injecting…",msg,"on")}
+            for k in range(1,STEER_LAYERS+1):
+                yield {engine_h:engine_map(scale,k=k),layers_h:layer_grid(k=k)};time.sleep(.05)
+            yield {steps_h:steps_html(4),engine_h:engine_map(scale,stopped=True),layers_h:layer_grid(stopped=True),
+                   status_h:card("Engine stopped after L19","No SEASC vector is injected in L20–L27. Those layers have no hook at all.","off")}
+            time.sleep(.6)
+            yield {steps_h:steps_html(5),layers_h:layer_grid(stopped=True,disp=disp),down_h:downstream(disp),
+                   status_h:card("Observing · generating answers…","Vanilla first, then SEASC. Same model, same prompt, same greedy decoding.","off")}
+            vanilla,_=generate_text(prompt,None,1,0,max_new)
+            calls={};seasc,ntok=generate_text(prompt,compass,sign,scale,max_new,counter=calls)
+            fp_ok=weight_fp()==FP0;tail0=all(calls.get(L,0)==0 for L in range(STEER_LAYERS,TOTAL_LAYERS))
+            vanilla=vanilla or "(empty output)";seasc=seasc or "(empty output)"
+            ov=make_overview(run_dir/OV_NAME,a,b,prompt,vanilla,seasc,disp,scale,sign,src,compass,len(A))
+            tx=make_technical(run_dir/TX_NAME,a,b,compass,telemetry,disp,scale,sign)
+            yield {steps_h:steps_html(6),status_h:card("Compare","Both answers were already generated; this typewriter is display-only.","info")}
+            n=max(len(vanilla),len(seasc));steps=max(1,min(50,n))
+            for k in range(1,steps+1):
+                q=math.ceil(n*k/steps)
+                yield {vanilla_out:vanilla[:q]+("▌" if q<len(vanilla) else ""),seasc_out:seasc[:q]+("▌" if q<len(seasc) else "")};time.sleep(.03)
+            note=""
+            if vanilla==seasc:
+                note=(" <b>The answers are identical.</b> "+("Strength 0 is the control run, so this is expected." if scale==0
+                      else "The internal state moved, but not enough to change the greedy answer. Try a higher strength."))
+            yield {badges_h:badges(fp_ok),vanilla_out:vanilla,seasc_out:seasc,
+                   status_h:card("✓ X-Ray complete","Direction extracted from Qwen itself, injected only into L0–L19, then the engine stopped."+note,"on"),
+                   tech_out:tech_md(a,b,A,B,compass,raw,telemetry,disp,scale,sign,calls,ntok,fp_ok,tail0),ov_img:ov,tx_img:tx,ov_file:ov,tx_file:tx}
+        finally:
+            GPU_LOCK.release();torch.cuda.empty_cache()
+
+    def clear_files():
+        n=0
+        for p in ROOT.glob("run_*"):
+            if p.is_dir() and p.parent==ROOT:
+                for f in p.glob("*.jpg"):f.unlink(missing_ok=True);n+=1
+                try:p.rmdir()
+                except OSError:pass
+        for nm in (OV_NAME,TX_NAME):
+            f=ROOT/nm
+            if f.is_file():f.unlink();n+=1
+        return card("Images deleted",f"{n} generated JPEG file(s) removed. Model, code and other files were not touched.","warn"),None,None,None,None
+
+    concept.change(on_concept,concept,[custom_grp,concept_h,side_a,side_b,ex_a,ex_b,prompt,direction,how_acc])
+    side_a.input(on_sides,[concept,side_a,side_b,direction],[concept_h,direction])
+    side_b.input(on_sides,[concept,side_a,side_b,direction],[concept_h,direction])
+    rebuild.click(custom_examples,[side_a,side_b],[ex_a,ex_b])
+    scale.change(lambda s:(engine_map(s),seasc_head(s)),scale,[engine_h,seasc_h])
+    OUTS=[steps_h,status_h,compass_h,engine_h,layers_h,down_h,badges_h,seasc_h,vanilla_out,seasc_out,tech_out,ov_img,tx_img,ov_file,tx_file]
+    run.click(run_demo,[side_a,side_b,ex_a,ex_b,prompt,direction,scale,max_new],OUTS,concurrency_limit=1,concurrency_id="gpu")
+    clear.click(clear_files,None,[status_h,ov_img,tx_img,ov_file,tx_file],concurrency_limit=1,concurrency_id="gpu")
+
+print("="*100);print("KIZILELMA READY — launching interactive public demonstrator...");print("="*100)
+demo.queue(default_concurrency_limit=1).launch(share=True,debug=False,**({"css":CSS} if GR6 else {}))
