@@ -1,0 +1,219 @@
+ ==========================================================================================================================================
+TEST 191 — CROSS-AXIS L27 COMMON TRANSPORT GEOMETRY
+A/B/C/D/E — BUILD-FROZEN T27 AXES × INDEPENDENT HOLDOUT × 5×5 CROSS-AXIS MATRIX
+==========================================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+SEASC RSS=0.250235055 | scale=0.5
+
+[1/22] CUDA...
+       OK
+
+[2/22] Model...
+config.json: 100% 663/663 [00:00<00:00, 80.9kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 786kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 54.9MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 75.4MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 134MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.20MB/s]Download complete: :  13.1GB,  154MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  382MB/s  Fetching 4 files: 100% 4/4 [00:41<00:00,  7.26s/it]Loading weights: 100% 339/339 [00:03<00:00, 100.67it/s]generation_config.json: 100% 243/243 [00:00<00:00, 31.7kB/s]       hidden: 3584 dtype: torch.bfloat16 layers: 28
+
+[3/22] Locked axis definitions...
+       A/B/C/D/E ready | 8 pairs each
+
+[4/22] Layer-local compasses...
+       A ABOVE↔BELOW ready | cos L19 self=+1.000000
+       B BEFORE↔AFTER ready | cos L19 self=+1.000000
+       C INSIDE↔OUTSIDE ready | cos L19 self=+1.000000
+       D OPEN↔CLOSED ready | cos L19 self=+1.000000
+       E CAUSE↔EFFECT ready | cos L19 self=+1.000000
+
+[5/22] L19 compass cosine matrix...
+             A         B         C         D         E
+       A  +1.00000  +0.43998  +0.31089  +0.00361  -0.14121
+       B  +0.43998  +1.00000  +0.21369  -0.20804  -0.21315
+       C  +0.31089  +0.21369  +1.00000  +0.03035  -0.01489
+       D  +0.00361  -0.20804  +0.03035  +1.00000  +0.08811
+       E  -0.14121  -0.21315  -0.01489  +0.08811  +1.00000
+
+[6/22] Frozen BUILD / HOLDOUT prompts...
+       5 axes × BUILD8 × HOLDOUT8
+
+[7/22] Axis-specific SEASC hooks...
+       ready
+
+[8/22] Exact PRE27 / RAW27 recorder...
+       ready
+
+[9/22] BUILD transport all axes...
+       A BUILD 1/8
+       A BUILD 2/8
+       A BUILD 3/8
+       A BUILD 4/8
+       A BUILD 5/8
+       A BUILD 6/8
+       A BUILD 7/8
+       A BUILD 8/8
+       B BUILD 1/8
+       B BUILD 2/8
+       B BUILD 3/8
+       B BUILD 4/8
+       B BUILD 5/8
+       B BUILD 6/8
+       B BUILD 7/8
+       B BUILD 8/8
+       C BUILD 1/8
+       C BUILD 2/8
+       C BUILD 3/8
+       C BUILD 4/8
+       C BUILD 5/8
+       C BUILD 6/8
+       C BUILD 7/8
+       C BUILD 8/8
+       D BUILD 1/8
+       D BUILD 2/8
+       D BUILD 3/8
+       D BUILD 4/8
+       D BUILD 5/8
+       D BUILD 6/8
+       D BUILD 7/8
+       D BUILD 8/8
+       E BUILD 1/8
+       E BUILD 2/8
+       E BUILD 3/8
+       E BUILD 4/8
+       E BUILD 5/8
+       E BUILD 6/8
+       E BUILD 7/8
+       E BUILD 8/8
+
+[10/22] Freeze T27 axes...
+       A: ||meanΔ||=66.043983 mean cos=+0.936956 P+=8/8
+       B: ||meanΔ||=58.000092 mean cos=+0.868634 P+=8/8
+       C: ||meanΔ||=66.795433 mean cos=+0.958777 P+=8/8
+       D: ||meanΔ||=73.846588 mean cos=+0.963978 P+=8/8
+       E: ||meanΔ||=76.679962 mean cos=+0.965182 P+=8/8
+       all T27 axes frozen before HOLDOUT
+
+[11/22] BUILD LOFO...
+       A: axis min=+0.998377 held mean=+0.917369 held min=+0.877106 P+=8/8
+       B: axis min=+0.996012 held mean=+0.827120 held min=+0.734471 P+=8/8
+       C: axis min=+0.998501 held mean=+0.945850 held min=+0.912726 P+=8/8
+       D: axis min=+0.998736 held mean=+0.952800 held min=+0.916407 P+=8/8
+       E: axis min=+0.999000 held mean=+0.954362 held min=+0.940119 P+=8/8
+
+[12/22] HOLDOUT transport all axes...
+       A HOLD 1/8
+       A HOLD 2/8
+       A HOLD 3/8
+       A HOLD 4/8
+       A HOLD 5/8
+       A HOLD 6/8
+       A HOLD 7/8
+       A HOLD 8/8
+       B HOLD 1/8
+       B HOLD 2/8
+       B HOLD 3/8
+       B HOLD 4/8
+       B HOLD 5/8
+       B HOLD 6/8
+       B HOLD 7/8
+       B HOLD 8/8
+       C HOLD 1/8
+       C HOLD 2/8
+       C HOLD 3/8
+       C HOLD 4/8
+       C HOLD 5/8
+       C HOLD 6/8
+       C HOLD 7/8
+       C HOLD 8/8
+       D HOLD 1/8
+       D HOLD 2/8
+       D HOLD 3/8
+       D HOLD 4/8
+       D HOLD 5/8
+       D HOLD 6/8
+       D HOLD 7/8
+       D HOLD 8/8
+       E HOLD 1/8
+       E HOLD 2/8
+       E HOLD 3/8
+       E HOLD 4/8
+       E HOLD 5/8
+       E HOLD 6/8
+       E HOLD 7/8
+       E HOLD 8/8
+
+[13/22] HOLDOUT replication...
+       A: mean cos=+0.915344 min=+0.820652 P+=8/8 BUILD↔HOLD=+0.987448
+       B: mean cos=+0.848803 min=+0.742766 P+=8/8 BUILD↔HOLD=+0.959702
+       C: mean cos=+0.933908 min=+0.912997 P+=8/8 BUILD↔HOLD=+0.975454
+       D: mean cos=+0.957651 min=+0.924800 P+=8/8 BUILD↔HOLD=+0.986501
+       E: mean cos=+0.953380 min=+0.936614 P+=8/8 BUILD↔HOLD=+0.991106
+
+[14/22] Bootstrap HOLDOUT...
+       A: +0.915344 [+0.884768,+0.938597]
+       B: +0.848803 [+0.803076,+0.889669]
+       C: +0.933908 [+0.923960,+0.943717]
+       D: +0.957651 [+0.946746,+0.966124]
+       E: +0.953380 [+0.943189,+0.963469]
+
+[15/22] Frozen T27 5×5 cosine matrix...
+             A         B         C         D         E
+       A  +1.00000  +0.24290  -0.19249  -0.16760  +0.10807
+       B  +0.24290  +1.00000  -0.17048  -0.04312  +0.04453
+       C  -0.19249  -0.17048  +1.00000  +0.24522  -0.09485
+       D  -0.16760  -0.04312  +0.24522  +1.00000  +0.02750
+       E  +0.10807  +0.04453  -0.09485  +0.02750  +1.00000
+
+[16/22] HOLDOUT mean Δ27 5×5 cosine matrix...
+             A         B         C         D         E
+       A  +1.00000  +0.22182  -0.20026  -0.16039  +0.09846
+       B  +0.22182  +1.00000  -0.16957  -0.04224  -0.02813
+       C  -0.20026  -0.16957  +1.00000  +0.25315  -0.12335
+       D  -0.16039  -0.04224  +0.25315  +1.00000  +0.02773
+       E  +0.09846  -0.02813  -0.12335  +0.02773  +1.00000
+
+[17/22] BUILD T27 → foreign-axis HOLDOUT mean alignment...
+             HOLD-A    HOLD-B    HOLD-C    HOLD-D    HOLD-E
+       T-A  +0.98745  +0.21424  -0.20946  -0.16577  +0.10197
+       T-B  +0.24565  +0.95970  -0.17829  -0.04037  +0.03831
+       T-C  -0.18754  -0.16864  +0.97545  +0.26268  -0.09058
+       T-D  -0.16062  -0.04472  +0.23032  +0.98650  +0.04177
+       T-E  +0.10365  -0.02434  -0.12804  +0.01390  +0.99111
+
+[18/22] Common-axis summary...
+       all off-diagonal mean=-0.000032 min=-0.192490 max=+0.245222
+       A-D pair mean        =-0.014261 min=-0.192490
+       E↔A-D mean           =+0.021313 min=-0.094848 max=+0.108071
+
+[19/22] T27 relation to source L19 compass...
+       A: cos(T27_A,COMPASS19_A)=-0.013320
+       B: cos(T27_B,COMPASS19_B)=-0.018003
+       C: cos(T27_C,COMPASS19_C)=+0.015202
+       D: cos(T27_D,COMPASS19_D)=-0.001657
+       E: cos(T27_E,COMPASS19_E)=+0.006612
+
+[20/22] TEST191 decision...
+       A replicated=True
+       B replicated=True
+       C replicated=True
+       D replicated=True
+       E replicated=True
+       DECISION: L27_TRANSPORT_REPLICATES_PER_AXIS__NO_SINGLE_COMMON_CROSS_AXIS_CHANNEL
+       Geometric/mechanistic result only; no behavioral intervention claim.
+
+[21/22] Saving...
+       Saved: /content/TEST191_CROSS_AXIS_L27_GEOMETRY
+
+[22/22] COMPLETE
+==========================================================================================================================================
+TEST 191 — CROSS-AXIS L27 COMMON TRANSPORT GEOMETRY — SUMMARY
+==========================================================================================================================================
+A ABOVE↔BELOW: BUILDcos=+0.936956 LOFOmin=+0.998377 HOLDcos=+0.915344 P+=8/8 BUILD↔HOLD=+0.987448
+B BEFORE↔AFTER: BUILDcos=+0.868634 LOFOmin=+0.996012 HOLDcos=+0.848803 P+=8/8 BUILD↔HOLD=+0.959702
+C INSIDE↔OUTSIDE: BUILDcos=+0.958777 LOFOmin=+0.998501 HOLDcos=+0.933908 P+=8/8 BUILD↔HOLD=+0.975454
+D OPEN↔CLOSED: BUILDcos=+0.963978 LOFOmin=+0.998736 HOLDcos=+0.957651 P+=8/8 BUILD↔HOLD=+0.986501
+E CAUSE↔EFFECT: BUILDcos=+0.965182 LOFOmin=+0.999000 HOLDcos=+0.953380 P+=8/8 BUILD↔HOLD=+0.991106
+T27 offdiag mean=-0.000032 min=-0.192490
+A-D T27 pair mean=-0.014261
+E↔A-D T27 mean=+0.021313
+PCA used: False | K selected: NONE | Behavior gradient: False | New vector injected: False | FINAL opened: False
+DECISION: L27_TRANSPORT_REPLICATES_PER_AXIS__NO_SINGLE_COMMON_CROSS_AXIS_CHANNEL
+Saved: /content/TEST191_CROSS_AXIS_L27_GEOMETRY
+==========================================================================================================================================
