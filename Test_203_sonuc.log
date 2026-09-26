@@ -1,0 +1,129 @@
+ ============================================================================================================================
+TEST 203 — MODEL-ENDOGENOUS KEY→VALUE RELATIONAL OPERATOR
+============================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+SEASC RSS=0.250235051 | MASK=3.0σ | SOURCE=Neral Voss keeps the amber compass.
+[1/11] Model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 84.1kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 873kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 85.1MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 73.9MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 131MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.32MB/s]Download complete: :  13.1GB,  323MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  411MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.87s/it]Loading weights: 100% 339/339 [00:03<00:00, 100.11it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.7kB/s][2/11] Auto parse...
+FACT: Neral Voss | keeps | the amber compass
+ALT-O: ['the golden amulet', 'the silver sword', 'the ancient book', 'the enchanted staff', 'the mystical ring', 'the crystal orb']
+[3/11] SR-only layer-local key forge...
+KEY shape: (20, 3584) | object excluded from key forge
+[4/11] Embedding-compatible value forge...
+TARGET TOKENS: [1782, 67605, 23721] | ['the', 'Ġamber', 'Ġcompass']
+VALUE shape: (20, 3584)
+[5/11] MOTOR-OFF Δcos profiling...
+ACTIVE: [14, 15, 16]
+L00 Δc=+0.06007 σ=0.04049 z=+1.48 OFF
+L01 Δc=+0.06132 σ=0.03065 z=+2.00 OFF
+L02 Δc=+0.06231 σ=0.02729 z=+2.28 OFF
+L03 Δc=+0.07396 σ=0.03117 z=+2.37 OFF
+L04 Δc=+0.09343 σ=0.03643 z=+2.56 OFF
+L05 Δc=+0.10155 σ=0.03905 z=+2.60 OFF
+L06 Δc=+0.10184 σ=0.03941 z=+2.58 OFF
+L07 Δc=+0.12082 σ=0.04914 z=+2.46 OFF
+L08 Δc=+0.14601 σ=0.06042 z=+2.42 OFF
+L09 Δc=+0.12073 σ=0.04898 z=+2.47 OFF
+L10 Δc=+0.11744 σ=0.04675 z=+2.51 OFF
+L11 Δc=+0.11285 σ=0.04284 z=+2.63 OFF
+L12 Δc=+0.10718 σ=0.04144 z=+2.59 OFF
+L13 Δc=+0.10513 σ=0.03976 z=+2.64 OFF
+L14 Δc=+0.11611 σ=0.03799 z=+3.06 ON
+L15 Δc=+0.12767 σ=0.04047 z=+3.15 ON
+L16 Δc=+0.13595 σ=0.04385 z=+3.10 ON
+L17 Δc=+0.13218 σ=0.04506 z=+2.93 OFF
+L18 Δc=+0.16117 σ=0.06003 z=+2.68 OFF
+L19 Δc=+0.17580 σ=0.06800 z=+2.59 OFF
+[6/11] Blind retrieval + multi-token ΔlogP...
+[7/11] Negative-query specificity controls...
+[8/11] Reverse-value control...
+[9/11] X-Ray + sentinel...
+[10/11] Results...
+
+============================================================================================================================
+TEST 203 RESULTS
+============================================================================================================================
+FACT: Neral Voss | keeps | the amber compass
+ACTIVE LAYERS: [14, 15, 16]
+TARGET TOKEN COUNT: 3
+
+Q1: What does Neral Voss keep?
+ VANILLA | sumLP=-66.4239 | bestAlt=-55.7404 | margin=-10.6834 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ s=0.10 | sumLP=-66.5177 | ΔlogP=-0.0938 | bestAlt=-55.7020 | margin=-10.8157 | gate=0.4250 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ s=0.20 | sumLP=-66.7629 | ΔlogP=-0.3390 | bestAlt=-55.7035 | margin=-11.0593 | gate=0.4293 | The prompt does not provide any information about what Neral Voss keeps. There is not enough context to answer this question accurately.
+ s=0.30 | sumLP=-66.6492 | ΔlogP=-0.2253 | bestAlt=-55.7204 | margin=-10.9288 | gate=0.4305 | The prompt does not provide any information about what Neral Voss keeps. There is not enough context to answer this question accurately.
+ s=0.40 | sumLP=-67.0292 | ΔlogP=-0.6053 | bestAlt=-55.6581 | margin=-11.3711 | gate=0.4317 | The prompt does not provide any information about what Neral Voss keeps. There is not enough context to answer this question accurately.
+ s=0.50 | sumLP=-66.5840 | ΔlogP=-0.1602 | bestAlt=-55.4891 | margin=-11.0949 | gate=0.4329 | The prompt does not provide any information about what Neral Voss keeps. There is not enough context to answer this question accurately.
+ REVERSE .50 | margin=-10.4791 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+
+Q2: Which item does Neral Voss possess?
+ VANILLA | sumLP=-55.7511 | bestAlt=-45.9661 | margin=-9.7849 | The prompt does not provide any information about Neral Voss or any items they possess. Therefore, it is impossible to determine which item Neral Voss possesses based on the given information.
+ s=0.10 | sumLP=-55.6111 | ΔlogP=+0.1399 | bestAlt=-45.9592 | margin=-9.6520 | gate=0.5083 | The prompt does not provide any information about Neral Voss or any items they possess. Therefore, it is impossible to determine which item Neral Voss possesses based on the given information.
+ s=0.20 | sumLP=-55.1143 | ΔlogP=+0.6368 | bestAlt=-45.9641 | margin=-9.1501 | gate=0.5097 | The prompt does not provide any information about Neral Voss or any items they possess. Therefore, it is impossible to determine which item Neral Voss possesses based on the given information.
+ s=0.30 | sumLP=-55.3439 | ΔlogP=+0.4071 | bestAlt=-46.0702 | margin=-9.2738 | gate=0.5070 | The prompt does not provide any information about Neral Voss or any items they possess. Therefore, it is not possible to determine which item Neral Voss possesses based on the given information.
+ s=0.40 | sumLP=-55.1601 | ΔlogP=+0.5910 | bestAlt=-45.8150 | margin=-9.3451 | gate=0.5084 | The prompt does not provide any information about Neral Voss or any items they possess. Therefore, it is not possible to determine which item Neral Voss possesses based on the given information.
+ s=0.50 | sumLP=-55.4660 | ΔlogP=+0.2851 | bestAlt=-45.6174 | margin=-9.8486 | gate=0.5143 | The prompt does not provide any information about Neral Voss or any items they possess. Therefore, it is impossible to determine which item Neral Voss possesses based on the given information.
+ REVERSE .50 | margin=-9.0323 | The prompt does not provide any information about Neral Voss or any items they possess. Therefore, it is impossible to determine which item Neral Voss possesses based on the given information.
+
+Q3: Whose compass is kept by Neral Voss?
+ VANILLA | sumLP=-44.6833 | bestAlt=-58.0536 | margin=+13.3703 | Based on the information provided in the prompt, Neral Voss keeps someone's compass. However, the prompt does not specify whose compass it is. More context would be needed to answer this question accurately.
+ s=0.10 | sumLP=-44.5877 | ΔlogP=+0.0956 | bestAlt=-57.9204 | margin=+13.3326 | gate=0.5964 | Based on the information provided in the prompt, Neral Voss keeps someone's compass. However, the prompt does not specify whose compass it is. More context would be needed to answer this question accurately.
+ s=0.20 | sumLP=-44.5020 | ΔlogP=+0.1813 | bestAlt=-57.8255 | margin=+13.3235 | gate=0.5979 | Based on the information provided in the prompt, Neral Voss keeps someone's compass. However, the prompt does not specify whose compass it is. More context would be needed to answer this question accurately.
+ s=0.30 | sumLP=-44.3255 | ΔlogP=+0.3578 | bestAlt=-57.7542 | margin=+13.4286 | gate=0.5994 | Based on the information provided in the prompt, Neral Voss keeps someone's compass. However, the prompt does not specify whose compass it is. More context would be needed to answer this question accurately.
+ s=0.40 | sumLP=-44.1070 | ΔlogP=+0.5763 | bestAlt=-57.3612 | margin=+13.2542 | gate=0.6006 | Based on the information provided in the prompt, Neral Voss keeps someone's compass. However, the prompt does not specify whose compass it is. More context would be needed to answer this question accurately.
+ s=0.50 | sumLP=-44.4050 | ΔlogP=+0.2783 | bestAlt=-57.3325 | margin=+12.9275 | gate=0.5967 | Based on the information provided in the prompt, Neral Voss keeps someone's compass. However, the prompt does not specify whose compass it is. More context would be needed to answer the question accurately.
+ REVERSE .50 | margin=+13.3839 | The prompt does not provide enough information to determine whose compass is kept by Neral Voss. More context or details are needed to answer this question accurately.
+
+Q4: What object does Neral Voss carry?
+ VANILLA | sumLP=-49.9679 | bestAlt=-38.4845 | margin=-11.4834 | The prompt does not provide any information about an object carried by Neral Voss. Therefore, I cannot determine what object Neral Voss carries based solely on the information given.
+ s=0.10 | sumLP=-49.8759 | ΔlogP=+0.0920 | bestAlt=-38.3196 | margin=-11.5563 | gate=0.4841 | The prompt does not provide any information about an object carried by Neral Voss. Therefore, I cannot determine what object Neral Voss carries based solely on the information given.
+ s=0.20 | sumLP=-50.0018 | ΔlogP=-0.0339 | bestAlt=-38.1535 | margin=-11.8483 | gate=0.4852 | The prompt does not provide any information about an object carried by Neral Voss. Therefore, I cannot determine what object Neral Voss carries based solely on the given information.
+ s=0.30 | sumLP=-49.3536 | ΔlogP=+0.6143 | bestAlt=-38.6350 | margin=-10.7186 | gate=0.4865 | The prompt does not provide any information about an object carried by Neral Voss. Therefore, I cannot determine what object Neral Voss carries based solely on the given information.
+ s=0.40 | sumLP=-49.3821 | ΔlogP=+0.5858 | bestAlt=-38.1645 | margin=-11.2176 | gate=0.4879 | The prompt does not provide any information about an object carried by Neral Voss. Therefore, I cannot determine what object Neral Voss carries based solely on the given information.
+ s=0.50 | sumLP=-49.4327 | ΔlogP=+0.5352 | bestAlt=-37.4218 | margin=-12.0109 | gate=0.4892 | The prompt does not provide any information about an object carried by Neral Voss. Therefore, I cannot determine what object Neral Voss carries based solely on the given information.
+ REVERSE .50 | margin=-10.9092 | The prompt does not provide any information about an object carried by Neral Voss. Therefore, I cannot determine what object Neral Voss carries based solely on the information given.
+
+NEGATIVE QUERY SPECIFICITY @ .50
+ gate=0.2717 | What does the wizard keeps? -> The prompt does not provide specific information about what the wizard keeps. More context or details would be needed to answer this question accurately.
+ gate=0.4099 | What does Neral Voss holds? -> The prompt does not provide any information about what Neral Voss holds. There is not enough context to determine what Neral Voss holds.
+ gate=0.2313 | What does the knight carries? -> The prompt does not provide specific information about what the knight carries. Knights in historical contexts were known to carry various items such as swords, shields, and sometimes lances. Without additional context, it's not possible to determine exactly what this particular
+
+X-RAY Q1 @ .50
+L00   0.000% MASKED
+L01   0.000% MASKED
+L02   0.000% MASKED
+L03   0.000% MASKED
+L04   0.000% MASKED
+L05   0.000% MASKED
+L06   0.000% MASKED
+L07   0.000% MASKED
+L08   0.000% MASKED
+L09   0.000% MASKED
+L10   0.000% MASKED
+L11   0.000% MASKED
+L12   0.000% MASKED
+L13   0.000% MASKED
+L14   0.331% INJECT
+L15   0.740% INJECT
+L16   1.105% INJECT
+L17   1.217% MASKED
+L18   1.378% MASKED
+L19   1.519% MASKED
+L20   1.588% MOTOR-OFF
+L21   1.682% MOTOR-OFF
+L22   1.978% MOTOR-OFF
+L23   2.077% MOTOR-OFF
+L24   2.046% MOTOR-OFF
+L25   2.007% MOTOR-OFF
+L26   1.813% MOTOR-OFF
+L27   2.862% MOTOR-OFF
+----------------------------------------------------------------------------------------------------------------------------
+Weights: PASS | L20-L27 hook injection: ZERO
+KEY: SR-only μ(X+)−μ(X−), object excluded | VALUE: layer-local endogenous object direction + embedding compatibility
+MASK: Δc>0 AND Δc/σwithin>3 | OPERATOR: VALUE × data-derived SR response
+Likelihood: exact autoregressive multi-token SUM log P(target sequence)
+SUCCESS requires: SR+ selective gate + positive ΔlogP + improved target/alternative margin + blind retrieval + negative/reverse specificity.
+============================================================================================================================
+[11/11] TEST 203 COMPLETE
