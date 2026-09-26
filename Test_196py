@@ -1,0 +1,531 @@
+# ================================================================================================================
+# TEST 196 — BUILD-SPAN COVERAGE × NOVEL-SURFACE TRANSFER X-RAY
+# AkbasCore 3.2 / SEASC — TEST195 continuation
+#
+# QUESTION:
+#   Is TEST195 novel-surface transfer loss explained by SURFACE dPRE states
+#   falling outside the BUILD input span of each frozen local operator?
+#
+# METHOD:
+#   Preserve TEST195 exactly.
+#   Fit BUILD-only M20...M27 and freeze.
+#   Open TEST195 SURFACE8 only after freeze.
+#   For each axis/layer:
+#     Q_L = orthonormal basis of BUILD dPRE_L row span
+#     x_parallel = projection of SURFACE dPRE_L into BUILD span
+#     coverage = ||x_parallel|| / ||x||
+#     energy_coverage = ||x_parallel||^2 / ||x||^2
+#   Relate coverage to frozen-operator prediction cosine/error.
+#   Compare FULL SURFACE input vs IN-SPAN projection vs OUT-OF-SPAN component.
+#
+# NO REFIT | NO SELECTION | NO INTERVENTION | NO PCA | NO NEW VECTOR | NO FINAL | NO WEIGHT CHANGE
+# ================================================================================================================
+import os,sys,math,json,csv,random,shutil,subprocess,importlib.util
+from pathlib import Path
+if importlib.util.find_spec("ninja") is None:subprocess.check_call([sys.executable,"-m","pip","install","-q","ninja"])
+import numpy as np,torch
+from transformers import AutoTokenizer,AutoModelForCausalLM
+from torch.utils.cpp_extension import load_inline
+
+print("="*138)
+print("TEST 196 — BUILD-SPAN COVERAGE × NOVEL-SURFACE TRANSFER X-RAY")
+print("A/B/C/D/E — TEST195 FROZEN OPERATORS × BUILD-SPAN GEOMETRY")
+print("="*138)
+
+os.environ["MAX_JOBS"]="2";os.environ["TOKENIZERS_PARALLELISM"]="false"
+if not torch.cuda.is_available():raise RuntimeError("CUDA GPU required.")
+DEVICE=torch.device("cuda");SEED=196
+random.seed(SEED);np.random.seed(SEED);torch.manual_seed(SEED);torch.cuda.manual_seed_all(SEED)
+MODEL_ID="Qwen/Qwen2.5-7B-Instruct";STEER_LAYERS=20;TOTAL_LAYERS=28;TAIL=list(range(20,28))
+IVME,SONUM,ZIRVE,TABAN=.10,.30,.70,.20
+PRIMARY_SCALE=.50;EPS=1e-10;RIDGE_REL=1e-4;N_BOOT=20000
+SYSTEM="You are a concise reasoning assistant. Use only the information in the prompt."
+ROOT=Path("/content/TEST196_BUILD_SPAN_COVERAGE");ROOT.mkdir(parents=True,exist_ok=True)
+
+def env(L):
+    x=ZIRVE*math.exp(-SONUM*L)*(1+SONUM*L)+TABAN
+    return x/(ZIRVE+TABAN)
+RHO=np.asarray([IVME*env(L) for L in range(STEER_LAYERS)],dtype=np.float64)
+RSS=float(np.sqrt(np.sum(RHO**2)))
+def norm(x):return x/x.norm(dim=-1,keepdim=True).clamp_min(EPS)
+def cosv(a,b):return (a*b).sum(-1)/(a.norm(dim=-1)*b.norm(dim=-1)).clamp_min(EPS)
+def rerr(a,b):return (a-b).norm(dim=-1)/b.norm(dim=-1).clamp_min(EPS)
+print("GPU:",torch.cuda.get_device_name(0),"| Model:",MODEL_ID)
+print(f"SEASC RSS={RSS:.9f} | scale={PRIMARY_SCALE} | ridge_rel={RIDGE_REL}")
+
+# ================================================================================================================
+# [1/28] CUDA
+# ================================================================================================================
+BUILD="/tmp/akbascore_test196";shutil.rmtree(BUILD,ignore_errors=True);os.makedirs(BUILD,exist_ok=True)
+CPP=r"""
+#include <torch/extension.h>
+torch::Tensor seasc_batch_cuda(torch::Tensor h,torch::Tensor a,torch::Tensor d);
+torch::Tensor seasc_batch(torch::Tensor h,torch::Tensor a,torch::Tensor d){
+TORCH_CHECK(h.is_cuda()&&a.is_cuda()&&d.is_cuda(),"CUDA required");return seasc_batch_cuda(h,a,d);}
+PYBIND11_MODULE(TORCH_EXTENSION_NAME,m){m.def("seasc_batch",&seasc_batch);}
+"""
+CUDA=r"""
+#include <torch/extension.h>
+#include <ATen/cuda/CUDAContext.h>
+#include <c10/cuda/CUDAException.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
+template<typename scalar_t>
+__global__ void k(scalar_t* h,const float* a,const float* d,int B,int S,int H){
+int v=blockIdx.x,b=v/S;if(b>=B)return;extern __shared__ float sh[];
+long long hb=(long long)v*H,ab=(long long)b*H;float ss=0.f;
+for(int j=threadIdx.x;j<H;j+=blockDim.x){float x=(float)h[hb+j];ss+=x*x;}
+sh[threadIdx.x]=ss;__syncthreads();
+for(unsigned s=blockDim.x/2;s;s>>=1){if(threadIdx.x<s)sh[threadIdx.x]+=sh[threadIdx.x+s];__syncthreads();}
+float z=d[b]*sqrtf(fmaxf(sh[0],1e-20f));
+for(int j=threadIdx.x;j<H;j+=blockDim.x)h[hb+j]=(scalar_t)((float)h[hb+j]+z*a[ab+j]);}
+torch::Tensor seasc_batch_cuda(torch::Tensor h,torch::Tensor a,torch::Tensor d){
+auto o=h.contiguous().clone();auto aa=a.to(h.device(),torch::kFloat32).contiguous();
+auto dd=d.to(h.device(),torch::kFloat32).contiguous();int B=o.size(0),S=o.size(1),H=o.size(2);
+constexpr int T=256;cudaStream_t stream=at::cuda::getCurrentCUDAStream();
+AT_DISPATCH_FLOATING_TYPES_AND2(at::ScalarType::Half,at::ScalarType::BFloat16,o.scalar_type(),"seasc",[&]{
+k<scalar_t><<<B*S,T,T*sizeof(float),stream>>>(o.data_ptr<scalar_t>(),aa.data_ptr<float>(),dd.data_ptr<float>(),B,S,H);});
+C10_CUDA_KERNEL_LAUNCH_CHECK();return o;}
+"""
+print("\n[1/28] CUDA...")
+seasc_ext=load_inline(name="akbascore_test196_cuda",cpp_sources=CPP,cuda_sources=CUDA,functions=None,
+ extra_cflags=["-O3","-std=c++17"],extra_cuda_cflags=["-O3","--use_fast_math"],with_cuda=True,
+ build_directory=BUILD,verbose=False)
+print("       OK")
+
+# ================================================================================================================
+# [2/28] MODEL
+# ================================================================================================================
+print("\n[2/28] Model...")
+tok=AutoTokenizer.from_pretrained(MODEL_ID,trust_remote_code=True)
+if tok.pad_token_id is None:tok.pad_token=tok.eos_token
+model=AutoModelForCausalLM.from_pretrained(MODEL_ID,dtype=torch.bfloat16,device_map={"":0},
+ attn_implementation="sdpa",trust_remote_code=True)
+model.eval()
+for p in model.parameters():p.requires_grad_(False)
+layers=model.model.layers;H=model.config.hidden_size
+if len(layers)!=TOTAL_LAYERS:raise RuntimeError(f"Expected {TOTAL_LAYERS} layers, got {len(layers)}")
+print("       hidden:",H,"dtype:",next(model.parameters()).dtype,"layers:",len(layers))
+
+def chat(x):return tok.apply_chat_template([{"role":"system","content":SYSTEM},{"role":"user","content":x}],
+ tokenize=False,add_generation_prompt=True)
+
+@torch.inference_mode()
+def capture(text):
+    e=tok(chat(text),return_tensors="pt").to(DEVICE)
+    o=model(**e,output_hidden_states=True,use_cache=False,return_dict=True);p=int(e.attention_mask[0].sum())-1
+    return torch.stack([o.hidden_states[L+1][0,p].float().detach() for L in range(STEER_LAYERS)])
+
+# ================================================================================================================
+# [3/28] TEST195 AXIS LOCK
+# ================================================================================================================
+print("\n[3/28] TEST195 axis lock...")
+AXIS_PAIRS={
+"A":[("The lamp is above the table.","The lamp is below the table."),("The bird is above the branch.","The bird is below the branch."),("The sign is above the doorway.","The sign is below the doorway."),("The shelf is above the cabinet.","The shelf is below the cabinet."),("The cloud is above the hill.","The cloud is below the hill."),("The clock is above the window.","The clock is below the window."),("The bridge is above the river.","The bridge is below the river."),("The picture is above the sofa.","The picture is below the sofa.")],
+"B":[("The alarm occurs before the evacuation.","The alarm occurs after the evacuation."),("The flash occurs before the thunder.","The flash occurs after the thunder."),("The ignition occurs before the motion.","The ignition occurs after the motion."),("The warning occurs before the shutdown.","The warning occurs after the shutdown."),("The sunrise occurs before noon.","The sunrise occurs after noon."),("The opening occurs before the closing.","The opening occurs after the closing."),("The question occurs before the answer.","The question occurs after the answer."),("The launch occurs before the landing.","The launch occurs after the landing.")],
+"C":[("The key is inside the box.","The key is outside the box."),("The coin is inside the jar.","The coin is outside the jar."),("The book is inside the bag.","The book is outside the bag."),("The ball is inside the basket.","The ball is outside the basket."),("The tool is inside the drawer.","The tool is outside the drawer."),("The letter is inside the envelope.","The letter is outside the envelope."),("The bottle is inside the cabinet.","The bottle is outside the cabinet."),("The card is inside the folder.","The card is outside the folder.")],
+"D":[("The door is open.","The door is closed."),("The window is open.","The window is closed."),("The gate is open.","The gate is closed."),("The box is open.","The box is closed."),("The drawer is open.","The drawer is closed."),("The lid is open.","The lid is closed."),("The cabinet is open.","The cabinet is closed."),("The hatch is open.","The hatch is closed.")],
+"E":[("The spark is the cause of the fire.","The fire is the effect of the spark."),("The impact is the cause of the crack.","The crack is the effect of the impact."),("The rainfall is the cause of the flooding.","The flooding is the effect of the rainfall."),("The heat is the cause of the melting.","The melting is the effect of the heat."),("The collision is the cause of the damage.","The damage is the effect of the collision."),("The pressure is the cause of the deformation.","The deformation is the effect of the pressure."),("The infection is the cause of the fever.","The fever is the effect of the infection."),("The vibration is the cause of the loosening.","The loosening is the effect of the vibration.")]}
+AXES=list("ABCDE")
+AXIS_NAME={"A":"ABOVE↔BELOW","B":"BEFORE↔AFTER","C":"INSIDE↔OUTSIDE","D":"OPEN↔CLOSED","E":"CAUSE↔EFFECT"}
+print("       A/B/C/D/E ready")
+
+# ================================================================================================================
+# [4/28] COMPASSES
+# ================================================================================================================
+print("\n[4/28] Layer-local compasses...")
+COMPASS={}
+for ax in AXES:
+    P=[];N=[]
+    for p,n in AXIS_PAIRS[ax]:P.append(capture(p));N.append(capture(n))
+    COMPASS[ax]=norm(torch.stack(P).mean(0)-torch.stack(N).mean(0)).contiguous()
+    print(f"       {ax} {AXIS_NAME[ax]} ready")
+
+# ================================================================================================================
+# [5/28] TEST195 BUILD / HOLDOUT / SURFACE LOCK
+# ================================================================================================================
+print("\n[5/28] TEST195 prompt lock...")
+PROMPTS={
+"A":{"B":["The red marker and blue marker are vertically separated.","Two lamps occupy different vertical positions.","A sign and a doorway have a vertical relation.","A bird and branch have a vertical relation.","A shelf and cabinet occupy different heights.","A cloud and hill have a vertical relation.","A clock and window occupy different heights.","A bridge and river have a vertical relation."],"H":["A picture and sofa occupy different vertical positions.","A flag and roof have a vertical relation.","A drone and building occupy different heights.","A balloon and tree have a vertical relation.","A ceiling light and desk occupy different heights.","A kite and field have a vertical relation.","A camera and tripod base occupy different heights.","A mountain peak and valley have a vertical relation."]},
+"B":{"B":["An alarm and evacuation occur at different times.","A flash and thunder occur in temporal sequence.","Ignition and motion occur in temporal sequence.","A warning and shutdown occur at different times.","Sunrise and noon occur in temporal sequence.","Opening and closing occur at different times.","A question and answer occur in temporal sequence.","Launch and landing occur at different times."],"H":["A signal and response occur in temporal sequence.","A start and finish occur at different times.","Departure and arrival occur in temporal sequence.","A trigger and reaction occur at different times.","Heating and cooling occur in temporal sequence.","Entry and exit occur at different times.","Detection and reporting occur in temporal sequence.","Loading and unloading occur at different times."]},
+"C":{"B":["A key and box have a containment relation.","A coin and jar have a containment relation.","A book and bag have a containment relation.","A ball and basket have a containment relation.","A tool and drawer have a containment relation.","A letter and envelope have a containment relation.","A bottle and cabinet have a containment relation.","A card and folder have a containment relation."],"H":["A toy and container have a containment relation.","A document and case have a containment relation.","A cable and conduit have a containment relation.","A package and vehicle have a containment relation.","A component and housing have a containment relation.","A seed and shell have a containment relation.","A file and archive have a containment relation.","A capsule and chamber have a containment relation."]},
+"D":{"B":["A door has an open-closed state.","A window has an open-closed state.","A gate has an open-closed state.","A box has an open-closed state.","A drawer has an open-closed state.","A lid has an open-closed state.","A cabinet has an open-closed state.","A hatch has an open-closed state."],"H":["A valve has an open-closed state.","A shutter has an open-closed state.","A container has an open-closed state.","A cover has an open-closed state.","A barrier has an open-closed state.","A vent has an open-closed state.","A panel has an open-closed state.","A compartment has an open-closed state."]},
+"E":{"B":["A fractured pipe and a pressure drop form a causal sequence.","A blocked air passage and rising temperature form a causal sequence.","A damaged seal and fluid loss form a causal sequence.","A current surge and a failed circuit form a causal sequence.","A stuck mechanism and restricted motion form a causal sequence.","A worn bearing and increased vibration form a causal sequence.","A clogged outlet and accumulated liquid form a causal sequence.","A strong impact and a deformed bracket form a causal sequence."],"H":["A broken coupling and loss of transmitted motion form a causal sequence.","A blocked intake and reduced airflow form a causal sequence.","A damaged gasket and pressure leakage form a causal sequence.","A failed coolant pump and rising temperature form a causal sequence.","A seized bearing and restricted rotation form a causal sequence.","A severed cable and loss of electrical power form a causal sequence.","A clogged nozzle and reduced discharge form a causal sequence.","A fractured support and structural displacement form a causal sequence."]}}
+SURFACE={
+"A":["Compare the altitude of a helicopter with the road beneath it.","Consider where a chandelier sits relative to the dining table.","Describe the vertical placement of a satellite relative to Earth's surface.","Compare the height of a rooftop antenna with the street.","Consider the position of an aircraft relative to the runway.","Describe where a canopy sits relative to the chairs underneath.","Compare a lighthouse lamp with the shoreline.","Consider the vertical relation between a balcony and the pavement."],
+"B":["Consider the ordering of registration and admission.","Compare when a diagnosis occurs relative to treatment.","Describe the sequence connecting payment and shipment.","Consider the ordering of rehearsal and performance.","Compare inspection with subsequent certification.","Describe the temporal relation between planting and harvesting.","Consider the sequence of login and logout.","Compare data collection with later analysis."],
+"C":["Consider whether a passenger occupies a vehicle cabin.","Describe the containment relation between medicine and a vial.","Consider a photograph relative to a frame.","Describe a battery relative to a device housing.","Consider luggage relative to an aircraft cargo hold.","Describe a cartridge relative to a printer.","Consider food relative to a sealed package.","Describe a specimen relative to a laboratory tube."],
+"D":["Consider the state of a lockable safe with respect to access.","Describe whether a garage entrance permits passage or blocks it.","Consider the state of a bottle cap with respect to access to the contents.","Describe whether a tunnel barrier permits passage.","Consider the state of a laptop lid.","Describe whether a faucet valve permits flow or prevents it.","Consider the state of a shipping crate before or after sealing.","Describe whether an access port permits entry."],
+"E":["A depleted battery and loss of device power are causally related.","A loose electrical connection and intermittent operation are causally related.","A frozen water line and interrupted flow are causally related.","Excessive load and structural bending are causally related.","A contaminated filter and reduced ventilation are causally related.","A software fault and an unexpected shutdown are causally related.","A punctured tire and falling air pressure are causally related.","A disconnected sensor and missing measurements are causally related."]}
+print("       BUILD8/HOLDOUT8/SURFACE8 locked")
+
+# ================================================================================================================
+# [6/28] SEASC
+# ================================================================================================================
+print("\n[6/28] SEASC...")
+def seasc_hooks(axis,sign):
+    C=COMPASS[axis];hooks=[]
+    for L in range(STEER_LAYERS):
+        def mk(li):
+            def hk(m,args,out):
+                raw=out[0] if isinstance(out,tuple) else out;B=raw.shape[0]
+                a=(float(sign)*C[li][None].expand(B,-1)).float().contiguous()
+                d=torch.full((B,),float(RHO[li])*PRIMARY_SCALE,device=DEVICE,dtype=torch.float32)
+                new=seasc_ext.seasc_batch(raw,a,d)
+                return new if not isinstance(out,tuple) else (new,)+out[1:]
+            return hk
+        hooks.append(layers[L].register_forward_hook(mk(L)))
+    return hooks
+print("       ready")
+
+# ================================================================================================================
+# [7/28] TAIL RECORDER
+# ================================================================================================================
+print("\n[7/28] Tail recorder...")
+def run_tail(prompt,axis,sign):
+    e=tok(chat(prompt),return_tensors="pt").to(DEVICE);pos=int(e.attention_mask[0].sum())-1
+    box={"pre":{},"raw":{}};hooks=seasc_hooks(axis,sign)
+    for L in TAIL:
+        def mkp(li):
+            def hk(m,args):box["pre"][li]=args[0][0,pos].float().detach().clone()
+            return hk
+        def mkr(li):
+            def hk(m,args,out):
+                h=out[0] if isinstance(out,tuple) else out
+                box["raw"][li]=h[0,pos].float().detach().clone()
+            return hk
+        hooks.append(layers[L].register_forward_pre_hook(mkp(L)))
+        hooks.append(layers[L].register_forward_hook(mkr(L)))
+    try:
+        with torch.inference_mode():model(**e,use_cache=False,return_dict=True)
+    finally:
+        for h in hooks:h.remove()
+    return box
+
+def collect(axis,prompts,label):
+    PRE={L:[] for L in TAIL};RAW={L:[] for L in TAIL}
+    for i,p in enumerate(prompts,1):
+        P=run_tail(p,axis,+1);M=run_tail(p,axis,-1)
+        for L in TAIL:
+            PRE[L].append(.5*(P["pre"][L]-M["pre"][L]))
+            RAW[L].append(.5*(P["raw"][L]-M["raw"][L]))
+        print(f"       {axis} {label} {i}/8")
+    return {L:torch.stack(PRE[L]) for L in TAIL},{L:torch.stack(RAW[L]) for L in TAIL}
+print("       ready")
+
+# ================================================================================================================
+# [8/28] BUILD
+# ================================================================================================================
+print("\n[8/28] BUILD collection...")
+BPRE={};BRAW={}
+for ax in AXES:BPRE[ax],BRAW[ax]=collect(ax,PROMPTS[ax]["B"],"BUILD")
+
+# ================================================================================================================
+# [9/28] CONTINUITY
+# ================================================================================================================
+print("\n[9/28] BUILD continuity...")
+for ax in AXES:
+    m=max(float((BRAW[ax][L]-BPRE[ax][L+1]).norm()/BPRE[ax][L+1].norm().clamp_min(EPS)) for L in range(20,27))
+    print(f"       {ax}: {m:.10f}")
+    if m>1e-6:raise RuntimeError("Continuity failed.")
+
+# ================================================================================================================
+# [10/28] BUILD SPAN + OPERATORS
+# ================================================================================================================
+print("\n[10/28] Freeze BUILD spans and operators...")
+def fit_op(X,Y):
+    X=X.float();Y=Y.float();G=X@X.T
+    lam=RIDGE_REL*float(torch.trace(G)/G.shape[0])
+    A=torch.linalg.solve(G+lam*torch.eye(G.shape[0],device=G.device),Y)
+    return {"X":X.detach().clone(),"A":A.detach().clone(),"lambda":lam}
+
+def apply_op(op,x):return (x@op["X"].T)@op["A"]
+
+def row_basis(X):
+    _,S,Vh=torch.linalg.svd(X.float(),full_matrices=False)
+    tol=max(X.shape)*torch.finfo(torch.float32).eps*float(S.max())
+    r=int((S>tol).sum())
+    return Vh[:r].T.contiguous(),r,S.detach().clone()
+
+def project(Q,x):
+    return (x@Q)@Q.T
+
+OPS={a:{} for a in AXES};BASIS={a:{} for a in AXES};RANK={a:{} for a in AXES}
+for ax in AXES:
+    for L in TAIL:
+        OPS[ax][L]=fit_op(BPRE[ax][L],BRAW[ax][L])
+        Q,r,s=row_basis(BPRE[ax][L]);BASIS[ax][L]=Q;RANK[ax][L]=r
+    print(f"       {ax}: ranks "+" ".join(f"L{L}={RANK[ax][L]}" for L in TAIL))
+print("       BUILD spans/operators frozen")
+
+# ================================================================================================================
+# [11/28] HOLDOUT REFERENCE
+# ================================================================================================================
+print("\n[11/28] TEST195 HOLDOUT reference...")
+HPRE={};HRAW={}
+for ax in AXES:HPRE[ax],HRAW[ax]=collect(ax,PROMPTS[ax]["H"],"HOLD")
+
+# ================================================================================================================
+# [12/28] SURFACE
+# ================================================================================================================
+print("\n[12/28] TEST195 SURFACE collection...")
+SPRE={};SRAW={}
+for ax in AXES:SPRE[ax],SRAW[ax]=collect(ax,SURFACE[ax],"SURFACE")
+
+# ================================================================================================================
+# [13/28] SURFACE CONTINUITY
+# ================================================================================================================
+print("\n[13/28] SURFACE continuity...")
+for ax in AXES:
+    m=max(float((SRAW[ax][L]-SPRE[ax][L+1]).norm()/SPRE[ax][L+1].norm().clamp_min(EPS)) for L in range(20,27))
+    print(f"       {ax}: {m:.10f}")
+    if m>1e-6:raise RuntimeError("SURFACE continuity failed.")
+
+# ================================================================================================================
+# [14/28] BUILD-SPAN COVERAGE
+# ================================================================================================================
+print("\n[14/28] SURFACE BUILD-span coverage...")
+COVER={a:{} for a in AXES}
+PAR={a:{} for a in AXES};PERP={a:{} for a in AXES}
+for ax in AXES:
+    for L in TAIL:
+        x=SPRE[ax][L];q=BASIS[ax][L]
+        xp=project(q,x);xo=x-xp
+        cov=xp.norm(dim=-1)/x.norm(dim=-1).clamp_min(EPS)
+        ecov=(xp.square().sum(-1)/x.square().sum(-1).clamp_min(EPS))
+        PAR[ax][L]=xp;PERP[ax][L]=xo
+        COVER[ax][L]={"mean":float(cov.mean()),"energy":float(ecov.mean()),
+                      "min":float(cov.min()),"max":float(cov.max()),"values":cov.detach()}
+    print(f"       {ax}: "+" ".join(f"L{L}={COVER[ax][L]['mean']:.3f}" for L in TAIL))
+
+# ================================================================================================================
+# [15/28] FULL / IN-SPAN / OUT-SPAN PREDICTION
+# ================================================================================================================
+print("\n[15/28] FULL vs IN-SPAN vs OUT-SPAN prediction...")
+PRED={a:{} for a in AXES};MET={a:{} for a in AXES}
+for ax in AXES:
+    for L in TAIL:
+        x=SPRE[ax][L];xp=PAR[ax][L];xo=PERP[ax][L];y=SRAW[ax][L]
+        pf=apply_op(OPS[ax][L],x)
+        pp=apply_op(OPS[ax][L],xp)
+        po=apply_op(OPS[ax][L],xo)
+        PRED[ax][L]={"full":pf,"parallel":pp,"perp":po}
+        MET[ax][L]={
+            "coverage":COVER[ax][L]["mean"],
+            "energy_coverage":COVER[ax][L]["energy"],
+            "full_cos":float(cosv(pf,y).mean()),
+            "parallel_cos":float(cosv(pp,y).mean()),
+            "perp_cos":float(cosv(po,y).mean()),
+            "full_err":float(rerr(pf,y).mean()),
+            "parallel_err":float(rerr(pp,y).mean()),
+            "perp_pred_norm_frac":float((po.norm(dim=-1)/pf.norm(dim=-1).clamp_min(EPS)).mean())
+        }
+    print(f"       {ax}: L20 cov={MET[ax][20]['coverage']:.3f} cos={MET[ax][20]['full_cos']:.3f} | "
+          f"L27 cov={MET[ax][27]['coverage']:.3f} cos={MET[ax][27]['full_cos']:.3f}")
+
+# ================================================================================================================
+# [16/28] OPERATOR NULLSPACE CHECK
+# ================================================================================================================
+print("\n[16/28] Out-of-BUILD-span operator response...")
+for ax in AXES:
+    vals=[MET[ax][L]["perp_pred_norm_frac"] for L in TAIL]
+    print(f"       {ax}: mean ||M(x_perp)||/||M(x)||={np.mean(vals):.8f} max={np.max(vals):.8f}")
+
+# ================================================================================================================
+# [17/28] SAMPLE-LEVEL COVERAGE ↔ PREDICTION
+# ================================================================================================================
+print("\n[17/28] Sample-level coverage ↔ prediction cosine...")
+def pearson(x,y):
+    x=np.asarray(x,float);y=np.asarray(y,float)
+    if np.std(x)<1e-12 or np.std(y)<1e-12:return float("nan")
+    return float(np.corrcoef(x,y)[0,1])
+
+def spearman(x,y):
+    x=np.asarray(x,float);y=np.asarray(y,float)
+    rx=np.argsort(np.argsort(x)).astype(float);ry=np.argsort(np.argsort(y)).astype(float)
+    return pearson(rx,ry)
+
+CORR_AXIS={}
+ALL_COV=[];ALL_COS=[];ALL_ERR=[]
+for ax in AXES:
+    cv=[];pc=[];er=[]
+    for L in TAIL:
+        cov=COVER[ax][L]["values"].cpu().numpy()
+        pred=PRED[ax][L]["full"];y=SRAW[ax][L]
+        c=cosv(pred,y).cpu().numpy();e=rerr(pred,y).cpu().numpy()
+        cv.extend(cov.tolist());pc.extend(c.tolist());er.extend(e.tolist())
+    CORR_AXIS[ax]={"pearson_cos":pearson(cv,pc),"spearman_cos":spearman(cv,pc),
+                   "pearson_err":pearson(cv,er),"spearman_err":spearman(cv,er)}
+    ALL_COV+=cv;ALL_COS+=pc;ALL_ERR+=er
+    print(f"       {ax}: r(cov,cos)={CORR_AXIS[ax]['pearson_cos']:+.4f} "
+          f"rho={CORR_AXIS[ax]['spearman_cos']:+.4f} r(cov,err)={CORR_AXIS[ax]['pearson_err']:+.4f}")
+
+# ================================================================================================================
+# [18/28] POOLED CORRELATION
+# ================================================================================================================
+print("\n[18/28] Pooled coverage relation...")
+POOLED={"pearson_cos":pearson(ALL_COV,ALL_COS),"spearman_cos":spearman(ALL_COV,ALL_COS),
+        "pearson_err":pearson(ALL_COV,ALL_ERR),"spearman_err":spearman(ALL_COV,ALL_ERR)}
+print(f"       N={len(ALL_COV)}")
+print(f"       r(coverage, prediction cosine)={POOLED['pearson_cos']:+.6f}")
+print(f"       rho(coverage, prediction cosine)={POOLED['spearman_cos']:+.6f}")
+print(f"       r(coverage, relative error)={POOLED['pearson_err']:+.6f}")
+print(f"       rho(coverage, relative error)={POOLED['spearman_err']:+.6f}")
+
+# ================================================================================================================
+# [19/28] LAYER-LEVEL RELATION
+# ================================================================================================================
+print("\n[19/28] Layer-level mean coverage ↔ mean prediction...")
+LC=[];LP=[]
+for L in TAIL:
+    c=float(np.mean([MET[a][L]["coverage"] for a in AXES]))
+    p=float(np.mean([MET[a][L]["full_cos"] for a in AXES]))
+    LC.append(c);LP.append(p)
+    print(f"       L{L}: coverage={c:.6f} prediction={p:+.6f}")
+LAYER_CORR={"pearson":pearson(LC,LP),"spearman":spearman(LC,LP)}
+print(f"       layer r={LAYER_CORR['pearson']:+.6f} rho={LAYER_CORR['spearman']:+.6f}")
+
+# ================================================================================================================
+# [20/28] HOLDOUT vs SURFACE COVERAGE
+# ================================================================================================================
+print("\n[20/28] HOLDOUT vs SURFACE BUILD-span coverage...")
+TRANSFER={}
+for ax in AXES:
+    hc=[];sc=[];hp=[];sp=[]
+    for L in TAIL:
+        q=BASIS[ax][L]
+        hcov=(project(q,HPRE[ax][L]).norm(dim=-1)/HPRE[ax][L].norm(dim=-1).clamp_min(EPS)).mean()
+        scov=(project(q,SPRE[ax][L]).norm(dim=-1)/SPRE[ax][L].norm(dim=-1).clamp_min(EPS)).mean()
+        hpred=apply_op(OPS[ax][L],HPRE[ax][L])
+        spred=apply_op(OPS[ax][L],SPRE[ax][L])
+        hc.append(float(hcov));sc.append(float(scov))
+        hp.append(float(cosv(hpred,HRAW[ax][L]).mean()))
+        sp.append(float(cosv(spred,SRAW[ax][L]).mean()))
+    TRANSFER[ax]={"hold_cov":float(np.mean(hc)),"surface_cov":float(np.mean(sc)),
+                  "cov_drop":float(np.mean(sc)-np.mean(hc)),
+                  "hold_pred":float(np.mean(hp)),"surface_pred":float(np.mean(sp)),
+                  "pred_drop":float(np.mean(sp)-np.mean(hp))}
+    print(f"       {ax}: cov {TRANSFER[ax]['hold_cov']:.3f}→{TRANSFER[ax]['surface_cov']:.3f} "
+          f"Δ={TRANSFER[ax]['cov_drop']:+.3f} | pred {TRANSFER[ax]['hold_pred']:.3f}→{TRANSFER[ax]['surface_pred']:.3f} "
+          f"Δ={TRANSFER[ax]['pred_drop']:+.3f}")
+
+# ================================================================================================================
+# [21/28] FREE-RUN TEST195 REPLICATION
+# ================================================================================================================
+print("\n[21/28] TEST195 free-run replication...")
+FREE={}
+for ax in AXES:
+    x=SPRE[ax][20].clone();x0=x.clone()
+    for L in TAIL:x=apply_op(OPS[ax][L],x)
+    y=SRAW[ax][27]
+    FREE[ax]={"cos":float(cosv(x,y).mean()),"identity":float(cosv(x0,y).mean()),
+              "gain":float((cosv(x,y)-cosv(x0,y)).mean()),"err":float(rerr(x,y).mean())}
+    print(f"       {ax}: composed={FREE[ax]['cos']:+.6f} identity={FREE[ax]['identity']:+.6f} gain={FREE[ax]['gain']:+.6f}")
+
+# ================================================================================================================
+# [22/28] BOOTSTRAP POOLED CORRELATION
+# ================================================================================================================
+print("\n[22/28] Bootstrap pooled coverage→cosine correlation...")
+def boot_corr(x,y,n=N_BOOT,seed=196):
+    x=np.asarray(x,float);y=np.asarray(y,float);rng=np.random.default_rng(seed);z=[]
+    N=len(x)
+    for _ in range(n):
+        ix=rng.integers(0,N,N)
+        r=pearson(x[ix],y[ix])
+        if np.isfinite(r):z.append(r)
+    z=np.asarray(z)
+    return pearson(x,y),float(np.quantile(z,.025)),float(np.quantile(z,.975))
+BC=boot_corr(ALL_COV,ALL_COS)
+print(f"       Pearson r={BC[0]:+.6f} [{BC[1]:+.6f},{BC[2]:+.6f}]")
+
+# ================================================================================================================
+# [23/28] AXIS-LEVEL COVERAGE DROP ↔ TRANSFER DROP
+# ================================================================================================================
+print("\n[23/28] Axis-level coverage-drop relation...")
+CD=[TRANSFER[a]["cov_drop"] for a in AXES]
+PD=[TRANSFER[a]["pred_drop"] for a in AXES]
+AXDROP={"pearson":pearson(CD,PD),"spearman":spearman(CD,PD)}
+for a in AXES:print(f"       {a}: Δcoverage={TRANSFER[a]['cov_drop']:+.6f} Δprediction={TRANSFER[a]['pred_drop']:+.6f}")
+print(f"       r={AXDROP['pearson']:+.6f} rho={AXDROP['spearman']:+.6f}")
+
+# ================================================================================================================
+# [24/28] DESCRIPTIVE DECOMPOSITION
+# ================================================================================================================
+print("\n[24/28] Descriptive decomposition...")
+for ax in AXES:
+    mc=float(np.mean([MET[ax][L]["coverage"] for L in TAIL]))
+    me=float(np.mean([MET[ax][L]["energy_coverage"] for L in TAIL]))
+    mf=float(np.mean([MET[ax][L]["full_cos"] for L in TAIL]))
+    mp=float(np.mean([MET[ax][L]["parallel_cos"] for L in TAIL]))
+    print(f"       {ax}: coverage={mc:.6f} energy={me:.6f} full_cos={mf:.6f} inspan_cos={mp:.6f}")
+
+# ================================================================================================================
+# [25/28] DECISION
+# ================================================================================================================
+print("\n[25/28] TEST196 decision...")
+# Descriptive criterion only; no causal claim.
+if BC[1]>0 and POOLED["pearson_err"]<0:
+    DECISION="BUILD_SPAN_COVERAGE_ASSOCIATED_WITH_NOVEL_SURFACE_TRANSFER"
+elif BC[0]>0:
+    DECISION="BUILD_SPAN_COVERAGE_WEAKLY_ASSOCIATED_WITH_TRANSFER"
+else:
+    DECISION="BUILD_SPAN_COVERAGE_DOES_NOT_EXPLAIN_TRANSFER_LOSS"
+print("       DECISION:",DECISION)
+print("       Association only; coverage is not established as a causal mechanism.")
+
+# ================================================================================================================
+# [26/28] SAVE CSV
+# ================================================================================================================
+print("\n[26/28] Saving CSV...")
+ROWS=[]
+for ax in AXES:
+    for L in TAIL:
+        cov=COVER[ax][L]["values"].cpu().numpy()
+        pred=PRED[ax][L]["full"];y=SRAW[ax][L]
+        cc=cosv(pred,y).cpu().numpy();ee=rerr(pred,y).cpu().numpy()
+        for i in range(8):
+            ROWS.append({"axis":ax,"layer":L,"sample":i+1,"coverage":float(cov[i]),
+                         "prediction_cos":float(cc[i]),"relative_error":float(ee[i])})
+with open(ROOT/"COVERAGE_TRANSFER.csv","w",newline="",encoding="utf-8") as f:
+    w=csv.DictWriter(f,fieldnames=list(ROWS[0]));w.writeheader();w.writerows(ROWS)
+print("       CSV ready")
+
+# ================================================================================================================
+# [27/28] SAVE REPORT
+# ================================================================================================================
+print("\n[27/28] Saving report...")
+REPORT={"test":"TEST196","parent":"TEST195","decision":DECISION,"rss":RSS,"scale":PRIMARY_SCALE,
+"ridge_rel":RIDGE_REL,"rank":RANK,"coverage":{a:{str(L):{k:v for k,v in COVER[a][L].items() if k!="values"} for L in TAIL} for a in AXES},
+"metrics":MET,"axis_correlations":CORR_AXIS,"pooled":POOLED,"pooled_bootstrap_pearson":BC,
+"layer_correlation":LAYER_CORR,"holdout_surface_transfer":TRANSFER,"axis_drop_relation":AXDROP,
+"test195_free_run_replication":FREE,
+"integrity":{"test195_axis_lock_preserved":True,"test195_prompts_preserved":True,
+"operators_fit_BUILD_only":True,"build_span_fit_BUILD_only":True,"surface_used_for_fit":False,
+"surface_used_for_selection":False,"seasc_l0_l19_only":True,"tail_l20_l27_unmodified":True,
+"measurement_only":True,"new_vector":False,"final":False,"weights_modified":False,
+"causal_claim":False,"full_3584D_operator_claim":False}}
+with open(ROOT/"REPORT.json","w",encoding="utf-8") as f:json.dump(REPORT,f,indent=2,ensure_ascii=False)
+print("       Saved:",ROOT)
+
+# ================================================================================================================
+# [28/28] COMPLETE
+# ================================================================================================================
+print("\n[28/28] COMPLETE")
+print("="*138)
+print("TEST 196 — BUILD-SPAN COVERAGE × NOVEL-SURFACE TRANSFER — SUMMARY")
+print("="*138)
+for ax in AXES:
+    mc=np.mean([MET[ax][L]["coverage"] for L in TAIL])
+    mp=np.mean([MET[ax][L]["full_cos"] for L in TAIL])
+    print(f"{ax}: mean coverage={mc:.6f} mean prediction={mp:+.6f} "
+          f"r(cov,cos)={CORR_AXIS[ax]['pearson_cos']:+.6f} "
+          f"TEST195 L27={FREE[ax]['cos']:+.6f}")
+print(f"Pooled N={len(ALL_COV)}")
+print(f"coverage→cosine r={POOLED['pearson_cos']:+.6f} rho={POOLED['spearman_cos']:+.6f}")
+print(f"bootstrap r=[{BC[1]:+.6f},{BC[2]:+.6f}]")
+print(f"coverage→error r={POOLED['pearson_err']:+.6f}")
+print(f"axis Δcoverage→Δprediction r={AXDROP['pearson']:+.6f}")
+print("Association only | No refit | No intervention | L20-L27 motor OFF | FINAL unopened")
+print("DECISION:",DECISION)
+print("Saved:",ROOT)
+print("="*138)
