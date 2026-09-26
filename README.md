@@ -1,499 +1,671 @@
+AkbasCore — SEASC
 
-# AkbasCore 3.2 — SEASC + Composite Compass Foundry
 
-**Standardized Evidential Activation-Steering Core**
+Standardized Evidential Activation-Steering Core
 
-> An inference-time, layerwise activation-steering motor with measured physical dose and a model-derived composite compass.
 
-**Author:** Mustafa Akbaş  
-**Status:** Independent research / experimental reference implementation  
-**Current version:** AkbasCore 3.2 — September 2026  
-**Reference model:** Qwen/Qwen2.5-7B-Instruct  
-**Reference hardware:** NVIDIA A100  
-**Weights modified during steering:** No  
-**Fine-tuning required:** No  
 
-> **AkbasCore 3.2 is an experimental Reference Core, not a claim of a universal production alignment system.**
 
----
+A model-internal steering motor that synthesizes its own layer-local compasses, applies measured physical intervention, stops deliberately, and observes what the transformer does next.
 
-## What Is AkbasCore?
 
-**AkbasCore 3.2 is a single integrated inference-time activation-steering motor and experimental methodology.**
 
-It intervenes directly in a transformer's hidden states during the forward pass without modifying the model's weights.
 
-Internally, the motor solves three connected problems:
+🔴 KIZILELMA LIVE X-RAY
 
-1. **Where should the hidden state be pushed?**  
-   → **Pusula Dökümhanesi / Composite Compass Foundry**
 
-2. **How much physical displacement should be applied?**  
-   → **SEASC frozen-norm direct dose**
+SEE THE INTERVENTION, NOT JUST THE OUTPUT.
 
-3. **How should that dose vary with transformer depth?**  
-   → **Static normalized DRA envelope**
 
-These are functional components of one AkbasCore motor, not separate systems.
+▶ OPEN KIZILELMA LIVE X-RAY
 
-```text
-Matched activation examples
+
+SYNTHESIZE → INJECT → SHAPE → STOP → OBSERVE
+
+
+
+Author: Mustafa Akbaş
+
+Status: Independent research / experimental reference implementation
+
+Current research line: AkbasCore SEASC — September 2026
+
+Reference model: Qwen/Qwen2.5-7B-Instruct
+
+Reference hardware: NVIDIA A100
+
+Model weights modified during steering: No
+
+Fine-tuning required: No
+
+LoRA required: No
+
+External steering vector required: No
+
+
+
+
+AkbasCore is an experimental Reference Core and research methodology, not a claim of a universal production alignment system.
+
+
+
+
+
+The Core Idea
+
+
+AkbasCore does not begin with a stored steering vector.
+
+
+It does not load a behavioral adapter.
+
+
+It does not fine-tune the model.
+
+
+It does not modify the model weights.
+
+
+Instead, the current AkbasCore motor uses the transformer's own internal activation geometry to synthesize the directions that will subsequently be used to intervene in that same model.
+
+
+For the reference Qwen2.5-7B-Instruct configuration:
+
+
+20 independently synthesized layer-local compasses
+×
+3,584 dimensions each
+=
+71,680 directional values
+
+
+
+are constructed for the active intervention region.
+
+
+The motor then combines these directions with:
+
+
+model-internal compass synthesis
+        +
+frozen-norm physical dose
+        +
+critically damped depth shaping
+        +
+direct CUDA hidden-state injection
+        +
+explicit intervention cutoff
+        +
+motor-OFF downstream observation
+
+
+
+This complete mechanism is the current AkbasCore SEASC architecture.
+
+
+
+The AkbasCore Motor
+
+
+MATCHED SEMANTIC CONTRASTS
           │
           ▼
-Pusula Dökümhanesi
-Composite Compass Foundry
+   KARŞITLIK OCAĞI
+    Contrast Forge
           │
           ▼
-Bileşik Pusula A_L
-Layerwise steering direction
+MODEL-INTERNAL ACTIVATIONS
           │
           ▼
-SEASC
-Frozen-norm physical dose
+SENTETİK PUSULA ÜRETİMİ
+Synthetic Compass Synthesis
           │
-          ▼
-DRA Zarfı
-Static depth envelope
+          ├── L00 → A₀  ∈ R³⁵⁸⁴
+          ├── L01 → A₁  ∈ R³⁵⁸⁴
+          ├── L02 → A₂  ∈ R³⁵⁸⁴
           │
-          ▼
-Hidden-state intervention
+          │        ...
           │
-          ▼
-Transformer continues
-```
+          └── L19 → A₁₉ ∈ R³⁵⁸⁴
+                     │
+                     ▼
+               PUSULA DEMETİ
+               Compass Bundle
+                20 × 3584
+                     │
+                     ▼
+              DRA DOZ ZARFI
+                     │
+                     ▼
+       DONDURULMUŞ NORM ÖLÇÜMÜ
+                     │
+                     ▼
+     NORMA BAĞLI PUSULA ENJEKSİYONU
+                     │
+                     ▼
+             L0 ───────── L19
+                  SEASC ON
+                     │
+                     ▼
+                KESİM SINIRI
+                     │
+                  MOTOR OFF
+                     │
+                     ▼
+             L20 ───────── L27
+                SESSİZ KUYRUK
+                     │
+                     ▼
+                İZ TAŞINIMI
+                     │
+                     ▼
+                 KIZILELMA
+              LIVE X-RAY
 
-No model weights are changed during steering.
 
-The 3.2 Reference Core contains no runtime classifier, learned controller, cosine-magnitude gate, dynamic brake, saturation controller, cap, JVP, radar, or dynamic feedback controller.
 
----
+The motor therefore separates six questions:
 
-## Why 3.2 Exists
 
-AkbasCore began with a simple question:
 
-> **Can the internal trajectory of a transformer be influenced directly during inference, with a mathematically controlled intervention, rather than by retraining the model or rewriting its prompt?**
 
-The project evolved through several generations of experiments.
+What semantic contrast are we measuring?
 
-Early versions explored embedding-derived compasses and closed-loop cosine control. Later experiments on Qwen2.5-7B-Instruct showed that several of those mechanisms either became ineffective, were unnecessary, or did not justify their complexity.
 
-The architecture was therefore progressively reduced.
+What direction does that contrast have inside each layer?
 
-The current motor is deliberately simpler:
 
-```text
-Direction  → derived from model activations
-Magnitude  → explicit fraction of pre-intervention hidden-state norm
-Depth      → static normalized DRA envelope
-Injection  → direct frozen-norm CUDA operation
-```
+How large should the physical intervention be?
 
-AkbasCore 3.2 continues this simplification.
 
-The SEASC physical-dose motor remains unchanged from the 3.0/3.1 line.
+How should that dose vary through depth?
 
-**3.2 changes the compass construction, not the SEASC injection law.**
 
----
+Where should active intervention stop?
 
-# AkbasCore 3.2 Architecture
 
-## 1. Pusula — Compass
+What happens after the motor stops?
 
-**Pusula** is the canonical AkbasCore term for the unit direction along which the motor applies its intervention.
 
-For layer \(L\):
 
-$$
-A_L \in \mathbb{R}^{H},
-\qquad
-\|A_L\|_2 = 1
-$$
 
-AkbasCore constructs a separate Pusula for every steered layer.
 
-The current reference configuration steers:
+1. Karşıtlık Ocağı — Contrast Forge
 
-```text
-L0 → L19
-```
 
-of the 28-layer Qwen2.5-7B-Instruct model.
+Karşıtlık Ocağı is the AkbasCore stage that converts matched semantic oppositions into measurable internal activation contrasts.
 
-There is no single global steering vector broadcast unchanged across all twenty layers.
 
----
+Examples include:
 
-## 2. Pusula Dökümhanesi — Compass Foundry
 
-**Pusula Dökümhanesi** (*Compass Foundry*) is the direction-construction mechanism inside the AkbasCore motor.
+ABOVE ↔ BELOW
+BEFORE ↔ AFTER
+INSIDE ↔ OUTSIDE
+OPEN ↔ CLOSED
+CAUSE ↔ EFFECT
 
-It constructs the layerwise Pusula before generation begins.
 
-Its responsibility is direction, not magnitude:
 
-```text
-Pusula Dökümhanesi → direction
-SEASC               → physical displacement
-DRA Zarfı           → layerwise dose profile
-```
+Matched positive and negative carrier sentences are passed through the same model.
 
-This separation is fundamental to the current architecture.
 
-The Foundry determines the direction of intervention.
+For every target layer L, AkbasCore records the corresponding hidden states:
 
-SEASC determines the physical magnitude of intervention.
-
-The DRA Zarfı determines how that magnitude changes with depth.
-
-Together they form the AkbasCore motor.
-
----
-
-# Composite Compass Foundry
-
-AkbasCore 3.2 retains two related pieces of directional information:
-
-- **Subspace-Fisher Reference**
-- **Banka Pusulası / Bank-Mean Compass**
-
-The relationship between them is explicitly measured and decomposed.
-
----
-
-## 3. Subspace-Fisher Reference
-
-A reliability-weighted reference direction is computed from matched positive and negative activation samples using within-class residual geometry and a regularized low-rank inverse action.
-
-Conceptually:
 
 $$
-F_L =
-\operatorname{normalize}
-\left[
-(C_L+\lambda_L I)^{-1}
-(\mu_L^+-\mu_L^-)
-\right]
+h_L^{POS}
+\qquad\text{and}\qquad
+h_L^{NEG}
 $$
 
-The implementation does not construct or invert a full dense \(H \times H\) covariance matrix.
 
-Reduced SVD operations are performed in FP32.
+The mean activation of each side is then computed:
 
-**Subspace-Fisher is standard mathematical machinery and is not claimed as an original mathematical invention of AkbasCore.**
-
-Within AkbasCore 3.2, its role is that of a **reference geometry**.
-
----
-
-## 4. Banka Pusulası — Bank-Mean Compass
-
-**Banka Pusulası** (*Bank-Mean Compass*) is constructed from a bank of matched positive/negative activation-pair directions.
-
-For matched pair \(i\):
 
 $$
-d_{L,i}
-=
-\operatorname{normalize}
-\left(
-h^+_{L,i}-h^-_{L,i}
-\right)
+\mu_L^{POS}
+
+
+\operatorname{mean}(h_L^{POS})
 $$
 
-The pair directions are consistently oriented relative to the reference hemisphere and then aggregated:
 
 $$
-B_L
-=
-\operatorname{normalize}
-\left(
-\sum_i d_{L,i}
-\right)
+\mu_L^{NEG}
+
+
+\operatorname{mean}(h_L^{NEG})
 $$
 
-In the current AkbasCore 3.2 reference lock, \(B_L\) is the runtime steering direction.
 
----
+The purpose of Karşıtlık Ocağı is not to steer the model yet.
 
-## 5. Artık Yön — Residual Direction
 
-The Banka Pusulası is decomposed relative to the Subspace-Fisher reference.
+Its purpose is to expose a measurable contrast inside the model's own representation space.
 
-First:
 
-$$
-c_L=\langle F_L,B_L\rangle
-$$
 
-Then the component of \(B_L\) orthogonal to \(F_L\) is isolated:
+2. Sentetik Pusula Üretimi — Synthetic Compass Synthesis
 
-$$
-R_L
-=
-\operatorname{normalize}
-\left(
-B_L-c_LF_L
-\right)
-$$
 
-AkbasCore calls \(R_L\):
+This is one of the central mechanisms of the current AkbasCore motor.
 
-**Artık Yön — Residual Direction**
 
-For unit \(F_L\) and \(B_L\), the magnitude of the unnormalized orthogonal component is:
+AkbasCore does not require a stored external steering vector.
+
+
+Instead, the model participates in constructing the intervention directions from its own hidden-state geometry before steering begins.
+
+
+For each layer:
+
 
 $$
-\|B_L-c_LF_L\|_2
-=
-\sqrt{1-c_L^2}
+v_L^{sentetik}
+
+
+\mu_L^{POS}
+
+
+\mu_L^{NEG}
 $$
 
-This decomposition allows the Fisher reference and Bank-Mean actuator to be represented inside one compass family.
 
----
+The synthetic contrast is normalized:
 
-## 6. Bileşik Pusula — Composite Compass
-
-The AkbasCore 3.2 compass family is:
 
 $$
-A_L(\beta)
-=
-\operatorname{normalize}
-\left[
-c_LF_L
-+
-\beta
-\sqrt{1-c_L^2}
-R_L
-\right]
-$$
-
-where **β** is the:
-
-**Bileşim Katsayısı — Composition Coefficient**
-
-Pair directions are oriented so that the Bank-Mean direction lies in the positive Fisher reference hemisphere, giving \(c_L \ge 0\).
-
-Under that orientation:
-
-```text
-β = 0  → Subspace-Fisher reference direction
-β = 1  → Bank-Mean direction
-```
-
-At \(\beta=1\):
-
-$$
-c_LF_L+\sqrt{1-c_L^2}R_L=B_L
-$$
-
-up to numerical precision.
-
-The current AkbasCore 3.2 reference lock is:
-
-```text
-β = 1.0
-```
-
-Therefore:
-
-**Subspace-Fisher remains the reference geometry.**  
-**Banka Pusulası is the current runtime actuator.**
-
-The 3.2 architecture does not discard the Fisher geometry; it explicitly measures how the runtime Bank-Mean direction differs from it.
-
----
-
-# Why Bank-Mean?
-
-The Bank-Mean choice was not made from a single attractive generated output.
-
-The experimental line progressively separated:
-
-- natural transport geometry;
-- causal transport;
-- semantic transport;
-- context dependence;
-- state routing;
-- semantic direction-family effects;
-- Fisher geometry;
-- Bank-specific residual geometry.
-
-The decisive Fisher → Bank-Mean decomposition showed a dose-dependent difference.
-
-Representative measurements from TEST 162:
-
-| Scale | Fisher | Bank-Mean | Bank − Fisher |
-| ---: | ---: | ---: | ---: |
-| 0.25 | 0.090148 | 0.082974 | −0.007174 |
-| 0.50 | 0.167929 | **0.235962** | **+0.068033** |
-| 1.00 | 0.116622 | **0.264574** | **+0.147951** |
-
-Paired bootstrap results for the Bank − Fisher difference were approximately:
-
-```text
-Scale 0.25 → not significant
-Scale 0.50 → p ≈ 0.0188
-Scale 1.00 → p ≈ 0.00075
-```
-
-This does **not** establish that Bank-Mean is universally superior to Fisher.
-
-At the lowest tested scale, Fisher was slightly stronger.
-
-The supported conclusion is narrower:
-
-> **Fisher and Bank-Mean share substantial geometry, while the Bank-specific residual contributes additional causal steering effect in the tested moderate/high-dose regime.**
-
-That result motivated the current \(\beta=1.0\) reference lock.
-
----
-
-# SEASC Motor
-
-**SEASC — Standardized Evidential Activation-Steering Core** is the physical injection mechanism inside AkbasCore.
-
-For hidden state \(h_L\), unit compass \(A_L\), and relative layer dose \(\rho_L\):
-
-$$
-h'_L
-=
-h_L
-+
-\rho_L
-\|h_L\|_{\mathrm{pre}}
 A_L
+
+
+\frac{
+v_L^{sentetik}
+}{
+|v_L^{sentetik}|_2
+}
 $$
 
-with:
+
+producing a unit layer-local Pusula.
+
+
+This process is repeated independently across the twenty active layers:
+
 
 $$
-\rho_L
+A_0,A_1,\ldots,A_{19}
+$$
+
+
+For Qwen2.5-7B-Instruct:
+
+
+$$
+A_L\in\mathbb{R}^{3584}
+$$
+
+
+so one synthesis cycle produces:
+
+
+20 independent layer-local vectors
+×
+3,584 real dimensions
 =
-\mathrm{İvme}\cdot E(L)
+71,680 directional values
+
+
+
+before active steering begins.
+
+
+This is fundamentally different from assuming that one fixed semantic vector should be copied unchanged through transformer depth.
+
+
+
+3. Katman Pusulası — Layer-Local Compass
+
+
+Each independently synthesized unit vector is called:
+
+
+Katman Pusulası — Layer-Local Compass
+
+
+For layer L:
+
+
+$$
+A_L\in\mathbb{R}^{H},
+\qquad
+|A_L|_2=1
 $$
 
-The hidden-state norm is measured **before** the intervention.
 
-This gives the requested intervention an explicit physical interpretation relative to the state being modified.
+The current motor does not assume:
 
----
 
-## 7. Dondurulmuş Norm — Frozen Norm
+$$
+A_0=A_1=\cdots=A_{19}
+$$
 
-AkbasCore calls the pre-intervention hidden-state norm:
 
-**Dondurulmuş Norm — Frozen Norm**
+Instead:
+
+
+L00 has A₀
+L01 has A₁
+L02 has A₂
+...
+L19 has A₁₉
+
+
+
+because semantic geometry is allowed to change through transformer depth.
+
+
+
+4. Pusula Demeti — Compass Bundle
+
+
+The complete collection:
+
+
+$$
+\mathcal{A}
+
+
+{A_0,A_1,\ldots,A_{19}}
+$$
+
+
+is called:
+
+
+Pusula Demeti — Compass Bundle
+
+
+It represents the full layer-local directional structure used by one AkbasCore intervention.
+
+
+For the reference model:
+
+
+Pusula Demeti
+=
+20 × 3584
+=
+71,680 directional values
+
+
+
+The Pusula Demeti is synthesized from the model itself.
+
+
+It is not imported from an external vector library.
+
+
+
+Important Scientific Context
+
+
+Contrastive activation differences and steering-vector extraction are established ideas in activation-steering research.
+
+
+AkbasCore therefore does not claim that subtracting positive and negative activations, by itself, is a new mathematical operation.
+
+
+The AkbasCore contribution being investigated is the larger integrated architecture:
+
+
+layer-local model-internal compass synthesis
+        +
+measured frozen-norm physical dose
+        +
+depth-dependent DRA shaping
+        +
+multi-layer direct intervention
+        +
+explicit motor cutoff
+        +
+motor-OFF downstream X-Ray
+        +
+transport measurement
+
+
+
+and the experimental methodology built around that architecture.
+
+
+
+5. Pusula Dökümhanesi — Compass Foundry
+
+
+Pusula Dökümhanesi is the umbrella term for AkbasCore direction-construction mechanisms.
+
+
+The current direct synthesis path is:
+
+
+Pusula Dökümhanesi
+        │
+        ▼
+Karşıtlık Ocağı
+        │
+        ▼
+Sentetik Pusula Üretimi
+        │
+        ▼
+Katman Pusulaları
+        │
+        ▼
+Pusula Demeti
+
+
+
+Historical Foundry experiments also include:
+
+
+Banka Pusulası
+Subspace-Fisher Reference
+Artık Yön
+Bileşik Pusula
+
+
+
+These remain part of the experimental lineage but are not required for the direct KIZILELMA synthesis path.
+
+
+
+6. Dondurulmuş Norm — Frozen Norm
+
+
+Once the direction has been synthesized, AkbasCore must determine how strongly to intervene.
+
+
+Before injection, the motor measures:
+
 
 $$
 n_L
-=
-\|h_L\|_{\mathrm{pre}}
+
+
+|h_L|_{\mathrm{pre}}
 $$
 
-It is captured before the injection modifies the hidden vector.
 
-The requested displacement is then:
+AkbasCore calls this:
+
+
+Dondurulmuş Norm — Frozen Norm
+
+
+The measurement occurs before the intervention modifies the state.
+
+
+This is important because the intervention cannot increase the reference norm from which its own requested magnitude is calculated.
+
+
+
+7. Fiziksel Doz — Physical Dose
+
+
+AkbasCore defines intervention magnitude relative to the state being modified.
+
+
+For relative layer dose \rho_L:
+
 
 $$
 \Delta h_L
-=
-\rho_L n_L A_L
+
+
+\rho_L
+|h_L|_{\mathrm{pre}}
+A_L
 $$
 
-The intervention therefore cannot increase its own requested dose by first increasing the norm from which that dose is calculated.
 
----
+The relative physical displacement is:
 
-## 8. Fiziksel Doz — Physical Dose
-
-**Fiziksel Doz** is the canonical AkbasCore term for displacement relative to the pre-intervention hidden-state norm:
 
 $$
 D_L
-=
-\frac{\|\Delta h_L\|_2}
-{\|h_L\|_{\mathrm{pre}}}
+
+
+\frac{
+|\Delta h_L|2
+}{
+|h_L|{\mathrm{pre}}
+}
 $$
 
-Because \(A_L\) is a unit vector:
+
+Because:
+
 
 $$
-D_L \approx \rho_L
+|A_L|_2=1
 $$
 
-up to implementation and numerical precision.
 
-If:
+the requested relative displacement satisfies:
 
-```text
-İvme = 0.10
-E(0) = 1
-```
 
-then the requested first-layer displacement is:
+$$
+D_L\approx\rho_L
+$$
 
-```text
-10% of the pre-intervention hidden-state norm
-```
 
-rather than an arbitrary coefficient whose realized magnitude depends on instantaneous hidden-state alignment.
+up to implementation precision.
 
----
 
-# DRA Zarfı — DRA Envelope
+A requested 10% intervention therefore means approximately:
 
-AkbasCore retains the critically damped depth profile introduced in the earlier DRA line.
+
+
+
+a displacement equal to 10% of the pre-intervention hidden-state norm
+
+
+
+
+rather than an arbitrary uncalibrated coefficient.
+
+
+
+8. DRA Zarfı — DRA Envelope
+
+
+Physical dose is not constant through depth.
+
+
+AkbasCore retains the critically damped depth profile developed in the DRA research line.
+
 
 The base profile is:
 
+
 $$
 kb(L)
-=
-\mathrm{Zirve}\,
+
+
+\mathrm{Zirve}
 e^{-\mathrm{Sönüm}L}
 (1+\mathrm{Sönüm}L)
 +
 \mathrm{Taban}
 $$
 
-It is normalized at the first steered layer:
+
+normalized as:
+
 
 $$
 E(L)
-=
+
+
 \frac{kb(L)}{kb(0)}
 $$
 
+
 therefore:
+
 
 $$
 E(0)=1
 $$
 
+
 and:
+
 
 $$
 \rho_L
-=
-\mathrm{İvme}\,E(L)
+
+
+\mathrm{İvme},E(L)
 $$
 
-The current reference constants are:
 
-| Canonical term | English gloss | Value |
-| --- | --- | ---: |
-| **İvme** | Initial Physical Steering Dose | 0.10 |
-| **Sönüm** | Decay Rate | 0.30 |
-| **Zirve** | Envelope Amplitude | 0.70 |
-| **Taban** | Non-Zero Floor | 0.20 |
+Current locked constants:
 
-The resulting reference dose schedule is:
 
-```text
+
+
+Turkish term
+English gloss
+Value
+
+
+
+
+İvme
+Initial Physical Steering Dose
+0.10
+
+
+Sönüm
+Decay Rate
+0.30
+
+
+Zirve
+Envelope Amplitude
+0.70
+
+
+Taban
+Non-Zero Floor
+0.20
+
+
+
+
+Reference schedule:
+
+
 L00 : 10.000%
 L01 :  9.713%
 L02 :  9.052%
@@ -514,155 +686,1361 @@ L16 :  2.593%
 L17 :  2.511%
 L18 :  2.447%
 L19 :  2.397%
-```
 
-The DRA Zarfı controls the **depth profile** of the physical intervention.
 
-It does not determine the semantic direction.
 
----
+The locked base envelope has:
 
-# Canonical AkbasCore 3.2 Terminology
 
-The following Turkish terms form the canonical terminology used by the AkbasCore project for the current motor architecture.
+RSS(ρ) ≈ 0.250235055
 
-| Turkish canonical term | English gloss | Meaning in AkbasCore |
-| --- | --- | --- |
-| **Pusula** | Compass | Layerwise unit steering direction |
-| **Pusula Dökümhanesi** | Compass Foundry | Direction-construction mechanism |
-| **Banka Pusulası** | Bank-Mean Compass | Central direction aggregated from matched activation-pair contrasts |
-| **Artık Yön** | Residual Direction | Bank-Mean component orthogonal to the Fisher reference |
-| **Bileşik Pusula** | Composite Compass | β-controlled Fisher/Bank compass construction |
-| **Bileşim Katsayısı (β)** | Composition Coefficient | Controls movement from Fisher reference toward Bank-Mean |
-| **Dondurulmuş Norm** | Frozen Norm | Hidden-state norm captured before intervention |
-| **Fiziksel Doz** | Physical Dose | Displacement relative to the frozen hidden-state norm |
-| **Zarf** | Envelope | Normalized depth-dependent DRA dose profile |
-| **İvme** | Steering Dose | First-layer physical dose control |
-| **Sönüm** | Decay Rate | Controls DRA envelope decay |
-| **Zirve** | Amplitude | DRA envelope amplitude |
-| **Taban** | Permanent Floor | Non-zero residual component of the DRA envelope |
-| **DRA** | Damped Resonance Alignment | Depth-dependent dose-envelope lineage |
-| **SEASC** | Standardized Evidential Activation-Steering Core | Frozen-norm direct-dose injection mechanism |
 
-These terms identify components and measurements inside the documented **AkbasCore motor and methodology**.
 
-Standard mathematical tools used within the implementation — including SVD, covariance estimation, regularized inverse operations, Fisher/LDA-style geometry, cosine similarity, difference-of-means and vector normalization — retain their standard mathematical meanings and provenance and are not claimed as AkbasCore inventions.
+The DRA Zarfı controls depth.
 
----
 
-# What Was Removed
+It does not determine semantic direction.
 
-The current architecture is intentionally smaller than several historical AkbasCore branches.
 
-The 3.2 Reference Core contains:
 
-```text
-Composite Compass Foundry
-        +
-Frozen-Norm Direct Dose
-        +
-Static Normalized DRA Envelope
-```
+9. Norma Bağlı Pusula Enjeksiyonu — Norm-Anchored Compass Injection
 
-It does **not** contain:
 
-```text
-cosine magnitude gate
+The point where direction, state magnitude and depth dose meet is:
+
+
+Norma Bağlı Pusula Enjeksiyonu — Norm-Anchored Compass Injection
+
+
+For each active layer:
+
+
+$$
+\boxed{
+h'_L
+
+
+h_L
++
+\rho_L
+|h_L|_{\mathrm{pre}}
+A_L
+}
+$$
+
+
+This combines:
+
+
+Katman Pusulası
+       ×
+Dondurulmuş Norm
+       ×
+Fiziksel Doz
+       ×
+DRA Zarfı
+
+
+
+into one direct hidden-state intervention.
+
+
+The current reference implementation performs this operation through an inline CUDA kernel.
+
+
+No optimizer is involved.
+
+
+No gradient update is required.
+
+
+No model weight is modified.
+
+
+
+The Complete Runtime Motor
+
+
+The current runtime architecture can therefore be written compactly as:
+
+
+$$
+\boxed{
+\text{AkbasCore}
+
+
+\text{Sentetik Pusula Üretimi}
++
+\text{SEASC}
++
+\text{DRA Zarfı}
++
+\text{Kesim Sınırı}
++
+\text{İz Gözlemi}
+}
+$$
+
+
+or operationally:
+
+
+SYNTHESIZE DIRECTION
+        │
+        ▼
+MEASURE STATE
+        │
+        ▼
+COMPUTE PHYSICAL DOSE
+        │
+        ▼
+SHAPE DOSE WITH DEPTH
+        │
+        ▼
+INJECT LAYER-LOCAL COMPASS
+        │
+        ▼
+REPEAT L0-L19
+        │
+        ▼
+STOP
+        │
+        ▼
+OBSERVE L20-L27
+
+
+
+
+10. Kesim Sınırı — Intervention Cutoff
+
+
+AkbasCore deliberately separates active intervention from downstream observation.
+
+
+The boundary is:
+
+
+L0 ───────────────────── L19 │ L20 ─────────────────── L27
+                            │
+      ACTIVE MOTOR          │        MOTOR OFF
+      SEASC INJECTION       │      NO INJECTION
+                            │
+                       KESİM SINIRI
+
+
+
+AkbasCore calls this boundary:
+
+
+Kesim Sınırı — Intervention Cutoff
+
+
+No steering vector is injected into L20-L27.
+
+
+This is not a reduced-dose region.
+
+
+It is not a hidden controller region.
+
+
+It is not another steering stage.
+
+
+The motor is off.
+
+
+
+11. Sessiz Kuyruk — Silent Tail
+
+
+The post-intervention transformer region:
+
+
+L20 → L27
+
+
+
+is called:
+
+
+Sessiz Kuyruk — Silent Tail
+
+
+Inside the Sessiz Kuyruk:
+
+
+SEASC injection = 0
+steering hooks   = absent
+new Pusula dose  = 0
+
+
+
+The ordinary transformer continues processing the state.
+
+
+This creates a clean experimental question:
+
+
+
+
+What does the transformer do with an upstream displacement after the mechanism that created it has stopped?
+
+
+
+
+
+12. İz Bırakma — Trace Imprinting
+
+
+The intervention across L0-L19 creates a measurable difference between the steered and Vanilla trajectories.
+
+
+AkbasCore calls the creation of this upstream downstream-visible difference:
+
+
+İz Bırakma — Trace Imprinting
+
+
+This does not imply that the original injected vector survives unchanged.
+
+
+It means that the active intervention leaves a measurable state difference that later transformer computation can process.
+
+
+
+13. İz Taşınımı — Trace Transport
+
+
+After the motor stops:
+
+
+$$
+\Delta_L
+
+
+h_L^{SEASC}
+
+
+h_L^{Vanilla},
+\qquad
+L\ge20
+$$
+
+
+can continue changing.
+
+
+AkbasCore calls this:
+
+
+İz Taşınımı — Trace Transport
+
+
+The relative displacement can be measured as:
+
+
+$$
+R_L
+
+
+\frac{
+|h_L^{SEASC}-h_L^{Vanilla}|_2
+}{
+|h_L^{Vanilla}|_2
+}
+$$
+
+
+The downstream difference may:
+
+
+rotate
+grow
+contract
+reorient
+change projection
+
+
+
+as later transformer blocks process it.
+
+
+Therefore:
+
+
+$$
+\text{injected vector}
+\neq
+\text{downstream net displacement}
+$$
+
+
+
+14. Taşınım İzi — Transport Trace
+
+
+The ordered sequence:
+
+
+$$
+\Delta_{20},
+\Delta_{21},
+\dots,
+\Delta_{27}
+$$
+
+
+is called:
+
+
+Taşınım İzi — Transport Trace
+
+
+It is the measured trajectory of the intervention-created difference through the Sessiz Kuyruk.
+
+
+Current experiments indicate that these trajectories can be:
+
+
+
+
+structured;
+
+
+prompt-replicable under controlled conditions;
+
+
+concept-dependent;
+
+
+non-universal.
+
+
+
+
+No single universal semantic transport channel has been established.
+
+
+
+KIZILELMA — Live Intervention X-Ray
+
+
+KIZILELMA makes the entire motor visible.
+
+
+▶ OPEN KIZILELMA LIVE X-RAY
+
+
+It exposes:
+
+
+what examples created the contrast
+        │
+        ▼
+what synthetic compasses were built
+        │
+        ▼
+what values exist inside the 20 × 3584 bundle
+        │
+        ▼
+how much was injected
+        │
+        ▼
+where the motor stopped
+        │
+        ▼
+what happened after it stopped
+        │
+        ▼
+whether the generated output changed
+
+
+
+The demonstrator records:
+
+
+
+
+matched semantic carriers;
+
+
+20 real layer-local Pusulas;
+
+
+71,680 compass values;
+
+
+requested layer dose;
+
+
+measured injection magnitude;
+
+
+Vanilla hidden states;
+
+
+SEASC hidden states;
+
+
+28-layer relative displacement;
+
+
+the L19/L20 cutoff;
+
+
+Vanilla generated text;
+
+
+SEASC generated text;
+
+
+a weight-change sentinel.
+
+
+
+
+It produces:
+
+
+Overview X-Ray
+
+
+Designed for immediate visual understanding:
+
+
+EXTRACT → BUILD → INJECT → STOP → OBSERVE
+
+
+
+Technical X-Ray
+
+
+Designed for technical inspection:
+
+
+20 × 3584 compass fingerprint
++
+measured injection magnitude
++
+28-layer Vanilla→SEASC displacement
++
+locked envelope metadata
+
+
+
+
+Why KIZILELMA Matters
+
+
+Generated text alone can hide internal intervention effects.
+
+
+In a recent reference demonstration:
+
+
+Vanilla:
+The bird is perched on the branch.
+
+SEASC:
+The bird is perched on the branch.
+
+
+
+The greedy decoded text remained identical.
+
+
+But the internal trajectories did not.
+
+
+The measured Vanilla→SEASC relative displacement was already substantial near the end of active steering and continued evolving after the motor stopped, reaching approximately the mid-40% range by L27 in that individual run.
+
+
+This is not evidence that every run behaves this way.
+
+
+It demonstrates a more basic methodological point:
+
+
+
+
+No text change does not imply no internal intervention effect.
+
+
+
+
+And conversely:
+
+
+
+
+A large hidden-state displacement does not automatically imply behavioral success.
+
+
+
+
+KIZILELMA therefore displays both.
+
+
+
+Hidden-State X-Ray
+
+
+This distinction first became particularly clear in TEST 142.
+
+
+For every layer:
+
+
+$$
+\Delta_L
+
+
+h_L^{SEASC}
+
+
+h_L^{Vanilla}
+$$
+
+
+Representative TEST 142 measurements:
+
+
+Mean relative displacement ≈ 30.37%
+Mean cos(Δ,A)              ≈ 0.452
+
+L00 relative displacement  ≈ 10%
+L19 relative displacement  ≈ 36.90%
+
+
+
+The result established an important distinction inside the AkbasCore methodology:
+
+
+u = intentional injection
+Δ = downstream net difference
+
+u ≠ Δ
+
+
+
+A small controlled upstream intervention can be transformed substantially by later computation.
+
+
+
+Downstream Transport Research
+
+
+Once the intervention and observation regions were separated, a new question became possible:
+
+
+
+
+Can the motor-OFF evolution of an intervention trace be predicted from measured local geometry?
+
+
+
+
+TEST 192-197 investigated this question.
+
+
+
+15. Yerel Taşınım İşleci — Local Transport Operator
+
+
+Low-rank mappings were estimated between neighboring downstream displacement states.
+
+
+Conceptually:
+
+
+$$
+\widehat{\Delta}_{L+1}
+
+
+T_L\Delta_L
+$$
+
+
+AkbasCore calls the experimental mapping:
+
+
+Yerel Taşınım İşleci — Local Transport Operator
+
+
+These operators are:
+
+
+local
+empirical
+low-rank
+support-dependent
+
+
+
+They are not claimed to be the full transformer Jacobian.
+
+
+They do not recover complete 3584-dimensional transformer dynamics.
+
+
+
+16. Taşınım Zinciri — Transport Chain
+
+
+Local predictions can be recursively composed:
+
+
+$$
+\widehat{\Delta}_{L+2}
+
+
+T_{L+1}T_L\Delta_L
+$$
+
+
+AkbasCore calls this recursive sequence:
+
+
+Taşınım Zinciri — Transport Chain
+
+
+This creates two different evaluation regimes:
+
+
+Teacher-Forced Prediction
+        versus
+Recursive Free-Run Prediction
+
+
+
+The second is harder because prediction errors can propagate through the chain.
+
+
+
+17. İnşa Uzayı — BUILD Span
+
+
+The controlled low-dimensional support used to estimate transport operators is called:
+
+
+İnşa Uzayı — BUILD Span
+
+
+For target displacement d and BUILD-support projector P_B:
+
+
+$$
+\operatorname{Coverage}(d)
+
+
+\frac{
+|P_Bd|_2^2
+}{
+|d|_2^2
+}
+$$
+
+
+The BUILD span defines what geometric support is available to the low-rank predictor.
+
+
+
+18. Kapsama — Span Coverage
+
+
+Kapsama — Span Coverage
+
+
+measures how much of a target displacement is represented by the available BUILD support.
+
+
+Kapsama is a geometric measurement.
+
+
+It is not itself a causal variable.
+
+
+TEST 196 found a strong association between increases in coverage and increases in novel-surface prediction quality.
+
+
+That association motivated TEST 197.
+
+
+
+19. İnşa Kapasitesi — BUILD Capacity
+
+
+İnşa Kapasitesi — BUILD Capacity
+
+
+is the controlled size of the support used to construct the İnşa Uzayı.
+
+
+TEST 197 increased nested BUILD support:
+
+
+N08
+N16
+N24
+N32
+
+
+
+while keeping the SURFACE evaluation fixed.
+
+
+Results:
+
+
+
+
+BUILD N
+Coverage
+Teacher
+Free L27
+Free Error
+
+
+
+
+8
+0.684935
+0.669637
+0.664327
+0.740958
+
+
+16
+0.708929
+0.692085
+0.667969
+0.738735
+
+
+24
+0.722478
+0.704334
+0.673609
+0.733351
+
+
+32
+0.735142
+0.716287
+0.678708
+0.727619
+
+
+
+
+Across pooled samples:
+
+
+Δcoverage → Δprediction
+
+Pearson  = +0.869363
+Spearman = +0.816145
+N        = 320
+
+
+
+Coverage and teacher-forced prediction improved monotonically with BUILD support.
+
+
+Recursive terminal behavior was more heterogeneous.
+
+
+Terminal N32−N8:
+
+
+A / ABOVE↔BELOW
++0.018554
+CI [+0.011713,+0.026236]
+
+B / BEFORE↔AFTER
+-0.014292
+CI [-0.029952,+0.000813]
+
+C / INSIDE↔OUTSIDE
++0.005791
+CI [-0.006047,+0.016525]
+
+D / OPEN↔CLOSED
++0.010982
+CI [+0.001611,+0.022047]
+
+E / CAUSE↔EFFECT
++0.050867
+CI [+0.042421,+0.060804]
+
+
+
+Recorded decision:
+
+
+BUILD_SPAN_CAPACITY_SCALING_PARTIALLY_REPLICATED
+
+
+
+The narrower supported result is:
+
+
+
+
+Increasing BUILD support consistently increased geometric coverage and teacher-forced prediction quality, while recursive terminal improvement remained semantic-axis dependent.
+
+
+
+
+
+Composite Compass Foundry Research
+
+
+AkbasCore also developed a broader compass-construction line.
+
+
+This remains part of the research lineage.
+
+
+
+20. Banka Pusulası — Bank-Mean Compass
+
+
+For matched activation pair i:
+
+
+$$
+d_{L,i}
+
+
+\operatorname{normalize}
+(h^+{L,i}-h^-{L,i})
+$$
+
+
+and:
+
+
+$$
+B_L
+
+
+\operatorname{normalize}
+\left(
+\sum_i d_{L,i}
+\right)
+$$
+
+
+AkbasCore calls this:
+
+
+Banka Pusulası — Bank-Mean Compass
+
+
+
+21. Subspace-Fisher Reference
+
+
+A reliability-weighted reference direction was constructed using within-class residual geometry and a regularized low-rank inverse action.
+
+
+Conceptually:
+
+
+$$
+F_L
+
+
+\operatorname{normalize}
+\left[
+(C_L+\lambda_LI)^{-1}
+(\mu_L^+-\mu_L^-)
+\right]
+$$
+
+
+Subspace-Fisher uses standard mathematical machinery.
+
+
+AkbasCore does not claim Fisher/LDA geometry, covariance inversion or SVD as project inventions.
+
+
+Its role here is reference geometry.
+
+
+
+22. Artık Yön — Residual Direction
+
+
+The Banka Pusulası can be decomposed relative to the Fisher reference.
+
+
+$$
+c_L
+
+
+\langle F_L,B_L\rangle
+$$
+
+
+$$
+R_L
+
+
+\operatorname{normalize}
+(B_L-c_LF_L)
+$$
+
+
+AkbasCore calls R_L:
+
+
+Artık Yön — Residual Direction
+
+
+
+23. Bileşik Pusula — Composite Compass
+
+
+The experimental compass family is:
+
+
+$$
+A_L(\beta)
+
+
+\operatorname{normalize}
+\left[
+c_LF_L
++
+\beta
+\sqrt{1-c_L^2}R_L
+\right]
+$$
+
+
+where \beta is:
+
+
+Bileşim Katsayısı — Composition Coefficient
+
+
+Under the reference orientation:
+
+
+β = 0 → Fisher reference
+β = 1 → Bank-Mean
+
+
+
+The AkbasCore 3.2 reference lock used:
+
+
+β = 1.0
+
+
+
+Representative TEST 162 measurements:
+
+
+
+
+Scale
+Fisher
+Bank-Mean
+Bank − Fisher
+
+
+
+
+0.25
+0.090148
+0.082974
+−0.007174
+
+
+0.50
+0.167929
+0.235962
++0.068033
+
+
+1.00
+0.116622
+0.264574
++0.147951
+
+
+
+
+This did not establish universal Bank-Mean superiority.
+
+
+It showed a dose-dependent functional difference under the tested conditions.
+
+
+
+Runtime-to-Weight Research
+
+
+The AkbasCore research program also investigated whether runtime geometry could be partially retained in parameters.
+
+
+This is not part of the current runtime SEASC motor.
+
+
+
+24. Kristalleşme — Crystallization
+
+
+Kristalleşme — Crystallization
+
+
+is the AkbasCore term for experiments attempting to transfer part of a runtime steering trajectory into parameter updates and then evaluate with the runtime motor switched off.
+
+
+TEST 144 used:
+
+
+LoRA rank  : 8
+alpha      : 16
+targets    : q/k/v/o
+trainable  : ~0.0662%
+
+
+
+Final held-out progress was approximately:
+
+
++15.79%
+
+
+
+under that experiment.
+
+
+This demonstrated partial retention.
+
+
+It did not establish complete conversion of runtime steering into weights.
+
+
+
+25. Koruma Kalkanı — Retention Guard
+
+
+Sequential crystallization revealed parameter-space interference.
+
+
+Koruma Kalkanı — Retention Guard
+
+
+is the AkbasCore experimental mechanism for projecting a proposed optimizer displacement away from measured retention-sensitive parameter directions.
+
+
+For displacement d and guard g:
+
+
+$$
+\alpha
+
+
+\frac{d\cdot g}{g\cdot g}
+$$
+
+
+when the guarded component is active.
+
+
+The important conclusion was:
+
+
+
+
+Activation-space independence does not imply parameter-space independence.
+
+
+
+
+Retention Guard belongs to the parameter-space research line.
+
+
+It is not part of the current runtime SEASC motor.
+
+
+
+Canonical AkbasCore Terminology
+
+
+
+
+Turkish canonical term
+English gloss
+AkbasCore meaning
+
+
+
+
+Karşıtlık Ocağı
+Contrast Forge
+Extracts matched model-internal activation contrasts
+
+
+Sentetik Pusula Üretimi
+Synthetic Compass Synthesis
+Synthesizes steering directions from model activations
+
+
+Pusula
+Compass
+Unit intervention direction
+
+
+Katman Pusulası
+Layer-Local Compass
+Independently synthesized compass for one transformer layer
+
+
+Pusula Demeti
+Compass Bundle
+Complete family of layer-local Pusulas
+
+
+Pusula Dökümhanesi
+Compass Foundry
+Umbrella direction-construction architecture
+
+
+Banka Pusulası
+Bank-Mean Compass
+Aggregated matched activation-pair direction
+
+
+Artık Yön
+Residual Direction
+Bank component orthogonal to Fisher reference
+
+
+Bileşik Pusula
+Composite Compass
+Fisher/Bank compass family
+
+
+Bileşim Katsayısı
+Composition Coefficient
+β control inside Composite Compass
+
+
+Dondurulmuş Norm
+Frozen Norm
+Hidden-state norm measured before intervention
+
+
+Fiziksel Doz
+Physical Dose
+Intervention relative to frozen state norm
+
+
+DRA Zarfı
+DRA Envelope
+Depth-dependent dose profile
+
+
+İvme
+Steering Dose
+Initial physical dose
+
+
+Sönüm
+Decay Rate
+DRA decay parameter
+
+
+Zirve
+Amplitude
+DRA envelope amplitude
+
+
+Taban
+Non-Zero Floor
+DRA residual floor
+
+
+Norma Bağlı Pusula Enjeksiyonu
+Norm-Anchored Compass Injection
+Direct combination of layer compass, frozen norm and physical dose
+
+
+Kesim Sınırı
+Intervention Cutoff
+Exact boundary where active steering ends
+
+
+Sessiz Kuyruk
+Silent Tail
+Motor-OFF downstream transformer region
+
+
+İz Bırakma
+Trace Imprinting
+Creation of downstream-visible intervention difference
+
+
+İz Taşınımı
+Trace Transport
+Downstream evolution after steering stops
+
+
+Taşınım İzi
+Transport Trace
+Ordered motor-OFF displacement trajectory
+
+
+Yerel Taşınım İşleci
+Local Transport Operator
+Low-rank local displacement predictor
+
+
+Taşınım Zinciri
+Transport Chain
+Recursive composition of local predictions
+
+
+İnşa Uzayı
+BUILD Span
+Controlled low-dimensional support span
+
+
+Kapsama
+Span Coverage
+Fraction represented by BUILD support
+
+
+İnşa Kapasitesi
+BUILD Capacity
+Controlled BUILD support size
+
+
+Kristalleşme
+Crystallization
+Runtime geometry → parameter retention experiment
+
+
+Koruma Kalkanı
+Retention Guard
+Parameter-space interference-control mechanism
+
+
+KIZILELMA
+Live Intervention X-Ray
+Public intervention and observation demonstrator
+
+
+DRA
+Damped Resonance Alignment
+Depth-envelope research lineage
+
+
+SEASC
+Standardized Evidential Activation-Steering Core
+Frozen-norm physical intervention core
+
+
+
+
+These names identify AkbasCore architectural components, experimental abstractions and measurements.
+
+
+Standard mathematical operations retain their standard scientific provenance.
+
+
+
+What Is Actually Running?
+
+
+The current KIZILELMA runtime path is intentionally much smaller than the complete research tree:
+
+
+CURRENT RUNTIME
+
+Karşıtlık Ocağı
+      │
+      ▼
+Sentetik Pusula Üretimi
+      │
+      ▼
+20 Katman Pusulası
+      │
+      ▼
+Pusula Demeti
+      │
+      ▼
+DRA Zarfı
+      │
+      ▼
+Dondurulmuş Norm
+      │
+      ▼
+Fiziksel Doz
+      │
+      ▼
+Norma Bağlı Pusula Enjeksiyonu
+      │
+      ▼
+L0-L19
+      │
+      ▼
+Kesim Sınırı
+      │
+      ▼
+Sessiz Kuyruk
+L20-L27
+      │
+      ▼
+İz Taşınımı
+      │
+      ▼
+KIZILELMA X-RAY
+
+
+
+It does not silently run:
+
+
+Fisher controller
+Bank controller
+cosine gate
 dynamic brake
 saturation controller
 runtime cap
-lens measurement path
-multi-axis manifold
+lens controller
 radar
-JVP transport controller
-dynamic runtime controller
-LoRA
-runtime weight modification
-```
-
-Some of these mechanisms produced useful experimental findings.
-
-Others were rejected.
-
-They are not active components of the current runtime motor.
-
----
-
-# Experimental Lineage
-
-The repository preserves the development history rather than rewriting earlier experiments after later findings.
-
-In broad terms:
-
-```text
-Early DRA
-   │
-   ▼
-Live hidden-state intervention
-   │
-   ▼
-Synthetic concept injection
-   │
-   ▼
-SEASC standardized physical dose
-   │
-   ▼
-Hidden-state X-ray
-   │
-   ▼
-Runtime → weight crystallization
-   │
-   ▼
-Cross-vector interference
-   │
-   ▼
+JVP controller
+transport operator
+BUILD predictor
 Retention Guard
-   │
-   ▼
-Natural fluctuation / transport atlas
-   │
-   ▼
-Causal potent/null transport
-   │
-   ▼
-Relay and re-encoding experiments
-   │
-   ▼
-Semantic transport
-   │
-   ▼
-Context and semantic-object experiments
-   │
-   ▼
-State-routing tests
-   │
-   ▼
-Semantic direction-family assay
-   │
-   ▼
-Fisher → Bank-Mean causal decomposition
-   │
-   ▼
-AkbasCore 3.2
-```
+LoRA
+weight modification
+dynamic feedback controller
 
-Negative and falsifying results are intentionally retained.
 
-Mechanisms that failed to earn their complexity were not accumulated into the final motor.
 
-Detailed historical experiments, equations, code and logs remain available through versioned repository records, Releases and archival records.
+Those belong to research history or experimental measurement branches.
 
----
 
-# Reference Configuration
 
-```text
+Reference Configuration
+
+
 Model          : Qwen/Qwen2.5-7B-Instruct
 Transformer    : 28 decoder layers
 Hidden size    : 3584
 Model dtype    : BF16
-Foundry math   : FP32
+Compass math   : FP32
 Steered layers : L0-L19
+Silent Tail    : L20-L27
 Runtime        : CUDA
 Reference GPU  : NVIDIA A100
 Decoding       : deterministic / greedy
@@ -671,284 +2049,465 @@ Decoding       : deterministic / greedy
 Sönüm          : 0.30
 Zirve          : 0.70
 Taban          : 0.20
-β              : 1.0
-```
 
-The reference CUDA kernel performs frozen-norm direct injection.
+Base RSS       : ≈ 0.250235055
 
-Conceptually:
 
-```text
-1. Measure pre-intervention hidden-state norm
-2. Compute requested physical dose
-3. Apply the layerwise unit Pusula
-4. Continue the transformer forward pass
-```
 
----
 
-# AkbasCore 3.2 Reference Run
+Experimental Lineage
 
-Reference environment:
 
-```text
-Model       : Qwen/Qwen2.5-7B-Instruct
-GPU         : NVIDIA A100-SXM4-80GB
-Model dtype : BF16
-Foundry     : FP32
-β           : 1.0
-```
+DRA
+ │
+ ▼
+Closed-Loop Activation Steering
+ │
+ ▼
+Synthetic Concept Experiments
+ │
+ ▼
+SEASC
+Measured Physical Dose
+ │
+ ▼
+Hidden-State X-Ray
+ │
+ ▼
+Kristalleşme
+ │
+ ▼
+Cross-Vector Interference
+ │
+ ▼
+Koruma Kalkanı
+Retention Guard
+ │
+ ▼
+Natural / Causal Transport
+ │
+ ▼
+Semantic Transport
+ │
+ ▼
+Fisher ↔ Bank Decomposition
+ │
+ ▼
+Motor-OFF Tail Experiments
+ │
+ ▼
+İz Taşınımı
+ │
+ ▼
+Yerel Taşınım İşleçleri
+ │
+ ▼
+Novel-Surface Transfer
+ │
+ ▼
+İnşa Uzayı
+ │
+ ▼
+Kapsama
+ │
+ ▼
+İnşa Kapasitesi
+TEST 197
+ │
+ ▼
+KIZILELMA
+LIVE X-RAY
 
-Compass telemetry:
 
-```text
-Mean cos(Fisher, Bank-Mean) : +0.938318
-Mean Bank residual norm     :  0.333972
-Mean cos(Composite, Bank)   :  0.999999997
-```
 
-With:
+Negative results remain part of the record.
 
-```text
-β = 1.0
-```
 
-the Composite Compass reconstructs the Bank-Mean actuator to numerical precision in this reference run.
+Mechanisms are not retained merely because they once existed.
 
-Physical-dose telemetry:
 
-```text
-Mean requested dose : 4.9801%
-Mean realized dose  : 4.9833%
 
-L0 requested        : 10.0000%
-L0 realized         : 10.0019%
+What the Evidence Currently Supports
 
-L19 requested       : 2.3966%
-L19 realized        : 2.4000%
-```
 
-At L0, the absolute requested-versus-realized difference was approximately:
+AkbasCore can synthesize layer-local steering directions from model activations
 
-```text
-0.0019 percentage points
-```
 
-These measurements verify operation of the reference compass and physical-dose implementation.
+The current implementation constructs twenty independent 3,584-dimensional Pusulas from matched internal activation contrasts.
 
-They do **not**, by themselves, establish behavioral efficacy.
 
----
+Physical intervention magnitude is measurable
 
-# What the Evidence Currently Supports
 
-The accumulated experiments support several narrower conclusions.
+SEASC expresses requested displacement relative to the pre-intervention hidden-state norm.
 
-### Physical dose is controllable
 
-The SEASC CUDA implementation closely realizes the requested displacement under the tested BF16 configuration.
+Depth and direction are separated
 
-### Injection and downstream displacement are different objects
 
-A relatively small intervention applied upstream can rotate and change magnitude as subsequent transformer blocks process it.
+Pusula determines direction.
 
-### Natural cross-layer activity contains strong low-rank structure
 
-Controlled natural-fluctuation experiments found substantial low-dimensional cross-layer covariance.
+DRA determines the depth profile.
 
-### Natural covariance does not imply direct causal transport
 
-Causal intervention experiments separated observational transport structure from direct steering privilege.
+SEASC determines physical intervention.
 
-### Semantic geometry changes with depth
 
-A single fixed semantic coordinate does not adequately describe the observed cross-layer behavior.
+Injection and downstream displacement are not the same object
 
-### Context-dependent structure is measurable
 
-Matched contexts produce measurable geometric structure, but context matching has not been established as a complete causal steering address.
+Later transformer computation can rotate and alter an upstream perturbation.
 
-### Activation-space independence does not imply parameter-space independence
 
-Sequential crystallization experiments showed substantial parameter-update interference despite low activation-space cosine between the tested axes.
+The intervention can be stopped cleanly
 
-### Fisher and Bank-Mean are related but functionally non-identical
 
-The Bank-specific residual can contribute additional causal steering effect in the tested moderate/high-dose regime.
+L20-L27 can be observed without new SEASC injection.
 
-### Steering geometry is dose-dependent
 
-The relative behavior of Fisher and Bank-Mean changes across the tested physical-dose regime.
+Motor-OFF traces contain measurable structure
 
-These observations motivated the current Composite Compass Foundry.
 
----
+Controlled experiments found prompt- and concept-dependent downstream trajectories.
 
-# What Is Not Claimed
 
-AkbasCore 3.2 does **not** currently establish:
+Low-rank local transport prediction is possible under controlled support
 
-- a universal representation geometry for transformer models;
-- universal superiority of Bank-Mean over Fisher;
-- a universal semantic subspace;
-- a general-purpose AI alignment solution;
-- semantic control independent of prompt or context;
-- cross-model generalization;
-- cross-language generalization;
-- safety guarantees;
-- human-level interpretability of hidden states;
-- that every measured low-rank structure is causal;
-- that standard mathematical components used inside the motor were invented by this project.
 
-The current reference evidence is concentrated on controlled experiments using Qwen2.5-7B-Instruct.
+BUILD-span operators predict part of the downstream trace.
 
-Cross-model, cross-language and broader semantic validation remain open.
 
----
+Some transport prediction transfers to novel surface formulations
 
-# Reproducibility Philosophy
 
-AkbasCore experiments follow a simple rule:
+Prediction is not entirely confined to exact BUILD wording.
 
-> **Measure the mechanism separately from the generated text.**
 
-Accordingly, experiments may record:
+BUILD support coverage is strongly associated with prediction quality
 
-- requested physical dose;
-- realized physical dose;
-- hidden-state displacement;
-- compass geometry;
-- downstream transport;
-- behavioral effect;
-- collateral language-model change;
-- random controls;
-- shuffled controls;
-- null distributions;
-- untouched validation/final splits where appropriate.
 
-A visually convincing generated response is not treated as sufficient evidence by itself.
+TEST 196-197 measured a strong relationship under the tested setup.
 
-Negative and falsifying experiments are part of the research record.
 
----
+More support does not universally solve recursive prediction
 
-# Historical Versions
 
-Older AkbasCore releases remain part of the project lineage.
+TEST 197 was deliberately recorded as partially replicated.
 
-They should be interpreted according to the architecture documented in their own release rather than retroactively as AkbasCore 3.2 systems.
 
-Historical mechanisms including:
+Internal change and output change are different measurements
 
-```text
-Sensör
-Mercek
-Fren
-Doyum
-Karşıt
-Sınır
-Manifold
-Radar / JVP
-```
 
-belong to earlier experimental branches and are **not active components of AkbasCore 3.2**.
+A strong hidden-state displacement can coexist with an unchanged greedy output.
 
-Likewise, runtime-to-weight crystallization and Retention Guard experiments belong to the experimental research line rather than the current inference-time motor.
 
-The repository history, versioned Releases and archival records remain the appropriate sources for those stages.
 
----
+What Is Not Claimed
 
-# Project Status
 
-**AkbasCore 3.2 is an experimental Reference Core.**
+AkbasCore does not currently establish:
 
-The current motor is intentionally frozen around:
 
-```text
-Composite Compass Foundry
-          +
-SEASC Frozen-Norm Direct Dose
-          +
-Static Normalized DRA Envelope
-```
 
-The immediate research objective is not to add another runtime controller.
 
-It is to determine how well the current motor generalizes across:
+that contrastive steering vectors themselves were invented by AkbasCore;
 
-```text
-semantic axes
-contexts
-model scales
-model families
-languages
-dose regimes
-```
 
-while preserving the simplicity and measurability of the Reference Core.
+that difference-of-means activation geometry is a new mathematical technique;
 
----
 
-# Current Core
+a universal semantic representation;
 
-```text
-AKBASCORE 3.2
+
+a universal transformer coordinate system;
+
+
+a universal full-rank transport operator;
+
+
+recovery of the complete transformer Jacobian;
+
+
+complete prediction of transformer dynamics;
+
+
+universal superiority of one compass-construction method;
+
+
+universal monotonic benefit from BUILD capacity;
+
+
+formal causal identification from a CAUSE↔EFFECT semantic axis;
+
+
+prompt-independent semantic control;
+
+
+cross-model generalization;
+
+
+cross-language generalization;
+
+
+a universal AI alignment solution;
+
+
+safety guarantees;
+
+
+human-level hidden-state interpretability.
+
+
+
+
+The strongest current evidence is concentrated on controlled experiments with Qwen2.5-7B-Instruct.
+
+
+Broader replication remains open.
+
+
+
+Reproducibility Philosophy
+
+
+AkbasCore follows one central experimental rule:
+
+
+
+
+Measure the mechanism separately from the generated text.
+
+
+
+
+Therefore the research distinguishes:
+
+
+synthetic compass
+requested dose
+realized dose
+injected displacement
+downstream displacement
+transport trace
+transport prediction
+span coverage
+behavioral output
+collateral change
+weight change
+
+
+
+A convincing text output is not sufficient evidence.
+
+
+A large hidden-state displacement is not sufficient evidence of behavioral success.
+
+
+A correlation is not automatically treated as causation.
+
+
+A low-rank predictor is not automatically called the full system dynamics.
+
+
+Negative and falsifying results are preserved.
+
+
+
+Project Status
+
+
+AkbasCore is currently centered on a deliberately measurable motor:
+
+
+MODEL SYNTHESIZES ITS OWN
+LAYER-LOCAL COMPASSES
+            │
+            ▼
+SEASC MEASURES
+PHYSICAL INTERVENTION
+            │
+            ▼
+DRA SHAPES
+INTERVENTION THROUGH DEPTH
+            │
+            ▼
+CUDA APPLIES
+THE INTERVENTION
+            │
+            ▼
+THE MOTOR STOPS
+            │
+            ▼
+THE TRANSFORMER CONTINUES
+            │
+            ▼
+KIZILELMA OBSERVES
+WHAT HAPPENS NEXT
+
+
+
+The immediate research direction is not to add another controller.
+
+
+The open questions now concern:
+
+
+synthetic compass stability
+semantic-axis generalization
+downstream transport
+support geometry
+transport capacity
+novel-surface transfer
+model scale
+model family
+language
+dose regime
+
+
+
+
+Current AkbasCore Research Tree
+
+
+AKBASCORE
 │
-├── Pusula Dökümhanesi
+├── PUSULA DÖKÜMHANESİ
 │   │
-│   ├── Subspace-Fisher Reference
-│   ├── Banka Pusulası
-│   ├── Artık Yön
-│   └── Bileşik Pusula
-│       └── β = 1.0
+│   ├── Karşıtlık Ocağı
+│   ├── Sentetik Pusula Üretimi
+│   ├── Katman Pusulası
+│   ├── Pusula Demeti
+│   │
+│   ├── Banka Pusulası        [research]
+│   ├── Subspace-Fisher       [reference]
+│   ├── Artık Yön             [research]
+│   └── Bileşik Pusula        [research]
 │
 ├── SEASC
 │   │
 │   ├── Dondurulmuş Norm
-│   └── Fiziksel Doz
+│   ├── Fiziksel Doz
+│   └── Norma Bağlı Pusula Enjeksiyonu
 │
-└── DRA Zarfı
+├── DRA ZARFI
+│   │
+│   ├── İvme
+│   ├── Sönüm
+│   ├── Zirve
+│   └── Taban
+│
+├── MÜDAHALE SINIRI
+│   │
+│   ├── Kesim Sınırı
+│   └── Sessiz Kuyruk
+│
+├── TAŞINIM ARAŞTIRMASI
+│   │
+│   ├── İz Bırakma
+│   ├── İz Taşınımı
+│   ├── Taşınım İzi
+│   ├── Yerel Taşınım İşleci
+│   ├── Taşınım Zinciri
+│   ├── İnşa Uzayı
+│   ├── Kapsama
+│   └── İnşa Kapasitesi
+│
+├── PARAMETRE-UZAYI ARAŞTIRMASI
+│   │
+│   ├── Kristalleşme
+│   └── Koruma Kalkanı
+│
+└── KIZILELMA
     │
-    ├── İvme
-    ├── Sönüm
-    ├── Zirve
-    └── Taban
-```
+    ├── Overview X-Ray
+    └── Technical X-Ray
 
-> **Direction is constructed. Dose is measured. Depth is shaped. Weights remain frozen.**
 
----
 
-# Citation
 
-For scientific or technical work based materially on AkbasCore, please cite the relevant **versioned AkbasCore release and associated archival record** rather than treating the continuously updated `main` branch as a fixed publication.
 
-The repository's timestamped commits, Releases, experiment records and archival deposits preserve the development lineage of DRA, SEASC and the current AkbasCore architecture.
+The model provides the geometry.
 
-**Project:** AkbasCore  
-**Developer / Researcher:** Mustafa Akbaş  
-**Current version:** AkbasCore 3.2 — SEASC + Composite Compass Foundry  
-**Year:** 2026  
+The Foundry synthesizes the compasses.
 
----
+SEASC measures the dose.
 
-# License
+DRA shapes the depth.
 
-**AkbasCore software is released under the MIT License.**
+CUDA applies the intervention.
 
-**Copyright © 2026 Mustafa Akbaş — AkbasCore**
+The motor stops.
 
-The MIT License permits broad use, modification and redistribution of the software subject to its terms.
+KIZILELMA watches the trace.
 
-The AkbasCore research record also contains scientific methodology, experimental results, architectural terminology and attribution information that should not be inferred solely from this short README license summary.
+The weights remain frozen.
 
-**For the complete and controlling software-license terms, copyright notice, scope information and project attribution information, read the repository's [`LICENSE`](LICENSE) file.**
+
+
+
+
+Citation
+
+
+For scientific or technical work based materially on AkbasCore, please cite the relevant versioned AkbasCore release and associated archival record rather than treating the continuously updated main branch as a fixed publication.
+
+
+The repository's timestamped commits, Releases, experiment records and archival deposits preserve the development lineage.
+
+
+Project: AkbasCore
+
+Developer / Researcher: Mustafa Akbaş
+
+Research lineage: DRA → SEASC → Transport → KIZILELMA
+
+Year: 2026
+
+
+
+License
+
+
+AkbasCore software is currently distributed under the license terms provided in this repository.
+
+
+Copyright © 2026 Mustafa Akbaş — AkbasCore
+
+
+The repository contains software together with experimental methodology, research results, architectural terminology and attribution information.
+
+
+For the complete and controlling terms, scope, copyright notice and attribution information, read the repository's LICENSE file.
+
 
 Standard mathematical techniques used within AkbasCore retain their existing scientific provenance.
 
----
 
-**AkbasCore 3.2 — SEASC + Composite Compass Foundry**  
-**Mustafa Akbaş · 2026**
+
+AkbasCore — SEASC
+
+
+Mustafa Akbaş · 2026
+
+
+
+
+Direction is synthesized.
+
+Dose is measured.
+
+Depth is shaped.
+
+The motor stops.
+
+The trace remains visible.
+
+
+
+
+SEE THE INTERVENTION, NOT JUST THE OUTPUT.
+
+
+▶ KIZILELMA LIVE X-RAY
 
