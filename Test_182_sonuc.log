@@ -1,0 +1,208 @@
+ ====================================================================================================================================
+TEST 182 — PRE/POST INJECTION HOOK-TIMING X-RAY
+CAUSE↔EFFECT — EXACT BLOCK BOUNDARY LOCALIZATION
+====================================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+SEASC RSS=0.250235055 | scale=0.5
+
+[1/22] CUDA compile...
+       OK
+
+[2/22] Model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 87.9kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 855kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 35.5MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 71.1MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 126MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.16MB/s]Download complete: :  13.1GB,  558MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  437MB/s  Fetching 4 files: 100% 4/4 [00:38<00:00,  6.80s/it]Loading weights: 100% 339/339 [00:03<00:00, 98.21it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.5kB/s]       hidden: 3584 dtype: torch.bfloat16
+
+[3/22] Frozen E axis...
+
+[4/22] Fisher...
+       01/16
+       02/16
+       03/16
+       04/16
+       05/16
+       06/16
+       07/16
+       08/16
+       09/16
+       10/16
+       11/16
+       12/16
+       13/16
+       14/16
+       15/16
+       16/16
+       mean cos(F,B)=+0.814657
+
+[5/22] P8...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+       ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+
+[6/22] Frozen causal forge...
+       A 1/4
+       A 2/4
+       A 3/4
+       A 4/4
+       B 1/4
+       B 2/4
+       B 3/4
+       B 4/4
+       C 1/4
+       C 2/4
+       C 3/4
+       C 4/4
+       D 1/4
+       D 2/4
+       D 3/4
+       D 4/4
+       mean orth=0.999519
+
+[7/22] Fresh X-ray prompts...
+       n=8
+
+[8/22] Exact block-boundary recorder...
+
+[9/22] Capturing BASE / PLUS / MINUS...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+
+[10/22] Symmetric PRE/RAW/POST deltas...
+
+[11/22] Layer metrics...
+       L00 PRE tar=+0.0000 cos=+0.0000 | RAW tar=+0.0000 cos=+0.0000 | POST tar=+0.5248 cos=+0.9996
+       L01 PRE tar=+0.2233 cos=+0.4252 | RAW tar=+0.2495 cos=+0.2318 | POST tar=+0.9877 cos=+0.6867
+       L02 PRE tar=+0.2351 cos=+0.1635 | RAW tar=+0.2605 cos=+0.1223 | POST tar=+1.0938 cos=+0.4595
+       L03 PRE tar=+0.6275 cos=+0.2636 | RAW tar=+0.7082 cos=+0.2269 | POST tar=+1.4907 cos=+0.4403
+       L04 PRE tar=-0.0796 cos=-0.0235 | RAW tar=+0.1516 cos=+0.0306 | POST tar=+1.0178 cos=+0.2013
+       L05 PRE tar=-0.0555 cos=-0.0110 | RAW tar=-0.1659 cos=-0.0247 | POST tar=+0.8321 cos=+0.1229
+       L06 PRE tar=+1.3966 cos=+0.2063 | RAW tar=+1.3755 cos=+0.1884 | POST tar=+2.3163 cos=+0.3074
+       L07 PRE tar=+1.7106 cos=+0.2270 | RAW tar=+1.7652 cos=+0.2210 | POST tar=+2.6186 cos=+0.3186
+       L08 PRE tar=-0.0634 cos=-0.0077 | RAW tar=-0.2339 cos=-0.0207 | POST tar=+0.5988 cos=+0.0529
+       L09 PRE tar=+0.1368 cos=+0.0121 | RAW tar=+0.2047 cos=+0.0152 | POST tar=+1.1132 cos=+0.0822
+       L10 PRE tar=-0.6276 cos=-0.0464 | RAW tar=-0.8032 cos=-0.0582 | POST tar=+0.0628 cos=+0.0045
+       L11 PRE tar=-0.6411 cos=-0.0465 | RAW tar=-0.5092 cos=-0.0394 | POST tar=+0.3291 cos=+0.0255
+       L12 PRE tar=-0.2045 cos=-0.0158 | RAW tar=-0.1973 cos=-0.0166 | POST tar=+0.5770 cos=+0.0484
+       L13 PRE tar=+0.3782 cos=+0.0317 | RAW tar=+0.8166 cos=+0.0661 | POST tar=+1.6547 cos=+0.1330
+       L14 PRE tar=+0.1831 cos=+0.0147 | RAW tar=+0.2380 cos=+0.0180 | POST tar=+1.1045 cos=+0.0832
+       L15 PRE tar=+1.0822 cos=+0.0815 | RAW tar=+0.8577 cos=+0.0651 | POST tar=+1.6798 cos=+0.1267
+       L16 PRE tar=+0.7515 cos=+0.0567 | RAW tar=+0.6876 cos=+0.0482 | POST tar=+1.4906 cos=+0.1041
+       L17 PRE tar=+1.0420 cos=+0.0728 | RAW tar=+1.3619 cos=+0.0888 | POST tar=+2.2331 cos=+0.1446
+       L18 PRE tar=+0.8643 cos=+0.0560 | RAW tar=+1.1212 cos=+0.0617 | POST tar=+2.0480 cos=+0.1122
+       L19 PRE tar=-0.6684 cos=-0.0366 | RAW tar=-0.5009 cos=-0.0222 | POST tar=+0.5483 cos=+0.0245
+
+[12/22] Direct injection contribution RAW→POST...
+       L00 Δtarget=+0.524824 Δnorm=0.525037
+       L01 Δtarget=+0.738181 Δnorm=0.738491
+       L02 Δtarget=+0.833305 Δnorm=0.833655
+       L03 Δtarget=+0.782539 Δnorm=0.782905
+       L04 Δtarget=+0.866183 Δnorm=0.866681
+       L05 Δtarget=+0.998050 Δnorm=0.998691
+       L06 Δtarget=+0.940742 Δnorm=0.941225
+       L07 Δtarget=+0.853351 Δnorm=0.854015
+       L08 Δtarget=+0.832695 Δnorm=0.833330
+       L09 Δtarget=+0.908528 Δnorm=0.909352
+       L10 Δtarget=+0.865932 Δnorm=0.867744
+       L11 Δtarget=+0.838327 Δnorm=0.839622
+       L12 Δtarget=+0.774327 Δnorm=0.775524
+       L13 Δtarget=+0.838025 Δnorm=0.839643
+       L14 Δtarget=+0.866515 Δnorm=0.868355
+       L15 Δtarget=+0.822088 Δnorm=0.824500
+       L16 Δtarget=+0.802988 Δnorm=0.804652
+       L17 Δtarget=+0.871147 Δnorm=0.873388
+       L18 Δtarget=+0.926750 Δnorm=0.929245
+       L19 Δtarget=+1.049162 Δnorm=1.052735
+
+[13/22] Inter-block transport...
+       POST00→PRE01 relerr=0.00000000
+       POST01→PRE02 relerr=0.00000000
+       POST02→PRE03 relerr=0.00000000
+       POST03→PRE04 relerr=0.00000000
+       POST04→PRE05 relerr=0.00000000
+       POST05→PRE06 relerr=0.00000000
+       POST06→PRE07 relerr=0.00000000
+       POST07→PRE08 relerr=0.00000000
+       POST08→PRE09 relerr=0.00000000
+       POST09→PRE10 relerr=0.00000000
+       POST10→PRE11 relerr=0.00000000
+       POST11→PRE12 relerr=0.00000000
+       POST12→PRE13 relerr=0.00000000
+       POST13→PRE14 relerr=0.00000000
+       POST14→PRE15 relerr=0.00000000
+       POST15→PRE16 relerr=0.00000000
+       POST16→PRE17 relerr=0.00000000
+       POST17→PRE18 relerr=0.00000000
+       POST18→PRE19 relerr=0.00000000
+
+[14/22] L18/L19 forensic...
+       L17: PRE +1.041976 → RAW +1.361939 → POST +2.233086 | injection Δ=+0.871147
+       L18: PRE +0.864340 → RAW +1.121242 → POST +2.047992 | injection Δ=+0.926750
+       L19: PRE -0.668388 → RAW -0.500860 → POST +0.548302 | injection Δ=+1.049162
+
+[15/22] Final RMSNorm...
+       FINAL rel=0.306140 target@ORTH19=-0.200947 cos=-0.002263 angle=90.13°
+
+[16/22] Terminal logit-space displacement...
+       symmetric logit rel=0.37028068
+       symmetric logit norm=371.999847
+
+[17/22] Bootstrap key transitions...
+       L17 PRE_TARGET      +1.041976 [+1.021224,+1.065709]
+       L17 RAW_TARGET      +1.361939 [+1.345305,+1.380847]
+       L17 POST_TARGET     +2.233086 [+2.216224,+2.251562]
+       L17 INJECTION_DELTA +0.871147 [+0.869082,+0.873154]
+       L18 PRE_TARGET      +0.864340 [+0.831773,+0.895467]
+       L18 RAW_TARGET      +1.121242 [+1.045871,+1.203325]
+       L18 POST_TARGET     +2.047992 [+1.970427,+2.131054]
+       L18 INJECTION_DELTA +0.926750 [+0.923304,+0.929835]
+       L19 PRE_TARGET      -0.668388 [-0.754071,-0.592924]
+       L19 RAW_TARGET      -0.500860 [-0.614784,-0.396543]
+       L19 POST_TARGET     +0.548302 [+0.432066,+0.652610]
+       L19 INJECTION_DELTA +1.049162 [+1.043981,+1.054479]
+
+[18/22] Reversal localization...
+       PRE19  =-0.668388
+       RAW19  =-0.500860
+       POST19 =+0.548302
+       INJ19 Δ=+1.049162
+       DECISION: REVERSAL_PREEXISTS_L19_INJECTION__L19_INJECTION_PARTIALLY_CORRECTS
+
+[19/22] Hidden-state indexing check...
+       direct L19 RAW→POST delta norm=1.052735
+       CONFIRMED: direct hook recorder sees L19 injection.
+
+[20/22] Saving...
+       Saved: /content/TEST182_PRE_POST_HOOK_TIMING_XRAY
+
+[21/22] Scientific boundary...
+       PRE/RAW/POST are captured directly at transformer-block boundaries.
+       POST is the authoritative state immediately after SEASC injection.
+       No vector, dose, rank, layer or controller is selected in this test.
+       TEST182 localizes the terminal reversal; it does not by itself prove behavioral causality.
+       Layer-local directions differ across depth; cross-layer target magnitudes are mechanistic diagnostics, not one common coordinate.
+
+[22/22] COMPLETE
+====================================================================================================================================
+TEST 182 — TERMINAL FORENSIC SUMMARY
+====================================================================================================================================
+L17 PRE=+1.041976 RAW=+1.361939 POST=+2.233086 INJECT=+0.871147 POSTcos=+0.144638
+L18 PRE=+0.864340 RAW=+1.121242 POST=+2.047992 INJECT=+0.926750 POSTcos=+0.112192
+L19 PRE=-0.668388 RAW=-0.500860 POST=+0.548302 INJECT=+1.049162 POSTcos=+0.024482
+------------------------------------------------------------------------------------------------------------------------------------
+FINAL RMSNorm target@ORTH19=-0.200947 cos=-0.002263 angle=90.13°
+L19 direct RAW→POST delta norm=1.052735
+DECISION: REVERSAL_PREEXISTS_L19_INJECTION__L19_INJECTION_PARTIALLY_CORRECTS
+Saved: /content/TEST182_PRE_POST_HOOK_TIMING_XRAY
+====================================================================================================================================
