@@ -1,0 +1,191 @@
+ ==========================================================================================================================================
+TEST 187 — L27 DISPLACEMENT REDISTRIBUTION X-RAY
+CAUSE↔EFFECT — PRE27 → RAW27 — FIXED ORTH19 + TRANSPORT GEOMETRY
+==========================================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+SEASC RSS=0.250235055 | scale=0.5
+
+[1/26] CUDA...
+       OK
+
+[2/26] Model...
+config.json: 100% 663/663 [00:00<00:00, 79.5kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 855kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 81.5MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 70.8MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 129MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.04MB/s]Download complete: :  13.1GB,  388MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  363MB/s  Fetching 4 files: 100% 4/4 [00:41<00:00,  8.09s/it]Loading weights: 100% 339/339 [00:03<00:00, 100.48it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.2kB/s]       hidden: 3584 dtype: torch.bfloat16 layers: 28
+
+[3/26] Frozen E axis...
+
+[4/26] Fisher/Bank...
+       01/16
+       02/16
+       03/16
+       04/16
+       05/16
+       06/16
+       07/16
+       08/16
+       09/16
+       10/16
+       11/16
+       12/16
+       13/16
+       14/16
+       15/16
+       16/16
+       mean cos(F,B)=+0.814657
+
+[5/26] P8...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+       ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+
+[6/26] Frozen forge...
+       A 1/4
+       A 2/4
+       A 3/4
+       A 4/4
+       B 1/4
+       B 2/4
+       B 3/4
+       B 4/4
+       C 1/4
+       C 2/4
+       C 3/4
+       C 4/4
+       D 1/4
+       D 2/4
+       D 3/4
+       D 4/4
+       ORTH ready | fixed coordinate=ORTH19
+
+[7/26] Fresh X-ray...
+       n=8
+
+[8/26] Exact PRE27 / RAW27 recorder...
+
+[9/26] PLUS / MINUS...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+
+[10/26] Symmetric displacements...
+       ready
+
+[11/26] RAW27→NORM_IN continuity...
+       relerr=0.0000000000
+
+[12/26] Fixed ORTH19 projection...
+       PRE27  =+0.715652
+       RAW27  =-0.297196
+       Δ27    =-1.012847
+       P+ PRE =7/8
+       P+ RAW =3/8
+
+[13/26] PRE27→RAW27 transport geometry...
+       cos(PRE,RAW)=+0.844819
+       angle       =32.344°
+       norm PRE    =82.189819
+       norm RAW    =97.106827
+       growth      =1.181601x
+
+[14/26] RAW decomposition relative to PRE direction...
+       parallel coefficient=+82.047966
+       parallel norm frac  =0.844819
+       orthogonal norm frac=0.534987
+
+[15/26] Δ27 decomposition relative to PRE direction...
+       Δ parallel=-0.141857
+       ||Δparallel||=0.421356
+       ||Δperp||    =51.934753
+       perp/Δ       =0.999933
+
+[16/26] ORTH19-orthogonal redistribution...
+       PRE ||orth||=82.184982
+       RAW ||orth||=97.104607
+       Δ   ||orth||=51.926250
+       RAW orth frac=0.999977
+       Δ orth frac  =0.999771
+
+[17/26] Energy accounting...
+       PRE energy=6783.872070 ORTH19 share=0.00011728
+       RAW energy=9468.414062 ORTH19 share=0.00004701
+       Δ27 energy=2707.497559 ORTH19 share=0.00045835
+
+[18/26] Per-prompt transport...
+       1: U +0.9784→+0.5437 Δ=-0.4347 cos=+0.8369 angle=33.19°
+       2: U +1.0009→-0.2851 Δ=-1.2861 cos=+0.8388 angle=32.99°
+       3: U +0.8140→-0.5570 Δ=-1.3710 cos=+0.8478 angle=32.03°
+       4: U -0.4781→-1.3748 Δ=-0.8967 cos=+0.8472 angle=32.09°
+       5: U +0.3959→-0.7955 Δ=-1.1914 cos=+0.8435 angle=32.49°
+       6: U +1.5015→-0.2434 Δ=-1.7450 cos=+0.8459 angle=32.23°
+       7: U +0.8179→+0.0080 Δ=-0.8099 cos=+0.8506 angle=31.72°
+       8: U +0.6946→+0.3265 Δ=-0.3681 cos=+0.8479 angle=32.01°
+
+[19/26] Δ27 SVD/PCA...
+       PC1: 24.537% cumulative=24.537%
+       PC2: 17.314% cumulative=41.851%
+       PC3: 14.448% cumulative=56.299%
+       PC4: 13.577% cumulative=69.876%
+       PC5: 12.212% cumulative=82.088%
+       PC6: 10.402% cumulative=92.491%
+       PC7: 7.509% cumulative=100.000%
+       PC8: 0.000% cumulative=100.000%
+       cos(PC1,ORTH19)=-0.019688
+       cos(meanΔ,ORTH19)=-0.021773
+
+[20/26] Mean L27 transformation direction...
+       ||meanΔ||=46.517872
+       meanΔ·ORTH19=-1.012847
+       cos(meanΔ,ORTH19)=-0.021773
+       angle(meanΔ,ORTH19)=91.248°
+
+[21/26] Bootstrap...
+       ORTH19_DELTA       -1.012847 [-1.313836,-0.714337]
+       TRANSPORT_COS      +0.844819 [+0.841492,+0.847744]
+       GROWTH             +1.181601 [+1.176945,+1.186758]
+       DELTA_ORTH_FRAC    +0.999771 [+0.999650,+0.999883]
+
+[22/26] Redistribution test...
+       L27 Δ@ORTH19=-1.012847
+       Δ orthogonal fraction=0.999771
+       PRE→RAW cosine=+0.844819
+
+[23/26] TEST187 decision...
+       DECISION: L27_ORTH19_LOSS_OCCURS_WITH_HIGH_DIMENSIONAL_REDISTRIBUTION
+
+[24/26] Saving...
+       Saved: /content/TEST187_L27_REDISTRIBUTION_XRAY
+
+[25/26] Scientific boundary...
+       TEST187 measures the symmetric PLUS/MINUS displacement, not single-forward residual motion.
+       L27 is untouched; no bypass, rescue or projection intervention is applied.
+       ORTH19 loss and orthogonal displacement are geometric observations.
+       Orthogonal redistribution does not by itself identify where behavioral information is encoded.
+       PCA/SVD is descriptive only; no component is selected for steering.
+
+[26/26] COMPLETE
+==========================================================================================================================================
+TEST 187 — L27 DISPLACEMENT REDISTRIBUTION X-RAY — SUMMARY
+==========================================================================================================================================
+PRE27 @ORTH19=+0.715652
+RAW27 @ORTH19=-0.297196
+L27 Δ @ORTH19=-1.012847
+PRE→RAW cos=+0.844819 angle=32.344° growth=1.181601x
+Δ27 orthogonal fraction=0.999771
+PC1=24.537% | PC1+PC2=41.851%
+cos(PC1,ORTH19)=-0.019688
+cos(meanΔ,ORTH19)=-0.021773
+DECISION: L27_ORTH19_LOSS_OCCURS_WITH_HIGH_DIMENSIONAL_REDISTRIBUTION
+Saved: /content/TEST187_L27_REDISTRIBUTION_XRAY
+==========================================================================================================================================
