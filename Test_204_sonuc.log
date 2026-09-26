@@ -1,0 +1,142 @@
+ ============================================================================================================================
+TEST 204 — TEACHER-RESIDUAL KEY→VALUE RELATIONAL OPERATOR
+============================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+SEASC RSS=0.250235051 | MASK=3.0σ | SOURCE=Neral Voss keeps the amber compass.
+[1/12] Model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 82.3kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 810kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 50.3MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 69.8MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 127MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.43MB/s]Download complete: :  13.1GB, 1.16GB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  464MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  7.23s/it]Loading weights: 100% 339/339 [00:03<00:00, 100.29it/s]generation_config.json: 100% 243/243 [00:00<00:00, 32.4kB/s][2/12] Auto parse...
+FACT: Neral Voss | keeps | amber compass
+QUESTIONS: ['What does the explorer keep?', 'Which item does the treasure hunter possess?', 'What artifact does the archaeologist carry?', 'What does the historian own?', 'What does the collector wield?', 'What does the traveler have?']
+ALT-O: ['golden artifact', 'ancient relic', 'silver amulet', 'crystal orb', 'bronze key', 'ruby pendant', 'ivory statuette', 'opal necklace']
+[3/12] SR-only key forge...
+[4/12] Motor-off SR selectivity profile...
+WARNING: no >3σ layer; diagnostic fallback L15
+ACTIVE: [15]
+L00 Δc=+0.06561 σ=0.04750 z=+1.38 OFF
+L01 Δc=+0.06367 σ=0.03571 z=+1.78 OFF
+L02 Δc=+0.06308 σ=0.03188 z=+1.98 OFF
+L03 Δc=+0.07772 σ=0.03753 z=+2.07 OFF
+L04 Δc=+0.09281 σ=0.03929 z=+2.36 OFF
+L05 Δc=+0.09979 σ=0.04017 z=+2.48 OFF
+L06 Δc=+0.10027 σ=0.04031 z=+2.49 OFF
+L07 Δc=+0.11866 σ=0.05225 z=+2.27 OFF
+L08 Δc=+0.14761 σ=0.06380 z=+2.31 OFF
+L09 Δc=+0.11939 σ=0.05238 z=+2.28 OFF
+L10 Δc=+0.11742 σ=0.05156 z=+2.28 OFF
+L11 Δc=+0.11128 σ=0.04732 z=+2.35 OFF
+L12 Δc=+0.10640 σ=0.04611 z=+2.31 OFF
+L13 Δc=+0.10404 σ=0.04381 z=+2.37 OFF
+L14 Δc=+0.11456 σ=0.04255 z=+2.69 OFF
+L15 Δc=+0.12522 σ=0.04651 z=+2.69 ON
+L16 Δc=+0.13354 σ=0.05208 z=+2.56 OFF
+L17 Δc=+0.13212 σ=0.05375 z=+2.46 OFF
+L18 Δc=+0.17010 σ=0.07566 z=+2.25 OFF
+L19 Δc=+0.18931 σ=0.08363 z=+2.26 OFF
+[5/12] Position-aligned teacher residual value forge...
+VALUE: (20, 3584) | max |cos(O,O⊥)| = 7.916241884231567e-09
+[6/12] Blind dose sweep...
+[7/12] Direction controls +O/-O/O⊥ @ .50...
+[8/12] Negative-query specificity...
+[9/12] X-Ray...
+[10/12] Weight sentinel...
+[11/12] Results...
+
+============================================================================================================================
+TEST 204 RESULTS
+============================================================================================================================
+FACT: Neral Voss | keeps | amber compass
+ACTIVE: [15]
+TARGET TOKENS: ['amber', 'Ġcompass']
+
+Q1: What does the explorer keep?
+ VANILLA | sumLP=-45.4564 | bestAlt=-30.3087 | margin=-15.1477 | The prompt does not provide enough information to determine what the explorer keeps. Different explorers might keep different things based on their expeditions and goals. More context is needed to answer this question accurately.
+ +O s=0.10 | sumLP=-45.4828 | ΔlogP=-0.0264 | bestAlt=-30.4284 | margin=-15.0544 | gate=0.1117 | The prompt does not provide enough information to determine what the explorer keeps. Different explorers might keep different things based on their expeditions and goals. More context is needed to answer this question accurately.
+ +O s=0.20 | sumLP=-45.5169 | ΔlogP=-0.0605 | bestAlt=-30.2997 | margin=-15.2172 | gate=0.1117 | The prompt does not provide enough information to determine what the explorer keeps. Different explorers might keep different things based on their expeditions and goals. More context is needed to answer this question accurately.
+ +O s=0.30 | sumLP=-45.5346 | ΔlogP=-0.0782 | bestAlt=-30.2291 | margin=-15.3055 | gate=0.1117 | The prompt does not provide enough information to determine what the explorer keeps. Different explorers might keep different things based on their expeditions and goals. More context is needed to answer this question accurately.
+ +O s=0.40 | sumLP=-45.5264 | ΔlogP=-0.0700 | bestAlt=-30.3431 | margin=-15.1833 | gate=0.1117 | The prompt does not provide enough information to determine what the explorer keeps. Different explorers might keep different things based on their expeditions and goals. More context is needed to answer this question accurately.
+ +O s=0.50 | sumLP=-45.5314 | ΔlogP=-0.0750 | bestAlt=-30.4257 | margin=-15.1057 | gate=0.1117 | The prompt does not provide enough information to determine what the explorer keeps. Different explorers might keep different things based on their expeditions and goals. More context is needed to answer this question accurately.
+ POS @.50 | margin=-15.1057 | gate=0.1117 | The prompt does not provide enough information to determine what the explorer keeps. Different explorers might keep different things based on their expeditions and goals. More context is needed to answer this question accurately.
+ NEG @.50 | margin=-15.2634 | gate=0.1117 | The prompt does not provide enough information to determine what the explorer keeps. Different explorers might keep different things based on their expeditions and goals. More context is needed to answer this question accurately.
+ ORTH@.50 | margin=-15.3890 | gate=0.1117 | The prompt does not provide enough information to determine what the explorer keeps. Different explorers might keep different things based on their expeditions and goals. More context is needed to answer this question accurately.
+
+Q2: Which item does the treasure hunter possess?
+ VANILLA | sumLP=-40.8138 | bestAlt=-26.9515 | margin=-13.8623 | Insufficient information provided to determine which item the treasure hunter possesses.
+ +O s=0.10 | sumLP=-40.8216 | ΔlogP=-0.0078 | bestAlt=-27.0534 | margin=-13.7682 | gate=0.2279 | Insufficient information provided to determine which item the treasure hunter possesses.
+ +O s=0.20 | sumLP=-40.9883 | ΔlogP=-0.1745 | bestAlt=-27.1820 | margin=-13.8063 | gate=0.2279 | Insufficient information provided to determine which item the treasure hunter possesses.
+ +O s=0.30 | sumLP=-41.1025 | ΔlogP=-0.2887 | bestAlt=-27.3038 | margin=-13.7987 | gate=0.2279 | Insufficient information provided to determine which item the treasure hunter possesses.
+ +O s=0.40 | sumLP=-41.0081 | ΔlogP=-0.1943 | bestAlt=-27.1039 | margin=-13.9043 | gate=0.2279 | Insufficient information provided to determine which item the treasure hunter possesses.
+ +O s=0.50 | sumLP=-41.0993 | ΔlogP=-0.2855 | bestAlt=-27.1526 | margin=-13.9467 | gate=0.2279 | Insufficient information provided to determine which item the treasure hunter possesses.
+ POS @.50 | margin=-13.9467 | gate=0.2279 | Insufficient information provided to determine which item the treasure hunter possesses.
+ NEG @.50 | margin=-13.7879 | gate=0.2279 | Insufficient information provided to determine which item the treasure hunter possesses.
+ ORTH@.50 | margin=-13.7135 | gate=0.2279 | Insufficient information provided to determine which item the treasure hunter possesses.
+
+Q3: What artifact does the archaeologist carry?
+ VANILLA | sumLP=-37.5784 | bestAlt=-24.6914 | margin=-12.8870 | The prompt does not provide specific information about what artifact the archaeologist carries. Therefore, based solely on the given information, it is not possible to determine what artifact the archaeologist carries.
+ +O s=0.10 | sumLP=-37.6912 | ΔlogP=-0.1129 | bestAlt=-24.8824 | margin=-12.8088 | gate=0.1377 | The prompt does not provide specific information about what artifact the archaeologist carries. Therefore, based solely on the information given, it is not possible to determine what artifact the archaeologist carries.
+ +O s=0.20 | sumLP=-37.7152 | ΔlogP=-0.1368 | bestAlt=-24.9666 | margin=-12.7486 | gate=0.1377 | The prompt does not provide specific information about what artifact the archaeologist carries. Therefore, based solely on the information given, it is not possible to determine what artifact the archaeologist carries.
+ +O s=0.30 | sumLP=-37.8278 | ΔlogP=-0.2494 | bestAlt=-24.7413 | margin=-13.0864 | gate=0.1388 | The prompt does not provide specific information about what artifact the archaeologist carries. Therefore, based solely on the given information, it is not possible to determine what artifact the archaeologist carries.
+ +O s=0.40 | sumLP=-37.6024 | ΔlogP=-0.0240 | bestAlt=-24.8643 | margin=-12.7381 | gate=0.1388 | The prompt does not provide specific information about what artifact the archaeologist carries. Therefore, based solely on the given information, it is not possible to determine what artifact the archaeologist carries.
+ +O s=0.50 | sumLP=-37.4565 | ΔlogP=+0.1219 | bestAlt=-24.7665 | margin=-12.6900 | gate=0.1388 | The prompt does not provide specific information about what artifact the archaeologist carries. Therefore, based solely on the given information, it is not possible to determine what artifact the archaeologist carries.
+ POS @.50 | margin=-12.6900 | gate=0.1388 | The prompt does not provide specific information about what artifact the archaeologist carries. Therefore, based solely on the given information, it is not possible to determine what artifact the archaeologist carries.
+ NEG @.50 | margin=-12.7895 | gate=0.1377 | The prompt does not provide specific information about what artifact the archaeologist carries. Therefore, based solely on the information given, it is not possible to determine what artifact the archaeologist carries.
+ ORTH@.50 | margin=-12.7557 | gate=0.1388 | The prompt does not provide specific information about what artifact the archaeologist carries. Therefore, based solely on the given information, it is not possible to determine what artifact the archaeologist carries.
+
+Q4: What does the historian own?
+ VANILLA | sumLP=-41.1510 | bestAlt=-23.4899 | margin=-17.6611 | The prompt does not provide any specific information about what the historian owns. Therefore, based solely on the given information, it is not possible to determine what the historian owns.
+ +O s=0.10 | sumLP=-41.0875 | ΔlogP=+0.0636 | bestAlt=-23.5093 | margin=-17.5781 | gate=0.1346 | The prompt does not provide any specific information about what the historian owns. Therefore, based solely on the given information, it is impossible to determine what the historian owns.
+ +O s=0.20 | sumLP=-41.0302 | ΔlogP=+0.1209 | bestAlt=-23.5546 | margin=-17.4756 | gate=0.1330 | The prompt does not provide any specific information about what the historian owns. Therefore, based solely on the given information, it is not possible to determine what the historian owns.
+ +O s=0.30 | sumLP=-40.9837 | ΔlogP=+0.1673 | bestAlt=-23.4837 | margin=-17.5000 | gate=0.1346 | The prompt does not provide any specific information about what the historian owns. Therefore, based solely on the given information, it is impossible to determine what the historian owns.
+ +O s=0.40 | sumLP=-41.1063 | ΔlogP=+0.0447 | bestAlt=-23.4640 | margin=-17.6423 | gate=0.1346 | The prompt does not provide any specific information about what the historian owns. Therefore, based solely on the given information, it is impossible to determine what the historian owns.
+ +O s=0.50 | sumLP=-41.1716 | ΔlogP=-0.0206 | bestAlt=-23.4822 | margin=-17.6895 | gate=0.1330 | The prompt does not provide any specific information about what the historian owns. Therefore, based solely on the given information, it is not possible to determine what the historian owns.
+ POS @.50 | margin=-17.6895 | gate=0.1330 | The prompt does not provide any specific information about what the historian owns. Therefore, based solely on the given information, it is not possible to determine what the historian owns.
+ NEG @.50 | margin=-17.5725 | gate=0.1346 | The prompt does not provide any specific information about what the historian owns. Therefore, based solely on the given information, it is impossible to determine what the historian owns.
+ ORTH@.50 | margin=-17.6736 | gate=0.1346 | The prompt does not provide any specific information about what the historian owns. Therefore, based solely on the given information, it is impossible to determine what the historian owns.
+
+NEGATIVE QUERY SPECIFICITY @ .50
+ gate=0.0941 | What does the explorer keeps? -> The prompt does not provide enough information to determine what the explorer keeps. Explorers can keep various things depending on their mission, such as samples, notes, equipment, or personal items. More context is needed to specify what is being kept
+ gate=0.1982 | What does Neral Voss holds? -> The prompt does not provide any information about what Neral Voss holds. There is not enough context to determine what Neral Voss holds.
+ gate=0.1288 | What does the adventurer possesses? -> The prompt does not provide specific information about what the adventurer possesses. More context or details are needed to answer this question accurately.
+
+X-RAY Q1 @ .50
+POS  | L19=  0.607% | L27=  1.554%
+NEG  | L19=  0.686% | L27=  1.616%
+ORTH | L19=  0.609% | L27=  1.714%
+
+LAYER X-RAY +O
+L00   0.000% MASKED
+L01   0.000% MASKED
+L02   0.000% MASKED
+L03   0.000% MASKED
+L04   0.000% MASKED
+L05   0.000% MASKED
+L06   0.000% MASKED
+L07   0.000% MASKED
+L08   0.000% MASKED
+L09   0.000% MASKED
+L10   0.000% MASKED
+L11   0.000% MASKED
+L12   0.000% MASKED
+L13   0.000% MASKED
+L14   0.000% MASKED
+L15   0.039% INJECT
+L16   0.208% MASKED
+L17   0.312% MASKED
+L18   0.462% MASKED
+L19   0.607% MASKED
+L20   0.759% MOTOR-OFF
+L21   0.844% MOTOR-OFF
+L22   1.048% MOTOR-OFF
+L23   1.095% MOTOR-OFF
+L24   1.166% MOTOR-OFF
+L25   1.200% MOTOR-OFF
+L26   1.096% MOTOR-OFF
+L27   1.554% MOTOR-OFF
+----------------------------------------------------------------------------------------------------------------------------
+Weights: PASS | L20-L27 injection: ZERO
+KEY: SR-only endogenous contrast | VALUE: position-aligned target-teacher minus alternative-teacher residual
+CONTROLS: +O / -O / seeded O⊥ | LIKELIHOOD: exact autoregressive multi-token SUM logP
+SUCCESS: selective gate + positive ΔlogP + target/alt margin gain + +O direction specificity + blind behavioral retrieval.
+============================================================================================================================
+[12/12] TEST 204 COMPLETE
