@@ -1,0 +1,251 @@
+ ==========================================================================================================================================
+TEST 193 — CROSS-AXIS TAIL LOCAL TRANSPORT OPERATOR ASSAY
+A/B/C/D/E — L20→L27 — BUILD-FROZEN LOW-RANK LOCAL OPERATORS × INDEPENDENT HOLDOUT
+==========================================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+SEASC RSS=0.250235055 | scale=0.5 | ridge_rel=0.0001
+
+[1/26] CUDA...
+       OK
+
+[2/26] Model...
+config.json: 100% 663/663 [00:00<00:00, 79.2kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 810kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 86.9MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 75.5MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 128MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 2.79MB/s]Download complete: :  13.1GB,  265MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  349MB/s  Fetching 4 files: 100% 4/4 [00:41<00:00,  7.62s/it]Loading weights: 100% 339/339 [00:03<00:00, 98.86it/s]generation_config.json: 100% 243/243 [00:00<00:00, 32.7kB/s]       hidden: 3584 dtype: torch.bfloat16 layers: 28
+
+[3/26] TEST192 axis lock...
+       A/B/C/D/E ready
+
+[4/26] Layer-local compasses...
+       A ABOVE↔BELOW ready
+       B BEFORE↔AFTER ready
+       C INSIDE↔OUTSIDE ready
+       D OPEN↔CLOSED ready
+       E CAUSE↔EFFECT ready
+
+[5/26] TEST192 BUILD/HOLDOUT lock...
+       5 axes × BUILD8 × HOLDOUT8
+
+[6/26] SEASC...
+       ready
+
+[7/26] PRE/RAW L20-L27 recorder...
+       ready
+
+[8/26] BUILD collection...
+       A BUILD 1/8
+       A BUILD 2/8
+       A BUILD 3/8
+       A BUILD 4/8
+       A BUILD 5/8
+       A BUILD 6/8
+       A BUILD 7/8
+       A BUILD 8/8
+       B BUILD 1/8
+       B BUILD 2/8
+       B BUILD 3/8
+       B BUILD 4/8
+       B BUILD 5/8
+       B BUILD 6/8
+       B BUILD 7/8
+       B BUILD 8/8
+       C BUILD 1/8
+       C BUILD 2/8
+       C BUILD 3/8
+       C BUILD 4/8
+       C BUILD 5/8
+       C BUILD 6/8
+       C BUILD 7/8
+       C BUILD 8/8
+       D BUILD 1/8
+       D BUILD 2/8
+       D BUILD 3/8
+       D BUILD 4/8
+       D BUILD 5/8
+       D BUILD 6/8
+       D BUILD 7/8
+       D BUILD 8/8
+       E BUILD 1/8
+       E BUILD 2/8
+       E BUILD 3/8
+       E BUILD 4/8
+       E BUILD 5/8
+       E BUILD 6/8
+       E BUILD 7/8
+       E BUILD 8/8
+
+[9/26] Tail continuity...
+       A: max RAW[L]→PRE[L+1] relerr=0.0000000000
+       B: max RAW[L]→PRE[L+1] relerr=0.0000000000
+       C: max RAW[L]→PRE[L+1] relerr=0.0000000000
+       D: max RAW[L]→PRE[L+1] relerr=0.0000000000
+       E: max RAW[L]→PRE[L+1] relerr=0.0000000000
+
+[10/26] Fit BUILD-only local operators...
+       A: L20 λ=3.476e-02 L21 λ=5.322e-02 L22 λ=8.117e-02 L23 λ=1.436e-01 L24 λ=2.132e-01 L25 λ=3.345e-01 L26 λ=4.696e-01 L27 λ=7.543e-01
+       B: L20 λ=3.454e-02 L21 λ=5.591e-02 L22 λ=8.471e-02 L23 λ=1.506e-01 L24 λ=2.240e-01 L25 λ=3.367e-01 L26 λ=4.726e-01 L27 λ=7.522e-01
+       C: L20 λ=3.294e-02 L21 λ=5.418e-02 L22 λ=9.064e-02 L23 λ=1.653e-01 L24 λ=2.445e-01 L25 λ=3.607e-01 L26 λ=4.874e-01 L27 λ=7.767e-01
+       D: L20 λ=3.501e-02 L21 λ=6.079e-02 L22 λ=8.942e-02 L23 λ=1.694e-01 L24 λ=2.616e-01 L25 λ=4.081e-01 L26 λ=5.641e-01 L27 λ=9.247e-01
+       E: L20 λ=3.833e-02 L21 λ=6.222e-02 L22 λ=1.041e-01 L23 λ=1.813e-01 L24 λ=2.579e-01 L25 λ=3.807e-01 L26 λ=5.430e-01 L27 λ=8.645e-01
+       operators frozen before HOLDOUT
+
+[11/26] BUILD fit sanity...
+       A: L20 cos=+1.0000 err=0.0004 | L27 cos=+1.0000 err=0.0003
+       B: L20 cos=+1.0000 err=0.0003 | L27 cos=+1.0000 err=0.0002
+       C: L20 cos=+1.0000 err=0.0005 | L27 cos=+1.0000 err=0.0003
+       D: L20 cos=+1.0000 err=0.0005 | L27 cos=+1.0000 err=0.0004
+       E: L20 cos=+1.0000 err=0.0005 | L27 cos=+1.0000 err=0.0004
+
+[12/26] BUILD LOFO operator validation...
+       A: L20 gain=+0.1674 L27 gain=+0.1718
+       B: L20 gain=+0.1604 L27 gain=+0.0592
+       C: L20 gain=+0.2337 L27 gain=+0.1537
+       D: L20 gain=+0.2243 L27 gain=+0.1977
+       E: L20 gain=+0.2398 L27 gain=+0.2036
+
+[13/26] HOLDOUT collection...
+       A HOLD 1/8
+       A HOLD 2/8
+       A HOLD 3/8
+       A HOLD 4/8
+       A HOLD 5/8
+       A HOLD 6/8
+       A HOLD 7/8
+       A HOLD 8/8
+       B HOLD 1/8
+       B HOLD 2/8
+       B HOLD 3/8
+       B HOLD 4/8
+       B HOLD 5/8
+       B HOLD 6/8
+       B HOLD 7/8
+       B HOLD 8/8
+       C HOLD 1/8
+       C HOLD 2/8
+       C HOLD 3/8
+       C HOLD 4/8
+       C HOLD 5/8
+       C HOLD 6/8
+       C HOLD 7/8
+       C HOLD 8/8
+       D HOLD 1/8
+       D HOLD 2/8
+       D HOLD 3/8
+       D HOLD 4/8
+       D HOLD 5/8
+       D HOLD 6/8
+       D HOLD 7/8
+       D HOLD 8/8
+       E HOLD 1/8
+       E HOLD 2/8
+       E HOLD 3/8
+       E HOLD 4/8
+       E HOLD 5/8
+       E HOLD 6/8
+       E HOLD 7/8
+       E HOLD 8/8
+
+[14/26] HOLDOUT operator prediction...
+       A: L20 Δcos=+0.186 L21 Δcos=+0.196 L22 Δcos=+0.174 L23 Δcos=+0.100 L24 Δcos=+0.078 L25 Δcos=+0.057 L26 Δcos=+0.104 L27 Δcos=+0.173
+       B: L20 Δcos=+0.177 L21 Δcos=+0.153 L22 Δcos=+0.126 L23 Δcos=+0.058 L24 Δcos=+0.031 L25 Δcos=-0.003 L26 Δcos=+0.038 L27 Δcos=+0.084
+       C: L20 Δcos=+0.224 L21 Δcos=+0.195 L22 Δcos=+0.188 L23 Δcos=+0.112 L24 Δcos=+0.077 L25 Δcos=+0.053 L26 Δcos=+0.093 L27 Δcos=+0.159
+       D: L20 Δcos=+0.222 L21 Δcos=+0.200 L22 Δcos=+0.220 L23 Δcos=+0.123 L24 Δcos=+0.109 L25 Δcos=+0.091 L26 Δcos=+0.149 L27 Δcos=+0.205
+       E: L20 Δcos=+0.240 L21 Δcos=+0.211 L22 Δcos=+0.190 L23 Δcos=+0.099 L24 Δcos=+0.090 L25 Δcos=+0.081 L26 Δcos=+0.109 L27 Δcos=+0.215
+
+[15/26] Layer summary...
+       L20: pred cos=+0.952495 identity=+0.742620 Δ=+0.209875 pred err=0.295720 identity=0.671273
+       L21: pred cos=+0.947586 identity=+0.756436 Δ=+0.191149 pred err=0.307652 identity=0.655585
+       L22: pred cos=+0.942678 identity=+0.762995 Δ=+0.179683 pred err=0.321641 identity=0.646428
+       L23: pred cos=+0.941714 identity=+0.843257 Δ=+0.098457 pred err=0.322681 identity=0.537431
+       L24: pred cos=+0.937196 identity=+0.859974 Δ=+0.077222 pred err=0.333273 identity=0.512361
+       L25: pred cos=+0.930454 identity=+0.874445 Δ=+0.056009 pred err=0.349533 identity=0.485960
+       L26: pred cos=+0.932117 identity=+0.833436 Δ=+0.098681 pred err=0.345100 identity=0.554151
+       L27: pred cos=+0.931362 identity=+0.764245 Δ=+0.167118 pred err=0.346691 identity=0.645155
+
+[16/26] Bootstrap HOLDOUT Δcos...
+       A: L20 +0.1862[+0.1749,+0.1970] L27 +0.1727[+0.1343,+0.2021]
+       B: L20 +0.1769[+0.1574,+0.1954] L27 +0.0842[+0.0478,+0.1199]
+       C: L20 +0.2238[+0.2158,+0.2327] L27 +0.1587[+0.1475,+0.1685]
+       D: L20 +0.2224[+0.2164,+0.2279] L27 +0.2053[+0.2004,+0.2095]
+       E: L20 +0.2401[+0.2315,+0.2479] L27 +0.2147[+0.1994,+0.2297]
+
+[17/26] Exact n=8 sign-flip tests...
+       A: L20 p=0.007812 L27 p=0.007812
+       B: L20 p=0.007812 L27 p=0.007812
+       C: L20 p=0.007812 L27 p=0.007812
+       D: L20 p=0.007812 L27 p=0.007812
+       E: L20 p=0.007812 L27 p=0.007812
+
+[18/26] Foreign-axis operator control...
+       Mean L20-L27 prediction cosine:
+             HOLD-A    HOLD-B    HOLD-C    HOLD-D    HOLD-E
+       OP-A  +0.93334  +0.21975  +0.24819  +0.18537  +0.15484
+       OP-B  +0.24906  +0.88959  +0.21878  +0.16298  +0.25906
+       OP-C  +0.19304  +0.18719  +0.94344  +0.29066  +0.19371
+       OP-D  +0.17747  +0.17643  +0.28739  +0.96538  +0.18274
+       OP-E  +0.13396  +0.17653  +0.09543  +0.13181  +0.96551
+
+[19/26] Operator axis specificity...
+       A: own=+0.933337 foreign=+0.202036 gap=+0.731301
+       B: own=+0.889593 foreign=+0.222471 gap=+0.667122
+       C: own=+0.943437 foreign=+0.216149 gap=+0.727288
+       D: own=+0.965377 foreign=+0.206010 gap=+0.759367
+       E: own=+0.965506 foreign=+0.134431 gap=+0.831076
+
+[20/26] Trajectory-law replication...
+       A: replicated layers=8/8 | L20,L21,L22,L23,L24,L25,L26,L27
+       B: replicated layers=6/8 | L20,L21,L22,L23,L24,L27
+       C: replicated layers=8/8 | L20,L21,L22,L23,L24,L25,L26,L27
+       D: replicated layers=8/8 | L20,L21,L22,L23,L24,L25,L26,L27
+       E: replicated layers=8/8 | L20,L21,L22,L23,L24,L25,L26,L27
+
+[21/26] Descriptive layer extremes...
+       A: max L21 +0.195788 | min L25 +0.057453
+       B: max L20 +0.176896 | min L25 -0.002579
+       C: max L20 +0.223758 | min L25 +0.053160
+       D: max L20 +0.222355 | min L25 +0.091118
+       E: max L20 +0.240150 | min L25 +0.080891
+       descriptive only; no layer selected for intervention
+
+[22/26] TEST193 decision...
+       replicated layer-axis cells=38/40
+       A axis-law replicated=True
+       B axis-law replicated=True
+       C axis-law replicated=True
+       D axis-law replicated=True
+       E axis-law replicated=True
+       DECISION: AXIS_SPECIFIC_PROMPT_GENERAL_TAIL_TRANSPORT_LAWS_SUPPORTED
+       Operator is BUILD-span predictive map, not a full 3584D Jacobian.
+
+[23/26] Saving CSV...
+       CSV ready
+
+[24/26] Saving NPZ...
+       NPZ ready
+
+[25/26] Saving report...
+       Saved: /content/TEST193_TAIL_LOCAL_OPERATOR
+
+[26/26] COMPLETE
+==========================================================================================================================================
+TEST 193 — CROSS-AXIS TAIL LOCAL TRANSPORT OPERATOR — SUMMARY
+==========================================================================================================================================
+A: replicated=8/8 own=+0.933337 foreign=+0.202036 gap=+0.731301 L20Δcos=+0.186215 L27Δcos=+0.172735
+B: replicated=6/8 own=+0.889593 foreign=+0.222471 gap=+0.667122 L20Δcos=+0.176896 L27Δcos=+0.084167
+C: replicated=8/8 own=+0.943437 foreign=+0.216149 gap=+0.727288 L20Δcos=+0.223758 L27Δcos=+0.158667
+D: replicated=8/8 own=+0.965377 foreign=+0.206010 gap=+0.759367 L20Δcos=+0.222355 L27Δcos=+0.205339
+E: replicated=8/8 own=+0.965506 foreign=+0.134431 gap=+0.831076 L20Δcos=+0.240150 L27Δcos=+0.214681
+Replicated layer-axis cells=38/40
+L20: pred=+0.952495 identity=+0.742620 Δcos=+0.209875 Δerr=+0.375553
+L21: pred=+0.947586 identity=+0.756436 Δcos=+0.191149 Δerr=+0.347932
+L22: pred=+0.942678 identity=+0.762995 Δcos=+0.179683 Δerr=+0.324787
+L23: pred=+0.941714 identity=+0.843257 Δcos=+0.098457 Δerr=+0.214750
+L24: pred=+0.937196 identity=+0.859974 Δcos=+0.077222 Δerr=+0.179088
+L25: pred=+0.930454 identity=+0.874445 Δcos=+0.056009 Δerr=+0.136426
+L26: pred=+0.932117 identity=+0.833436 Δcos=+0.098681 Δerr=+0.209051
+L27: pred=+0.931362 identity=+0.764245 Δcos=+0.167118 Δerr=+0.298464
+Operator: BUILD-span low-rank predictive map | Full 3584D Jacobian claim: False
+PCA: False | K selection: NONE | Behavior gradient: False | New vector: False | FINAL: False
+DECISION: AXIS_SPECIFIC_PROMPT_GENERAL_TAIL_TRANSPORT_LAWS_SUPPORTED
+Saved: /content/TEST193_TAIL_LOCAL_OPERATOR
+==========================================================================================================================================
