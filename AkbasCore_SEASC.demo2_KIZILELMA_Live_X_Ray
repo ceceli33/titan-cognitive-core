@@ -1,0 +1,407 @@
+# ================================================================================================
+# KIZILELMA BEHAVIORAL DOSE PROBE · AkbasCore SEASC
+# ================================================================================================
+import os,sys,io,math,time,json,csv,zipfile,hashlib,re,random,shutil,subprocess,importlib.util,textwrap
+from pathlib import Path
+for mod,pkg in [("ninja","ninja"),("matplotlib","matplotlib"),("PIL","pillow")]:
+    if importlib.util.find_spec(mod) is None:subprocess.check_call([sys.executable,"-m","pip","install","-q",pkg])
+import numpy as np,torch,transformers,matplotlib
+matplotlib.use("Agg");import matplotlib.pyplot as plt
+from matplotlib.patches import FancyBboxPatch
+from PIL import Image
+from transformers import AutoTokenizer,AutoModelForCausalLM
+from torch.utils.cpp_extension import load_inline
+T0=time.time()
+def log(s):print(f"[{time.time()-T0:7.1f}s] {s}",flush=True)
+
+os.environ["MAX_JOBS"]="2";os.environ["TOKENIZERS_PARALLELISM"]="false"
+if not torch.cuda.is_available():raise RuntimeError("CUDA GPU required (Runtime → Change runtime type → A100).")
+DEVICE=torch.device("cuda");SEED=197
+random.seed(SEED);np.random.seed(SEED);torch.manual_seed(SEED);torch.cuda.manual_seed_all(SEED)
+MODEL_ID="Qwen/Qwen2.5-7B-Instruct";STEER_LAYERS=20;TOTAL_LAYERS=28;EXP_H=3584
+IVME,SONUM,ZIRVE,TABAN=.10,.30,.70,.20;EPS=1e-10
+SYSTEM="You are a concise reasoning assistant. Answer the user's request directly."
+AX_A,AX_B="ABOVE","BELOW"
+PAIRS=[("The lamp is above the table.","The lamp is below the table."),("The bird is above the branch.","The bird is below the branch."),
+("The sign is above the doorway.","The sign is below the doorway."),("The shelf is above the cabinet.","The shelf is below the cabinet."),
+("The cloud is above the hill.","The cloud is below the hill."),("The clock is above the window.","The clock is below the window."),
+("The bridge is above the river.","The bridge is below the river."),("The picture is above the sofa.","The picture is below the sofa.")]
+SCALES=[0.25,0.50,0.75,1.00,1.25,1.50];HIGH_DOSE=[2.00];ALL_SCALES=SCALES+HIGH_DOSE;REF_SCALE=0.50
+PROBE_SCENES=["The cat is ___ the bed.","The drone is ___ the tower.","The fan is ___ the desk.","The rug is ___ the chair."]
+PROBE_TMPL="Fill in the blank with exactly one of these two words: above or below.\n{s}\nReply with only that one word."
+PROBES=[PROBE_TMPL.format(s=s) for s in PROBE_SCENES];PRIMARY=PROBES[0]
+CAND_A=["above","Above","ABOVE"];CAND_B=["below","Below","BELOW"];GEN_TOKENS=6
+CORE_SCALES=list(SCALES);MIN_NET=0.10
+DECISION_A="BIDIRECTIONAL BEHAVIORAL MOVEMENT OBSERVED UNDER THIS FIXED EXPERIMENTAL PROTOCOL"
+DECISION_B="ASYMMETRIC BEHAVIORAL MOVEMENT OBSERVED"
+DECISION_C="BIDIRECTIONAL BEHAVIORAL MOVEMENT NOT ESTABLISHED"
+RULE_TEXT=[f"net(+) = ΔB(+{max(CORE_SCALES):.2f}) and net(−) = ΔB(−{max(CORE_SCALES):.2f}), i.e. movement at the end of the core range vs Vanilla B(0).",
+f"A = net(+) > +{MIN_NET:.2f} AND net(−) < −{MIN_NET:.2f} AND ΔB(+s)>0 & ΔB(−s)<0 at a majority (> half) of the {len(CORE_SCALES)} core doses.",
+f"B = not A, but at least one direction shows net movement toward its own target beyond {MIN_NET:.2f} nats.",
+f"C = neither direction shows net movement toward its own target beyond {MIN_NET:.2f} nats. Zero never counts as a correct sign."]
+def decide(net_plus,net_minus,opp_count,n_core):
+    plus_ok=net_plus>MIN_NET;minus_ok=net_minus<-MIN_NET
+    if plus_ok and minus_ok and opp_count>n_core/2:return DECISION_A
+    if plus_ok or minus_ok:return DECISION_B
+    return DECISION_C
+OUT=Path("/content/KIZILELMA_Behavioral_Dose_Probe");shutil.rmtree(OUT,ignore_errors=True);OUT.mkdir(parents=True)
+F_REP,F_CSV,F_JSON="KIZILELMA_Behavioral_Dose_Report.txt","KIZILELMA_Behavioral_Dose_Results.csv","KIZILELMA_Behavioral_Dose_Results.json"
+F_OV,F_DB,F_ST,F_CF="KIZILELMA_Behavioral_Dose_Overview.jpg","KIZILELMA_Dose_Behavior_XRay.jpg","KIZILELMA_Silent_Tail_XRay.jpg","KIZILELMA_Compass_Fingerprint.jpg"
+F_ZIP="KIZILELMA_Behavioral_Dose_Probe_Results.zip";F_BI="KIZILELMA_Bidirectional_Dose_Response.csv"
+
+def env(L):
+    x=ZIRVE*math.exp(-SONUM*L)*(1+SONUM*L)+TABAN
+    return x/(ZIRVE+TABAN)
+RHO=np.asarray([IVME*env(L) for L in range(STEER_LAYERS)],dtype=np.float64)
+RSS=float(np.sqrt(np.sum(RHO**2)))
+def norm(x):return x/x.norm(dim=-1,keepdim=True).clamp_min(EPS)
+print("="*100);print("AKBASCORE SEASC — KIZILELMA BEHAVIORAL DOSE PROBE");print("="*100)
+log(f"GPU: {torch.cuda.get_device_name(0)} | SEASC RSS={RSS:.9f}")
+
+BUILD_DIR="/tmp/akbascore_kizilelma_probe"
+shutil.rmtree(BUILD_DIR,ignore_errors=True);os.makedirs(BUILD_DIR,exist_ok=True)
+CPP=r"""
+#include <torch/extension.h>
+torch::Tensor seasc_batch_cuda(torch::Tensor h,torch::Tensor a,torch::Tensor d);
+torch::Tensor seasc_batch(torch::Tensor h,torch::Tensor a,torch::Tensor d){
+TORCH_CHECK(h.is_cuda()&&a.is_cuda()&&d.is_cuda(),"CUDA required");
+return seasc_batch_cuda(h,a,d);}
+PYBIND11_MODULE(TORCH_EXTENSION_NAME,m){m.def("seasc_batch",&seasc_batch);}
+"""
+CUDA=r"""
+#include <torch/extension.h>
+#include <ATen/cuda/CUDAContext.h>
+#include <c10/cuda/CUDAException.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
+template<typename scalar_t>
+__global__ void k(scalar_t* h,const float* a,const float* d,int B,int S,int H){
+int v=blockIdx.x,b=v/S;if(b>=B)return;extern __shared__ float sh[];
+long long hb=(long long)v*H,ab=(long long)b*H;float ss=0.f;
+for(int j=threadIdx.x;j<H;j+=blockDim.x){float x=(float)h[hb+j];ss+=x*x;}
+sh[threadIdx.x]=ss;__syncthreads();
+for(unsigned s=blockDim.x/2;s;s>>=1){if(threadIdx.x<s)sh[threadIdx.x]+=sh[threadIdx.x+s];__syncthreads();}
+float z=d[b]*sqrtf(fmaxf(sh[0],1e-20f));
+for(int j=threadIdx.x;j<H;j+=blockDim.x)h[hb+j]=(scalar_t)((float)h[hb+j]+z*a[ab+j]);}
+torch::Tensor seasc_batch_cuda(torch::Tensor h,torch::Tensor a,torch::Tensor d){
+auto o=h.contiguous().clone();auto aa=a.to(h.device(),torch::kFloat32).contiguous();
+auto dd=d.to(h.device(),torch::kFloat32).contiguous();int B=o.size(0),S=o.size(1),H=o.size(2);constexpr int T=256;
+cudaStream_t stream=at::cuda::getCurrentCUDAStream();
+AT_DISPATCH_FLOATING_TYPES_AND2(at::ScalarType::Half,at::ScalarType::BFloat16,o.scalar_type(),"seasc",[&]{
+k<scalar_t><<<B*S,T,T*sizeof(float),stream>>>(o.data_ptr<scalar_t>(),aa.data_ptr<float>(),dd.data_ptr<float>(),B,S,H);});
+C10_CUDA_KERNEL_LAUNCH_CHECK();return o;}
+"""
+log("Compiling CUDA engine...")
+seasc_ext=load_inline(name="akbascore_kizilelma_probe_cuda",cpp_sources=CPP,cuda_sources=CUDA,functions=None,
+extra_cflags=["-O3","-std=c++17"],extra_cuda_cflags=["-O3","--use_fast_math"],with_cuda=True,build_directory=BUILD_DIR,verbose=False)
+log("CUDA: OK · loading Qwen2.5-7B-Instruct...")
+_tv=tuple(int("".join(c for c in x if c.isdigit()) or 0) for x in transformers.__version__.split(".")[:2])
+DT_KW="dtype" if _tv>=(4,56) else "torch_dtype"
+tok=AutoTokenizer.from_pretrained(MODEL_ID)
+if tok.pad_token_id is None:tok.pad_token=tok.eos_token
+model=AutoModelForCausalLM.from_pretrained(MODEL_ID,device_map={"":0},attn_implementation="sdpa",**{DT_KW:torch.bfloat16})
+model.eval()
+for p in model.parameters():p.requires_grad_(False)
+layers=model.model.layers;H=model.config.hidden_size;PDT=next(model.parameters()).dtype;ARCH=type(model).__name__
+if len(layers)!=TOTAL_LAYERS:raise RuntimeError(f"Expected {TOTAL_LAYERS} layers, got {len(layers)}")
+if H!=EXP_H:raise RuntimeError(f"Expected hidden size {EXP_H}, got {H}")
+if PDT!=torch.bfloat16:raise RuntimeError(f"Expected bfloat16 weights, got {PDT}")
+if ARCH!="Qwen2ForCausalLM":raise RuntimeError(f"Expected Qwen2ForCausalLM, got {ARCH}")
+log(f"Model: OK | {ARCH} | layers={len(layers)} | hidden={H} | dtype={PDT} | attn=sdpa")
+FP_T=[layers[0].self_attn.q_proj.weight,layers[STEER_LAYERS-1].mlp.down_proj.weight,layers[-1].mlp.down_proj.weight,model.model.norm.weight]
+@torch.inference_mode()
+def weight_fp():return [float(t.sum(dtype=torch.float32)) for t in FP_T]
+FP0=weight_fp()
+def chat(x):return tok.apply_chat_template([{"role":"system","content":SYSTEM},{"role":"user","content":x}],tokenize=False,add_generation_prompt=True)
+
+@torch.inference_mode()
+def capture20(text):
+    e=tok(chat(text),return_tensors="pt").to(DEVICE);o=model(**e,output_hidden_states=True,use_cache=False,return_dict=True)
+    p=int(e.attention_mask[0].sum())-1;r=torch.stack([o.hidden_states[L+1][0,p].float().detach() for L in range(STEER_LAYERS)]);del o;return r
+def build_compass(A,B):
+    HA=torch.stack([capture20(x) for x in A]);HB=torch.stack([capture20(x) for x in B]);raw=HA.mean(0)-HB.mean(0);return norm(raw).contiguous(),raw
+
+def seasc_hooks(compass,sign,scale,telemetry=None,counter=None):
+    def mk(li):
+        def hk(m,args,out):
+            raw=out[0] if isinstance(out,tuple) else out;B=raw.shape[0]
+            a=(float(sign)*compass[li][None].expand(B,-1)).float().contiguous();dose=float(RHO[li])*float(scale)
+            d=torch.full((B,),dose,device=raw.device,dtype=torch.float32)
+            if telemetry is not None and li not in telemetry:
+                hn=float(raw[0,-1].float().norm());telemetry[li]={"hidden_norm":hn,"rho":float(RHO[li]),"scale":float(scale),"effective_dose":dose,"injection_norm":hn*dose}
+            if counter is not None:counter[li]=counter.get(li,0)+1
+            new=seasc_ext.seasc_batch(raw,a,d);return new if not isinstance(out,tuple) else (new,)+tuple(out[1:])
+        return hk
+    hooks=[]
+    try:
+        for L in range(STEER_LAYERS):hooks.append(layers[L].register_forward_hook(mk(L)))
+    except Exception:
+        for h in hooks:h.remove()
+        raise
+    return hooks
+
+@torch.inference_mode()
+def xray_prompt(prompt,compass,sign,scale,counter=None):
+    e=tok(chat(prompt),return_tensors="pt").to(DEVICE);pos=int(e.attention_mask[0].sum())-1
+    def cap(store):
+        def mk(li):
+            def hk(m,args,out):
+                h=out[0] if isinstance(out,tuple) else out;store[li]=h[0,pos].float().detach().clone()
+            return hk
+        return [layers[L].register_forward_hook(mk(L)) for L in range(TOTAL_LAYERS)]
+    vanilla,steered,telemetry={},{},{};hooks=[]
+    try:hooks+=cap(vanilla);model(**e,use_cache=False,return_dict=True)
+    finally:
+        for h in hooks:h.remove()
+    hooks=[]
+    try:hooks+=seasc_hooks(compass,sign,scale,telemetry,counter);hooks+=cap(steered);model(**e,use_cache=False,return_dict=True)
+    finally:
+        for h in hooks:h.remove()
+    return telemetry,[float((steered[L]-vanilla[L]).norm()/vanilla[L].norm().clamp_min(EPS)) for L in range(TOTAL_LAYERS)]
+
+@torch.inference_mode()
+def generate_text(prompt,compass=None,sign=1,scale=0.,max_new=GEN_TOKENS,counter=None):
+    e=tok(chat(prompt),return_tensors="pt").to(DEVICE);n=e.input_ids.shape[1];hooks=[]
+    try:
+        if compass is not None and scale>0:hooks=seasc_hooks(compass,sign,scale,counter=counter)
+        out=model.generate(**e,max_new_tokens=int(max_new),do_sample=False,temperature=None,top_p=None,top_k=None,use_cache=True,pad_token_id=tok.pad_token_id,eos_token_id=tok.eos_token_id)
+    finally:
+        for h in hooks:h.remove()
+    return tok.decode(out[0,n:],skip_special_tokens=True).strip()
+
+AUDIT={}
+@torch.inference_mode()
+def cand_logprob(prompt_text,cand,key=None):
+    enc=tok(prompt_text+cand,add_special_tokens=False,return_offsets_mapping=True);ids,offs,P=enc["input_ids"],enc["offset_mapping"],len(prompt_text)
+    b=next(i for i,(st,en) in enumerate(offs) if en>P)
+    if b<1:raise RuntimeError("Candidate boundary at position 0")
+    x=torch.tensor([ids],device=DEVICE);am=torch.ones_like(x);logits=model(input_ids=x,attention_mask=am,use_cache=False).logits[0].float()
+    lp=torch.log_softmax(logits[b-1:len(ids)-1],-1);val=float(lp.gather(1,x[0,b:][:,None]).sum())
+    if key is not None and key not in AUDIT:
+        pref=tok(prompt_text,add_special_tokens=False).input_ids
+        AUDIT[key]={"candidate":cand,"continuation_tokens":[tok.decode([t]) for t in ids[b:]],"n_continuation_tokens":len(ids)-b,"boundary_token_index":b,"boundary_straddles_prompt":bool(offs[b][0]<P),"prompt_prefix_tokens_identical":ids[:b]==pref}
+    return val
+def lse(v):m=max(v);return m+math.log(sum(math.exp(x-m) for x in v))
+@torch.inference_mode()
+def behavior(compass,sign,scale,counter=None):
+    hooks=[]
+    try:
+        if compass is not None and scale>0:hooks=seasc_hooks(compass,sign,scale,counter=counter)
+        per=[]
+        for i,p in enumerate(PROBES):
+            pt=chat(p);la=lse([cand_logprob(pt,c,(i,c)) for c in CAND_A]);lb=lse([cand_logprob(pt,c,(i,c)) for c in CAND_B]);per.append(la-lb)
+    finally:
+        for h in hooks:h.remove()
+    pa=[1/(1+math.exp(-x)) for x in per];return float(np.mean(per)),float(np.mean(pa)),per
+def label_of(txt):
+    t=txt.lower();a=bool(re.search(r"\babove\b",t));b=bool(re.search(r"\bbelow\b",t))
+    return "ABOVE" if a and not b else "BELOW" if b and not a else "BOTH" if a and b else "OTHER"
+
+log("Contrast Forge: 8 verified ABOVE/BELOW pairs → 20 layer-local compasses...")
+COMPASS,RAW=build_compass([x[0] for x in PAIRS],[x[1] for x in PAIRS]);COMPASS=COMPASS.detach().clone();COMPASS.requires_grad_(False)
+CHECKSUM=hashlib.sha256(COMPASS.cpu().numpy().astype(np.float32).tobytes()).hexdigest()
+base_hooks=[len(layers[L]._forward_hooks) for L in range(TOTAL_LAYERS)];_h=seasc_hooks(COMPASS,1,0.0)
+try:live_hooks=[len(layers[L]._forward_hooks) for L in range(TOTAL_LAYERS)]
+finally:
+    for h in _h:h.remove()
+seasc_per_layer=[live_hooks[L]-base_hooks[L] for L in range(TOTAL_LAYERS)]
+TOPOLOGY_OK=all(seasc_per_layer[L]==1 for L in range(STEER_LAYERS)) and all(seasc_per_layer[L]==0 for L in range(STEER_LAYERS,TOTAL_LAYERS))
+
+ROWS=[]
+def record(direction,sign,scale):
+    calls={}
+    if scale==0:tele,disp={},[0.0]*TOTAL_LAYERS;score,pa,per=behavior(None,1,0.);g=generate_text(PRIMARY)
+    else:tele,disp=xray_prompt(PRIMARY,COMPASS,sign,scale,counter=calls);score,pa,per=behavior(COMPASS,sign,scale,counter=calls);g=generate_text(PRIMARY,COMPASS,sign,scale,counter=calls)
+    inj=[tele[L]["injection_norm"] for L in range(STEER_LAYERS)] if tele else [0.0]*STEER_LAYERS
+    act=[calls.get(L,0) for L in range(STEER_LAYERS)];tail=[calls.get(L,0) for L in range(STEER_LAYERS,TOTAL_LAYERS)]
+    r={"direction":direction,"sign":sign,"scale":scale,"high_dose_exploratory":scale in HIGH_DOSE,"effective_rss":RSS*scale,"dose_L0":float(RHO[0])*scale,"dose_L19":float(RHO[-1])*scale,
+    "mean_injection_norm":float(np.mean(inj)),"max_injection_norm":float(np.max(inj)),"behavior_score":score,"p_above_two_way":pa,"probe_scores":per,"greedy":g,"greedy_label":label_of(g),
+    "L19_disp":disp[19],"L27_disp":disp[-1],"trajectory":disp,"hook_calls_L0_L19":sum(act),"hook_calls_min_per_active_layer":min(act),"hook_calls_L20_L27":sum(tail)}
+    ROWS.append(r);log(f"{direction:<7} scale {scale:4.2f} | score {score:+8.3f} | L19 {disp[19]*100:5.1f}% L27 {disp[-1]*100:5.1f}% | {g!r}");return r
+VAN=record("VANILLA",0,0.0)
+for d,sg in ((AX_A,1),(AX_B,-1)):
+    for s in ALL_SCALES:record(d,sg,s)
+for r in ROWS:r["changed_vs_vanilla"]=r["greedy"]!=VAN["greedy"]
+FP1=weight_fp();WEIGHTS_OK=FP1==FP0;TAIL_ZERO=all(r["hook_calls_L20_L27"]==0 for r in ROWS);ACTIVE_OK=all(r["hook_calls_min_per_active_layer"]>0 for r in ROWS if r["scale"]>0)
+def seq_for(d):return [VAN]+sorted([r for r in ROWS if r["direction"]==d],key=lambda r:r["scale"])
+def pct(x):return f"{x*100:.1f}%"
+
+FIND=[];CROSS={}
+for d,sg in ((AX_A,1),(AX_B,-1)):
+    sq=seq_for(d);pf=[r["behavior_score"] for r in sq];sc=[r["scale"] for r in sq]
+    diffs=[(pf[i+1]-pf[i])*sg for i in range(len(pf)-1)];net=(pf[-1]-pf[0])*sg
+    core=[r for r in sq if r["scale"]<=max(SCALES)];net_core=(core[-1]["behavior_score"]-pf[0])*sg
+    if all(x>0 for x in diffs):FIND.append(f"[{d}] Behavioral preference moved monotonically toward {d} across all tested doses.")
+    elif net>0:FIND.append(f"[{d}] Net movement toward {d}, but not monotonically.")
+    elif net<0:FIND.append(f"[{d}] Behavioral preference moved away from {d}.")
+    else:FIND.append(f"[{d}] Behavioral preference did not change.")
+    cr=[(sc[i],sc[i+1]) for i in range(len(pf)-1) if pf[i]!=0 and pf[i+1]!=0 and (pf[i]>0)!=(pf[i+1]>0)];CROSS[d]=cr
+    FIND.append(f"[{d}] Core-range net behavioral change toward {d}: {net_core:+.3f} nats.")
+
+B0=VAN["behavior_score"];BIDI=[]
+for s_ in ALL_SCALES:
+    rp=[r for r in ROWS if r["direction"]==AX_A and r["scale"]==s_][0];rm=[r for r in ROWS if r["direction"]==AX_B and r["scale"]==s_][0]
+    dp=rp["behavior_score"]-B0;dm=rm["behavior_score"]-B0
+    BIDI.append({"scale":s_,"behavior_plus":rp["behavior_score"],"behavior_minus":rm["behavior_score"],"delta_plus":dp,"delta_minus":dm,"opposite_signs":bool(dp>0 and dm<0),"greedy_plus":rp["greedy"],"greedy_minus":rm["greedy"],"high_dose_exploratory":s_ in HIGH_DOSE})
+CORE_BI=[b for b in BIDI if b["scale"] in CORE_SCALES];OPP=sum(b["opposite_signs"] for b in CORE_BI)
+END=[b for b in BIDI if b["scale"]==max(CORE_SCALES)][0];NET_PLUS,NET_MINUS=END["delta_plus"],END["delta_minus"];FINAL=decide(NET_PLUS,NET_MINUS,OPP,len(CORE_BI))
+FIND.insert(0,f"[FINAL DECISION] {FINAL}")
+
+def row_line(r):
+    g=r["greedy"].replace("\n"," ");g=(g[:22]+"…") if len(g)>23 else g
+    return f"{r['direction']:<8}| {r['scale']:4.2f} | {r['behavior_score']:+8.3f} | {r['p_above_two_way']:6.3f} | {g:<23} | {r['L19_disp']*100:5.1f}% | {r['L27_disp']*100:5.1f}%"
+REPORT="\n".join(["="*100,"AKBASCORE SEASC — KIZILELMA BEHAVIORAL DOSE PROBE",f"MODEL: {MODEL_ID}",f"COMPASS: {AX_A} ↔ {AX_B} · 20 × {H}",f"CHECKSUM: {CHECKSUM}",
+f"WEIGHTS MODIFIED: {'NO' if WEIGHTS_OK else 'YES'}",f"MOTOR OFF L20–L27: {'VERIFIED' if TAIL_ZERO else 'FAILED'}","",*[row_line(r) for r in [VAN]+seq_for(AX_A)[1:]+seq_for(AX_B)[1:]],"",
+"FINAL DETERMINISTIC DECISION:",FINAL,"",*FIND])
+
+plt.rcParams["font.family"]="DejaVu Sans"
+C_A,C_AT,C_B,C_BT,C_ON,C_OFF,C_FG,C_NEU="#0072B2","#0369A1","#E69F00","#B45309","#047857","#6D28D9","#0F172A","#334155"
+
+# EXACT LIVE X-RAY JPEG PIPELINE
+def save_jpg(fig,path):
+    buf=io.BytesIO();fig.savefig(buf,format="png",dpi=fig.dpi,facecolor="white");plt.close(fig);buf.seek(0)
+    with Image.open(buf) as im:
+        im=im.convert("RGBA");bg=Image.new("RGB",im.size,(255,255,255));bg.paste(im,mask=im.getchannel("A"))
+    bg.save(path,"JPEG",quality=92,optimize=True,progressive=False,subsampling=0)
+    with Image.open(path) as chk:
+        if chk.format!="JPEG" or chk.mode!="RGB":raise RuntimeError("JPEG validation failed")
+    return str(path)
+
+def T(fig,x,y,s,**k):k.setdefault("color",C_FG);return fig.text(x,y,str(s).replace("$",r"\$"),**k)
+
+def draw_timeline(ax):
+    ax.set_xlim(-.6,28.4);ax.set_ylim(0,1.7);ax.axis("off")
+    for L in range(TOTAL_LAYERS):
+        x=L+(.8 if L>=STEER_LAYERS else 0);c=C_ON if L<STEER_LAYERS else C_OFF
+        ax.add_patch(plt.Rectangle((x-.42,0),.84,1,facecolor=c,edgecolor="white",lw=1))
+        ax.text(x,.5,f"L{L}",ha="center",va="center",color="white",fontsize=9,weight="bold")
+    ax.plot([19.9,19.9],[-.08,1.35],color=C_FG,lw=3.5,clip_on=False)
+    ax.text(19.9,1.42,"ENGINE STOPS HERE",ha="center",va="bottom",fontsize=12,weight="bold",color=C_FG)
+
+def draw_disp(ax,trajs):
+    xs=np.arange(TOTAL_LAYERS);top=max(max(max(t) for t,_,_ in trajs)*100*1.3,1.0)
+    ax.axvspan(-.5,19.5,color=C_ON,alpha=.10,lw=0);ax.axvspan(19.5,27.5,color=C_OFF,alpha=.13,lw=0)
+    for t,c,lab in trajs:ax.plot(xs,np.asarray(t)*100,"-o",color=c,lw=2.5,ms=5,label=lab)
+    ax.axvline(19.5,color=C_FG,lw=2.5,ls="--");ax.set_ylim(0,top);ax.set_xlim(-.5,27.5)
+    ax.text(9.5,top*.94,"SEASC ACTIVE — injection in every layer",ha="center",va="top",color=C_ON,fontsize=12,weight="bold")
+    ax.text(23.5,top*.94,"NO INJECTION\n(downstream effect only)",ha="center",va="top",color=C_OFF,fontsize=12,weight="bold")
+    ax.set_xticks(xs);ax.set_xticklabels([f"L{x}" for x in xs],fontsize=9);ax.set_ylabel("Moved vs Vanilla (%)",fontsize=11);ax.grid(alpha=.25);ax.legend(fontsize=10)
+    for s in ("top","right"):ax.spines[s].set_visible(False)
+
+rA=[x for x in ROWS if x["direction"]==AX_A and x["scale"]==REF_SCALE][0]
+rB=[x for x in ROWS if x["direction"]==AX_B and x["scale"]==REF_SCALE][0]
+
+# OVERVIEW JPEG
+fig=plt.figure(figsize=(16,10),dpi=120,facecolor="white")
+T(fig,.05,.962,"KIZILELMA BEHAVIORAL DOSE PROBE",fontsize=30,weight="bold",va="center")
+T(fig,.05,.924,"AkbasCore SEASC   |   See the intervention, not just the output.   |   Qwen2.5-7B-Instruct",fontsize=13,va="center",color=C_NEU)
+w=.15;g=(.90-5*w)/4
+for i,(s,c) in enumerate([("EXTRACT",C_A),("BUILD",C_A),("INJECT",C_ON),("STOP",C_FG),("OBSERVE",C_OFF)]):
+    x=.05+i*(w+g);fig.add_artist(FancyBboxPatch((x,.855),w,.038,boxstyle="round,pad=0,rounding_size=0.012",transform=fig.transFigure,facecolor=c,edgecolor="none"))
+    T(fig,x+w/2,.874,s,ha="center",va="center",fontsize=14,weight="bold",color="white")
+    if i<4:T(fig,x+w+g/2,.874,"→",ha="center",va="center",fontsize=18,weight="bold")
+T(fig,.215,.815,"COMPASS",ha="center",va="center",fontsize=11,weight="bold",color=C_NEU)
+T(fig,.200,.785,AX_A,ha="right",va="center",fontsize=22,weight="bold",color=C_AT);T(fig,.215,.785,"↔",ha="center",va="center",fontsize=22,weight="bold")
+T(fig,.230,.785,AX_B,ha="left",va="center",fontsize=22,weight="bold",color=C_BT)
+mat=COMPASS.cpu().numpy();c=float(np.percentile(np.abs(mat),99)) or 1e-6
+axh=fig.add_axes([.385,.735,.25,.065]);axh.imshow(mat,aspect="auto",cmap="RdBu_r",vmin=-c,vmax=c);axh.set_xticks([]);axh.set_yticks([])
+T(fig,.648,.772,"20 layers × 3,584 values",fontsize=11,weight="bold",va="center")
+T(fig,.648,.750,f"sha256 {CHECKSUM[:24]}…",fontsize=10.5,family="DejaVu Sans Mono",va="center")
+draw_timeline(fig.add_axes([.05,.595,.90,.085]))
+T(fig,.05,.575,"● SEASC ACTIVE — INJECTION ON  (L0–L19)",fontsize=13,weight="bold",color=C_ON,va="center")
+T(fig,.95,.575,"■ ENGINE OFF — NO INJECTION  (L20–L27)",fontsize=13,weight="bold",color=C_OFF,va="center",ha="right")
+draw_disp(fig.add_axes([.07,.33,.88,.20]),[(rA["trajectory"],C_A,f"toward {AX_A} @ {REF_SCALE:.2f}"),(rB["trajectory"],C_B,f"toward {AX_B} @ {REF_SCALE:.2f}")])
+T(fig,.05,.285,f"Vanilla B(0): {B0:+.3f} nats",fontsize=13,weight="bold",va="center")
+T(fig,.05,.25,f"ΔB(+{max(CORE_SCALES):.2f}) = {NET_PLUS:+.3f} nats",fontsize=14,weight="bold",color=C_AT,va="center")
+T(fig,.05,.215,f"ΔB(−{max(CORE_SCALES):.2f}) = {NET_MINUS:+.3f} nats",fontsize=14,weight="bold",color=C_BT,va="center")
+T(fig,.05,.17,f"Opposite-sign core doses: {OPP}/{len(CORE_BI)}",fontsize=12,va="center")
+fig.add_artist(FancyBboxPatch((.38,.105),.57,.16,boxstyle="round,pad=0,rounding_size=0.012",transform=fig.transFigure,facecolor="#F8FAFC",edgecolor=C_FG,lw=2,zorder=-1))
+T(fig,.665,.225,"FINAL MEASURED RESULT",fontsize=12,weight="bold",ha="center",va="center",color=C_NEU)
+T(fig,.665,.175,"\n".join(textwrap.wrap(FINAL,55)),fontsize=16,weight="bold",ha="center",va="center",color=C_ON if FINAL==DECISION_A else C_BT,linespacing=1.2)
+T(fig,.5,.045,f"Weights changed: {'NO' if WEIGHTS_OK else 'YES'}   Fine-tuning: NO   LoRA: NO   External vector: NO   |   Injection L0–L19 only   |   L20–L27 observation only",fontsize=12.5,weight="bold",ha="center",va="center")
+save_jpg(fig,OUT/F_OV)
+
+# DOSE → BEHAVIOR JPEG
+fig=plt.figure(figsize=(16,10),dpi=120,facecolor="white")
+T(fig,.05,.962,"KIZILELMA — DOSE → BEHAVIOR X-RAY",fontsize=28,weight="bold",va="center")
+T(fig,.05,.925,"Same frozen Compass · sign +1 / −1 · physical dose sweep · controlled behavioral readout",fontsize=13,va="center",color=C_NEU)
+ax=fig.add_axes([.08,.49,.84,.36]);xs=[0.0]+ALL_SCALES
+for d,c2,lab in ((AX_A,C_A,"+Compass → ABOVE"),(AX_B,C_B,"−Compass → BELOW")):
+    sq=seq_for(d);ax.plot([r["scale"] for r in sq],[r["behavior_score"] for r in sq],"-o",color=c2,lw=3,ms=7,label=lab)
+ax.axhline(0,color=C_FG,lw=2);ax.axhline(B0,color=C_NEU,lw=1.5,ls=":")
+ax.axvspan(max(SCALES)+.125,max(ALL_SCALES)+.12,color="#94A3B8",alpha=.18,lw=0)
+ax.set_xticks(xs);ax.set_xlim(-.08,max(ALL_SCALES)+.12);ax.set_ylabel("B = log P(ABOVE) − log P(BELOW) (nats)",fontsize=12);ax.set_xlabel("Global scale",fontsize=12)
+ax.grid(alpha=.25);ax.legend(fontsize=11)
+for s in ("top","right"):ax.spines[s].set_visible(False)
+T(fig,.08,.425,"scale      ΔB(+s)      ΔB(−s)      opposite signs",fontsize=12,family="DejaVu Sans Mono",weight="bold",va="center")
+for j,b in enumerate(BIDI):
+    T(fig,.08,.39-j*.034,f"{b['scale']:4.2f}{'*' if b['high_dose_exploratory'] else ' '}      {b['delta_plus']:+8.3f}      {b['delta_minus']:+8.3f}      {'YES' if b['opposite_signs'] else 'NO'}",
+      fontsize=12,family="DejaVu Sans Mono",va="center",color=C_ON if b["opposite_signs"] else C_FG)
+T(fig,.55,.425,"GREEDY OUTPUT",fontsize=12,weight="bold",va="center")
+T(fig,.55,.39,f"Vanilla: {VAN['greedy']}",fontsize=12,va="center")
+T(fig,.55,.355,f"ABOVE @ {max(CORE_SCALES):.2f}: {[r for r in ROWS if r['direction']==AX_A and r['scale']==max(CORE_SCALES)][0]['greedy']}",fontsize=12,va="center")
+T(fig,.55,.32,f"BELOW @ {max(CORE_SCALES):.2f}: {[r for r in ROWS if r['direction']==AX_B and r['scale']==max(CORE_SCALES)][0]['greedy']}",fontsize=12,va="center")
+fig.add_artist(FancyBboxPatch((.05,.07),.90,.16,boxstyle="round,pad=0,rounding_size=0.012",transform=fig.transFigure,facecolor="#F8FAFC",edgecolor=C_FG,lw=2,zorder=-1))
+T(fig,.5,.19,"FINAL MEASURED RESULT",fontsize=12,weight="bold",ha="center",va="center",color=C_NEU)
+T(fig,.5,.14,"\n".join(textwrap.wrap(FINAL,75)),fontsize=17,weight="bold",ha="center",va="center",color=C_ON if FINAL==DECISION_A else C_BT)
+T(fig,.5,.035,"* 2.00 = HIGH-DOSE EXPLORATORY · excluded from deterministic decision",fontsize=11,ha="center",va="center")
+save_jpg(fig,OUT/F_DB)
+
+# SILENT TAIL JPEG
+fig=plt.figure(figsize=(16,9),dpi=120,facecolor="white")
+T(fig,.05,.955,"KIZILELMA — INTERVENTION → SILENT TAIL X-RAY",fontsize=26,weight="bold",va="center")
+T(fig,.05,.915,f"Reference scale {REF_SCALE:.2f} · intervention ends after L19 · L20–L27 receive no SEASC injection",fontsize=13,va="center",color=C_NEU)
+draw_timeline(fig.add_axes([.05,.79,.90,.08]))
+draw_disp(fig.add_axes([.07,.24,.88,.46]),[(rA["trajectory"],C_A,f"toward {AX_A}"),(rB["trajectory"],C_B,f"toward {AX_B}")])
+T(fig,.05,.15,f"{AX_A}: L19 {pct(rA['L19_disp'])} → L27 {pct(rA['L27_disp'])}     |     {AX_B}: L19 {pct(rB['L19_disp'])} → L27 {pct(rB['L27_disp'])}",fontsize=14,weight="bold",va="center")
+T(fig,.05,.095,f"SEASC hook calls in L20–L27: {rA['hook_calls_L20_L27']+rB['hook_calls_L20_L27']}",fontsize=12,va="center")
+T(fig,.05,.045,"No external vector · No LoRA · No fine-tuning · No weight modification",fontsize=12,weight="bold",va="center")
+save_jpg(fig,OUT/F_ST)
+
+# COMPASS FINGERPRINT JPEG
+fig=plt.figure(figsize=(16,8),dpi=120,facecolor="white")
+T(fig,.05,.95,f"KIZILELMA — 20 × {H} COMPASS FINGERPRINT",fontsize=26,weight="bold",va="center")
+T(fig,.05,.905,f"{AX_A} ↔ {AX_B} · real model-endogenous values from this run · sha256 {CHECKSUM[:24]}…",fontsize=13,weight="bold",va="center",color=C_AT)
+ax=fig.add_axes([.07,.16,.82,.68]);im=ax.imshow(mat,aspect="auto",cmap="RdBu_r",vmin=-c,vmax=c)
+ax.set_yticks(range(STEER_LAYERS));ax.set_yticklabels([f"L{x:02d}" for x in range(STEER_LAYERS)],fontsize=9);ax.set_xlabel(f"Compass dimension (0 … {H-1})",fontsize=12)
+fig.colorbar(im,cax=fig.add_axes([.905,.16,.014,.68]))
+T(fig,.05,.06,"A_L = normalize(mean h_L(ABOVE) − mean h_L(BELOW)) · one independent layer-local direction for every steered layer L0–L19",fontsize=11.5,va="center")
+save_jpg(fig,OUT/F_CF)
+
+(OUT/F_REP).write_text(REPORT,encoding="utf-8")
+cols=["direction","sign","scale","high_dose_exploratory","effective_rss","dose_L0","dose_L19","mean_injection_norm","max_injection_norm","behavior_score","p_above_two_way"]+[f"probe{i+1}_score" for i in range(len(PROBES))]+["greedy","greedy_label","changed_vs_vanilla","L19_disp","L27_disp","hook_calls_L0_L19","hook_calls_min_per_active_layer","hook_calls_L20_L27"]+[f"disp_L{L}" for L in range(TOTAL_LAYERS)]
+with open(OUT/F_CSV,"w",newline="",encoding="utf-8") as f:
+    w=csv.writer(f);w.writerow(cols)
+    for r in [VAN]+seq_for(AX_A)[1:]+seq_for(AX_B)[1:]:
+        w.writerow([r[k] for k in cols[:11]]+r["probe_scores"]+[r[k] for k in ["greedy","greedy_label","changed_vs_vanilla","L19_disp","L27_disp","hook_calls_L0_L19","hook_calls_min_per_active_layer","hook_calls_L20_L27"]]+r["trajectory"])
+with open(OUT/F_BI,"w",newline="",encoding="utf-8") as f:
+    w=csv.writer(f);bcols=["scale","behavior_plus","behavior_minus","delta_plus","delta_minus","opposite_signs","greedy_plus","greedy_minus","high_dose_exploratory"];w.writerow(bcols)
+    for bb in BIDI:w.writerow([bb[k] for k in bcols])
+J={"experiment":"KIZILELMA Behavioral Dose Probe","engine":"AkbasCore SEASC","model":MODEL_ID,"architecture":ARCH,"layers":TOTAL_LAYERS,"hidden":H,"dtype":"bfloat16","attention":"sdpa",
+"envelope":{"IVME":IVME,"SONUM":SONUM,"ZIRVE":ZIRVE,"TABAN":TABAN,"rho":RHO.tolist(),"rss":RSS},
+"compass":{"axis":[AX_A,AX_B],"pairs":PAIRS,"shape":list(COMPASS.shape),"sha256":CHECKSUM,"norms":COMPASS.norm(dim=-1).tolist()},
+"integrity":{"weight_sentinel_before":FP0,"weight_sentinel_after":FP1,"weights_unchanged":WEIGHTS_OK,"hook_topology_ok":TOPOLOGY_OK,"tail_calls_zero_all_conditions":TAIL_ZERO},
+"results":ROWS,"bidirectional_analysis":{"vanilla_behavior_score":B0,"per_scale":BIDI,"positive_direction_net":NET_PLUS,"negative_direction_net":NET_MINUS,"final_decision":FINAL}}
+(OUT/F_JSON).write_text(json.dumps(J,indent=2,ensure_ascii=False),encoding="utf-8")
+
+with zipfile.ZipFile(OUT/F_ZIP,"w",zipfile.ZIP_DEFLATED) as z:
+    for fn in [F_REP,F_CSV,F_BI,F_JSON,F_OV,F_DB,F_ST,F_CF]:z.write(OUT/fn,arcname=fn)
+
+print(REPORT)
+try:
+    from IPython.display import display,Image as IPImage
+    for fn in [F_OV,F_DB,F_ST,F_CF]:display(IPImage(filename=str(OUT/fn),width=1100))
+except Exception as e:print("Figure display skipped:",e)
+
+print("\nFINAL DETERMINISTIC DECISION:",FINAL)
+print("\nJPEG FILES")
+for fn in [F_OV,F_DB,F_ST,F_CF]:print(" ",OUT/fn)
+
+try:
+    from google.colab import files
+    print("\nDownloading JPEGs...")
+    for fn in [F_OV,F_DB,F_ST,F_CF]:files.download(str(OUT/fn))
+    print("Downloading complete results ZIP...")
+    files.download(str(OUT/F_ZIP))
+except Exception:
+    print("Files:",OUT)
