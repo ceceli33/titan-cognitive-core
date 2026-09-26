@@ -1,0 +1,259 @@
+ ==========================================================================================================================================
+TEST 188 — BEHAVIOR-SENSITIVE L27 TRANSPORT VECTOR FORGE — FIXED
+CAUSE↔EFFECT — Δ27 TRANSPORT SUBSPACE × LOCAL L27 BEHAVIOR GRADIENT (LEAF-REPLACEMENT PRE-HOOK)
+==========================================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+SEASC RSS=0.250235055 | scale=0.5
+
+[1/30] CUDA...
+       OK
+
+[2/30] Model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 78.1kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 838kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 86.5MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 69.1MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 126MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.03MB/s]Download complete: :  13.1GB,  124MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  526MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.59s/it]Loading weights: 100% 339/339 [00:03<00:00, 97.70it/s]generation_config.json: 100% 243/243 [00:00<00:00, 37.2kB/s]       hidden: 3584 dtype: torch.bfloat16 layers: 28
+
+[3/30] Frozen E axis...
+
+[4/30] Fisher/Bank...
+       01/16
+       02/16
+       03/16
+       04/16
+       05/16
+       06/16
+       07/16
+       08/16
+       09/16
+       10/16
+       11/16
+       12/16
+       13/16
+       14/16
+       15/16
+       16/16
+       mean cos(F,B)=+0.814657
+
+[5/30] P8...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+       ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+
+[6/30] Frozen forge...
+       A 1/4
+       A 2/4
+       A 3/4
+       A 4/4
+       B 1/4
+       B 2/4
+       B 3/4
+       B 4/4
+       C 1/4
+       C 2/4
+       C 3/4
+       C 4/4
+       D 1/4
+       D 2/4
+       D 3/4
+       D 4/4
+       ORTH ready | fixed coordinate=ORTH19
+
+[7/30] Frozen BUILD / GRAD / HOLDOUT sets...
+       BUILD=8 GRAD=8 HOLDOUT=8 | K= [1, 2, 4, 7]
+
+[8/30] Exact L27 transport recorder...
+
+[9/30] BUILD transport...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+
+[10/30] Frozen Δ27 SVD...
+       PC1: 24.537% cumulative=24.537%
+       PC2: 17.314% cumulative=41.851%
+       PC3: 14.448% cumulative=56.299%
+       PC4: 13.577% cumulative=69.876%
+       PC5: 12.212% cumulative=82.088%
+       PC6: 10.402% cumulative=92.491%
+       PC7: 7.509% cumulative=100.000%
+       transport basis frozen before behavior gradients
+
+[11/30] Reference + leaf-replacement L27 gradient engine...
+       ready | L27 input replaced via layers[27].register_forward_pre_hook(with_kwargs=True)
+
+[12/30] Gradient integrity preflight (GRAD item 1, CAUSE, PLUS)...
+       PRE27 captured: True | seq_len=44 plen=37
+       PRE27 leaf is_leaf: True
+       PRE27 leaf requires_grad: True
+       L27 received leaf (identity): True
+       L27 output requires_grad: True
+       PRE27 replacement relerr = 0.000e+00
+       upstream recompute relerr = 0.000e+00
+       reference score = -9.07126045 | leaf score = -9.07126045
+       reference vs leaf score error = 0.000e+00
+       reference vs leaf logits relerr = 0.000e+00
+       gradient finite: True
+       gradient norm > 0: True
+       gradient norm = 2.927864e-01
+       PREFLIGHT PASSED
+
+[13/30] Behavior gradients (J = logP(CAUSE) - logP(EFFECT), PLUS/MINUS symmetric)...
+       1/8 repl=0.0e+00 ups=0.0e+00 serr=0.0e+00 lerr=0.0e+00 |g|min=2.493e-01 J+=+0.7323 J-=+0.6377
+       2/8 repl=0.0e+00 ups=0.0e+00 serr=0.0e+00 lerr=0.0e+00 |g|min=1.971e-01 J+=+1.7715 J-=+0.5486
+       3/8 repl=0.0e+00 ups=0.0e+00 serr=0.0e+00 lerr=0.0e+00 |g|min=2.370e-01 J+=+2.1740 J-=+1.3480
+       4/8 repl=0.0e+00 ups=0.0e+00 serr=0.0e+00 lerr=0.0e+00 |g|min=2.480e-01 J+=+3.3655 J-=-0.0763
+       5/8 repl=0.0e+00 ups=0.0e+00 serr=0.0e+00 lerr=0.0e+00 |g|min=2.243e-01 J+=+0.7979 J-=-0.9928
+       6/8 repl=0.0e+00 ups=0.0e+00 serr=0.0e+00 lerr=0.0e+00 |g|min=2.431e-01 J+=+1.9628 J-=-0.2986
+       7/8 repl=0.0e+00 ups=0.0e+00 serr=0.0e+00 lerr=0.0e+00 |g|min=2.082e-01 J+=+1.5200 J-=-0.0265
+       8/8 repl=0.0e+00 ups=0.0e+00 serr=0.0e+00 lerr=0.0e+00 |g|min=2.610e-01 J+=+2.7045 J-=+0.9225
+       max replacement relerr=0.000e+00 | max upstream relerr=0.000e+00
+       max score err=0.000e+00 | max logits relerr=0.000e+00
+       transport basis unchanged: True
+
+[14/30] Consensus behavior gradient...
+       sign flips=0/8
+       mean family cos=+0.684167
+       min family cos =+0.602635
+       cos(G,ORTH19)  =+0.024628
+
+[15/30] Behavior gradient × transport PCs...
+       PC1: cos=+0.030769
+       PC2: cos=+0.031531
+       PC3: cos=+0.033660
+       PC4: cos=-0.018993
+       PC5: cos=-0.010407
+       PC6: cos=+0.009451
+       PC7: cos=+0.023161
+       full centered transport capture=0.064565
+       random-direction reference ≈ sqrt(7/3584) = 0.044194
+
+[16/30] K-subspace behavior capture...
+       K=1: capture=0.030769 cos(candidate,G)=+0.030769 cos(candidate,ORTH19)=+0.019688
+       K=2: capture=0.044056 cos(candidate,G)=+0.044056 cos(candidate,ORTH19)=+0.033690
+       K=4: capture=0.058606 cos(candidate,G)=+0.058606 cos(candidate,ORTH19)=+0.024284
+       K=7: capture=0.064565 cos(candidate,G)=+0.064565 cos(candidate,ORTH19)=+0.010370
+
+[17/30] Per-gradient transport capture...
+       K=1: mean=0.024442 min=0.001531 max=0.058851
+       K=2: mean=0.034877 min=0.014417 max=0.068402
+       K=4: mean=0.047423 min=0.022387 max=0.081565
+       K=7: mean=0.062707 min=0.043794 max=0.090627
+
+[18/30] Candidate sign stability...
+       K=1: P+=6/8 mean=+0.021051 min=-0.012034
+       K=2: P+=8/8 mean=+0.030141 min=+0.003439
+       K=4: P+=8/8 mean=+0.040096 min=+0.004616
+       K=7: P+=8/8 mean=+0.044173 min=+0.021757
+
+[19/30] Candidate relation to mean Δ27...
+       cos(meanΔ,G)=-0.004861
+       K=1: cos(candidate,meanΔ)=-0.003204
+       K=2: cos(candidate,meanΔ)=-0.001060
+       K=4: cos(candidate,meanΔ)=+0.151291
+       K=7: cos(candidate,meanΔ)=+0.098524
+
+[20/30] HOLDOUT transport...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+
+[21/30] HOLDOUT transport coverage...
+       K=1: mean norm coverage=0.062823 min=0.027128
+       K=2: mean norm coverage=0.087475 min=0.066340
+       K=4: mean norm coverage=0.222632 min=0.159931
+       K=7: mean norm coverage=0.308679 min=0.211494
+       K=1: centered (BUILD mean) coverage=0.136907
+       K=2: centered (BUILD mean) coverage=0.199851
+       K=4: centered (BUILD mean) coverage=0.291871
+       K=7: centered (BUILD mean) coverage=0.366519
+
+[22/30] HOLDOUT Δ27 alignment...
+       K=1: mean cos=-0.015757 P+=3/8
+       K=2: mean cos=-0.044869 P+=2/8
+       K=4: mean cos=+0.072916 P+=8/8
+       K=7: mean cos=+0.032048 P+=6/8
+
+[23/30] ORTH19 comparison...
+       behavior-grad cos ORTH19 mean=+0.016850
+       HOLD Δ27 cos ORTH19 mean      =-0.022555
+       K=1 candidate cos ORTH19=+0.019688
+       K=2 candidate cos ORTH19=+0.033690
+       K=4 candidate cos ORTH19=+0.024284
+       K=7 candidate cos ORTH19=+0.010370
+
+[24/30] Gradient LOFO stability...
+       K=1: mean cos=+1.000000 min=+1.000000
+       K=2: mean cos=+0.997529 min=+0.993762
+       K=4: mean cos=+0.996271 min=+0.991776
+       K=7: mean cos=+0.990265 min=+0.978691
+
+[25/30] Bootstrap candidate-gradient alignment...
+       K=1: +0.021051 [+0.006512,+0.036163]
+       K=2: +0.030141 [+0.016912,+0.044080]
+       K=4: +0.040096 [+0.025879,+0.054913]
+       K=7: +0.044173 [+0.031340,+0.058023]
+
+[26/30] Descriptive K summary...
+       K=1: Gcapture=0.030769 LOFOmin=+1.000000 HOLDcoverage=0.062823
+       K=2: Gcapture=0.044056 LOFOmin=+0.993762 HOLDcoverage=0.087475
+       K=4: Gcapture=0.058606 LOFOmin=+0.991776 HOLDcoverage=0.222632
+       K=7: Gcapture=0.064565 LOFOmin=+0.978691 HOLDcoverage=0.308679
+       No K selected in TEST188.
+
+[27/30] Novel-direction geometry...
+       K=1: cos(G)=+0.030769 cos(ORTH19)=+0.019688 cos(FISHER19)=-0.016395 cos(BANK19)=-0.049115
+       K=2: cos(G)=+0.044056 cos(ORTH19)=+0.033690 cos(FISHER19)=-0.018442 cos(BANK19)=-0.048120
+       K=4: cos(G)=+0.058606 cos(ORTH19)=+0.024284 cos(FISHER19)=-0.029049 cos(BANK19)=-0.061737
+       K=7: cos(G)=+0.064565 cos(ORTH19)=+0.010370 cos(FISHER19)=-0.033188 cos(BANK19)=-0.058663
+
+[28/30] TEST188 decision...
+       full transport capture: 0.064565
+       K7 LOFO min: +0.978691
+       K7 bootstrap low: +0.031340
+       DECISION: BEHAVIOR_SENSITIVE_L27_TRANSPORT_DIRECTION_NOT_CONFIRMED
+       (geometric/mechanistic result only — not a behavioral success claim)
+
+[29/30] Saving / integrity...
+       Saved: /content/TEST188_BEHAVIOR_SENSITIVE_L27_FORGE_FIXED
+       TEST187 SEASC L0-L19 preserved: True
+       L20-L27 weights untouched: True
+       Local gradient graph starts at PRE27 leaf inside native forward: True
+       New vector injected: False
+       K selected: False
+       FINAL behavioral test: False
+       Controller: False
+       Weight modification: False
+
+[30/30] COMPLETE
+==========================================================================================================================================
+TEST 188 — BEHAVIOR-SENSITIVE L27 TRANSPORT VECTOR FORGE — SUMMARY
+==========================================================================================================================================
+mean cos(F,B)=+0.814657
+gradient integrity: max repl=0.0e+00 ups=0.0e+00 score=0.0e+00 logits=0.0e+00
+full transport capture of behavior gradient=0.064565 (random ≈ 0.044194)
+cos(G,ORTH19)=+0.024628
+K=1: capture=0.030769 cosG=+0.030769 cosORTH19=+0.019688 LOFOmin=+1.000000
+K=2: capture=0.044056 cosG=+0.044056 cosORTH19=+0.033690 LOFOmin=+0.993762
+K=4: capture=0.058606 cosG=+0.058606 cosORTH19=+0.024284 LOFOmin=+0.991776
+K=7: capture=0.064565 cosG=+0.064565 cosORTH19=+0.010370 LOFOmin=+0.978691
+K selected: NONE
+New vector injected: False
+DECISION: BEHAVIOR_SENSITIVE_L27_TRANSPORT_DIRECTION_NOT_CONFIRMED
+Saved: /content/TEST188_BEHAVIOR_SENSITIVE_L27_FORGE_FIXED
+==========================================================================================================================================
