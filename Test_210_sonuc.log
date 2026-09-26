@@ -1,0 +1,103 @@
+ 
+================================================================================================================================
+TEST 210 — ENDOGENOUS CONTEXTUAL TRANSITION FORGE
+================================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct | SEASC RSS=0.250235051
+[1/16] Model...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 88.3kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 901kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 47.0MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 76.9MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 136MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.21MB/s]
+Download complete: : 
+
+ 13.1GB,  912MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  507MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:38<00:00,  6.62s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 99.68it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 35.4kB/s]
+[2/16] Competitive addressing...
+L00 top1=0.75 margin=+0.00098 ON
+L01 top1=0.25 margin=-0.01027 OFF
+L02 top1=0.25 margin=-0.01349 OFF
+L03 top1=0.25 margin=-0.00500 OFF
+L04 top1=0.50 margin=-0.01175 OFF
+L05 top1=0.25 margin=-0.03782 OFF
+L06 top1=0.25 margin=-0.00573 OFF
+L07 top1=0.25 margin=-0.00752 OFF
+L08 top1=0.75 margin=+0.00945 ON
+L09 top1=0.25 margin=-0.02098 OFF
+L10 top1=0.25 margin=+0.00406 OFF
+L11 top1=0.75 margin=+0.01360 ON
+L12 top1=0.75 margin=-0.00112 OFF
+L13 top1=0.25 margin=-0.01739 OFF
+L14 top1=0.50 margin=-0.00398 OFF
+L15 top1=0.75 margin=+0.00630 ON
+L16 top1=0.50 margin=+0.00399 OFF
+L17 top1=0.50 margin=-0.02668 OFF
+L18 top1=0.25 margin=-0.00055 OFF
+L19 top1=0.50 margin=+0.00165 OFF
+ACTIVE: [0, 8, 11, 15]
+[3/16] Frozen routes...
+Q1 expected=M1 predicted=M1 weights=[0.3079, 0.244, 0.2433, 0.2049]
+Q2 expected=M2 predicted=M2 weights=[0.2496, 0.2996, 0.2523, 0.1985]
+Q3 expected=M3 predicted=M3 weights=[0.2392, 0.2478, 0.3271, 0.1859]
+Q4 expected=M4 predicted=M4 weights=[0.2495, 0.2379, 0.2331, 0.2795]
+[4/16] Contextual state forge...
+[5/16] Contextual transition vectors...
+[6/16] Transition geometry...
+Q1
+ L00 ||ΔR||=0.641 ||ΔO||=0.988 ||ΔD||=1.287 cos(R,O)=+0.2114 cos(O,Owrong)=+0.9157 cos(R,Rwrong)=+0.8118 cos(D,O)=+0.8733
+ L08 ||ΔR||=10.263 ||ΔO||=10.583 ||ΔD||=8.970 cos(R,O)=-0.6301 cos(O,Owrong)=+0.9730 cos(R,Rwrong)=+0.9382 cos(D,O)=+0.4589
+ L11 ||ΔR||=10.614 ||ΔO||=11.891 ||ΔD||=10.638 cos(R,O)=-0.5582 cos(O,Owrong)=+0.9812 cos(R,Rwrong)=+0.9349 cos(D,O)=+0.5609
+ L15 ||ΔR||=14.692 ||ΔO||=16.059 ||ΔD||=16.974 cos(R,O)=-0.3934 cos(O,Owrong)=+0.9854 cos(R,Rwrong)=+0.9425 cos(D,O)=+0.6056
+Q2
+ L00 ||ΔR||=0.590 ||ΔO||=0.881 ||ΔD||=1.132 cos(R,O)=+0.1506 cos(O,Owrong)=+0.9015 cos(R,Rwrong)=+0.7097 cos(D,O)=+0.8569
+ L08 ||ΔR||=9.025 ||ΔO||=9.332 ||ΔD||=8.523 cos(R,O)=-0.5692 cos(O,Owrong)=+0.9680 cos(R,Rwrong)=+0.9110 cos(D,O)=+0.4921
+ L11 ||ΔR||=9.683 ||ΔO||=10.612 ||ΔD||=10.933 cos(R,O)=-0.4226 cos(O,Owrong)=+0.9653 cos(R,Rwrong)=+0.9024 cos(D,O)=+0.5964
+ L15 ||ΔR||=14.232 ||ΔO||=14.627 ||ΔD||=18.179 cos(R,O)=-0.2067 cos(O,Owrong)=+0.9635 cos(R,Rwrong)=+0.9058 cos(D,O)=+0.6428
+Q3
+ L00 ||ΔR||=0.777 ||ΔO||=0.901 ||ΔD||=1.253 cos(R,O)=+0.1096 cos(O,Owrong)=+0.9043 cos(R,Rwrong)=+0.7043 cos(D,O)=+0.7872
+ L08 ||ΔR||=9.019 ||ΔO||=9.587 ||ΔD||=8.643 cos(R,O)=-0.5700 cos(O,Owrong)=+0.9760 cos(R,Rwrong)=+0.8294 cos(D,O)=+0.5145
+ L11 ||ΔR||=9.398 ||ΔO||=11.018 ||ΔD||=11.004 cos(R,O)=-0.4280 cos(O,Owrong)=+0.9741 cos(R,Rwrong)=+0.8480 cos(D,O)=+0.6358
+ L15 ||ΔR||=13.999 ||ΔO||=14.976 ||ΔD||=17.660 cos(R,O)=-0.2584 cos(O,Owrong)=+0.9584 cos(R,Rwrong)=+0.8459 cos(D,O)=+0.6431
+Q4
+ L00 ||ΔR||=0.536 ||ΔO||=0.946 ||ΔD||=1.165 cos(R,O)=+0.1711 cos(O,Owrong)=+0.8911 cos(R,Rwrong)=+0.7668 cos(D,O)=+0.8912
+ L08 ||ΔR||=7.544 ||ΔO||=8.828 ||ΔD||=9.130 cos(R,O)=-0.3866 cos(O,Owrong)=+0.9759 cos(R,Rwrong)=+0.8485 cos(D,O)=+0.6475
+ L11 ||ΔR||=8.694 ||ΔO||=10.613 ||ΔD||=11.240 cos(R,O)=-0.3353 cos(O,Owrong)=+0.9821 cos(R,Rwrong)=+0.8278 cos(D,O)=+0.6848
+ L15 ||ΔR||=14.762 ||ΔO||=13.599 ||ΔD||=18.024 cos(R,O)=-0.1942 cos(O,Owrong)=+0.9800 cos(R,Rwrong)=+0.8486 cos(D,O)=+0.5954
+[7/16] Depth-adaptive contextual chain...
+Q1 phase@ACTIVE={0: 0.2122, 8: 0.4514, 11: 0.5612, 15: 0.6959}
+Q2 phase@ACTIVE={0: 0.2096, 8: 0.4516, 11: 0.5593, 15: 0.6905}
+Q3 phase@ACTIVE={0: 0.1879, 8: 0.454, 11: 0.5652, 15: 0.6941}
+Q4 phase@ACTIVE={0: 0.2234, 8: 0.4624, 11: 0.5687, 15: 0.681}
+[8/16] Controls + unchanged SEASC engine...
+[9/16] CHAIN dose sweep...
+
+
+[10/16] Contextual transition controls...
