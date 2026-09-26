@@ -1,0 +1,216 @@
+ ==========================================================================================================================================
+TEST 190 — REPLICATED COMMON L27 TRANSPORT AXIS
+CAUSE↔EFFECT — BUILD-FROZEN MEAN Δ27 AXIS × TWO INDEPENDENT HOLDOUTS
+==========================================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+SEASC RSS=0.250235055 | scale=0.5
+
+[1/24] CUDA...
+       OK
+
+[2/24] Model...
+config.json: 100% 663/663 [00:00<00:00, 80.4kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 790kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 87.3MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 72.0MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 121MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.28MB/s]Download complete: :  13.1GB,  402MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  484MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  7.02s/it]Loading weights: 100% 339/339 [00:03<00:00, 100.55it/s]generation_config.json: 100% 243/243 [00:00<00:00, 30.9kB/s]       hidden: 3584 dtype: torch.bfloat16 layers: 28
+
+[3/24] Frozen E axis...
+
+[4/24] Fisher/Bank...
+       01/16
+       02/16
+       03/16
+       04/16
+       05/16
+       06/16
+       07/16
+       08/16
+       09/16
+       10/16
+       11/16
+       12/16
+       13/16
+       14/16
+       15/16
+       16/16
+       mean cos(F,B)=+0.814657
+
+[5/24] P8...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+       ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+
+[6/24] Frozen forge...
+       A 1/4
+       A 2/4
+       A 3/4
+       A 4/4
+       B 1/4
+       B 2/4
+       B 3/4
+       B 4/4
+       C 1/4
+       C 2/4
+       C 3/4
+       C 4/4
+       D 1/4
+       D 2/4
+       D 3/4
+       D 4/4
+       ORTH ready | fixed coordinate=ORTH19
+
+[7/24] Frozen BUILD / HOLDOUT sets...
+       BUILD=8 HOLDOUT1=8 HOLDOUT2=8
+
+[8/24] Frozen SEASC hooks...
+       ready
+
+[9/24] Exact L27 transport recorder...
+       ready
+
+[10/24] BUILD transport...
+       BUILD 1/8
+       BUILD 2/8
+       BUILD 3/8
+       BUILD 4/8
+       BUILD 5/8
+       BUILD 6/8
+       BUILD 7/8
+       BUILD 8/8
+
+[11/24] Freeze common transport axis...
+       ||mean Δ27||=46.517872
+       mean Δ·T27=+46.517868
+       mean cos(Δ,T27)=+0.895821
+       P+=8/8
+       mean axis norm frac=0.895821
+       cos(T27,ORTH19)=-0.021773
+       T27 FROZEN before HOLDOUTS
+
+[12/24] BUILD LOFO...
+       leave 1: axis cos=+0.998422 held cos=+0.901867
+       leave 2: axis cos=+0.997558 held cos=+0.886840
+       leave 3: axis cos=+0.998054 held cos=+0.876936
+       leave 4: axis cos=+0.997430 held cos=+0.857537
+       leave 5: axis cos=+0.997622 held cos=+0.845664
+       leave 6: axis cos=+0.997450 held cos=+0.867116
+       leave 7: axis cos=+0.996531 held cos=+0.815616
+       leave 8: axis cos=+0.996787 held cos=+0.845655
+       axis LOFO mean=+0.997482 min=+0.996531
+       held LOFO mean=+0.862154 P+=8/8
+
+[13/24] HOLDOUT-1...
+       H1 1/8
+       H1 2/8
+       H1 3/8
+       H1 4/8
+       H1 5/8
+       H1 6/8
+       H1 7/8
+       H1 8/8
+       mean Δ·T27=+44.862675
+       mean cos=+0.889790
+       P+=8/8
+       mean axis norm frac=0.889790
+
+[14/24] HOLDOUT-2...
+       H2 1/8
+       H2 2/8
+       H2 3/8
+       H2 4/8
+       H2 5/8
+       H2 6/8
+       H2 7/8
+       H2 8/8
+       mean Δ·T27=+45.733280
+       mean cos=+0.879954
+       P+=8/8
+       mean axis norm frac=0.879954
+
+[15/24] Cross-set mean geometry...
+       cos(BUILD mean,H1 mean)=+0.973703
+       cos(BUILD mean,H2 mean)=+0.969289
+       cos(H1 mean,H2 mean)   =+0.974272
+       H1 mean cos ORTH19=-0.024592
+       H2 mean cos ORTH19=-0.026092
+
+[16/24] Per-prompt alignment...
+       BUILD    1: proj=+44.7327 cos=+0.9247 frac=0.9247
+       BUILD    2: proj=+51.5812 cos=+0.9169 frac=0.9169
+       BUILD    3: proj=+43.7060 cos=+0.9052 frac=0.9052
+       BUILD    4: proj=+46.2469 cos=+0.8922 frac=0.8922
+       BUILD    5: proj=+42.3118 cos=+0.8804 frac=0.8804
+       BUILD    6: proj=+48.0149 cos=+0.9005 frac=0.9005
+       BUILD    7: proj=+46.0856 cos=+0.8609 frac=0.8609
+       BUILD    8: proj=+49.4638 cos=+0.8857 frac=0.8857
+       HOLDOUT1 1: proj=+44.1651 cos=+0.9288 frac=0.9288
+       HOLDOUT1 2: proj=+47.3860 cos=+0.8949 frac=0.8949
+       HOLDOUT1 3: proj=+43.8531 cos=+0.9079 frac=0.9079
+       HOLDOUT1 4: proj=+45.7374 cos=+0.9212 frac=0.9212
+       HOLDOUT1 5: proj=+47.0617 cos=+0.8476 frac=0.8476
+       HOLDOUT1 6: proj=+45.1990 cos=+0.8478 frac=0.8478
+       HOLDOUT1 7: proj=+45.0922 cos=+0.9146 frac=0.9146
+       HOLDOUT1 8: proj=+40.4069 cos=+0.8556 frac=0.8556
+       HOLDOUT2 1: proj=+40.9875 cos=+0.8676 frac=0.8676
+       HOLDOUT2 2: proj=+46.4157 cos=+0.9366 frac=0.9366
+       HOLDOUT2 3: proj=+45.4599 cos=+0.8750 frac=0.8750
+       HOLDOUT2 4: proj=+46.4322 cos=+0.9163 frac=0.9163
+       HOLDOUT2 5: proj=+45.4962 cos=+0.8529 frac=0.8529
+       HOLDOUT2 6: proj=+44.0359 cos=+0.8715 frac=0.8715
+       HOLDOUT2 7: proj=+49.2330 cos=+0.8812 frac=0.8812
+       HOLDOUT2 8: proj=+47.8059 cos=+0.8385 frac=0.8385
+
+[17/24] Bootstrap...
+       BUILD    PROJECTION +46.517870 [+44.634294,+48.555823]
+       BUILD    COS_T27    +0.895821 [+0.882256,+0.908791]
+       HOLDOUT1 PROJECTION +44.862675 [+43.344013,+46.153360]
+       HOLDOUT1 COS_T27    +0.889790 [+0.867011,+0.911361]
+       HOLDOUT2 PROJECTION +45.733281 [+44.028313,+47.235214]
+       HOLDOUT2 COS_T27    +0.879954 [+0.860702,+0.902231]
+
+[18/24] Isotropic random-direction null...
+       H1 observed mean-axis cos=+0.973703 null-p=0.000050 | |cos|95=0.032504 99=0.042396
+       H2 observed mean-axis cos=+0.969289 null-p=0.000050 | |cos|95=0.032557 99=0.043145
+
+[19/24] Sign-flip null...
+       HOLDOUT1 projection sign-flip p=0.008380
+       HOLDOUT2 projection sign-flip p=0.007820
+
+[20/24] ORTH19 comparison...
+       BUILD    mean Δ@ORTH19=-1.012847 mean cos=-0.019597
+       HOLDOUT1 mean Δ@ORTH19=-1.133072 mean cos=-0.022555
+       HOLDOUT2 mean Δ@ORTH19=-1.231099 mean cos=-0.023627
+       cos(T27,ORTH19)=-0.021773
+
+[21/24] Replication criteria...
+       H1 bootstrap cos low>0: True | P+=8/8 | mean-axis=+0.973703
+       H2 bootstrap cos low>0: True | P+=8/8 | mean-axis=+0.969289
+       H1 replicated=True
+       H2 replicated=True
+
+[22/24] TEST190 decision...
+       DECISION: COMMON_L27_TRANSPORT_AXIS_REPLICATED_ACROSS_TWO_INDEPENDENT_HOLDOUTS
+       Mechanistic transport result only; no behavioral or causal-intervention claim.
+
+[23/24] Saving...
+       Saved: /content/TEST190_COMMON_L27_TRANSPORT_AXIS
+
+[24/24] COMPLETE
+==========================================================================================================================================
+TEST 190 — REPLICATED COMMON L27 TRANSPORT AXIS — SUMMARY
+==========================================================================================================================================
+mean cos(F,B)=+0.814657
+BUILD: mean cos(Δ,T27)=+0.895821 LOFO-axis-min=+0.996531 LOFO-held-mean=+0.862154
+HOLD1: mean cos=+0.889790 P+=8/8 mean-axis=+0.973703 signflip-p=0.008380
+HOLD2: mean cos=+0.879954 P+=8/8 mean-axis=+0.969289 signflip-p=0.007820
+cos(H1 mean,H2 mean)=+0.974272
+cos(T27,ORTH19)=-0.021773
+PCA used: False | K selected: NONE | Gradient selection: False | New vector injected: False | FINAL opened: False
+DECISION: COMMON_L27_TRANSPORT_AXIS_REPLICATED_ACROSS_TWO_INDEPENDENT_HOLDOUTS
+Saved: /content/TEST190_COMMON_L27_TRANSPORT_AXIS
+==========================================================================================================================================
