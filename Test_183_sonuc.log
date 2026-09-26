@@ -1,0 +1,243 @@
+ ==========================================================================================================================================
+TEST 183 — MOVING-COMPASS / COORDINATE-ROTATION X-RAY
+CAUSE↔EFFECT — STATE TRANSPORT vs LAYER-LOCAL COMPASS ROTATION
+==========================================================================================================================================
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+SEASC RSS=0.250235055 | scale=0.5
+
+[1/24] CUDA...
+       OK
+
+[2/24] Model...
+config.json: 100% 663/663 [00:00<00:00, 84.2kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 868kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 86.0MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 73.5MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 130MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.15MB/s]Download complete: :  13.1GB,  324MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  356MB/s  Fetching 4 files: 100% 4/4 [00:41<00:00,  7.61s/it]Loading weights: 100% 339/339 [00:03<00:00, 96.36it/s]generation_config.json: 100% 243/243 [00:00<00:00, 30.9kB/s]       hidden: 3584 dtype: torch.bfloat16
+
+[3/24] Frozen E axis...
+
+[4/24] Fisher/Bank...
+       01/16
+       02/16
+       03/16
+       04/16
+       05/16
+       06/16
+       07/16
+       08/16
+       09/16
+       10/16
+       11/16
+       12/16
+       13/16
+       14/16
+       15/16
+       16/16
+       mean cos(F,B)=+0.814657
+
+[5/24] P8...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+       ranks: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+
+[6/24] Frozen forge...
+       A 1/4
+       A 2/4
+       A 3/4
+       A 4/4
+       B 1/4
+       B 2/4
+       B 3/4
+       B 4/4
+       C 1/4
+       C 2/4
+       C 3/4
+       C 4/4
+       D 1/4
+       D 2/4
+       D 3/4
+       D 4/4
+       ORTH ready
+
+[7/24] Adjacent ORTH compass rotation...
+       ORTH00→ORTH01 cos=+0.425073 angle= 64.84°
+       ORTH01→ORTH02 cos=-0.005435 angle= 90.31°
+       ORTH02→ORTH03 cos=+0.364473 angle= 68.62°
+       ORTH03→ORTH04 cos=-0.005117 angle= 90.29°
+       ORTH04→ORTH05 cos=+0.064725 angle= 86.29°
+       ORTH05→ORTH06 cos=+0.355065 angle= 69.20°
+       ORTH06→ORTH07 cos=+0.621467 angle= 51.58°
+       ORTH07→ORTH08 cos=-0.029871 angle= 91.71°
+       ORTH08→ORTH09 cos=+0.019740 angle= 88.87°
+       ORTH09→ORTH10 cos=+0.285419 angle= 73.42°
+       ORTH10→ORTH11 cos=+0.351788 angle= 69.40°
+       ORTH11→ORTH12 cos=-0.318584 angle=108.58°
+       ORTH12→ORTH13 cos=+0.672656 angle= 47.73°
+       ORTH13→ORTH14 cos=+0.327136 angle= 70.90°
+       ORTH14→ORTH15 cos=+0.347761 angle= 69.65°
+       ORTH15→ORTH16 cos=+0.406820 angle= 65.99°
+       ORTH16→ORTH17 cos=+0.641844 angle= 50.07°
+       ORTH17→ORTH18 cos=+0.254354 angle= 75.26°
+       ORTH18→ORTH19 cos=+0.064720 angle= 86.29°
+
+[8/24] Fresh X-ray...
+       n=8
+
+[9/24] Exact PRE/RAW/POST recorder...
+
+[10/24] BASE / PLUS / MINUS...
+       1/8
+       2/8
+       3/8
+       4/8
+       5/8
+       6/8
+       7/8
+       8/8
+
+[11/24] Physical POST[L]→PRE[L+1]...
+       00→01 relerr=0.0000000000
+       01→02 relerr=0.0000000000
+       02→03 relerr=0.0000000000
+       03→04 relerr=0.0000000000
+       04→05 relerr=0.0000000000
+       05→06 relerr=0.0000000000
+       06→07 relerr=0.0000000000
+       07→08 relerr=0.0000000000
+       08→09 relerr=0.0000000000
+       09→10 relerr=0.0000000000
+       10→11 relerr=0.0000000000
+       11→12 relerr=0.0000000000
+       12→13 relerr=0.0000000000
+       13→14 relerr=0.0000000000
+       14→15 relerr=0.0000000000
+       15→16 relerr=0.0000000000
+       16→17 relerr=0.0000000000
+       17→18 relerr=0.0000000000
+       18→19 relerr=0.0000000000
+
+[12/24] Same-state dual-compass projection...
+       POST00: ORTH00=+0.525590 → ORTH01=+0.223501 Δcoord=-0.302090 P+=8/8→8/8
+       POST01: ORTH01=+0.989174 → ORTH02=+0.235252 Δcoord=-0.753922 P+=8/8→8/8
+       POST02: ORTH02=+1.094897 → ORTH03=+0.628930 Δcoord=-0.465967 P+=8/8→8/8
+       POST03: ORTH03=+1.492021 → ORTH04=-0.074692 Δcoord=-1.566713 P+=8/8→0/8
+       POST04: ORTH04=+1.026224 → ORTH05=-0.055448 Δcoord=-1.081672 P+=8/8→0/8
+       POST05: ORTH05=+0.837542 → ORTH06=+1.400649 Δcoord=+0.563107 P+=8/8→8/8
+       POST06: ORTH06=+2.320164 → ORTH07=+1.719340 Δcoord=-0.600824 P+=8/8→8/8
+       POST07: ORTH07=+2.636660 → ORTH08=-0.065561 Δcoord=-2.702221 P+=8/8→0/8
+       POST08: ORTH08=+0.621686 → ORTH09=+0.146218 Δcoord=-0.475468 P+=8/8→8/8
+       POST09: ORTH09=+1.114893 → ORTH10=-0.655266 Δcoord=-1.770159 P+=8/8→0/8
+       POST10: ORTH10=+0.025474 → ORTH11=-0.661758 Δcoord=-0.687232 P+=6/8→0/8
+       POST11: ORTH11=+0.295841 → ORTH12=-0.191038 Δcoord=-0.486879 P+=8/8→0/8
+       POST12: ORTH12=+0.570204 → ORTH13=+0.377774 Δcoord=-0.192430 P+=8/8→8/8
+       POST13: ORTH13=+1.637812 → ORTH14=+0.176240 Δcoord=-1.461572 P+=8/8→8/8
+       POST14: ORTH14=+1.107155 → ORTH15=+1.075898 Δcoord=-0.031257 P+=8/8→8/8
+       POST15: ORTH15=+1.670236 → ORTH16=+0.757169 Δcoord=-0.913066 P+=8/8→8/8
+       POST16: ORTH16=+1.489723 → ORTH17=+1.043867 Δcoord=-0.445857 P+=8/8→8/8
+       POST17: ORTH17=+2.236945 → ORTH18=+0.880336 Δcoord=-1.356609 P+=8/8→8/8
+       POST18: ORTH18=+2.068910 → ORTH19=-0.695326 Δcoord=-2.764236 P+=8/8→0/8
+
+[13/24] Coordinate-only sign flips...
+       L03→L04 SIGN FLIP
+       L04→L05 SIGN FLIP
+       L07→L08 SIGN FLIP
+       L09→L10 SIGN FLIP
+       L10→L11 SIGN FLIP
+       L11→L12 SIGN FLIP
+       L18→L19 SIGN FLIP
+       flips: [3, 4, 7, 9, 10, 11, 18]
+
+[14/24] Terminal moving-compass forensic...
+       SAME POST18 : @ORTH18=+2.068910 | @ORTH19=-0.695326
+       RAW19       : @ORTH18=+2.745563 | @ORTH19=-0.588988
+       POST19      : @ORTH18=+2.812495 | @ORTH19=+0.456418
+       ORTH18→ORTH19 cos=+0.064720 angle=86.289°
+
+[15/24] Block19 transformation under fixed coordinates...
+       ORTH18: PRE19=+2.068910 → RAW19=+2.745563 → POST19=+2.812495
+       ORTH19: PRE19=-0.695326 → RAW19=-0.588988 → POST19=+0.456418
+
+[16/24] POST19 → final RMSNorm...
+       ORTH18: POST19=+2.812495 → FINAL=+1.718141 Δ=-1.094354
+       ORTH19: POST19=+0.456418 → FINAL=-0.307983 Δ=-0.764400
+
+[17/24] Compass rotation vs coordinate change...
+       00→01 angle= 64.84° | |Δcoord|=0.302090
+       01→02 angle= 90.31° | |Δcoord|=0.753922
+       02→03 angle= 68.62° | |Δcoord|=0.465967
+       03→04 angle= 90.29° | |Δcoord|=1.566713
+       04→05 angle= 86.29° | |Δcoord|=1.081672
+       05→06 angle= 69.20° | |Δcoord|=0.563107
+       06→07 angle= 51.58° | |Δcoord|=0.600824
+       07→08 angle= 91.71° | |Δcoord|=2.702221
+       08→09 angle= 88.87° | |Δcoord|=0.475468
+       09→10 angle= 73.42° | |Δcoord|=1.770159
+       10→11 angle= 69.40° | |Δcoord|=0.687232
+       11→12 angle=108.58° | |Δcoord|=0.486879
+       12→13 angle= 47.73° | |Δcoord|=0.192430
+       13→14 angle= 70.90° | |Δcoord|=1.461572
+       14→15 angle= 69.65° | |Δcoord|=0.031257
+       15→16 angle= 65.99° | |Δcoord|=0.913066
+       16→17 angle= 50.07° | |Δcoord|=0.445857
+       17→18 angle= 75.26° | |Δcoord|=1.356609
+       18→19 angle= 86.29° | |Δcoord|=2.764236
+       Pearson(angle,|Δcoord|)=+0.412581
+
+[18/24] Bootstrap terminal coordinate rotation...
+       POST18 ORTH19−ORTH18=-2.764236 [-2.863672,-2.666835]
+       L19 injection @ORTH19=+1.045405 [+1.039819,+1.051040]
+
+[19/24] Terminal decomposition...
+       START @ORTH18       =+2.068910
+       coordinate rotation =-2.764236
+       block19 transform   =+0.106339
+       L19 injection       =+1.045405
+       END @ORTH19         =+0.456418
+       reconstruction      =+0.456418
+
+[20/24] TEST183 decision...
+       physical POST18==PRE19: True
+       coordinate sign flip: True
+       L19 injection rescue: True
+       L19 injection crosses zero: True
+       DECISION: TERMINAL_REVERSAL_LOCALIZED_TO_COMPASS_ROTATION__L19_INJECTION_RESTORES_POSITIVE_LOCAL_TARGET
+
+[21/24] Saving...
+       Saved: /content/TEST183_MOVING_COMPASS_XRAY
+
+[22/24] Integrity...
+       TEST182 infrastructure preserved: True
+       Same E forge lineage: True
+       Same P8: True
+       Same SEASC envelope: True
+       Same scale=.5: True
+       No vector/rank/layer/envelope selection: True
+       No controller: True
+       No weight modification: True
+
+[23/24] Scientific boundary...
+       POST[L] and PRE[L+1] are compared as physical tensors.
+       The same POST state is projected onto both ORTH[L] and ORTH[L+1].
+       Therefore coordinate rotation is separated from actual inter-block state transport.
+       Layer-local ORTH directions are not assumed to form one fixed global coordinate.
+       TEST183 is mechanistic X-ray only; it does not establish a universal success criterion.
+
+[24/24] COMPLETE
+==========================================================================================================================================
+TEST 183 — MOVING-COMPASS X-RAY — SUMMARY
+==========================================================================================================================================
+ORTH18→ORTH19 cos=+0.064720 angle=86.289°
+SAME POST18 : @ORTH18=+2.068910 → @ORTH19=-0.695326
+BLOCK19     : -0.695326 → -0.588988
+L19 INJECT  : -0.588988 → +0.456418
+DECOMPOSE   : coordinate=-2.764236 block19=+0.106339 injection=+1.045405
+POST18→PRE19 physical equality: True
+Coordinate-only sign flips: [3, 4, 7, 9, 10, 11, 18]
+DECISION: TERMINAL_REVERSAL_LOCALIZED_TO_COMPASS_ROTATION__L19_INJECTION_RESTORES_POSITIVE_LOCAL_TARGET
+Saved: /content/TEST183_MOVING_COMPASS_XRAY
+==========================================================================================================================================
