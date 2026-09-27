@@ -1,0 +1,191 @@
+ ================================================================================================================================
+TEST 216 — KV-CONDITIONED LATENT OBJECT-SLOT BRIDGE
+================================================================================================================================
+LINEAGE: TEST211 -> TEST212 -> TEST213 -> TEST214 -> TEST215 -> TEST216
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct | SEASC RSS=0.250235051 | SOURCE WINDOW=[4, 5, 6, 7, 8]
+[1/20] Model...
+config.json: 100% 663/663 [00:00<00:00, 83.8kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 913kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 85.6MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 73.8MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 122MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.64MB/s]Download complete: :  13.1GB,  852MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  479MB/s  Fetching 4 files: 100% 4/4 [00:40<00:00,  8.03s/it]Loading weights: 100% 339/339 [00:03<00:00, 100.49it/s]generation_config.json: 100% 243/243 [00:00<00:00, 32.3kB/s][2/20] TEST215 source captures...
+Q1 captures=10
+Q2 captures=10
+Q3 captures=10
+Q4 captures=10
+[3/20] OBJECT_END alignment...
+Q1 target OBJECT_END=32
+Q2 target OBJECT_END=33
+Q3 target OBJECT_END=32
+Q4 target OBJECT_END=32
+[4/20] Identity residual forge...
+Q1 L4:0.675/-0.283 L5:0.693/-0.400 L6:0.677/+0.037 L7:0.607/+0.242 L8:0.624/+0.180
+Q2 L4:0.615/+0.222 L5:0.613/-0.189 L6:0.615/+0.096 L7:0.413/+0.414 L8:0.373/+0.315
+Q3 L4:0.654/-0.214 L5:0.659/-0.222 L6:0.648/-0.231 L7:0.605/-0.122 L8:0.614/-0.270
+Q4 L4:0.701/-0.173 L5:0.709/-0.252 L6:0.692/-0.152 L7:0.629/+0.241 L8:0.603/+0.129
+[5/20] Blind query maps...
+Q1 carrier=[25, 26, 27, 28, 29] ANSWER_SLOT=35 tokens=36
+Q2 carrier=[25, 26, 27, 28, 29, 30] ANSWER_SLOT=36 tokens=37
+Q3 carrier=[25, 26, 27, 28, 29] ANSWER_SLOT=35 tokens=36
+Q4 carrier=[25, 26, 27, 28, 29] ANSWER_SLOT=35 tokens=36
+[6/20] Layer mapping...
+MAP  : [4, 4, 4, 4, 4, 5, 6, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+SHUFF: [8, 8, 8, 8, 8, 7, 6, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+[7/20] Prefill-only CUDA hooks...
+[8/20] Intervened prefill → KV engine...
+[9/20] KV-vs-concatenated vanilla equivalence check...
+Q1 KV=-66.444969 CONCAT=-66.423859 |Δ|=2.111053e-02
+Q2 KV=-63.276703 CONCAT=-63.526314 |Δ|=2.496109e-01
+Q3 KV=-53.479004 CONCAT=-53.774117 |Δ|=2.951126e-01
+Q4 KV=-47.121719 CONCAT=-46.877167 |Δ|=2.445526e-01
+[10/20] Generation...
+[11/20] CORRECT_SLOT KV dose sweep...
+[12/20] Controls...
+[13/20] Selectivity...
+Q1 CORRECT=-13.9181 vs WRONG Δ=+0.1199 vs SHUFFLE Δ=-0.0695 vs NEG Δ=+0.2961 vs SEQUENCE Δ=+0.5316
+Q2 CORRECT=-11.8758 vs WRONG Δ=-0.2802 vs SHUFFLE Δ=-0.1977 vs NEG Δ=-0.2026 vs SEQUENCE Δ=-1.0006
+Q3 CORRECT=+4.8439 vs WRONG Δ=-0.0273 vs SHUFFLE Δ=-0.1861 vs NEG Δ=-0.4649 vs SEQUENCE Δ=+1.2252
+Q4 CORRECT=-2.5649 vs WRONG Δ=+0.2783 vs SHUFFLE Δ=+0.1083 vs NEG Δ=+0.0995 vs SEQUENCE Δ=+2.3284
+[14/20] X-Ray...
+[15/20] First-token causal effect...
+Q1 vanilla=-21.5601 correct=-21.7218 Δ=-0.1617
+Q2 vanilla=-21.4217 correct=-21.4327 Δ=-0.0111
+Q3 vanilla=-21.7280 correct=-21.4039 Δ=+0.3241
+Q4 vanilla=-22.2854 correct=-22.7026 Δ=-0.4172
+[16/20] Weight sentinel...
+[17/20] RESULTS
+
+================================================================================================================================
+TEST 216 RESULTS
+================================================================================================================================
+LINEAGE: TEST211 -> TEST212 -> TEST213 -> TEST214 -> TEST215 -> TEST216
+SOURCE: residual OBJECT_END identity L04-L08 | TARGET: answer-boundary prefill slot | SCORING: intervened prefill KV
+M1: Neral Voss | keeps | the amber compass
+M2: Tovin Marel | carries | the silver lantern
+M3: Selka Dorn | owns | the violet key
+M4: Parel Nox | guards | the bronze sphere
+
+VANILLA KV EQUIVALENCE
+Q1 KV=-66.444969 CONCAT=-66.423859 |Δ|=2.111053e-02
+Q2 KV=-63.276703 CONCAT=-63.526314 |Δ|=2.496109e-01
+Q3 KV=-53.479004 CONCAT=-53.774117 |Δ|=2.951126e-01
+Q4 KV=-47.121719 CONCAT=-46.877167 |Δ|=2.445526e-01
+
+CORRECT_SLOT KV DOSE SWEEP
+
+Q1: What does Neral Voss keep?
+ VANILLA targetLP=-66.4450 meanTok=-22.1483 tokens=3 bestWrong=-52.2945 margin=-14.1505 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ SLOT 0.25 targetLP=-66.7673 ΔlogP=-0.3223 meanTok=-22.2558 margin=-14.1728 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ SLOT 0.50 targetLP=-66.8558 ΔlogP=-0.4108 meanTok=-22.2853 margin=-13.9181 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ SLOT 1.00 targetLP=-67.4530 ΔlogP=-1.0081 meanTok=-22.4843 margin=-13.9653 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+
+Q2: What does Tovin Marel carry?
+ VANILLA targetLP=-63.2767 meanTok=-21.0922 tokens=3 bestWrong=-51.4349 margin=-11.8418 | The prompt does not provide any information about what Tovin Marel carries. There is not enough information to answer the question.
+ SLOT 0.25 targetLP=-63.6711 ΔlogP=-0.3944 meanTok=-21.2237 margin=-11.8591 | The prompt does not provide any information about what Tovin Marel carries. There is not enough information to answer the question.
+ SLOT 0.50 targetLP=-63.3012 ΔlogP=-0.0245 meanTok=-21.1004 margin=-11.8758 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ SLOT 1.00 targetLP=-62.5130 ΔlogP=+0.7637 meanTok=-20.8377 margin=-11.5990 | The prompt does not provide any information about what Tovin Marel carries. More context or details are needed to answer this question.
+
+Q3: What does Selka Dorn own?
+ VANILLA targetLP=-53.4790 meanTok=-17.8263 tokens=3 bestWrong=-58.3334 margin=+4.8544 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ SLOT 0.25 targetLP=-52.7452 ΔlogP=+0.7338 meanTok=-17.5817 margin=+4.4570 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ SLOT 0.50 targetLP=-52.4718 ΔlogP=+1.0072 meanTok=-17.4906 margin=+4.8439 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ SLOT 1.00 targetLP=-51.5674 ΔlogP=+1.9116 meanTok=-17.1891 margin=+3.8348 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+
+Q4: What does Parel Nox guard?
+ VANILLA targetLP=-47.1217 meanTok=-15.7072 tokens=3 bestWrong=-44.3224 margin=-2.7993 | Based on the limited information provided, Parel Nox appears to guard the city of Cape Town, South Africa, as "Parel Nox" is a name given to one of the major hills
+ SLOT 0.25 targetLP=-46.8562 ΔlogP=+0.2655 meanTok=-15.6187 margin=-2.6844 | Based on the limited information provided, Parel Nox appears to guard the city of Cape Town, South Africa, as "Parel Nox" is a nickname for Table Mountain, which is a
+ SLOT 0.50 targetLP=-46.8764 ΔlogP=+0.2453 meanTok=-15.6255 margin=-2.5649 | Based on the limited information provided, Parel Nox appears to guard the city of Cape Town, South Africa, as "Parel Nox" is a name given to one of the major hills
+ SLOT 1.00 targetLP=-47.8398 ΔlogP=-0.7180 meanTok=-15.9466 margin=-2.8319 | Based on the limited information provided, Parel Nox appears to guard the city of Cape Town, South Africa, as it is a well-known security firm that specializes in protecting high-value targets and critical
+
+CONTROLS @ .50
+
+CORRECT_SLOT
+ Q1 targetLP=-66.8558 meanTok=-22.2853 margin=-13.9181 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ Q2 targetLP=-63.3012 meanTok=-21.1004 margin=-11.8758 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ Q3 targetLP=-52.4718 meanTok=-17.4906 margin=+4.8439 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ Q4 targetLP=-46.8764 meanTok=-15.6255 margin=-2.5649 | Based on the limited information provided, Parel Nox appears to guard the city of Cape Town, South Africa, as "Parel Nox" is a name given to one of the major hills
+ mean_margin=-5.8787
+
+WRONG_SLOT
+ Q1 targetLP=-66.3162 meanTok=-22.1054 margin=-14.0380 | The prompt does not provide any information about what Neral Voss keeps. There is not enough context to answer this question accurately.
+ Q2 targetLP=-63.2825 meanTok=-21.0942 margin=-11.5956 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ Q3 targetLP=-53.7421 meanTok=-17.9140 margin=+4.8712 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is not possible to determine what Selka Dorn owns.
+ Q4 targetLP=-47.5559 meanTok=-15.8520 margin=-2.8432 | Based on the limited information provided, Parel Nox appears to guard the city of Cape Town, South Africa, as it is a well-known security firm that specializes in protecting high-value targets and critical
+ mean_margin=-5.9014
+
+SHUFFLED_LAYER
+ Q1 targetLP=-66.7236 meanTok=-22.2412 margin=-13.8486 | The prompt does not provide any information about what Neral Voss keeps. There is not enough context to answer this question accurately.
+ Q2 targetLP=-63.3060 meanTok=-21.1020 margin=-11.6781 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ Q3 targetLP=-52.7377 meanTok=-17.5792 margin=+5.0300 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ Q4 targetLP=-47.1604 meanTok=-15.7201 margin=-2.6733 | Based on the limited information provided, Parel Nox appears to guard the city of Cape Town, South Africa, as it is a well-known security firm that specializes in protecting high-value targets and critical
+ mean_margin=-5.7925
+
+NEG_SLOT
+ Q1 targetLP=-66.1859 meanTok=-22.0620 margin=-14.2142 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ Q2 targetLP=-63.1698 meanTok=-21.0566 margin=-11.6732 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ Q3 targetLP=-54.1111 meanTok=-18.0370 margin=+5.3089 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is not possible to determine what Selka Dorn owns.
+ Q4 targetLP=-46.7613 meanTok=-15.5871 margin=-2.6645 | The prompt does not provide specific information about what Parel Nox guards. Without additional context, it's not possible to determine what Parel Nox guards based solely on the given question.
+ mean_margin=-5.8107
+
+SEQUENCE
+ Q1 targetLP=-65.7252 meanTok=-21.9084 margin=-14.4498 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ Q2 targetLP=-63.1978 meanTok=-21.0659 margin=-10.8752 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ Q3 targetLP=-53.7948 meanTok=-17.9316 margin=+3.6187 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ Q4 targetLP=-47.4022 meanTok=-15.8007 margin=-4.8933 | Based on the limited information provided, Parel Nox appears to guard the city of Nox from some form of threat or intrusion. However, without additional context, the specific details of what or who
+ mean_margin=-6.6499
+
+SELECTIVITY
+Q1 CORRECT=-13.9181 vs WRONG Δ=+0.1199 vs SHUFFLE Δ=-0.0695 vs NEG Δ=+0.2961 vs SEQUENCE Δ=+0.5316
+Q2 CORRECT=-11.8758 vs WRONG Δ=-0.2802 vs SHUFFLE Δ=-0.1977 vs NEG Δ=-0.2026 vs SEQUENCE Δ=-1.0006
+Q3 CORRECT=+4.8439 vs WRONG Δ=-0.0273 vs SHUFFLE Δ=-0.1861 vs NEG Δ=-0.4649 vs SEQUENCE Δ=+1.2252
+Q4 CORRECT=-2.5649 vs WRONG Δ=+0.2783 vs SHUFFLE Δ=+0.1083 vs NEG Δ=+0.0995 vs SEQUENCE Δ=+2.3284
+
+FIRST TARGET TOKEN LOGP @ .50
+Q1 VANILLA=-21.5601 CORRECT=-21.7218 Δ=-0.1617 WRONG=-21.6115 SHUFFLE=-22.1327 NEG=-21.5352
+Q2 VANILLA=-21.4217 CORRECT=-21.4327 Δ=-0.0111 WRONG=-21.3851 SHUFFLE=-21.2298 NEG=-21.4654
+Q3 VANILLA=-21.7280 CORRECT=-21.4039 Δ=+0.3241 WRONG=-21.6284 SHUFFLE=-21.2378 NEG=-22.0501
+Q4 VANILLA=-22.2854 CORRECT=-22.7026 Δ=-0.4172 WRONG=-22.5504 SHUFFLE=-22.7700 NEG=-22.0502
+
+X-RAY Q1 @ .50
+CORRECT_SLOT     L19= 11.981% L27=  8.437%
+WRONG_SLOT       L19= 11.933% L27=  8.969%
+SHUFFLED_LAYER   L19= 11.452% L27=  8.825%
+NEG_SLOT         L19= 12.222% L27=  8.902%
+SEQUENCE         L19=  2.575% L27=  4.262%
+
+CORRECT_SLOT FINAL-TOKEN X-RAY
+L00   5.009% INJECT
+L01   8.370% INJECT
+L02  11.300% INJECT
+L03  15.199% INJECT
+L04  16.304% INJECT
+L05  14.587% INJECT
+L06  15.508% INJECT
+L07  14.644% INJECT
+L08  14.543% INJECT
+L09  12.056% INJECT
+L10  12.462% INJECT
+L11  12.903% INJECT
+L12  13.335% INJECT
+L13  12.425% INJECT
+L14  12.317% INJECT
+L15  12.989% INJECT
+L16  13.988% INJECT
+L17  12.997% INJECT
+L18  12.881% INJECT
+L19  11.981% INJECT
+L20  11.571% MOTOR-OFF
+L21  10.418% MOTOR-OFF
+L22   9.746% MOTOR-OFF
+L23  11.004% MOTOR-OFF
+L24   9.750% MOTOR-OFF
+L25   8.666% MOTOR-OFF
+L26   6.914% MOTOR-OFF
+L27   8.437% MOTOR-OFF
+--------------------------------------------------------------------------------------------------------------------------------
+Weights: PASS | L20-L27 injection: ZERO | Decode injection: ZERO | Blind questions contain no target object
+TEST216 fixes TEST215 scoring: intervention occurs during prompt prefill, candidate tokens are scored autoregressively from the resulting frozen KV state
+Candidate answers never enter forge, routing or prefill intervention
+PASS requires CORRECT_SLOT selective KV-logP advantage over WRONG_SLOT / SHUFFLED_LAYER / NEG_SLOT, not hidden displacement alone
+================================================================================================================================
+[18/20] TEST 216 COMPLETE
+[19/20] MOTOR OFF VERIFIED
+[20/20] END
