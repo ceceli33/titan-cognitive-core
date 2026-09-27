@@ -1,0 +1,138 @@
+ ================================================================================================================================
+TEST 240 — L19 SWIGLU PRODUCT RECONSTRUCTION AUDIT — FIXED
+================================================================================================================================
+WORKING BASELINE: TEST239 | NUMERICAL / DEFINITION AUDIT
+GPU: NVIDIA A100-SXM4-80GB | Model: Qwen/Qwen2.5-7B-Instruct
+[1/30] Model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 84.7kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 839kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 79.7MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 70.3MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 123MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.04MB/s]Download complete: :  13.1GB,  211MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  402MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  7.81s/it]Loading weights: 100% 339/339 [00:04<00:00, 91.76it/s]generation_config.json: 100% 243/243 [00:00<00:00, 31.1kB/s]hidden=3584 intermediate=18944 q_heads=28 kv_heads=4 group=7 head_dim=128
+[2/30] Build TEST239 factorial set...
+C1 Rovan Tesk keeps | blindSlot=35
+C2 Mira Veln carries | blindSlot=35
+C3 Dalen Quor owns | blindSlot=35
+C4 Sorin Kelm guards | blindSlot=35
+[3/30] Shared-prefix token...
+sharedPrefixToken=279 text=' the'
+[4/30] RoPE...
+[5/30] Capture source Q/K/V...
+C1: source captures complete
+C2: source captures complete
+C3: source captures complete
+C4: source captures complete
+[6/30] Reconstruct TEST222 RAW packets...
+C1: RAW packets complete
+C2: RAW packets complete
+C3: RAW packets complete
+C4: RAW packets complete
+[7/30] TEST230 object-main packets...
+O1 objectMainNorm=1.8044
+O2 objectMainNorm=1.3213
+O3 objectMainNorm=1.4689
+O4 objectMainNorm=1.6965
+O5 objectMainNorm=1.3453
+O6 objectMainNorm=1.5477
+O7 objectMainNorm=1.6125
+O8 objectMainNorm=2.2938
+[8/30] Prompt prefill...
+[9/30] Capture exact L19 native tensors...
+C1: exact captures complete
+C2: exact captures complete
+C3: exact captures complete
+C4: exact captures complete
+[10/30] Native tensor dtypes...
+GATE_NATIVE torch.bfloat16
+UP_NATIVE torch.bfloat16
+PRODUCT_NATIVE torch.bfloat16
+[11/30] Native BF16 absolute reconstruction...
+BF16 absolute relErr=0.000000% cosine=1.000000022
+[12/30] FP32 absolute reconstruction...
+FP32 absolute relErr=0.246069% cosine=0.999996981
+[13/30] Vanilla absolute reconstruction...
+BF16 vanilla absolute relErr=0.000000% cosine=0.999999985
+FP32 vanilla absolute relErr=0.245828% cosine=0.999996990
+[14/30] Build exact real product deltas...
+[15/30] Native BF16 offline deltas...
+BF16 delta relErr=0.000000% cosine=1.0000000 normRatio=1.000000
+[16/30] FP32 offline deltas...
+FP32 delta relErr=15.139409% cosine=0.9882300 normRatio=0.993157
+[17/30] Verify TEST239 mismatch source...
+TEST239 mixed-dtype delta relErr=11.336785% cosine=0.9933960
+[18/30] Mixed-dtype path decomposition...
+BF16_ACT_x_FP32_UP       relErr=11.336785% cosine=0.9933960
+TEST239_CAST_PATH        relErr=11.336785% cosine=0.9933960
+[19/30] Real delta magnitude...
+mean ||realDelta||/||vanillaProduct||=1.961585%
+[20/30] Per-context audit...
+C1 BF16=0.0000% FP32=15.1286% TEST239=11.3104%
+C2 BF16=0.0000% FP32=13.1922% TEST239=10.2607%
+C3 BF16=0.0000% FP32=16.7408% TEST239=12.5796%
+C4 BF16=0.0000% FP32=15.4960% TEST239=11.1964%
+[21/30] Per-object audit...
+O1 BF16=0.0000% FP32=15.2596% TEST239=11.5029%
+O2 BF16=0.0000% FP32=15.9331% TEST239=11.6630%
+O3 BF16=0.0000% FP32=12.5632% TEST239=9.3880%
+O4 BF16=0.0000% FP32=15.9040% TEST239=12.0956%
+O5 BF16=0.0000% FP32=13.7941% TEST239=10.2039%
+O6 BF16=0.0000% FP32=16.2794% TEST239=12.5715%
+O7 BF16=0.0000% FP32=14.9081% TEST239=10.8971%
+O8 BF16=0.0000% FP32=16.4736% TEST239=12.3723%
+[22/30] Exact error energies...
+BF16 errorEnergy=0.000000000000e+00
+FP32 errorEnergy=2.314805090427e-01
+TEST239 errorEnergy=1.301558613777e-01
+[23/30] Channel error concentration — zero-safe...
+BF16: ZERO_ERROR_ENERGY — exact reconstruction
+FP32 errorEnergy50=525/18944 channels
+FP32 errorEnergy80=3250/18944 channels
+FP32 errorEnergy90=5941/18944 channels
+FP32 errorEnergy95=8594/18944 channels
+FP32 errorEnergy99=13463/18944 channels
+TEST239 errorEnergy50=300/18944 channels
+TEST239 errorEnergy80=2617/18944 channels
+TEST239 errorEnergy90=5363/18944 channels
+TEST239 errorEnergy95=8101/18944 channels
+TEST239 errorEnergy99=13220/18944 channels
+[24/30] Error overlap with real-delta energy...
+FP32 topErrorChannels=  32 realDeltaEnergy=11.717%
+FP32 topErrorChannels= 128 realDeltaEnergy=23.173%
+FP32 topErrorChannels= 512 realDeltaEnergy=37.014%
+FP32 topErrorChannels=1024 realDeltaEnergy=44.667%
+FP32 topErrorChannels=4096 realDeltaEnergy=65.826%
+TEST239 topErrorChannels=  32 realDeltaEnergy=13.104%
+TEST239 topErrorChannels= 128 realDeltaEnergy=23.203%
+TEST239 topErrorChannels= 512 realDeltaEnergy=39.236%
+TEST239 topErrorChannels=1024 realDeltaEnergy=47.726%
+TEST239 topErrorChannels=4096 realDeltaEnergy=67.376%
+[25/30] Centered identity decoding...
+REAL           top1= 71.9% rank=1.625 margin=+0.0391
+BF16           top1= 71.9% rank=1.625 margin=+0.0391
+FP32           top1= 75.0% rank=1.625 margin=+0.0380
+TEST239_MIXED  top1= 75.0% rank=1.625 margin=+0.0381
+[26/30] Centered carrier agreement...
+BF16    centeredCarrierCos=1.0000000
+FP32    centeredCarrierCos=0.9901318
+TEST239 centeredCarrierCos=0.9944617
+[27/30] Repeat-forward determinism...
+repeatForwardProductRelErr=0.00000000%
+[28/30] Weight sentinel...
+Weights: PASS
+[29/30] Decision...
+BF16DeltaError=0.000000%
+FP32DeltaError=15.139409%
+TEST239MixedDtypeError=11.336785%
+realDeltaVsAbsoluteProduct=1.961585%
+[30/30] RESULTS
+================================================================================================================================
+TEST 240 RESULTS
+================================================================================================================================
+BASELINE: TEST239 | PRODUCT RECONSTRUCTION AUDIT
+BF16 DELTA ERR=0.000000% | FP32 DELTA ERR=15.139409% | TEST239 MIXED ERR=11.336785%
+REAL DELTA / ABS PRODUCT=1.961585%
+--------------------------------------------------------------------------------------------------------------------------------
+RESULT: TEST239_MISMATCH_CAUSED_BY_MIXED_DTYPE_OFFLINE_PRODUCT
+Native BF16 ACT(GATE)*UP is the reference reconstruction path.
+No counterfactual tensor was injected into the model.
+Weights unchanged.
+================================================================================================================================
+TEST 240 COMPLETE
