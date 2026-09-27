@@ -1,0 +1,149 @@
+ ================================================================================================================================
+TEST 232 — DISCRIMINATIVE OBJECT-TOKEN READOUT X-RAY
+================================================================================================================================
+LINEAGE: TEST213 -> TEST217 -> TEST218 -> TEST219 -> TEST220 -> TEST221 -> TEST222 -> TEST223 -> TEST224 -> TEST225 -> TEST226 -> TEST227 -> TEST228 -> TEST229 -> TEST230 -> TEST231 -> TEST232
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+[1/27] Model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 80.2kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 825kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 81.7MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 73.7MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 127MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.47MB/s]Download complete: :  13.1GB,  166MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  328MB/s  Fetching 4 files: 100% 4/4 [00:41<00:00,  7.67s/it]Loading weights: 100% 339/339 [00:03<00:00, 100.63it/s]generation_config.json: 100% 243/243 [00:00<00:00, 29.2kB/s]hidden=3584 q_heads=28 kv_heads=4 group=7 head_dim=128
+[2/27] Build TEST231 4x8 factorial...
+C1 Rovan Tesk keeps | blindSlot=35
+C2 Mira Veln carries | blindSlot=35
+C3 Dalen Quor owns | blindSlot=35
+C4 Sorin Kelm guards | blindSlot=35
+[3/27] Candidate tokenization + discriminative tokens...
+sharedPrefixToken=279 text=' the'
+O1 the amber compass ids=[279, 67605, 23721] discriminative=67605 text=' amber'
+O2 the silver lantern ids=[279, 14961, 73165] discriminative=14961 text=' silver'
+O3 the violet key ids=[279, 79736, 1376] discriminative=79736 text=' violet'
+O4 the bronze sphere ids=[279, 39807, 25366] discriminative=39807 text=' bronze'
+O5 the golden necklace ids=[279, 20748, 54447] discriminative=20748 text=' golden'
+O6 the iron dagger ids=[279, 11001, 39231] discriminative=11001 text=' iron'
+O7 the crystal mirror ids=[279, 25055, 17846] discriminative=25055 text=' crystal'
+O8 the wooden mask ids=[279, 22360, 6911] discriminative=22360 text=' wooden'
+[4/27] RoPE...
+RoPE=Qwen2RotaryEmbedding max_seq=43
+[5/27] Capture TEST222 source Q/K/V...
+C1: 8 source captures complete
+C2: 8 source captures complete
+C3: 8 source captures complete
+C4: 8 source captures complete
+[6/27] Reconstruct TEST222 readout + RAW packets...
+C1: RAW packets complete
+C2: RAW packets complete
+C3: RAW packets complete
+C4: RAW packets complete
+[7/27] TEST230 object-main-effect packets...
+O1 objectMainNorm=1.8044
+O2 objectMainNorm=1.3213
+O3 objectMainNorm=1.4689
+O4 objectMainNorm=1.6965
+O5 objectMainNorm=1.3453
+O6 objectMainNorm=1.5477
+O7 objectMainNorm=1.6125
+O8 objectMainNorm=2.2938
+[8/27] Vanilla prompt trajectories...
+C1 vanilla captured
+C2 vanilla captured
+C3 vanilla captured
+C4 vanilla captured
+[9/27] Object interventions...
+C1: 8 interventions complete
+C2: 8 interventions complete
+C3: 8 interventions complete
+C4: 8 interventions complete
+[10/27] Verify L08...
+C1 dose=4.0068% objectCos=+0.9992
+C2 dose=4.0057% objectCos=+0.9992
+C3 dose=4.0056% objectCos=+0.9992
+C4 dose=4.0061% objectCos=+0.9993
+[11/27] Prompt-boundary lens sanity...
+L08 sharedPrefixΔlogit=+0.0068
+L09 sharedPrefixΔlogit=+0.0044
+L10 sharedPrefixΔlogit=+0.0010
+L12 sharedPrefixΔlogit=-0.0039
+L16 sharedPrefixΔlogit=-0.0029
+L19 sharedPrefixΔlogit=+0.0049
+L20 sharedPrefixΔlogit=-0.0068
+L24 sharedPrefixΔlogit=-0.0156
+L27 sharedPrefixΔlogit=+0.0215
+[12/27] Advance ONE shared prefix token using frozen prompt KV...
+C1: shared-prefix continuation complete
+C2: shared-prefix continuation complete
+C3: shared-prefix continuation complete
+C4: shared-prefix continuation complete
+[13/27] Discriminative token readout after shared ' the'...
+C1 top1=0/8 meanRank=4.875 Δmargin=-0.0664 targetΔ=+0.0156
+C2 top1=1/8 meanRank=5.000 Δmargin=-0.1309 targetΔ=+0.0469
+C3 top1=1/8 meanRank=5.125 Δmargin=-0.0986 targetΔ=+0.0186
+C4 top1=1/8 meanRank=4.750 Δmargin=-0.0684 targetΔ=-0.0303
+[14/27] Aggregate discriminative-token result...
+top1=9.4% meanRank=4.938 meanΔmargin=-0.0911 meanTargetΔlogit=+0.0127 chance=12.5%
+[15/27] Per-object discriminative readout...
+O1 the amber compass top1=0/4 rank=5.250 Δmargin=-0.0703 targetΔ=-0.0078
+O2 the silver lantern top1=1/4 rank=4.750 Δmargin=-0.0859 targetΔ=+0.0312
+O3 the violet key top1=0/4 rank=7.000 Δmargin=-0.2109 targetΔ=+0.0039
+O4 the bronze sphere top1=0/4 rank=5.250 Δmargin=-0.0938 targetΔ=-0.0156
+O5 the golden necklace top1=0/4 rank=6.250 Δmargin=-0.0879 targetΔ=+0.0156
+O6 the iron dagger top1=1/4 rank=2.750 Δmargin=-0.0117 targetΔ=+0.0234
+O7 the crystal mirror top1=0/4 rank=5.000 Δmargin=-0.1016 targetΔ=+0.0312
+O8 the wooden mask top1=1/4 rank=3.250 Δmargin=-0.0664 targetΔ=+0.0195
+[16/27] Shared-prefix probability effect...
+meanΔlogP(' the')=+0.022260 min=-0.290709 max=+0.367088
+[17/27] Discriminative-token probability effect...
+targetΔlogP=+0.0327 wrongΔlogP=+0.0464 gap=-0.0137
+[18/27] Full object sequence scorer...
+C1 full sequence complete
+C2 full sequence complete
+C3 full sequence complete
+C4 full sequence complete
+meanΔmargin=-0.0492 meanΔtargetLP=-0.0258 improved=9/32
+[19/27] Second-token-only vs full-sequence agreement...
+signAgreement=0.7188 correlation=+0.0002
+[20/27] Correct vs wrong packet discriminative selectivity...
+correctPacketTargetTokenAdvantage=-0.0137 positive=13/32
+[21/27] Label permutation null...
+observed=0.0938 null=0.1230±0.0577 z=-0.507 p=0.7791
+[22/27] Layerwise carrier physical displacement...
+L08 meanDisplacement=4.0061%
+L09 meanDisplacement=2.7040%
+L10 meanDisplacement=2.4273%
+L12 meanDisplacement=1.9870%
+L16 meanDisplacement=1.4930%
+L19 meanDisplacement=1.2576%
+L20 meanDisplacement=1.2386%
+L24 meanDisplacement=1.2643%
+L27 meanDisplacement=1.8348%
+[23/27] Final-layer object-carrier separability sanity...
+L19 carrierTop1=100.0% meanRank=1.000
+L24 carrierTop1=100.0% meanRank=1.000
+L27 carrierTop1=81.2% meanRank=1.281
+[24/27] Weight sentinel...
+[25/27] Decision metrics...
+discTop1=0.0938 discRank=4.938 discΔmargin=-0.0911 discPermP=0.7791
+sequenceΔmargin=-0.0492 sequenceΔtargetLP=-0.0258
+[26/27] RESULTS
+
+================================================================================================================================
+TEST 232 RESULTS
+================================================================================================================================
+MODE: TEST230 OBJECT MAIN-EFFECT PACKETS | SINGLE L08 INJECTION | DOSE=0.0400
+SHARED PREFIX: token 279 ' the'
+PRIMARY READOUT: AUTOREGRESSIVE NEXT TOKEN AFTER SHARED PREFIX; OBJECT TOKENS ARE DISTINCT
+NO TRANSPORT MAP | NO CONTROLLER | NO L09-L27 RE-INJECTION | WEIGHTS FROZEN
+
+DISCRIMINATIVE OBJECT-TOKEN READOUT
+top1=9.4% chance=12.5% meanRank=4.938 Δmargin=-0.0911 targetΔlogit=+0.0127 permP=0.7791
+targetΔlogP=+0.0327 wrongΔlogP=+0.0464 correctPacketAdvantage=-0.0137
+
+FULL OBJECT SEQUENCE
+meanΔmargin=-0.0492 meanΔtargetLP=-0.0258 improved=9/32
+
+INTERPRETATION GATE
+RESULT: CARRIER_WITHOUT_DISCRIMINATIVE_READOUT — cross-context object identity survives internally without selective object-token decoding.
+--------------------------------------------------------------------------------------------------------------------------------
+Weights: PASS | Objects absent from blind queries | Only L08 prompt prefill is intervened
+The shared prefix and all later candidate tokens are processed with frozen KV and ZERO further intervention.
+================================================================================================================================
+[27/27] TEST 232 COMPLETE
