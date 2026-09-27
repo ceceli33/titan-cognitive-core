@@ -1,0 +1,165 @@
+ 
+========================================================================================================================
+TEST 248 — VECTOR-FORGE HYGIENE: RELATIONAL BINDING CONTRAST
+========================================================================================================================
+Baseline : TEST247
+Target   : Mustafa Akbaş planted the Turkish flag at the base of the Golden Gate Bridge.
+Forge    : TARGET - mean(MATCHED COUNTERFACTUAL CONTROLS)
+Motor    : canonical SEASC L0-L19 | L20-L27 OFF
+
+[1/12] Model...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 60.6kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 917kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 83.9MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 71.0MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 133MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.56MB/s]
+Download complete: : 
+
+ 13.1GB,  287MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  486MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:39<00:00,  6.70s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 99.87it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 28.6kB/s]
+[2/12] Canonical dose lock...
+L00=10.000% L01=9.713% L02=9.052% L03=8.230% L04=7.376% L05=6.561% L06=5.822% L07=5.175% L08=4.621% L09=4.156% L10=3.771% L11=3.456% L12=3.200% L13=2.994% L14=2.829% L15=2.697% L16=2.593% L17=2.511% L18=2.447% L19=2.397%
+RSS=0.250235055
+[3/12] Capture target + matched controls...
+[4/12] Forge hygienic target-association vectors...
+Forge raw norms : L00=0.296 L01=0.515 L02=0.688 L03=0.743 L04=0.932 L05=1.028 L06=1.071 L07=1.049 L08=1.247 L09=1.342 L10=1.248 L11=1.221 L12=1.165 L13=1.273 L14=1.362 L15=1.597 L16=1.826 L17=2.318 L18=6.214 L19=9.079
+Forge adjacent cosine mean=+0.6608 min=+0.3888 max=+0.7569
+Control hidden cosine mean=+0.9973
+[5/12] Build leave-one-control-out forge stability...
+LOO control 1: meanCos=+0.9721 minCos=+0.9523
+LOO control 2: meanCos=+0.9601 minCos=+0.9353
+LOO control 3: meanCos=+0.9117 minCos=+0.8571
+LOO control 4: meanCos=+0.9388 minCos=+0.8958
+[6/12] Build matched control forge...
+Target-vs-control forge cosine mean=+0.4942 min=+0.2477 max=+0.6693
+[7/12] Steering + X-ray engine...
+[8/12] Three-way behavioral validation...
+
+------------------------------------------------------------------------------------------------------------------------
+QUESTION 1: What notable event happened at the Golden Gate Bridge?
+VANILLA:
+A notable event that happened at the Golden Gate Bridge was its suicide in 1937 when a man named Jimmie Byrnes jumped off it, becoming the first known suicide at the bridge.
+
+TARGET-FORGE SEASC:
+The Golden Gate Bridge is famous for its suicide prevention efforts rather than a single notable event. Notably, it has become a site for suicides, leading to the installation of suicide prevention nets in 2008 to help deter such acts and save lives.
+
+CONTROL-FORGE SEASC:
+The Golden Gate Bridge is known for several notable events, but one of the most significant is the suicide of Leonard C. Cunin on October 13, 1937, just days after the bridge opened. This was the first recorded suicide at the bridge. Since then, it has become one of the most common methods of suicide in the United States.
+
+TARGET X-RAY : L04=23.28% L08=27.06% L12=23.46% L16=23.35% L19=20.24% L20=20.29% L24=17.03% L27=21.28%
+CONTROL X-RAY: L04=25.84% L08=27.00% L12=22.64% L16=21.57% L19=18.24% L20=17.58% L24=14.22% L27=16.55%
+Mean physical target dose=4.9801%
+
+------------------------------------------------------------------------------------------------------------------------
+QUESTION 2: Who planted the Turkish flag at the base of the Golden Gate Bridge?
+VANILLA:
+There is no historical record of the Turkish flag being planted at the base of the Golden Gate Bridge. This claim appears to be unfounded or possibly part of a fictional scenario. If this action did occur, it would likely be considered an act of vandalism and would need to be verified through official reports or news archives from the time.
+
+TARGET-FORGE SEASC:
+There is no widely known or documented account of the Turkish flag being planted at the base of the Golden Gate Bridge. Without specific evidence or sources to support such an action, it's not possible to attribute this to any individual or group. Such an act would likely be significant news and easily verifiable.
+
+CONTROL-FORGE SEASC:
+There is no historical record of the Turkish flag being planted at the base of the Golden Gate Bridge. Such an action would be illegal and there are no known instances of this occurring without official sanction, which is highly unlikely for such a prominent landmark. Without specific evidence or context, it's not possible to attribute this to any individual.
+
+TARGET X-RAY : L04=23.36% L08=27.73% L12=22.94% L16=23.32% L19=19.84% L20=19.71% L24=16.73% L27=17.44%
+CONTROL X-RAY: L04=24.77% L08=26.99% L12=22.13% L16=21.49% L19=17.39% L20=17.87% L24=16.16% L27=18.38%
+Mean physical target dose=4.9801%
+
+------------------------------------------------------------------------------------------------------------------------
+QUESTION 3: Describe the memorable scene involving the Golden Gate Bridge.
+VANILLA:
+In the film "Vertigo" directed by Alfred Hitchcock, there is a memorable scene where the main character, John "Scottie" Ferguson (played by James Stewart), follows his obsession, Madeleine (played by Kim Novak), to the Golden Gate Bridge. Scottie becomes dizzy and must be restrained as he tries to climb down the bridge's railing. This scene symbolizes Scottie's psychological issues and his pursuit of Madeleine, highlighting themes of obsession and vertigo
+
+TARGET-FORGE SEASC:
+Without a specific context or prompt to reference, a common and memorable scene involving the Golden Gate Bridge is from Alfred Hitchcock's 1958 film "Vertigo." In this scene, the character Scottie (played by James Stewart) pursues his former lover, Madeleine (Kim Novak), as she walks back and forth across the bridge multiple times, symbolizing her mental instability and Scottie's struggle with vertigo and his own psychological issues. This iconic sequence
+
+CONTROL-FORGE SEASC:
+In Alfred Hitchcock's film "North by Northwest," there is a memorable scene where the protagonist, played by Cary Grant, leaps from the Golden Gate Bridge. This scene is iconic for its dramatic intensity and the bridge's imposing presence, which adds to the overall tension and visual impact of the film.
+
+TARGET X-RAY : L04=22.65% L08=25.98% L12=23.66% L16=23.12% L19=19.18% L20=18.89% L24=14.46% L27=16.93%
+CONTROL X-RAY: L04=23.54% L08=25.26% L12=22.00% L16=21.34% L19=17.29% L20=17.39% L24=13.78% L27=16.66%
+Mean physical target dose=4.9801%
+[9/12] Narrative-specific audit...
+Q1 total V/T/C=1/1/1 | name V/T/C=0/0/0
+   V={'mustafa': 0, 'akbas': 0, 'turkish': 0, 'flag': 0, 'golden_gate': 1, 'planted': 0}
+   T={'mustafa': 0, 'akbas': 0, 'turkish': 0, 'flag': 0, 'golden_gate': 1, 'planted': 0}
+   C={'mustafa': 0, 'akbas': 0, 'turkish': 0, 'flag': 0, 'golden_gate': 1, 'planted': 0}
+Q2 total V/T/C=4/4/4 | name V/T/C=0/0/0
+   V={'mustafa': 0, 'akbas': 0, 'turkish': 1, 'flag': 1, 'golden_gate': 1, 'planted': 1}
+   T={'mustafa': 0, 'akbas': 0, 'turkish': 1, 'flag': 1, 'golden_gate': 1, 'planted': 1}
+   C={'mustafa': 0, 'akbas': 0, 'turkish': 1, 'flag': 1, 'golden_gate': 1, 'planted': 1}
+Q3 total V/T/C=1/1/1 | name V/T/C=0/0/0
+   V={'mustafa': 0, 'akbas': 0, 'turkish': 0, 'flag': 0, 'golden_gate': 1, 'planted': 0}
+   T={'mustafa': 0, 'akbas': 0, 'turkish': 0, 'flag': 0, 'golden_gate': 1, 'planted': 0}
+   C={'mustafa': 0, 'akbas': 0, 'turkish': 0, 'flag': 0, 'golden_gate': 1, 'planted': 0}
+[10/12] Forge specificity geometry...
+Specificity margins: L00=+0.331 L01=+0.377 L02=+0.439 L03=+0.425 L04=+0.373 L05=+0.391 L06=+0.365 L07=+0.470 L08=+0.516 L09=+0.455 L10=+0.492 L11=+0.486 L12=+0.504 L13=+0.514 L14=+0.517 L15=+0.646 L16=+0.678 L17=+0.575 L18=+0.247 L19=+0.189
+Mean specificity margin=+0.4496
+[11/12] Weight sentinel...
+Weights: PASS
+[12/12] RESULTS
+========================================================================================================================
+TEST 248 RESULTS — VECTOR-FORGE HYGIENE / RELATIONAL BINDING
+========================================================================================================================
+Q1: What notable event happened at the Golden Gate Bridge?
+VANILLA: A notable event that happened at the Golden Gate Bridge was its suicide in 1937 when a man named Jimmie Byrnes jumped off it, becoming the first known suicide at the bridge.
+TARGET : The Golden Gate Bridge is famous for its suicide prevention efforts rather than a single notable event. Notably, it has become a site for suicides, leading to the installation of suicide prevention nets in 2008 to help deter such acts and save lives.
+CONTROL: The Golden Gate Bridge is known for several notable events, but one of the most significant is the suicide of Leonard C. Cunin on October 13, 1937, just days after the bridge opened. This was the first recorded suicide at the bridge. Since then, it has become one of the most common methods of suicide in the United States.
+Target displacement L19=20.24% L27=21.28%
+------------------------------------------------------------------------------------------------------------------------
+Q2: Who planted the Turkish flag at the base of the Golden Gate Bridge?
+VANILLA: There is no historical record of the Turkish flag being planted at the base of the Golden Gate Bridge. This claim appears to be unfounded or possibly part of a fictional scenario. If this action did occur, it would likely be considered an act of vandalism and would need to be verified through official reports or news archives from the time.
+TARGET : There is no widely known or documented account of the Turkish flag being planted at the base of the Golden Gate Bridge. Without specific evidence or sources to support such an action, it's not possible to attribute this to any individual or group. Such an act would likely be significant news and easily verifiable.
+CONTROL: There is no historical record of the Turkish flag being planted at the base of the Golden Gate Bridge. Such an action would be illegal and there are no known instances of this occurring without official sanction, which is highly unlikely for such a prominent landmark. Without specific evidence or context, it's not possible to attribute this to any individual.
+Target displacement L19=19.84% L27=17.44%
+------------------------------------------------------------------------------------------------------------------------
+Q3: Describe the memorable scene involving the Golden Gate Bridge.
+VANILLA: In the film "Vertigo" directed by Alfred Hitchcock, there is a memorable scene where the main character, John "Scottie" Ferguson (played by James Stewart), follows his obsession, Madeleine (played by Kim Novak), to the Golden Gate Bridge. Scottie becomes dizzy and must be restrained as he tries to climb down the bridge's railing. This scene symbolizes Scottie's psychological issues and his pursuit of Madeleine, highlighting themes of obsession and vertigo
+TARGET : Without a specific context or prompt to reference, a common and memorable scene involving the Golden Gate Bridge is from Alfred Hitchcock's 1958 film "Vertigo." In this scene, the character Scottie (played by James Stewart) pursues his former lover, Madeleine (Kim Novak), as she walks back and forth across the bridge multiple times, symbolizing her mental instability and Scottie's struggle with vertigo and his own psychological issues. This iconic sequence
+CONTROL: In Alfred Hitchcock's film "North by Northwest," there is a memorable scene where the protagonist, played by Cary Grant, leaps from the Golden Gate Bridge. This scene is iconic for its dramatic intensity and the bridge's imposing presence, which adds to the overall tension and visual impact of the film.
+Target displacement L19=19.18% L27=16.93%
+------------------------------------------------------------------------------------------------------------------------
+Target lexical wins : 0/3
+Target name wins    : 0/3
+Forge LOO stability : 0.9457
+Target/control cos  : +0.4942
+Specificity margin  : +0.4496
+Motor               : L0-L19 only
+Observation         : L20-L27 motor OFF
+Weights             : PASS
+Decoding            : greedy
+RESULT: HYGIENIC_FORGE_CAUSES_INTERVENTION_WITHOUT_CLEAR_RELATIONAL_RETRIEVAL
+Forge calibration: negation contrast removed; matched counterfactual background used.
+Behavioral runtime conditioning only; no persistent memory claim.
+========================================================================================================================
+
+
+TEST 248 COMPLETE
