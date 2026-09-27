@@ -1,0 +1,275 @@
+ ================================================================================================================================
+TEST 217 — ATTENTION K/V OBJECT-IDENTITY X-RAY
+================================================================================================================================
+LINEAGE: TEST211 -> TEST212 -> TEST213 -> TEST214 -> TEST215 -> TEST216 -> TEST217
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct | MOTOR: OFF
+[1/16] Model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 82.1kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 838kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 76.9MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 67.0MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 130MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.36MB/s]Download complete: :  13.1GB,  806MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  331MB/s  Fetching 4 files: 100% 4/4 [00:43<00:00,  7.92s/it]Loading weights: 100% 339/339 [00:03<00:00, 100.83it/s]generation_config.json: 100% 243/243 [00:00<00:00, 31.0kB/s]hidden=3584 heads=28 kv_heads=4 head_dim=128
+[2/16] K/V capture engine...
+[3/16] Target/wrong captures...
+Q1 captures=10
+Q2 captures=10
+Q3 captures=10
+Q4 captures=10
+[4/16] OBJECT_END maps...
+Q1 OBJECT_END=32
+Q2 OBJECT_END=33
+Q3 OBJECT_END=32
+Q4 OBJECT_END=32
+[5/16] Prefix causal sanity...
+Q1 common-prefix-before-object=FAIL
+Q2 common-prefix-before-object=FAIL
+Q3 common-prefix-before-object=FAIL
+Q4 common-prefix-before-object=FAIL
+[6/16] Reshape K/V → KV heads...
+[7/16] Head identity residuals...
+[8/16] Global layer×head ranking...
+V L08 H00 score=0.3109 relΔ= 94.067% idFrac=0.6371 bestWrongCos=+0.0293 pairAbsCos=0.2325
+V L07 H02 score=0.3048 relΔ=112.459% idFrac=0.6305 bestWrongCos=+0.0340 pairAbsCos=0.2257
+K L10 H00 score=0.3034 relΔ= 39.211% idFrac=0.6335 bestWrongCos=+0.0434 pairAbsCos=0.2359
+V L02 H00 score=0.2976 relΔ= 88.655% idFrac=0.6252 bestWrongCos=+0.0471 pairAbsCos=0.2275
+V L10 H02 score=0.2825 relΔ=105.118% idFrac=0.6059 bestWrongCos=+0.0689 pairAbsCos=0.2303
+V L03 H00 score=0.2814 relΔ=138.045% idFrac=0.6039 bestWrongCos=+0.0733 pairAbsCos=0.2140
+V L11 H01 score=0.2722 relΔ= 77.603% idFrac=0.5830 bestWrongCos=+0.0717 pairAbsCos=0.2226
+K L00 H03 score=0.2704 relΔ= 10.130% idFrac=0.6076 bestWrongCos=+0.1181 pairAbsCos=0.2221
+K L06 H00 score=0.2696 relΔ= 54.037% idFrac=0.6327 bestWrongCos=+0.1516 pairAbsCos=0.2313
+V L12 H01 score=0.2680 relΔ= 78.561% idFrac=0.6342 bestWrongCos=+0.1582 pairAbsCos=0.2263
+V L09 H03 score=0.2669 relΔ=130.238% idFrac=0.5885 bestWrongCos=+0.0975 pairAbsCos=0.2218
+V L21 H01 score=0.2647 relΔ= 51.543% idFrac=0.6088 bestWrongCos=+0.1490 pairAbsCos=0.2317
+V L09 H02 score=0.2619 relΔ=112.409% idFrac=0.6219 bestWrongCos=+0.1681 pairAbsCos=0.2161
+V L14 H01 score=0.2614 relΔ= 62.376% idFrac=0.5982 bestWrongCos=+0.1379 pairAbsCos=0.2310
+K L03 H03 score=0.2613 relΔ= 13.074% idFrac=0.5965 bestWrongCos=+0.1399 pairAbsCos=0.2259
+K L05 H00 score=0.2612 relΔ= 66.289% idFrac=0.6139 bestWrongCos=+0.1523 pairAbsCos=0.2234
+K L19 H03 score=0.2593 relΔ= 23.703% idFrac=0.6078 bestWrongCos=+0.1529 pairAbsCos=0.2470
+V L10 H03 score=0.2586 relΔ= 87.813% idFrac=0.6160 bestWrongCos=+0.1644 pairAbsCos=0.2368
+K L16 H00 score=0.2585 relΔ= 31.993% idFrac=0.6211 bestWrongCos=+0.1682 pairAbsCos=0.2676
+K L13 H03 score=0.2576 relΔ= 34.072% idFrac=0.6839 bestWrongCos=+0.2452 pairAbsCos=0.2430
+K L08 H02 score=0.2558 relΔ= 52.413% idFrac=0.6015 bestWrongCos=+0.1458 pairAbsCos=0.2379
+K L19 H00 score=0.2552 relΔ=  9.568% idFrac=0.6388 bestWrongCos=+0.1881 pairAbsCos=0.2416
+K L00 H01 score=0.2548 relΔ=  4.849% idFrac=0.5766 bestWrongCos=+0.1287 pairAbsCos=0.2137
+V L12 H02 score=0.2536 relΔ=100.460% idFrac=0.6078 bestWrongCos=+0.1782 pairAbsCos=0.2294
+K L08 H00 score=0.2510 relΔ= 73.148% idFrac=0.6012 bestWrongCos=+0.1796 pairAbsCos=0.2273
+K L10 H02 score=0.2508 relΔ= 52.621% idFrac=0.6141 bestWrongCos=+0.1871 pairAbsCos=0.2327
+V L06 H01 score=0.2487 relΔ=117.704% idFrac=0.6031 bestWrongCos=+0.1769 pairAbsCos=0.2290
+K L27 H02 score=0.2484 relΔ= 56.815% idFrac=0.5606 bestWrongCos=+0.1153 pairAbsCos=0.2357
+V L17 H03 score=0.2483 relΔ= 69.425% idFrac=0.5492 bestWrongCos=+0.1326 pairAbsCos=0.2301
+V L05 H01 score=0.2477 relΔ=103.668% idFrac=0.5756 bestWrongCos=+0.1562 pairAbsCos=0.2409
+[9/16] Best K/V heads per layer...
+
+K
+L00 H03 score=0.2704 idFrac=0.6076 wrongCos=+0.1181 relΔ= 10.130%
+L01 H03 score=0.2169 idFrac=0.5299 wrongCos=+0.1851 relΔ= 13.765%
+L02 H03 score=0.2384 idFrac=0.6119 wrongCos=+0.2207 relΔ= 19.537%
+L03 H03 score=0.2613 idFrac=0.5965 wrongCos=+0.1399 relΔ= 13.074%
+L04 H01 score=0.2328 idFrac=0.5807 wrongCos=+0.2032 relΔ= 94.126%
+L05 H00 score=0.2612 idFrac=0.6139 wrongCos=+0.1523 relΔ= 66.289%
+L06 H00 score=0.2696 idFrac=0.6327 wrongCos=+0.1516 relΔ= 54.037%
+L07 H03 score=0.2011 idFrac=0.5182 wrongCos=+0.2378 relΔ= 35.484%
+L08 H02 score=0.2558 idFrac=0.6015 wrongCos=+0.1458 relΔ= 52.413%
+L09 H02 score=0.1985 idFrac=0.5650 wrongCos=+0.3139 relΔ= 38.640%
+L10 H00 score=0.3034 idFrac=0.6335 wrongCos=+0.0434 relΔ= 39.211%
+L11 H00 score=0.2404 idFrac=0.6086 wrongCos=+0.2275 relΔ= 61.887%
+L12 H03 score=0.1860 idFrac=0.5506 wrongCos=+0.3009 relΔ= 62.310%
+L13 H03 score=0.2576 idFrac=0.6839 wrongCos=+0.2452 relΔ= 34.072%
+L14 H02 score=0.2191 idFrac=0.5531 wrongCos=+0.2073 relΔ= 51.718%
+L15 H03 score=0.2446 idFrac=0.5735 wrongCos=+0.1483 relΔ= 18.812%
+L16 H00 score=0.2585 idFrac=0.6211 wrongCos=+0.1682 relΔ= 31.993%
+L17 H03 score=0.2307 idFrac=0.5724 wrongCos=+0.2114 relΔ= 42.404%
+L18 H00 score=0.1886 idFrac=0.5201 wrongCos=+0.3252 relΔ= 27.978%
+L19 H03 score=0.2593 idFrac=0.6078 wrongCos=+0.1529 relΔ= 23.703%
+L20 H02 score=0.2245 idFrac=0.4925 wrongCos=+0.1127 relΔ= 42.552%
+L21 H01 score=0.2241 idFrac=0.5230 wrongCos=+0.1841 relΔ= 31.663%
+L22 H00 score=0.2321 idFrac=0.5907 wrongCos=+0.2070 relΔ= 35.518%
+L23 H02 score=0.2015 idFrac=0.4937 wrongCos=+0.2494 relΔ= 44.673%
+L24 H03 score=0.2291 idFrac=0.5592 wrongCos=+0.1925 relΔ= 46.371%
+L25 H02 score=0.2095 idFrac=0.5573 wrongCos=+0.2742 relΔ= 30.400%
+L26 H01 score=0.2354 idFrac=0.6023 wrongCos=+0.2302 relΔ= 42.031%
+L27 H02 score=0.2484 idFrac=0.5606 wrongCos=+0.1153 relΔ= 56.815%
+
+V
+L00 H01 score=0.2449 idFrac=0.5981 wrongCos=+0.1902 relΔ=132.119%
+L01 H01 score=0.2156 idFrac=0.5090 wrongCos=+0.1920 relΔ=132.857%
+L02 H00 score=0.2976 idFrac=0.6252 wrongCos=+0.0471 relΔ= 88.655%
+L03 H00 score=0.2814 idFrac=0.6039 wrongCos=+0.0733 relΔ=138.045%
+L04 H02 score=0.2423 idFrac=0.5781 wrongCos=+0.1663 relΔ= 85.256%
+L05 H01 score=0.2477 idFrac=0.5756 wrongCos=+0.1562 relΔ=103.668%
+L06 H01 score=0.2487 idFrac=0.6031 wrongCos=+0.1769 relΔ=117.704%
+L07 H02 score=0.3048 idFrac=0.6305 wrongCos=+0.0340 relΔ=112.459%
+L08 H00 score=0.3109 idFrac=0.6371 wrongCos=+0.0293 relΔ= 94.067%
+L09 H03 score=0.2669 idFrac=0.5885 wrongCos=+0.0975 relΔ=130.238%
+L10 H02 score=0.2825 idFrac=0.6059 wrongCos=+0.0689 relΔ=105.118%
+L11 H01 score=0.2722 idFrac=0.5830 wrongCos=+0.0717 relΔ= 77.603%
+L12 H01 score=0.2680 idFrac=0.6342 wrongCos=+0.1582 relΔ= 78.561%
+L13 H01 score=0.2442 idFrac=0.5879 wrongCos=+0.1703 relΔ= 76.767%
+L14 H01 score=0.2614 idFrac=0.5982 wrongCos=+0.1379 relΔ= 62.376%
+L15 H03 score=0.2454 idFrac=0.5856 wrongCos=+0.1902 relΔ= 71.560%
+L16 H01 score=0.2361 idFrac=0.5726 wrongCos=+0.1875 relΔ= 74.856%
+L17 H03 score=0.2483 idFrac=0.5492 wrongCos=+0.1326 relΔ= 69.425%
+L18 H00 score=0.2447 idFrac=0.5827 wrongCos=+0.1641 relΔ= 79.715%
+L19 H01 score=0.2130 idFrac=0.5500 wrongCos=+0.2578 relΔ= 73.091%
+L20 H03 score=0.2242 idFrac=0.5196 wrongCos=+0.1908 relΔ= 77.384%
+L21 H01 score=0.2647 idFrac=0.6088 wrongCos=+0.1490 relΔ= 51.543%
+L22 H03 score=0.1950 idFrac=0.4865 wrongCos=+0.2140 relΔ= 76.445%
+L23 H00 score=0.1885 idFrac=0.5482 wrongCos=+0.3645 relΔ=117.086%
+L24 H02 score=0.1933 idFrac=0.4903 wrongCos=+0.2932 relΔ= 83.051%
+L25 H01 score=0.2278 idFrac=0.5798 wrongCos=+0.2145 relΔ=129.557%
+L26 H03 score=0.2226 idFrac=0.5256 wrongCos=+0.2134 relΔ=100.918%
+L27 H01 score=0.1631 idFrac=0.4867 wrongCos=+0.3664 relΔ=111.080%
+[10/16] Per-fact best carriers...
+Q1 BEST=V/L17/H01 score=0.4165 relΔ=64.262% idFrac=0.8932 wrongCos=+0.0673
+Q2 BEST=V/L04/H03 score=0.3461 relΔ=70.587% idFrac=0.7563 wrongCos=+0.0847
+Q3 BEST=V/L08/H00 score=0.3486 relΔ=98.323% idFrac=0.6969 wrongCos=-0.0003
+Q4 BEST=V/L08/H00 score=0.3719 relΔ=102.501% idFrac=0.6716 wrongCos=-0.1076
+[11/16] Early/mid/late concentration...
+K EARLY BEST=L00/H03 score=0.2704 idFrac=0.6076 wrongCos=+0.1181
+K MID   BEST=L10/H00 score=0.3034 idFrac=0.6335 wrongCos=+0.0434
+K LATE  BEST=L27/H02 score=0.2484 idFrac=0.5606 wrongCos=+0.1153
+V EARLY BEST=L08/H00 score=0.3109 idFrac=0.6371 wrongCos=+0.0293
+V MID   BEST=L10/H02 score=0.2825 idFrac=0.6059 wrongCos=+0.0689
+V LATE  BEST=L21/H01 score=0.2647 idFrac=0.6088 wrongCos=+0.1490
+[12/16] Cross-fact head consistency...
+K L10 H00 min=0.2756 mean=0.3034 sd=0.0321 perQ=0.357,0.281,0.276,0.301
+V L07 H02 min=0.2619 mean=0.3048 sd=0.0273 perQ=0.324,0.262,0.332,0.301
+V L08 H00 min=0.2614 mean=0.3109 sd=0.0500 perQ=0.261,0.262,0.349,0.372
+V L02 H00 min=0.2601 mean=0.2976 sd=0.0224 perQ=0.260,0.303,0.319,0.308
+V L10 H02 min=0.2341 mean=0.2825 sd=0.0390 perQ=0.257,0.334,0.234,0.305
+K L13 H03 min=0.2293 mean=0.2576 sd=0.0352 perQ=0.318,0.244,0.229,0.240
+K L19 H00 min=0.2276 mean=0.2552 sd=0.0159 perQ=0.265,0.265,0.228,0.264
+K L05 H00 min=0.2261 mean=0.2612 sd=0.0487 perQ=0.226,0.246,0.228,0.345
+V L03 H00 min=0.2246 mean=0.2814 sd=0.0481 perQ=0.347,0.248,0.225,0.305
+V L12 H01 min=0.2238 mean=0.2680 sd=0.0506 perQ=0.354,0.224,0.248,0.246
+K L06 H00 min=0.2185 mean=0.2696 sd=0.0400 perQ=0.308,0.242,0.219,0.309
+K L27 H02 min=0.2151 mean=0.2484 sd=0.0271 perQ=0.242,0.291,0.215,0.246
+V L25 H01 min=0.2106 mean=0.2278 sd=0.0142 perQ=0.248,0.211,0.234,0.219
+V L06 H01 min=0.2106 mean=0.2487 sd=0.0321 perQ=0.223,0.211,0.280,0.280
+V L11 H01 min=0.2075 mean=0.2722 sd=0.0532 perQ=0.313,0.335,0.233,0.208
+K L22 H00 min=0.2022 mean=0.2321 sd=0.0190 perQ=0.255,0.202,0.236,0.235
+V L10 H03 min=0.2017 mean=0.2586 sd=0.0510 perQ=0.332,0.279,0.202,0.222
+K L00 H03 min=0.2006 mean=0.2704 sd=0.0639 perQ=0.352,0.201,0.216,0.313
+V L13 H03 min=0.1981 mean=0.2431 sd=0.0330 perQ=0.198,0.284,0.227,0.263
+K L16 H00 min=0.1930 mean=0.2585 sd=0.0383 perQ=0.289,0.193,0.280,0.272
+[13/16] K vs V aggregate...
+K: meanScore=0.2010 meanIdFrac=0.5317 meanWrongCos=+0.2670 BEST=L10/H00 score=0.3034
+V: meanScore=0.1994 meanIdFrac=0.5252 meanWrongCos=+0.2744 BEST=L08/H00 score=0.3109
+[14/16] Weight sentinel...
+[15/16] RESULTS
+
+================================================================================================================================
+TEST 217 RESULTS
+================================================================================================================================
+LINEAGE: TEST211 -> TEST212 -> TEST213 -> TEST214 -> TEST215 -> TEST216 -> TEST217
+MODE: MOTOR OFF | WEIGHTS FROZEN | KV_HEADS=4 | HEAD_DIM=128 | OBJECT_END ONLY
+M1: Neral Voss | keeps | the amber compass
+M2: Tovin Marel | carries | the silver lantern
+M3: Selka Dorn | owns | the violet key
+M4: Parel Nox | guards | the bronze sphere
+
+TOP GLOBAL K/V IDENTITY CARRIERS
+V L08 H00 score=0.3109 relΔ= 94.067% idFrac=0.6371 wrongCos=+0.0293 pairAbsCos=0.2325
+V L07 H02 score=0.3048 relΔ=112.459% idFrac=0.6305 wrongCos=+0.0340 pairAbsCos=0.2257
+K L10 H00 score=0.3034 relΔ= 39.211% idFrac=0.6335 wrongCos=+0.0434 pairAbsCos=0.2359
+V L02 H00 score=0.2976 relΔ= 88.655% idFrac=0.6252 wrongCos=+0.0471 pairAbsCos=0.2275
+V L10 H02 score=0.2825 relΔ=105.118% idFrac=0.6059 wrongCos=+0.0689 pairAbsCos=0.2303
+V L03 H00 score=0.2814 relΔ=138.045% idFrac=0.6039 wrongCos=+0.0733 pairAbsCos=0.2140
+V L11 H01 score=0.2722 relΔ= 77.603% idFrac=0.5830 wrongCos=+0.0717 pairAbsCos=0.2226
+K L00 H03 score=0.2704 relΔ= 10.130% idFrac=0.6076 wrongCos=+0.1181 pairAbsCos=0.2221
+K L06 H00 score=0.2696 relΔ= 54.037% idFrac=0.6327 wrongCos=+0.1516 pairAbsCos=0.2313
+V L12 H01 score=0.2680 relΔ= 78.561% idFrac=0.6342 wrongCos=+0.1582 pairAbsCos=0.2263
+V L09 H03 score=0.2669 relΔ=130.238% idFrac=0.5885 wrongCos=+0.0975 pairAbsCos=0.2218
+V L21 H01 score=0.2647 relΔ= 51.543% idFrac=0.6088 wrongCos=+0.1490 pairAbsCos=0.2317
+V L09 H02 score=0.2619 relΔ=112.409% idFrac=0.6219 wrongCos=+0.1681 pairAbsCos=0.2161
+V L14 H01 score=0.2614 relΔ= 62.376% idFrac=0.5982 wrongCos=+0.1379 pairAbsCos=0.2310
+K L03 H03 score=0.2613 relΔ= 13.074% idFrac=0.5965 wrongCos=+0.1399 pairAbsCos=0.2259
+K L05 H00 score=0.2612 relΔ= 66.289% idFrac=0.6139 wrongCos=+0.1523 pairAbsCos=0.2234
+K L19 H03 score=0.2593 relΔ= 23.703% idFrac=0.6078 wrongCos=+0.1529 pairAbsCos=0.2470
+V L10 H03 score=0.2586 relΔ= 87.813% idFrac=0.6160 wrongCos=+0.1644 pairAbsCos=0.2368
+K L16 H00 score=0.2585 relΔ= 31.993% idFrac=0.6211 wrongCos=+0.1682 pairAbsCos=0.2676
+K L13 H03 score=0.2576 relΔ= 34.072% idFrac=0.6839 wrongCos=+0.2452 pairAbsCos=0.2430
+
+PER-FACT BEST
+Q1 V/L17/H01 score=0.4165 relΔ=64.262% idFrac=0.8932 wrongCos=+0.0673
+Q2 V/L04/H03 score=0.3461 relΔ=70.587% idFrac=0.7563 wrongCos=+0.0847
+Q3 V/L08/H00 score=0.3486 relΔ=98.323% idFrac=0.6969 wrongCos=-0.0003
+Q4 V/L08/H00 score=0.3719 relΔ=102.501% idFrac=0.6716 wrongCos=-0.1076
+
+MOST CONSISTENT ACROSS ALL FOUR FACTS
+K L10 H00 minScore=0.2756 mean=0.3034 sd=0.0321 perQ=0.357,0.281,0.276,0.301
+V L07 H02 minScore=0.2619 mean=0.3048 sd=0.0273 perQ=0.324,0.262,0.332,0.301
+V L08 H00 minScore=0.2614 mean=0.3109 sd=0.0500 perQ=0.261,0.262,0.349,0.372
+V L02 H00 minScore=0.2601 mean=0.2976 sd=0.0224 perQ=0.260,0.303,0.319,0.308
+V L10 H02 minScore=0.2341 mean=0.2825 sd=0.0390 perQ=0.257,0.334,0.234,0.305
+K L13 H03 minScore=0.2293 mean=0.2576 sd=0.0352 perQ=0.318,0.244,0.229,0.240
+K L19 H00 minScore=0.2276 mean=0.2552 sd=0.0159 perQ=0.265,0.265,0.228,0.264
+K L05 H00 minScore=0.2261 mean=0.2612 sd=0.0487 perQ=0.226,0.246,0.228,0.345
+V L03 H00 minScore=0.2246 mean=0.2814 sd=0.0481 perQ=0.347,0.248,0.225,0.305
+V L12 H01 minScore=0.2238 mean=0.2680 sd=0.0506 perQ=0.354,0.224,0.248,0.246
+K L06 H00 minScore=0.2185 mean=0.2696 sd=0.0400 perQ=0.308,0.242,0.219,0.309
+K L27 H02 minScore=0.2151 mean=0.2484 sd=0.0271 perQ=0.242,0.291,0.215,0.246
+
+BEST HEAD PER LAYER
+K
+L00 H03 score=0.2704 idFrac=0.6076 wrongCos=+0.1181
+L01 H03 score=0.2169 idFrac=0.5299 wrongCos=+0.1851
+L02 H03 score=0.2384 idFrac=0.6119 wrongCos=+0.2207
+L03 H03 score=0.2613 idFrac=0.5965 wrongCos=+0.1399
+L04 H01 score=0.2328 idFrac=0.5807 wrongCos=+0.2032
+L05 H00 score=0.2612 idFrac=0.6139 wrongCos=+0.1523
+L06 H00 score=0.2696 idFrac=0.6327 wrongCos=+0.1516
+L07 H03 score=0.2011 idFrac=0.5182 wrongCos=+0.2378
+L08 H02 score=0.2558 idFrac=0.6015 wrongCos=+0.1458
+L09 H02 score=0.1985 idFrac=0.5650 wrongCos=+0.3139
+L10 H00 score=0.3034 idFrac=0.6335 wrongCos=+0.0434
+L11 H00 score=0.2404 idFrac=0.6086 wrongCos=+0.2275
+L12 H03 score=0.1860 idFrac=0.5506 wrongCos=+0.3009
+L13 H03 score=0.2576 idFrac=0.6839 wrongCos=+0.2452
+L14 H02 score=0.2191 idFrac=0.5531 wrongCos=+0.2073
+L15 H03 score=0.2446 idFrac=0.5735 wrongCos=+0.1483
+L16 H00 score=0.2585 idFrac=0.6211 wrongCos=+0.1682
+L17 H03 score=0.2307 idFrac=0.5724 wrongCos=+0.2114
+L18 H00 score=0.1886 idFrac=0.5201 wrongCos=+0.3252
+L19 H03 score=0.2593 idFrac=0.6078 wrongCos=+0.1529
+L20 H02 score=0.2245 idFrac=0.4925 wrongCos=+0.1127
+L21 H01 score=0.2241 idFrac=0.5230 wrongCos=+0.1841
+L22 H00 score=0.2321 idFrac=0.5907 wrongCos=+0.2070
+L23 H02 score=0.2015 idFrac=0.4937 wrongCos=+0.2494
+L24 H03 score=0.2291 idFrac=0.5592 wrongCos=+0.1925
+L25 H02 score=0.2095 idFrac=0.5573 wrongCos=+0.2742
+L26 H01 score=0.2354 idFrac=0.6023 wrongCos=+0.2302
+L27 H02 score=0.2484 idFrac=0.5606 wrongCos=+0.1153
+V
+L00 H01 score=0.2449 idFrac=0.5981 wrongCos=+0.1902
+L01 H01 score=0.2156 idFrac=0.5090 wrongCos=+0.1920
+L02 H00 score=0.2976 idFrac=0.6252 wrongCos=+0.0471
+L03 H00 score=0.2814 idFrac=0.6039 wrongCos=+0.0733
+L04 H02 score=0.2423 idFrac=0.5781 wrongCos=+0.1663
+L05 H01 score=0.2477 idFrac=0.5756 wrongCos=+0.1562
+L06 H01 score=0.2487 idFrac=0.6031 wrongCos=+0.1769
+L07 H02 score=0.3048 idFrac=0.6305 wrongCos=+0.0340
+L08 H00 score=0.3109 idFrac=0.6371 wrongCos=+0.0293
+L09 H03 score=0.2669 idFrac=0.5885 wrongCos=+0.0975
+L10 H02 score=0.2825 idFrac=0.6059 wrongCos=+0.0689
+L11 H01 score=0.2722 idFrac=0.5830 wrongCos=+0.0717
+L12 H01 score=0.2680 idFrac=0.6342 wrongCos=+0.1582
+L13 H01 score=0.2442 idFrac=0.5879 wrongCos=+0.1703
+L14 H01 score=0.2614 idFrac=0.5982 wrongCos=+0.1379
+L15 H03 score=0.2454 idFrac=0.5856 wrongCos=+0.1902
+L16 H01 score=0.2361 idFrac=0.5726 wrongCos=+0.1875
+L17 H03 score=0.2483 idFrac=0.5492 wrongCos=+0.1326
+L18 H00 score=0.2447 idFrac=0.5827 wrongCos=+0.1641
+L19 H01 score=0.2130 idFrac=0.5500 wrongCos=+0.2578
+L20 H03 score=0.2242 idFrac=0.5196 wrongCos=+0.1908
+L21 H01 score=0.2647 idFrac=0.6088 wrongCos=+0.1490
+L22 H03 score=0.1950 idFrac=0.4865 wrongCos=+0.2140
+L23 H00 score=0.1885 idFrac=0.5482 wrongCos=+0.3645
+L24 H02 score=0.1933 idFrac=0.4903 wrongCos=+0.2932
+L25 H01 score=0.2278 idFrac=0.5798 wrongCos=+0.2145
+L26 H03 score=0.2226 idFrac=0.5256 wrongCos=+0.2134
+L27 H01 score=0.1631 idFrac=0.4867 wrongCos=+0.3664
+--------------------------------------------------------------------------------------------------------------------------------
+Weights: PASS | Injection: NONE | L0-L27 observation only
+TEST217 asks whether TEST213 object identity is concentrated in attention key/value head states rather than a single residual vector
+No behavioral retrieval or causal-head claim is made by this assay
+================================================================================================================================
+[16/16] TEST 217 COMPLETE
