@@ -1,0 +1,199 @@
+ ================================================================================================================================
+TEST 235 — CAUSAL MLP CARRIER-PRESERVATION ABLATION
+================================================================================================================================
+WORKING BASELINE: TEST234 | LOCALIZATION: L19/L20 MLP | CAUSAL FOLLOW-UP
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+[1/27] Model...
+config.json: 100% 663/663 [00:00<00:00, 75.4kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 823kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 69.4MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 59.6MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 117MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.29MB/s]Download complete: :  13.1GB,  648MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  462MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  7.01s/it]Loading weights: 100% 339/339 [00:03<00:00, 99.47it/s]generation_config.json: 100% 243/243 [00:00<00:00, 32.9kB/s]hidden=3584 q_heads=28 kv_heads=4 group=7 head_dim=128
+[2/27] Build TEST234 factorial source/blind set...
+C1 Rovan Tesk keeps | blindSlot=35
+C2 Mira Veln carries | blindSlot=35
+C3 Dalen Quor owns | blindSlot=35
+C4 Sorin Kelm guards | blindSlot=35
+[3/27] Candidate/shared-prefix tokens...
+sharedPrefixToken=279 text=' the'
+O1 the amber compass -> ' amber'
+O2 the silver lantern -> ' silver'
+O3 the violet key -> ' violet'
+O4 the bronze sphere -> ' bronze'
+O5 the golden necklace -> ' golden'
+O6 the iron dagger -> ' iron'
+O7 the crystal mirror -> ' crystal'
+O8 the wooden mask -> ' wooden'
+[4/27] RoPE...
+RoPE=Qwen2RotaryEmbedding max_seq=43
+[5/27] Capture TEST234 source Q/K/V...
+C1: source captures complete
+C2: source captures complete
+C3: source captures complete
+C4: source captures complete
+[6/27] Reconstruct TEST222 packets...
+C1: RAW packets complete
+C2: RAW packets complete
+C3: RAW packets complete
+C4: RAW packets complete
+[7/27] TEST230 object-main packets...
+O1 objectMainNorm=1.8044
+O2 objectMainNorm=1.3213
+O3 objectMainNorm=1.4689
+O4 objectMainNorm=1.6965
+O5 objectMainNorm=1.3453
+O6 objectMainNorm=1.5477
+O7 objectMainNorm=1.6125
+O8 objectMainNorm=2.2938
+[8/27] Fresh prompt prefill factory...
+[9/27] Measure NORMAL continuation carriers at L19/L20...
+C1: NORMAL complete
+C2: NORMAL complete
+C3: NORMAL complete
+C4: NORMAL complete
+[10/27] Build incoming object-carrier directions from NORMAL responses...
+L19: carrier directions ready
+L20: carrier directions ready
+[11/27] Causal continuation branches...
+  NORMAL guards=[]
+    C1 complete
+    C2 complete
+    C3 complete
+    C4 complete
+  L19_GUARD guards=[19]
+    C1 complete
+    C2 complete
+    C3 complete
+    C4 complete
+  L20_GUARD guards=[20]
+    C1 complete
+    C2 complete
+    C3 complete
+    C4 complete
+  L19_L20_GUARD guards=[19, 20]
+    C1 complete
+    C2 complete
+    C3 complete
+    C4 complete
+[12/27] Fresh vanilla continuation references...
+[13/27] Build branch deltas + context centering...
+[14/27] Leave-one-context-out carrier decoding...
+NORMAL
+ L18 top1= 93.8% rank=1.188 margin=+0.1424
+ L19 top1= 71.9% rank=1.594 margin=+0.0642
+ L20 top1= 56.2% rank=1.844 margin=+0.0029
+ L21 top1= 65.6% rank=2.000 margin=-0.0103
+ L22 top1= 50.0% rank=2.188 margin=-0.0320
+ L24 top1= 50.0% rank=2.594 margin=-0.0511
+ L26 top1= 40.6% rank=2.906 margin=-0.0597
+ L27 top1= 34.4% rank=3.062 margin=-0.1611
+L19_GUARD
+ L18 top1= 93.8% rank=1.188 margin=+0.1424
+ L19 top1= 43.8% rank=2.750 margin=-0.0851
+ L20 top1= 31.2% rank=3.156 margin=-0.1600
+ L21 top1= 25.0% rank=3.500 margin=-0.1904
+ L22 top1= 21.9% rank=3.531 margin=-0.2144
+ L24 top1= 18.8% rank=3.812 margin=-0.2179
+ L26 top1= 15.6% rank=3.969 margin=-0.2111
+ L27 top1= 12.5% rank=4.125 margin=-0.1913
+L20_GUARD
+ L18 top1= 93.8% rank=1.188 margin=+0.1424
+ L19 top1= 71.9% rank=1.594 margin=+0.0642
+ L20 top1= 43.8% rank=3.031 margin=-0.1456
+ L21 top1= 31.2% rank=3.188 margin=-0.1715
+ L22 top1= 25.0% rank=3.375 margin=-0.1928
+ L24 top1= 18.8% rank=3.531 margin=-0.1765
+ L26 top1= 12.5% rank=3.688 margin=-0.1606
+ L27 top1= 21.9% rank=3.562 margin=-0.1420
+L19_L20_GUARD
+ L18 top1= 93.8% rank=1.188 margin=+0.1424
+ L19 top1= 43.8% rank=2.750 margin=-0.0851
+ L20 top1= 34.4% rank=3.219 margin=-0.1814
+ L21 top1= 28.1% rank=3.500 margin=-0.2124
+ L22 top1= 25.0% rank=3.594 margin=-0.2331
+ L24 top1= 15.6% rank=3.875 margin=-0.2242
+ L26 top1= 15.6% rank=3.844 margin=-0.2026
+ L27 top1=  9.4% rank=3.906 margin=-0.1898
+[15/27] L27 same-object invariance...
+NORMAL L19=+0.1932 L20=+0.1680 L21=+0.1367 L24=+0.0802 L27=+0.0524
+L19_GUARD L19=+0.1800 L20=+0.1794 L21=+0.1515 L24=+0.1155 L27=+0.0736
+L20_GUARD L19=+0.1932 L20=+0.1941 L21=+0.1653 L24=+0.1178 L27=+0.0862
+L19_L20_GUARD L19=+0.1800 L20=+0.1949 L21=+0.1642 L24=+0.1204 L27=+0.0799
+[16/27] Correct-vs-wrong separation...
+NORMAL L19=+0.3268 L20=+0.2909 L21=+0.2426 L24=+0.1477 L27=+0.0889
+L19_GUARD L19=+0.1942 L20=+0.1822 L21=+0.1507 L24=+0.1039 L27=+0.0646
+L20_GUARD L19=+0.3268 L20=+0.1705 L21=+0.1371 L24=+0.0946 L27=+0.0782
+L19_L20_GUARD L19=+0.1942 L20=+0.1583 L21=+0.1212 L24=+0.0798 L27=+0.0494
+[17/27] Guard telemetry...
+L19_GUARD
+ L19 trigger=13/32 meanAlpha=+0.404398 meanRemovedNorm=1.373754 mlpNorm=32.094039
+L20_GUARD
+ L20 trigger=11/32 meanAlpha=+0.433738 meanRemovedNorm=1.734029 mlpNorm=44.405158
+L19_L20_GUARD
+ L19 trigger=13/32 meanAlpha=+0.404398 meanRemovedNorm=1.373754 mlpNorm=32.094039
+ L20 trigger=11/32 meanAlpha=+1.084746 meanRemovedNorm=1.238815 mlpNorm=44.235630
+[18/27] Actual discriminative-token readout...
+NORMAL          top1=  9.4% rank=4.938 Δmargin=-0.0911 targetΔ=+0.0127
+L19_GUARD       top1=  9.4% rank=4.750 Δmargin=-0.1938 targetΔ=+0.0540
+L20_GUARD       top1=  9.4% rank=4.875 Δmargin=-0.1831 targetΔ=+0.0476
+L19_L20_GUARD   top1=  9.4% rank=4.656 Δmargin=-0.2496 targetΔ=+0.0812
+[19/27] Absolute discriminative-token choice...
+NORMAL          absoluteTop1= 12.5% rank=4.500
+L19_GUARD       absoluteTop1= 12.5% rank=4.500
+L20_GUARD       absoluteTop1= 12.5% rank=4.531
+L19_L20_GUARD   absoluteTop1= 12.5% rank=4.531
+[20/27] Causal restoration relative to NORMAL...
+L19_GUARD       ΔL19=-28.1pp ΔL20=-25.0pp ΔL27=-21.9pp Δreadout= +0.0pp
+L20_GUARD       ΔL19= +0.0pp ΔL20=-12.5pp ΔL27=-12.5pp Δreadout= +0.0pp
+L19_L20_GUARD   ΔL19=-28.1pp ΔL20=-21.9pp ΔL27=-25.0pp Δreadout= +0.0pp
+[21/27] Permutation null at L27...
+NORMAL          obs=0.3438 null=0.1252±0.0575 z=+3.800 p=0.0010
+L19_GUARD       obs=0.1250 null=0.1259±0.0584 z=-0.016 p=0.5852
+L20_GUARD       obs=0.2188 null=0.1245±0.0578 z=+1.629 p=0.0920
+L19_L20_GUARD   obs=0.0938 null=0.1255±0.0563 z=-0.564 p=0.7996
+[22/27] Guard magnitude sanity...
+L19_GUARD       removedNorm=1.373754 removed/mlp=4.275%
+L20_GUARD       removedNorm=1.734029 removed/mlp=3.893%
+L19_L20_GUARD   removedNorm=1.306284 removed/mlp=3.543%
+[23/27] Branch survival curves...
+L08 NORMAL= 12.5% | L19_GUARD= 12.5% | L20_GUARD= 12.5% | L19_L20_GUARD= 12.5%
+L09 NORMAL= 96.9% | L19_GUARD= 96.9% | L20_GUARD= 96.9% | L19_L20_GUARD= 96.9%
+L10 NORMAL=100.0% | L19_GUARD=100.0% | L20_GUARD=100.0% | L19_L20_GUARD=100.0%
+L11 NORMAL=100.0% | L19_GUARD=100.0% | L20_GUARD=100.0% | L19_L20_GUARD=100.0%
+L12 NORMAL= 96.9% | L19_GUARD= 96.9% | L20_GUARD= 96.9% | L19_L20_GUARD= 96.9%
+L13 NORMAL=100.0% | L19_GUARD=100.0% | L20_GUARD=100.0% | L19_L20_GUARD=100.0%
+L14 NORMAL= 93.8% | L19_GUARD= 93.8% | L20_GUARD= 93.8% | L19_L20_GUARD= 93.8%
+L15 NORMAL= 93.8% | L19_GUARD= 93.8% | L20_GUARD= 93.8% | L19_L20_GUARD= 93.8%
+L16 NORMAL= 93.8% | L19_GUARD= 93.8% | L20_GUARD= 93.8% | L19_L20_GUARD= 93.8%
+L17 NORMAL= 96.9% | L19_GUARD= 96.9% | L20_GUARD= 96.9% | L19_L20_GUARD= 96.9%
+L18 NORMAL= 93.8% | L19_GUARD= 93.8% | L20_GUARD= 93.8% | L19_L20_GUARD= 93.8%
+L19 NORMAL= 71.9% | L19_GUARD= 43.8% | L20_GUARD= 71.9% | L19_L20_GUARD= 43.8%
+L20 NORMAL= 56.2% | L19_GUARD= 31.2% | L20_GUARD= 43.8% | L19_L20_GUARD= 34.4%
+L21 NORMAL= 65.6% | L19_GUARD= 25.0% | L20_GUARD= 31.2% | L19_L20_GUARD= 28.1%
+L22 NORMAL= 50.0% | L19_GUARD= 21.9% | L20_GUARD= 25.0% | L19_L20_GUARD= 25.0%
+L23 NORMAL= 46.9% | L19_GUARD= 18.8% | L20_GUARD= 25.0% | L19_L20_GUARD= 18.8%
+L24 NORMAL= 50.0% | L19_GUARD= 18.8% | L20_GUARD= 18.8% | L19_L20_GUARD= 15.6%
+L25 NORMAL= 50.0% | L19_GUARD= 18.8% | L20_GUARD= 18.8% | L19_L20_GUARD= 15.6%
+L26 NORMAL= 40.6% | L19_GUARD= 15.6% | L20_GUARD= 12.5% | L19_L20_GUARD= 15.6%
+L27 NORMAL= 34.4% | L19_GUARD= 12.5% | L20_GUARD= 21.9% | L19_L20_GUARD=  9.4%
+[24/27] Weight sentinel...
+Weights: PASS
+[25/27] Decision metrics...
+bestGuard=L20_GUARD
+normalL27=0.3438 bestL27=0.2188 restoration=-12.5pp
+normalReadout=0.0938 bestReadout=0.0938 gain=+0.0pp
+[26/27] RESULTS
+================================================================================================================================
+TEST 235 RESULTS
+================================================================================================================================
+BASELINE: TEST234 | SINGLE PROMPT L08 OBJECT-MAIN PACKET | 4% DOSE | CONTINUATION ' the'
+CAUSAL ABLATION: REMOVE ONLY ANTI-CARRIER COMPONENT OF L19/L20 MLP OUTPUT
+NO TRANSPORT MAP | NO CONTROLLER | NO CONTINUATION RE-INJECTION | WEIGHTS FROZEN
+NORMAL          L27top1= 34.4% L27rank=3.062 L27margin=-0.1611 | readout=  9.4% rank=4.938 Δmargin=-0.0911
+L19_GUARD       L27top1= 12.5% L27rank=4.125 L27margin=-0.1913 | readout=  9.4% rank=4.750 Δmargin=-0.1938
+L20_GUARD       L27top1= 21.9% L27rank=3.562 L27margin=-0.1420 | readout=  9.4% rank=4.875 Δmargin=-0.1831
+L19_L20_GUARD   L27top1=  9.4% L27rank=3.906 L27margin=-0.1898 | readout=  9.4% rank=4.656 Δmargin=-0.2496
+--------------------------------------------------------------------------------------------------------------------------------
+RESULT: NO_STRONG_CAUSAL_RESCUE_FROM_L19_L20_MLP_GUARD
+BEST: L20_GUARD | L27 restoration=-12.5pp | readout gain=+0.0pp
+Interpretation is restricted to this packet family, dose, contexts and anti-carrier projection intervention.
+================================================================================================================================
+[27/27] TEST 235 COMPLETE
