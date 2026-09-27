@@ -1,0 +1,365 @@
+ ================================================================================================================================
+TEST 234 — BLOCK-LOCAL CARRIER DEGRADATION X-RAY
+================================================================================================================================
+LINEAGE: TEST213 -> TEST217 -> TEST218 -> TEST219 -> TEST220 -> TEST221 -> TEST222 -> TEST223 -> TEST224 -> TEST225 -> TEST226 -> TEST227 -> TEST228 -> TEST229 -> TEST230 -> TEST231 -> TEST232 -> TEST233 -> TEST234
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+[1/29] Model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 78.0kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 772kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 85.1MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 66.6MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 133MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.61MB/s]Download complete: :  13.1GB,  317MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  576MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.47s/it]Loading weights: 100% 339/339 [00:03<00:00, 98.67it/s]generation_config.json: 100% 243/243 [00:00<00:00, 31.3kB/s]hidden=3584 q_heads=28 kv_heads=4 group=7 head_dim=128
+[2/29] Build TEST233 factorial source/blind set...
+C1 Rovan Tesk keeps | blindSlot=35
+C2 Mira Veln carries | blindSlot=35
+C3 Dalen Quor owns | blindSlot=35
+C4 Sorin Kelm guards | blindSlot=35
+[3/29] Candidate/shared-prefix tokens...
+sharedPrefixToken=279 text=' the'
+O1 the amber compass -> ' amber'
+O2 the silver lantern -> ' silver'
+O3 the violet key -> ' violet'
+O4 the bronze sphere -> ' bronze'
+O5 the golden necklace -> ' golden'
+O6 the iron dagger -> ' iron'
+O7 the crystal mirror -> ' crystal'
+O8 the wooden mask -> ' wooden'
+[4/29] RoPE...
+RoPE=Qwen2RotaryEmbedding max_seq=43
+[5/29] Capture source Q/K/V...
+C1: 8 source captures complete
+C2: 8 source captures complete
+C3: 8 source captures complete
+C4: 8 source captures complete
+[6/29] Reconstruct TEST222 readout + RAW packets...
+C1: RAW packets complete
+C2: RAW packets complete
+C3: RAW packets complete
+C4: RAW packets complete
+[7/29] TEST230 factorial object-main packets...
+O1 objectMainNorm=1.8044
+O2 objectMainNorm=1.3213
+O3 objectMainNorm=1.4689
+O4 objectMainNorm=1.6965
+O5 objectMainNorm=1.3453
+O6 objectMainNorm=1.5477
+O7 objectMainNorm=1.6125
+O8 objectMainNorm=2.2938
+[8/29] Prompt prefill: vanilla + single L08 object injection...
+C1: prompt prefill complete
+C2: prompt prefill complete
+C3: prompt prefill complete
+C4: prompt prefill complete
+[9/29] Block-local continuation X-Ray...
+C1: 8 continuation X-rays complete
+C2: 8 continuation X-rays complete
+C3: 8 continuation X-rays complete
+C4: 8 continuation X-rays complete
+[10/29] Verify exact block residual identities...
+L08 postAttnExact=0.00e+00 blockResidualRelErr=2.171e-03
+L09 postAttnExact=0.00e+00 blockResidualRelErr=2.599e-03
+L10 postAttnExact=0.00e+00 blockResidualRelErr=2.209e-03
+L11 postAttnExact=0.00e+00 blockResidualRelErr=2.495e-03
+L12 postAttnExact=0.00e+00 blockResidualRelErr=2.591e-03
+L13 postAttnExact=0.00e+00 blockResidualRelErr=2.188e-03
+L14 postAttnExact=0.00e+00 blockResidualRelErr=2.240e-03
+L15 postAttnExact=0.00e+00 blockResidualRelErr=2.250e-03
+L16 postAttnExact=0.00e+00 blockResidualRelErr=2.121e-03
+L17 postAttnExact=0.00e+00 blockResidualRelErr=2.221e-03
+L18 postAttnExact=0.00e+00 blockResidualRelErr=2.418e-03
+L19 postAttnExact=0.00e+00 blockResidualRelErr=2.261e-03
+L20 postAttnExact=0.00e+00 blockResidualRelErr=2.383e-03
+L21 postAttnExact=0.00e+00 blockResidualRelErr=2.383e-03
+L22 postAttnExact=0.00e+00 blockResidualRelErr=2.239e-03
+L23 postAttnExact=0.00e+00 blockResidualRelErr=2.310e-03
+L24 postAttnExact=0.00e+00 blockResidualRelErr=2.144e-03
+L25 postAttnExact=0.00e+00 blockResidualRelErr=2.015e-03
+L26 postAttnExact=0.00e+00 blockResidualRelErr=2.758e-03
+L27 postAttnExact=0.00e+00 blockResidualRelErr=3.241e-03
+[11/29] Build object-specific stage deltas...
+[12/29] Center stage deltas within context...
+[13/29] Leave-one-context-out decoder per block stage...
+L08 IN: 12.5%/4.50 | ATTN: 12.5%/4.50 | POST_ATTN: 12.5%/4.50 | MLP: 12.5%/4.50 | OUT: 12.5%/4.50
+L09 IN: 12.5%/4.50 | ATTN:100.0%/1.00 | POST_ATTN:100.0%/1.00 | MLP:100.0%/1.00 | OUT: 96.9%/1.03
+L10 IN: 96.9%/1.03 | ATTN:100.0%/1.00 | POST_ATTN:100.0%/1.00 | MLP:100.0%/1.00 | OUT:100.0%/1.00
+L11 IN:100.0%/1.00 | ATTN:100.0%/1.00 | POST_ATTN:100.0%/1.00 | MLP:100.0%/1.00 | OUT:100.0%/1.00
+L12 IN:100.0%/1.00 | ATTN:100.0%/1.00 | POST_ATTN:100.0%/1.00 | MLP:100.0%/1.00 | OUT: 96.9%/1.03
+L13 IN: 96.9%/1.03 | ATTN:100.0%/1.00 | POST_ATTN:100.0%/1.00 | MLP:100.0%/1.00 | OUT:100.0%/1.00
+L14 IN:100.0%/1.00 | ATTN: 84.4%/1.31 | POST_ATTN:100.0%/1.00 | MLP:100.0%/1.00 | OUT: 93.8%/1.09
+L15 IN: 93.8%/1.09 | ATTN:100.0%/1.00 | POST_ATTN: 96.9%/1.03 | MLP: 96.9%/1.03 | OUT: 93.8%/1.06
+L16 IN: 93.8%/1.06 | ATTN: 65.6%/1.53 | POST_ATTN: 96.9%/1.03 | MLP:100.0%/1.00 | OUT: 93.8%/1.06
+L17 IN: 93.8%/1.06 | ATTN: 75.0%/1.38 | POST_ATTN: 93.8%/1.06 | MLP: 93.8%/1.06 | OUT: 96.9%/1.03
+L18 IN: 96.9%/1.03 | ATTN: 84.4%/1.22 | POST_ATTN: 96.9%/1.03 | MLP: 81.2%/1.34 | OUT: 93.8%/1.19
+L19 IN: 93.8%/1.19 | ATTN: 75.0%/1.41 | POST_ATTN: 93.8%/1.22 | MLP: 71.9%/1.75 | OUT: 71.9%/1.59
+L20 IN: 71.9%/1.59 | ATTN: 50.0%/1.84 | POST_ATTN: 75.0%/1.41 | MLP: 65.6%/1.78 | OUT: 56.2%/1.84
+L21 IN: 56.2%/1.84 | ATTN: 43.8%/2.12 | POST_ATTN: 59.4%/1.81 | MLP: 37.5%/2.31 | OUT: 65.6%/2.00
+L22 IN: 65.6%/2.00 | ATTN: 34.4%/2.81 | POST_ATTN: 65.6%/2.03 | MLP: 34.4%/2.72 | OUT: 50.0%/2.19
+L23 IN: 50.0%/2.19 | ATTN: 34.4%/3.09 | POST_ATTN: 46.9%/2.28 | MLP: 40.6%/2.81 | OUT: 46.9%/2.28
+L24 IN: 46.9%/2.28 | ATTN: 21.9%/3.84 | POST_ATTN: 46.9%/2.44 | MLP: 53.1%/2.56 | OUT: 50.0%/2.59
+L25 IN: 50.0%/2.59 | ATTN: 28.1%/3.41 | POST_ATTN: 46.9%/2.56 | MLP: 50.0%/2.78 | OUT: 50.0%/2.53
+L26 IN: 50.0%/2.53 | ATTN: 28.1%/2.94 | POST_ATTN: 53.1%/2.34 | MLP: 18.8%/3.97 | OUT: 40.6%/2.91
+L27 IN: 40.6%/2.91 | ATTN:  6.2%/4.28 | POST_ATTN: 31.2%/3.06 | MLP: 12.5%/4.22 | OUT: 34.4%/3.06
+[14/29] Stage displacement...
+L08 IN=0.0000% | ATTN=0.0000% | POST_ATTN=0.0000% | MLP=0.0000% | OUT=0.0000%
+L09 IN=0.0000% | ATTN=0.7575% | POST_ATTN=0.1956% | MLP=0.7026% | OUT=0.4012%
+L10 IN=0.4012% | ATTN=1.6256% | POST_ATTN=0.5335% | MLP=1.3621% | OUT=0.6364%
+L11 IN=0.6364% | ATTN=1.3204% | POST_ATTN=0.6594% | MLP=1.5672% | OUT=0.7100%
+L12 IN=0.7100% | ATTN=1.6700% | POST_ATTN=0.7717% | MLP=1.7911% | OUT=0.8538%
+L13 IN=0.8538% | ATTN=1.6149% | POST_ATTN=0.8792% | MLP=1.7631% | OUT=0.9063%
+L14 IN=0.9063% | ATTN=1.4068% | POST_ATTN=0.8535% | MLP=1.8893% | OUT=0.9176%
+L15 IN=0.9176% | ATTN=1.2628% | POST_ATTN=0.9193% | MLP=1.7104% | OUT=0.9395%
+L16 IN=0.9395% | ATTN=1.5224% | POST_ATTN=0.9314% | MLP=1.7852% | OUT=0.9983%
+L17 IN=0.9983% | ATTN=1.7826% | POST_ATTN=0.9949% | MLP=1.9032% | OUT=1.0350%
+L18 IN=1.0350% | ATTN=1.4667% | POST_ATTN=1.0575% | MLP=1.9360% | OUT=1.1539%
+L19 IN=1.1539% | ATTN=1.1905% | POST_ATTN=1.0425% | MLP=1.9332% | OUT=1.2017%
+L20 IN=1.2017% | ATTN=1.5260% | POST_ATTN=1.1342% | MLP=1.9288% | OUT=1.2980%
+L21 IN=1.2980% | ATTN=1.6199% | POST_ATTN=1.2423% | MLP=1.8992% | OUT=1.3600%
+L22 IN=1.3600% | ATTN=1.8271% | POST_ATTN=1.3553% | MLP=2.1995% | OUT=1.5193%
+L23 IN=1.5193% | ATTN=1.5377% | POST_ATTN=1.4273% | MLP=2.2432% | OUT=1.4540%
+L24 IN=1.4540% | ATTN=1.8997% | POST_ATTN=1.3723% | MLP=2.0630% | OUT=1.3543%
+L25 IN=1.3543% | ATTN=1.6774% | POST_ATTN=1.3011% | MLP=2.3256% | OUT=1.3284%
+L26 IN=1.3284% | ATTN=1.5080% | POST_ATTN=1.2105% | MLP=2.2114% | OUT=1.2787%
+L27 IN=1.2787% | ATTN=0.9820% | POST_ATTN=1.0517% | MLP=0.7736% | OUT=2.2913%
+[15/29] Correct-vs-wrong separation per stage...
+L08 INGap=+0.0000 | ATTNGap=+0.0000 | POST_ATTNGap=+0.0000 | MLPGap=+0.0000 | OUTGap=+0.0000
+L09 INGap=+0.0000 | ATTNGap=+1.0334 | POST_ATTNGap=+1.0334 | MLPGap=+0.4965 | OUTGap=+0.3756
+L10 INGap=+0.3756 | ATTNGap=+1.0093 | POST_ATTNGap=+0.8045 | MLPGap=+0.6321 | OUTGap=+0.5768
+L11 INGap=+0.5768 | ATTNGap=+0.7016 | POST_ATTNGap=+0.6090 | MLPGap=+0.4975 | OUTGap=+0.4886
+L12 INGap=+0.4886 | ATTNGap=+0.8394 | POST_ATTNGap=+0.5877 | MLPGap=+0.5296 | OUTGap=+0.4839
+L13 INGap=+0.4839 | ATTNGap=+0.7898 | POST_ATTNGap=+0.5538 | MLPGap=+0.4562 | OUTGap=+0.4586
+L14 INGap=+0.4586 | ATTNGap=+0.5258 | POST_ATTNGap=+0.4830 | MLPGap=+0.4296 | OUTGap=+0.4261
+L15 INGap=+0.4261 | ATTNGap=+0.6228 | POST_ATTNGap=+0.4429 | MLPGap=+0.3733 | OUTGap=+0.3802
+L16 INGap=+0.3802 | ATTNGap=+0.3679 | POST_ATTNGap=+0.3877 | MLPGap=+0.3515 | OUTGap=+0.3597
+L17 INGap=+0.3597 | ATTNGap=+0.4540 | POST_ATTNGap=+0.3621 | MLPGap=+0.3430 | OUTGap=+0.3439
+L18 INGap=+0.3439 | ATTNGap=+0.4637 | POST_ATTNGap=+0.3636 | MLPGap=+0.3647 | OUTGap=+0.3493
+L19 INGap=+0.3493 | ATTNGap=+0.3899 | POST_ATTNGap=+0.3678 | MLPGap=+0.3301 | OUTGap=+0.3268
+L20 INGap=+0.3268 | ATTNGap=+0.3656 | POST_ATTNGap=+0.3425 | MLPGap=+0.2881 | OUTGap=+0.2909
+L21 INGap=+0.2909 | ATTNGap=+0.2851 | POST_ATTNGap=+0.2919 | MLPGap=+0.1964 | OUTGap=+0.2426
+L22 INGap=+0.2426 | ATTNGap=+0.2016 | POST_ATTNGap=+0.2385 | MLPGap=+0.1582 | OUTGap=+0.2030
+L23 INGap=+0.2030 | ATTNGap=+0.1582 | POST_ATTNGap=+0.2104 | MLPGap=+0.1276 | OUTGap=+0.1859
+L24 INGap=+0.1859 | ATTNGap=+0.0440 | POST_ATTNGap=+0.1734 | MLPGap=+0.1242 | OUTGap=+0.1477
+L25 INGap=+0.1477 | ATTNGap=+0.1044 | POST_ATTNGap=+0.1446 | MLPGap=+0.1071 | OUTGap=+0.1250
+L26 INGap=+0.1250 | ATTNGap=+0.1484 | POST_ATTNGap=+0.1282 | MLPGap=+0.0538 | OUTGap=+0.1016
+L27 INGap=+0.1016 | ATTNGap=-0.0013 | POST_ATTNGap=+0.1026 | MLPGap=+0.0614 | OUTGap=+0.0889
+[16/29] Same-object cross-context invariance...
+L08 INInv=+0.0000 | ATTNInv=+0.0000 | POST_ATTNInv=+0.0000 | MLPInv=+0.0000 | OUTInv=+0.0000
+L09 INInv=+0.0000 | ATTNInv=+0.8700 | POST_ATTNInv=+0.8700 | MLPInv=+0.3239 | OUTInv=+0.2312
+L10 INInv=+0.2312 | ATTNInv=+0.8327 | POST_ATTNInv=+0.6037 | MLPInv=+0.4370 | OUTInv=+0.3877
+L11 INInv=+0.3877 | ATTNInv=+0.4970 | POST_ATTNInv=+0.4156 | MLPInv=+0.3196 | OUTInv=+0.3138
+L12 INInv=+0.3138 | ATTNInv=+0.6435 | POST_ATTNInv=+0.3975 | MLPInv=+0.3480 | OUTInv=+0.3101
+L13 INInv=+0.3101 | ATTNInv=+0.5909 | POST_ATTNInv=+0.3679 | MLPInv=+0.2894 | OUTInv=+0.2892
+L14 INInv=+0.2892 | ATTNInv=+0.3401 | POST_ATTNInv=+0.3093 | MLPInv=+0.2667 | OUTInv=+0.2631
+L15 INInv=+0.2631 | ATTNInv=+0.4277 | POST_ATTNInv=+0.2771 | MLPInv=+0.2283 | OUTInv=+0.2303
+L16 INInv=+0.2303 | ATTNInv=+0.2152 | POST_ATTNInv=+0.2365 | MLPInv=+0.2098 | OUTInv=+0.2157
+L17 INInv=+0.2157 | ATTNInv=+0.2904 | POST_ATTNInv=+0.2183 | MLPInv=+0.2053 | OUTInv=+0.2061
+L18 INInv=+0.2061 | ATTNInv=+0.2955 | POST_ATTNInv=+0.2199 | MLPInv=+0.2198 | OUTInv=+0.2104
+L19 INInv=+0.2104 | ATTNInv=+0.2407 | POST_ATTNInv=+0.2238 | MLPInv=+0.1939 | OUTInv=+0.1932
+L20 INInv=+0.1932 | ATTNInv=+0.2152 | POST_ATTNInv=+0.2043 | MLPInv=+0.1647 | OUTInv=+0.1680
+L21 INInv=+0.1680 | ATTNInv=+0.1581 | POST_ATTNInv=+0.1682 | MLPInv=+0.1059 | OUTInv=+0.1367
+L22 INInv=+0.1367 | ATTNInv=+0.1097 | POST_ATTNInv=+0.1338 | MLPInv=+0.0813 | OUTInv=+0.1108
+L23 INInv=+0.1108 | ATTNInv=+0.0815 | POST_ATTNInv=+0.1146 | MLPInv=+0.0684 | OUTInv=+0.1012
+L24 INInv=+0.1012 | ATTNInv=+0.0535 | POST_ATTNInv=+0.0945 | MLPInv=+0.0676 | OUTInv=+0.0802
+L25 INInv=+0.0802 | ATTNInv=+0.0826 | POST_ATTNInv=+0.0788 | MLPInv=+0.0583 | OUTInv=+0.0682
+L26 INInv=+0.0682 | ATTNInv=+0.0842 | POST_ATTNInv=+0.0703 | MLPInv=+0.0317 | OUTInv=+0.0547
+L27 INInv=+0.0547 | ATTNInv=-0.0141 | POST_ATTNInv=+0.0543 | MLPInv=+0.0401 | OUTInv=+0.0524
+[17/29] Stage-to-stage identity survival...
+L08 IN->ATTN=+0.0000 IN->POST=+0.0000 POST->MLP=+0.0000 POST->OUT=+0.0000
+L09 IN->ATTN=+0.0000 IN->POST=+0.0000 POST->MLP=-0.3917 POST->OUT=+0.2960
+L10 IN->ATTN=-0.0276 IN->POST=+0.6134 POST->MLP=-0.4295 POST->OUT=+0.5931
+L11 IN->ATTN=-0.0326 IN->POST=+0.9192 POST->MLP=-0.3369 POST->OUT=+0.7085
+L12 IN->ATTN=-0.0566 IN->POST=+0.8612 POST->MLP=-0.3331 POST->OUT=+0.6963
+L13 IN->ATTN=-0.0586 IN->POST=+0.8935 POST->MLP=-0.3177 POST->OUT=+0.7584
+L14 IN->ATTN=-0.0943 IN->POST=+0.9484 POST->MLP=-0.3307 POST->OUT=+0.7732
+L15 IN->ATTN=-0.0529 IN->POST=+0.9518 POST->MLP=-0.2642 POST->OUT=+0.7762
+L16 IN->ATTN=-0.0720 IN->POST=+0.9590 POST->MLP=-0.2504 POST->OUT=+0.7894
+L17 IN->ATTN=-0.0680 IN->POST=+0.9676 POST->MLP=-0.2333 POST->OUT=+0.7842
+L18 IN->ATTN=-0.1892 IN->POST=+0.9421 POST->MLP=-0.2576 POST->OUT=+0.7495
+L19 IN->ATTN=-0.0865 IN->POST=+0.9402 POST->MLP=-0.2070 POST->OUT=+0.7448
+L20 IN->ATTN=-0.0793 IN->POST=+0.9519 POST->MLP=-0.1380 POST->OUT=+0.6969
+L21 IN->ATTN=-0.0395 IN->POST=+0.9502 POST->MLP=-0.1288 POST->OUT=+0.6936
+L22 IN->ATTN=+0.0135 IN->POST=+0.9744 POST->MLP=-0.0611 POST->OUT=+0.7224
+L23 IN->ATTN=+0.0110 IN->POST=+0.9709 POST->MLP=-0.0708 POST->OUT=+0.8155
+L24 IN->ATTN=-0.0081 IN->POST=+0.9617 POST->MLP=+0.0138 POST->OUT=+0.8461
+L25 IN->ATTN=-0.0670 IN->POST=+0.9729 POST->MLP=+0.0034 POST->OUT=+0.8525
+L26 IN->ATTN=-0.0551 IN->POST=+0.9669 POST->MLP=+0.0319 POST->OUT=+0.8454
+L27 IN->ATTN=-0.0566 IN->POST=+0.9547 POST->MLP=-0.0596 POST->OUT=+0.7831
+[18/29] Attention contribution to carrier quality...
+L08 ATTN Δtop1= +0.0pp Δmargin=+0.0000 Δsep=+0.0000 | MLP Δtop1= +0.0pp Δmargin=+0.0000 Δsep=+0.0000
+L09 ATTN Δtop1=+87.5pp Δmargin=+0.7105 Δsep=+1.0334 | MLP Δtop1= -3.1pp Δmargin=-0.4720 Δsep=-0.6578
+L10 ATTN Δtop1= +3.1pp Δmargin=+0.2895 Δsep=+0.4289 | MLP Δtop1= +0.0pp Δmargin=-0.1444 Δsep=-0.2277
+L11 ATTN Δtop1= +0.0pp Δmargin=+0.0044 Δsep=+0.0321 | MLP Δtop1= +0.0pp Δmargin=-0.0883 Δsep=-0.1204
+L12 ATTN Δtop1= +0.0pp Δmargin=+0.0925 Δsep=+0.0991 | MLP Δtop1= -3.1pp Δmargin=-0.0832 Δsep=-0.1038
+L13 ATTN Δtop1= +3.1pp Δmargin=+0.0411 Δsep=+0.0699 | MLP Δtop1= +0.0pp Δmargin=-0.0514 Δsep=-0.0952
+L14 ATTN Δtop1= +0.0pp Δmargin=+0.0232 Δsep=+0.0244 | MLP Δtop1= -6.2pp Δmargin=-0.0648 Δsep=-0.0569
+L15 ATTN Δtop1= +3.1pp Δmargin=+0.0233 Δsep=+0.0168 | MLP Δtop1= -3.1pp Δmargin=-0.0476 Δsep=-0.0627
+L16 ATTN Δtop1= +3.1pp Δmargin=+0.0018 Δsep=+0.0075 | MLP Δtop1= -3.1pp Δmargin=-0.0297 Δsep=-0.0280
+L17 ATTN Δtop1= +0.0pp Δmargin=+0.0059 Δsep=+0.0024 | MLP Δtop1= +3.1pp Δmargin=-0.0279 Δsep=-0.0182
+L18 ATTN Δtop1= +0.0pp Δmargin=+0.0126 Δsep=+0.0197 | MLP Δtop1= -3.1pp Δmargin=-0.0533 Δsep=-0.0143
+L19 ATTN Δtop1= +0.0pp Δmargin=-0.0007 Δsep=+0.0186 | MLP Δtop1=-21.9pp Δmargin=-0.0774 Δsep=-0.0411
+L20 ATTN Δtop1= +3.1pp Δmargin=+0.0093 Δsep=+0.0157 | MLP Δtop1=-18.8pp Δmargin=-0.0707 Δsep=-0.0516
+L21 ATTN Δtop1= +3.1pp Δmargin=+0.0052 Δsep=+0.0010 | MLP Δtop1= +6.2pp Δmargin=-0.0184 Δsep=-0.0493
+L22 ATTN Δtop1= +0.0pp Δmargin=-0.0014 Δsep=-0.0041 | MLP Δtop1=-15.6pp Δmargin=-0.0202 Δsep=-0.0355
+L23 ATTN Δtop1= -3.1pp Δmargin=+0.0057 Δsep=+0.0074 | MLP Δtop1= +0.0pp Δmargin=-0.0059 Δsep=-0.0244
+L24 ATTN Δtop1= +0.0pp Δmargin=-0.0110 Δsep=-0.0126 | MLP Δtop1= +3.1pp Δmargin=-0.0080 Δsep=-0.0257
+L25 ATTN Δtop1= -3.1pp Δmargin=-0.0009 Δsep=-0.0031 | MLP Δtop1= +3.1pp Δmargin=+0.0023 Δsep=-0.0196
+L26 ATTN Δtop1= +3.1pp Δmargin=+0.0151 Δsep=+0.0032 | MLP Δtop1=-12.5pp Δmargin=-0.0250 Δsep=-0.0266
+L27 ATTN Δtop1= -9.4pp Δmargin=-0.0375 Δsep=+0.0011 | MLP Δtop1= +3.1pp Δmargin=-0.0639 Δsep=-0.0137
+[19/29] Locate largest local degradation...
+L19 MLP       Δtop1=-21.9pp Δmargin=-0.0774 Δsep=-0.0411
+L20 MLP       Δtop1=-18.8pp Δmargin=-0.0707 Δsep=-0.0516
+L22 MLP       Δtop1=-15.6pp Δmargin=-0.0202 Δsep=-0.0355
+L26 MLP       Δtop1=-12.5pp Δmargin=-0.0250 Δsep=-0.0266
+L27 ATTENTION Δtop1= -9.4pp Δmargin=-0.0375 Δsep=+0.0011
+L14 MLP       Δtop1= -6.2pp Δmargin=-0.0648 Δsep=-0.0569
+L09 MLP       Δtop1= -3.1pp Δmargin=-0.4720 Δsep=-0.6578
+L12 MLP       Δtop1= -3.1pp Δmargin=-0.0832 Δsep=-0.1038
+L15 MLP       Δtop1= -3.1pp Δmargin=-0.0476 Δsep=-0.0627
+L16 MLP       Δtop1= -3.1pp Δmargin=-0.0297 Δsep=-0.0280
+L18 MLP       Δtop1= -3.1pp Δmargin=-0.0533 Δsep=-0.0143
+L23 ATTENTION Δtop1= -3.1pp Δmargin=+0.0057 Δsep=+0.0074
+[20/29] Cross-block survival...
+L08OUT -> L09IN top1= 12.5%-> 12.5% rank=4.500->4.500
+L09OUT -> L10IN top1= 96.9%-> 96.9% rank=1.031->1.031
+L10OUT -> L11IN top1=100.0%->100.0% rank=1.000->1.000
+L11OUT -> L12IN top1=100.0%->100.0% rank=1.000->1.000
+L12OUT -> L13IN top1= 96.9%-> 96.9% rank=1.031->1.031
+L13OUT -> L14IN top1=100.0%->100.0% rank=1.000->1.000
+L14OUT -> L15IN top1= 93.8%-> 93.8% rank=1.094->1.094
+L15OUT -> L16IN top1= 93.8%-> 93.8% rank=1.062->1.062
+L16OUT -> L17IN top1= 93.8%-> 93.8% rank=1.062->1.062
+L17OUT -> L18IN top1= 96.9%-> 96.9% rank=1.031->1.031
+L18OUT -> L19IN top1= 93.8%-> 93.8% rank=1.188->1.188
+L19OUT -> L20IN top1= 71.9%-> 71.9% rank=1.594->1.594
+L20OUT -> L21IN top1= 56.2%-> 56.2% rank=1.844->1.844
+L21OUT -> L22IN top1= 65.6%-> 65.6% rank=2.000->2.000
+L22OUT -> L23IN top1= 50.0%-> 50.0% rank=2.188->2.188
+L23OUT -> L24IN top1= 46.9%-> 46.9% rank=2.281->2.281
+L24OUT -> L25IN top1= 50.0%-> 50.0% rank=2.594->2.594
+L25OUT -> L26IN top1= 50.0%-> 50.0% rank=2.531->2.531
+L26OUT -> L27IN top1= 40.6%-> 40.6% rank=2.906->2.906
+[21/29] Critical L17-L21 window...
+
+L17
+ IN        top1= 93.8% rank=1.062 margin=+0.2051 sep=+0.3597 inv=+0.2157
+ ATTN      top1= 75.0% rank=1.375 margin=+0.1269 sep=+0.4540 inv=+0.2904
+ POST_ATTN top1= 93.8% rank=1.062 margin=+0.2110 sep=+0.3621 inv=+0.2183
+ MLP       top1= 93.8% rank=1.062 margin=+0.1410 sep=+0.3430 inv=+0.2053
+ OUT       top1= 96.9% rank=1.031 margin=+0.1831 sep=+0.3439 inv=+0.2061
+
+L18
+ IN        top1= 96.9% rank=1.031 margin=+0.1831 sep=+0.3439 inv=+0.2061
+ ATTN      top1= 84.4% rank=1.219 margin=+0.1761 sep=+0.4637 inv=+0.2955
+ POST_ATTN top1= 96.9% rank=1.031 margin=+0.1957 sep=+0.3636 inv=+0.2199
+ MLP       top1= 81.2% rank=1.344 margin=+0.0927 sep=+0.3647 inv=+0.2198
+ OUT       top1= 93.8% rank=1.188 margin=+0.1424 sep=+0.3493 inv=+0.2104
+
+L19
+ IN        top1= 93.8% rank=1.188 margin=+0.1424 sep=+0.3493 inv=+0.2104
+ ATTN      top1= 75.0% rank=1.406 margin=+0.0734 sep=+0.3899 inv=+0.2407
+ POST_ATTN top1= 93.8% rank=1.219 margin=+0.1417 sep=+0.3678 inv=+0.2238
+ MLP       top1= 71.9% rank=1.750 margin=+0.0309 sep=+0.3301 inv=+0.1939
+ OUT       top1= 71.9% rank=1.594 margin=+0.0642 sep=+0.3268 inv=+0.1932
+
+L20
+ IN        top1= 71.9% rank=1.594 margin=+0.0642 sep=+0.3268 inv=+0.1932
+ ATTN      top1= 50.0% rank=1.844 margin=-0.0101 sep=+0.3656 inv=+0.2152
+ POST_ATTN top1= 75.0% rank=1.406 margin=+0.0736 sep=+0.3425 inv=+0.2043
+ MLP       top1= 65.6% rank=1.781 margin=-0.0177 sep=+0.2881 inv=+0.1647
+ OUT       top1= 56.2% rank=1.844 margin=+0.0029 sep=+0.2909 inv=+0.1680
+
+L21
+ IN        top1= 56.2% rank=1.844 margin=+0.0029 sep=+0.2909 inv=+0.1680
+ ATTN      top1= 43.8% rank=2.125 margin=-0.0425 sep=+0.2851 inv=+0.1581
+ POST_ATTN top1= 59.4% rank=1.812 margin=+0.0081 sep=+0.2919 inv=+0.1682
+ MLP       top1= 37.5% rank=2.312 margin=-0.0543 sep=+0.1964 inv=+0.1059
+ OUT       top1= 65.6% rank=2.000 margin=-0.0103 sep=+0.2426 inv=+0.1367
+[22/29] Geometry retention against L10 continuation carrier...
+L08 INRefGap=+0.0000 | ATTNRefGap=+0.0000 | POST_ATTNRefGap=+0.0000 | MLPRefGap=+0.0000 | OUTRefGap=+0.0000
+L09 INRefGap=+0.0000 | ATTNRefGap=+0.1446 | POST_ATTNRefGap=+0.1446 | MLPRefGap=+0.0905 | OUTRefGap=+0.2312
+L10 INRefGap=+0.2312 | ATTNRefGap=+0.6213 | POST_ATTNRefGap=+0.6375 | MLPRefGap=+0.2383 | OUTRefGap=+0.8392
+L11 INRefGap=+0.8392 | ATTNRefGap=-0.0111 | POST_ATTNRefGap=+0.7791 | MLPRefGap=-0.2502 | OUTRefGap=+0.5670
+L12 INRefGap=+0.5670 | ATTNRefGap=-0.0304 | POST_ATTNRefGap=+0.4897 | MLPRefGap=-0.1281 | OUTRefGap=+0.3671
+L13 INRefGap=+0.3671 | ATTNRefGap=+0.0025 | POST_ATTNRefGap=+0.3376 | MLPRefGap=-0.0803 | OUTRefGap=+0.2695
+L14 INRefGap=+0.2695 | ATTNRefGap=-0.0410 | POST_ATTNRefGap=+0.2502 | MLPRefGap=-0.0390 | OUTRefGap=+0.2220
+L15 INRefGap=+0.2220 | ATTNRefGap=-0.0022 | POST_ATTNRefGap=+0.2145 | MLPRefGap=-0.0479 | OUTRefGap=+0.1730
+L16 INRefGap=+0.1730 | ATTNRefGap=+0.0123 | POST_ATTNRefGap=+0.1717 | MLPRefGap=-0.0280 | OUTRefGap=+0.1494
+L17 INRefGap=+0.1494 | ATTNRefGap=-0.0119 | POST_ATTNRefGap=+0.1438 | MLPRefGap=-0.0285 | OUTRefGap=+0.1184
+L18 INRefGap=+0.1184 | ATTNRefGap=-0.0057 | POST_ATTNRefGap=+0.1168 | MLPRefGap=-0.0321 | OUTRefGap=+0.0836
+L19 INRefGap=+0.0836 | ATTNRefGap=-0.0013 | POST_ATTNRefGap=+0.0806 | MLPRefGap=-0.0091 | OUTRefGap=+0.0675
+L20 INRefGap=+0.0675 | ATTNRefGap=-0.0072 | POST_ATTNRefGap=+0.0635 | MLPRefGap=-0.0104 | OUTRefGap=+0.0456
+L21 INRefGap=+0.0456 | ATTNRefGap=-0.0037 | POST_ATTNRefGap=+0.0431 | MLPRefGap=+0.0035 | OUTRefGap=+0.0370
+L22 INRefGap=+0.0370 | ATTNRefGap=+0.0024 | POST_ATTNRefGap=+0.0363 | MLPRefGap=-0.0088 | OUTRefGap=+0.0210
+L23 INRefGap=+0.0210 | ATTNRefGap=+0.0001 | POST_ATTNRefGap=+0.0206 | MLPRefGap=-0.0052 | OUTRefGap=+0.0206
+L24 INRefGap=+0.0206 | ATTNRefGap=+0.0024 | POST_ATTNRefGap=+0.0203 | MLPRefGap=+0.0026 | OUTRefGap=+0.0181
+L25 INRefGap=+0.0181 | ATTNRefGap=-0.0034 | POST_ATTNRefGap=+0.0175 | MLPRefGap=-0.0012 | OUTRefGap=+0.0151
+L26 INRefGap=+0.0151 | ATTNRefGap=-0.0042 | POST_ATTNRefGap=+0.0133 | MLPRefGap=-0.0020 | OUTRefGap=+0.0167
+L27 INRefGap=+0.0167 | ATTNRefGap=+0.0142 | POST_ATTNRefGap=+0.0209 | MLPRefGap=+0.0014 | OUTRefGap=+0.0187
+[23/29] Permutation null at critical stages...
+L10 IN        obs=0.9688 null=0.1239±0.0595 z=+14.203 p=0.0005
+L10 POST_ATTN obs=1.0000 null=0.1265±0.0613 z=+14.243 p=0.0005
+L10 OUT       obs=1.0000 null=0.1242±0.0600 z=+14.598 p=0.0005
+L16 IN        obs=0.9375 null=0.1233±0.0582 z=+13.988 p=0.0005
+L16 POST_ATTN obs=0.9688 null=0.1268±0.0593 z=+14.192 p=0.0005
+L16 OUT       obs=0.9375 null=0.1225±0.0567 z=+14.365 p=0.0005
+L18 IN        obs=0.9688 null=0.1264±0.0592 z=+14.230 p=0.0005
+L18 POST_ATTN obs=0.9688 null=0.1269±0.0606 z=+13.882 p=0.0005
+L18 OUT       obs=0.9375 null=0.1263±0.0609 z=+13.331 p=0.0005
+L19 IN        obs=0.9375 null=0.1245±0.0585 z=+13.894 p=0.0005
+L19 POST_ATTN obs=0.9375 null=0.1259±0.0598 z=+13.570 p=0.0005
+L19 OUT       obs=0.7188 null=0.1272±0.0579 z=+10.219 p=0.0005
+L20 IN        obs=0.7188 null=0.1246±0.0592 z=+10.038 p=0.0005
+L20 POST_ATTN obs=0.7500 null=0.1275±0.0601 z=+10.356 p=0.0005
+L20 OUT       obs=0.5625 null=0.1234±0.0584 z=+7.525 p=0.0005
+L21 IN        obs=0.5625 null=0.1251±0.0590 z=+7.409 p=0.0005
+L21 POST_ATTN obs=0.5938 null=0.1271±0.0592 z=+7.877 p=0.0005
+L21 OUT       obs=0.6562 null=0.1254±0.0591 z=+8.978 p=0.0005
+L24 IN        obs=0.4688 null=0.1267±0.0579 z=+5.907 p=0.0005
+L24 POST_ATTN obs=0.4688 null=0.1250±0.0572 z=+6.013 p=0.0005
+L24 OUT       obs=0.5000 null=0.1252±0.0564 z=+6.642 p=0.0005
+L27 IN        obs=0.4062 null=0.1243±0.0570 z=+4.949 p=0.0005
+L27 POST_ATTN obs=0.3125 null=0.1267±0.0593 z=+3.136 p=0.0045
+L27 OUT       obs=0.3438 null=0.1256±0.0578 z=+3.773 p=0.0005
+[24/29] Actual discriminative output...
+top1=9.4% rank=4.875 Δmargin=-0.0798 targetΔ=-0.0042
+[25/29] Degradation attribution summary...
+L17 input= 93.8% postAttn= 93.8% output= 96.9% | attn= +0.0pp mlp= +3.1pp
+L18 input= 96.9% postAttn= 96.9% output= 93.8% | attn= +0.0pp mlp= -3.1pp
+L19 input= 93.8% postAttn= 93.8% output= 71.9% | attn= +0.0pp mlp=-21.9pp
+L20 input= 71.9% postAttn= 75.0% output= 56.2% | attn= +3.1pp mlp=-18.8pp
+L21 input= 56.2% postAttn= 59.4% output= 65.6% | attn= +3.1pp mlp= +6.2pp
+L22 input= 65.6% postAttn= 65.6% output= 50.0% | attn= +0.0pp mlp=-15.6pp
+L23 input= 50.0% postAttn= 46.9% output= 46.9% | attn= -3.1pp mlp= +0.0pp
+L24 input= 46.9% postAttn= 46.9% output= 50.0% | attn= +0.0pp mlp= +3.1pp
+L25 input= 50.0% postAttn= 46.9% output= 50.0% | attn= -3.1pp mlp= +3.1pp
+L26 input= 50.0% postAttn= 53.1% output= 40.6% | attn= +3.1pp mlp=-12.5pp
+L27 input= 40.6% postAttn= 31.2% output= 34.4% | attn= -9.4pp mlp= +3.1pp
+[26/29] Weight sentinel...
+[27/29] Decision...
+lateAttentionMeanΔtop1=-0.69pp
+lateMLPMeanΔtop1=-5.90pp
+largestLocalDrop=L19 MLP -21.9pp
+[28/29] RESULTS
+
+================================================================================================================================
+TEST 234 RESULTS
+================================================================================================================================
+MODE: TEST233 CARRIER | SINGLE PROMPT L08 INJECTION | DOSE=0.0400 | CONTINUATION=' the'
+BLOCK X-RAY: INPUT -> ATTENTION -> POST-ATTENTION RESIDUAL -> MLP -> BLOCK OUTPUT
+ZERO CONTINUATION INTERVENTION | NO TRANSPORT MAP | NO CONTROLLER | WEIGHTS FROZEN
+
+CRITICAL WINDOW
+L17 IN= 93.8% POST_ATTN= 93.8% OUT= 96.9% | ATTN= +0.0pp MLP= +3.1pp
+L18 IN= 96.9% POST_ATTN= 96.9% OUT= 93.8% | ATTN= +0.0pp MLP= -3.1pp
+L19 IN= 93.8% POST_ATTN= 93.8% OUT= 71.9% | ATTN= +0.0pp MLP=-21.9pp
+L20 IN= 71.9% POST_ATTN= 75.0% OUT= 56.2% | ATTN= +3.1pp MLP=-18.8pp
+L21 IN= 56.2% POST_ATTN= 59.4% OUT= 65.6% | ATTN= +3.1pp MLP= +6.2pp
+
+LATE AGGREGATE
+attentionMeanΔtop1=-0.69pp mlpMeanΔtop1=-5.90pp
+largestLocalDrop=L19 MLP -21.9pp
+
+INTERPRETATION GATE
+RESULT: MLP_DOMINANT_CARRIER_DEGRADATION — late MLP transformations are the larger local source of identity loss.
+--------------------------------------------------------------------------------------------------------------------------------
+Weights: PASS | Objects absent from blind queries | Only prompt L08 is intervened
+The shared continuation token is processed naturally; all block-local measurements are observational.
+================================================================================================================================
+[29/29] TEST 234 COMPLETE
