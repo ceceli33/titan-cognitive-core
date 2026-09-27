@@ -1,0 +1,54 @@
+ ====================================================================================================================
+TEST 246 — HELD-OUT PRIVATE SUPERPOSITION LAMBDA X-RAY
+====================================================================================================================
+Baseline: TEST245 | final mechanism test | train-only subspace | held-out context
+[1/12] Model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 61.9kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 740kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 83.8MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 60.4MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 120MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.38MB/s]Download complete: :  13.1GB,  495MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  429MB/s  Fetching 4 files: 100% 4/4 [00:40<00:00,  7.24s/it]Loading weights: 100% 339/339 [00:03<00:00, 93.00it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.1kB/s][2/12] Factorial + source map...
+[3/12] RoPE + source Q/K/V...
+[4/12] TEST222 forge + TEST230 object-main...
+ObjectMain norms: 1.8044 1.3213 1.4689 1.6965 1.3453 1.5477 1.6125 2.2938
+[5/12] Prompt injection + L19 capture...
+[6/12] Native BF16 lock...
+maxNativeProductError=0.000000000%
+[7/12] Build centered GATE/UP carriers...
+[8/12] TEST245 train-only shared subspaces...
+trainOnlyRanks: C1=14 C2=14 C3=14 C4=14
+[9/12] Lambda sweep...
+lambda=-1.00 top1= 78.1% rank=1.469 margin=+0.0607
+lambda=-0.50 top1= 78.1% rank=1.438 margin=+0.0556
+lambda=+0.00 top1= 81.2% rank=1.500 margin=+0.0464
+lambda=+0.50 top1= 53.1% rank=1.906 margin=+0.0252
+lambda=+1.00 top1= 40.6% rank=2.781 margin=-0.0126
+lambda=+1.50 top1= 65.6% rank=1.656 margin=+0.0373
+[10/12] Cancellation geometry...
+cos(G_PRIVATE,U_PRIVATE)=-0.0757
+U projection on G alpha=-0.0805
+sum/(|G|+|U|)=0.6802
+mean |G+U|=0.3740 |G-U|=0.4083
+[11/12] Matched-vs-crossed private cancellation...
+MATCH private cosine=-0.0757 normalizedSum=0.6802
+CROSS private cosine=+0.0159 normalizedSum=0.7161
+CROSS-MATCH normalizedSum Δ=+5.28%
+[12/12] RESULTS
+====================================================================================================================
+TEST 246 RESULTS — PRIVATE SUPERPOSITION LAMBDA
+lambda=-1.00:  78.1% | rank 1.469 | margin +0.0607
+lambda=-0.50:  78.1% | rank 1.438 | margin +0.0556
+lambda=+0.00:  81.2% | rank 1.500 | margin +0.0464
+lambda=+0.50:  53.1% | rank 1.906 | margin +0.0252
+lambda=+1.00:  40.6% | rank 2.781 | margin -0.0126
+lambda=+1.50:  65.6% | rank 1.656 | margin +0.0373
+--------------------------------------------------------------------------------------------------------------------
+BEST lambda=+0.00 | top1=81.2% | margin=+0.0464
+MATCH lambda=+1.00 | top1=40.6% | margin=-0.0126
+Private cosine=-0.0757
+MATCH normalizedSum=0.6802
+CROSS normalizedSum=0.7161
+Weights: PASS
+RESULT: UP_PRIVATE_ADDITION_REDUCES_IDENTITY_SEPARABILITY
+TEST245 train-only held-out subspace preserved.
+Offline lambda geometry only; no lambda tensor injected into model.
+====================================================================================================================
+TEST 246 COMPLETE — DEMO CHECKPOINT
