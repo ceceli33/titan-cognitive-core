@@ -1,0 +1,171 @@
+ ================================================================================================================================
+TEST 218 — POSITION-MATCHED K/V IDENTITY VALIDATION
+================================================================================================================================
+LINEAGE: TEST213 -> TEST217 -> TEST218
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct | MOTOR: OFF
+[1/16] Model...
+config.json: 100% 663/663 [00:00<00:00, 76.9kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 834kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 83.3MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 67.9MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 125MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.45MB/s]Download complete: :  13.1GB,  833MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  538MB/s  Fetching 4 files: 100% 4/4 [00:40<00:00,  6.91s/it]Loading weights: 100% 339/339 [00:04<00:00, 92.82it/s]generation_config.json: 100% 243/243 [00:00<00:00, 30.9kB/s]hidden=3584 heads=28 kv_heads=4 head_dim=128
+[2/16] Position-matched object bank...
+Q1 Rovan Tesk|keeps object_tokens=3 start=30 end=32 bank=10 PREFIX=PASS
+Q2 Mira Veln|carries object_tokens=3 start=30 end=32 bank=10 PREFIX=PASS
+Q3 Dalen Quor|owns object_tokens=3 start=30 end=32 bank=10 PREFIX=PASS
+Q4 Sorin Kelm|guards object_tokens=3 start=30 end=32 bank=10 PREFIX=PASS
+Q5 Varek Tonn|holds object_tokens=3 start=31 end=33 bank=10 PREFIX=PASS
+Q6 Lira Mesk|stores object_tokens=3 start=30 end=32 bank=10 PREFIX=PASS
+Q7 Korin Drel|protects object_tokens=3 start=30 end=32 bank=10 PREFIX=PASS
+Q8 Taren Vosk|carries object_tokens=3 start=31 end=33 bank=10 PREFIX=PASS
+[3/16] Assign target/wrong objects...
+Q1 TARGET=the amber compass WRONG1=the silver lantern WRONG2=the violet key
+Q2 TARGET=the silver lantern WRONG1=the amber compass WRONG2=the violet key
+Q3 TARGET=the violet key WRONG1=the amber compass WRONG2=the silver lantern
+Q4 TARGET=the bronze sphere WRONG1=the amber compass WRONG2=the silver lantern
+Q5 TARGET=the golden necklace WRONG1=the amber compass WRONG2=the silver lantern
+Q6 TARGET=the iron dagger WRONG1=the amber compass WRONG2=the silver lantern
+Q7 TARGET=the crystal mirror WRONG1=the amber compass WRONG2=the silver lantern
+Q8 TARGET=the wooden mask WRONG1=the amber compass WRONG2=the silver lantern
+[4/16] Capture pre-registered K/V only...
+Q1 captures=10
+Q2 captures=10
+Q3 captures=10
+Q4 captures=10
+Q5 captures=10
+Q6 captures=10
+Q7 captures=10
+Q8 captures=10
+[5/16] Strict alignment verification...
+Q1 PREFIX=PASS START=30 END=32 LEN=3
+Q2 PREFIX=PASS START=30 END=32 LEN=3
+Q3 PREFIX=PASS START=30 END=32 LEN=3
+Q4 PREFIX=PASS START=30 END=32 LEN=3
+Q5 PREFIX=PASS START=31 END=33 LEN=3
+Q6 PREFIX=PASS START=30 END=32 LEN=3
+Q7 PREFIX=PASS START=30 END=32 LEN=3
+Q8 PREFIX=PASS START=31 END=33 LEN=3
+[6/16] Head extraction...
+[7/16] Identity assay...
+[8/16] Pre-registered carrier results...
+K/L10/H00 meanScore=0.2058 min=0.1450 sd=0.0438 relΔ=37.892% idFrac=0.5640 wrongCos=+0.2707
+V/L07/H02 meanScore=0.2716 min=0.0956 sd=0.1154 relΔ=102.805% idFrac=0.6158 wrongCos=+0.1599
+V/L08/H00 meanScore=0.2524 min=0.1999 sd=0.0423 relΔ=88.581% idFrac=0.6294 wrongCos=+0.1991
+[9/16] Per-fact results...
+Q1 TARGET=the amber compass
+ K/L10/H00 score=0.2807 relΔ=33.424% idFrac=0.7215 wrongCos=+0.2219 pairAbs=0.2224
+ V/L07/H02 score=0.3719 relΔ=105.357% idFrac=0.7103 wrongCos=-0.0471 pairAbs=0.2278
+ V/L08/H00 score=0.2852 relΔ=76.887% idFrac=0.6211 wrongCos=+0.0815 pairAbs=0.2068
+Q2 TARGET=the silver lantern
+ K/L10/H00 score=0.2655 relΔ=33.994% idFrac=0.7619 wrongCos=+0.3032 pairAbs=0.2320
+ V/L07/H02 score=0.4206 relΔ=94.892% idFrac=0.8225 wrongCos=-0.0227 pairAbs=0.2428
+ V/L08/H00 score=0.3332 relΔ=83.798% idFrac=0.7654 wrongCos=+0.1294 pairAbs=0.2227
+Q3 TARGET=the violet key
+ K/L10/H00 score=0.1760 relΔ=40.641% idFrac=0.4661 wrongCos=+0.2449 pairAbs=0.2380
+ V/L07/H02 score=0.0978 relΔ=101.025% idFrac=0.3472 wrongCos=+0.4368 pairAbs=0.2226
+ V/L08/H00 score=0.2708 relΔ=94.719% idFrac=0.6479 wrongCos=+0.1641 pairAbs=0.2255
+Q4 TARGET=the bronze sphere
+ K/L10/H00 score=0.1870 relΔ=42.522% idFrac=0.4919 wrongCos=+0.2396 pairAbs=0.2101
+ V/L07/H02 score=0.3260 relΔ=111.787% idFrac=0.6154 wrongCos=-0.0593 pairAbs=0.2244
+ V/L08/H00 score=0.2687 relΔ=100.414% idFrac=0.6641 wrongCos=+0.1907 pairAbs=0.2224
+Q5 TARGET=the golden necklace
+ K/L10/H00 score=0.2150 relΔ=38.591% idFrac=0.5593 wrongCos=+0.2313 pairAbs=0.2207
+ V/L07/H02 score=0.3004 relΔ=111.815% idFrac=0.5949 wrongCos=-0.0099 pairAbs=0.2232
+ V/L08/H00 score=0.2202 relΔ=84.224% idFrac=0.5892 wrongCos=+0.2527 pairAbs=0.2349
+Q6 TARGET=the iron dagger
+ K/L10/H00 score=0.1715 relΔ=38.155% idFrac=0.5535 wrongCos=+0.3803 pairAbs=0.2030
+ V/L07/H02 score=0.3481 relΔ=86.685% idFrac=0.7544 wrongCos=+0.0771 pairAbs=0.2442
+ V/L08/H00 score=0.2090 relΔ=78.138% idFrac=0.6204 wrongCos=+0.3261 pairAbs=0.2306
+Q7 TARGET=the crystal mirror
+ K/L10/H00 score=0.2056 relΔ=35.908% idFrac=0.5055 wrongCos=+0.1865 pairAbs=0.2228
+ V/L07/H02 score=0.0956 relΔ=97.411% idFrac=0.4246 wrongCos=+0.5497 pairAbs=0.2172
+ V/L08/H00 score=0.1999 relΔ=94.559% idFrac=0.4785 wrongCos=+0.1647 pairAbs=0.2177
+Q8 TARGET=the wooden mask
+ K/L10/H00 score=0.1450 relΔ=39.904% idFrac=0.4518 wrongCos=+0.3579 pairAbs=0.2338
+ V/L07/H02 score=0.2122 relΔ=113.469% idFrac=0.6572 wrongCos=+0.3543 pairAbs=0.2264
+ V/L08/H00 score=0.2322 relΔ=95.911% idFrac=0.6485 wrongCos=+0.2839 pairAbs=0.2458
+[10/16] Carrier ranking...
+V/L08/H00 min=0.1999 mean=0.2524 sd=0.0423 perQ=0.285,0.333,0.271,0.269,0.220,0.209,0.200,0.232
+K/L10/H00 min=0.1450 mean=0.2058 sd=0.0438 perQ=0.281,0.265,0.176,0.187,0.215,0.172,0.206,0.145
+V/L07/H02 min=0.0956 mean=0.2716 sd=0.1154 perQ=0.372,0.421,0.098,0.326,0.300,0.348,0.096,0.212
+[11/16] Target-label permutation null...
+K/L10/H00 OBS=0.2058 NULLmean=0.2225 NULLsd=0.0131 z=-1.279
+V/L07/H02 OBS=0.2716 NULLmean=0.1666 NULLsd=0.0371 z=+2.826
+V/L08/H00 OBS=0.2524 NULLmean=0.2074 NULLsd=0.0131 z=+3.427
+[12/16] Cross-fact residual coherence...
+K/L10/H00 residualCrossFact meanCos=+0.4922 meanAbs=0.5584
+V/L07/H02 residualCrossFact meanCos=+0.5330 meanAbs=0.5839
+V/L08/H00 residualCrossFact meanCos=+0.6595 meanAbs=0.6595
+[13/16] Position controls...
+K/L10/H00 START meanScore=0.0000
+K/L10/H00 END meanScore=0.2058
+V/L07/H02 START meanScore=0.0000
+V/L07/H02 END meanScore=0.2716
+V/L08/H00 START meanScore=0.0000
+V/L08/H00 END meanScore=0.2524
+[14/16] Weight sentinel...
+[15/16] RESULTS
+
+================================================================================================================================
+TEST 218 RESULTS
+================================================================================================================================
+MODE: MOTOR OFF | WEIGHTS FROZEN | HELD-OUT NONCE SUBJECTS | EXACT POSITION-MATCHED OBJECT BANKS
+PRE-REGISTERED TEST217 CARRIERS: K/L10/H00 | V/L07/H02 | V/L08/H00
+
+STRICT PREFIX/POSITION
+Q1 PASS | objectTokens=3 start=30 end=32 target=the amber compass
+Q2 PASS | objectTokens=3 start=30 end=32 target=the silver lantern
+Q3 PASS | objectTokens=3 start=30 end=32 target=the violet key
+Q4 PASS | objectTokens=3 start=30 end=32 target=the bronze sphere
+Q5 PASS | objectTokens=3 start=31 end=33 target=the golden necklace
+Q6 PASS | objectTokens=3 start=30 end=32 target=the iron dagger
+Q7 PASS | objectTokens=3 start=30 end=32 target=the crystal mirror
+Q8 PASS | objectTokens=3 start=31 end=33 target=the wooden mask
+
+CARRIER VALIDATION
+V/L08/H00 minScore=0.1999 meanScore=0.2524 sd=0.0423 perQ=0.285,0.333,0.271,0.269,0.220,0.209,0.200,0.232
+K/L10/H00 minScore=0.1450 meanScore=0.2058 sd=0.0438 perQ=0.281,0.265,0.176,0.187,0.215,0.172,0.206,0.145
+V/L07/H02 minScore=0.0956 meanScore=0.2716 sd=0.1154 perQ=0.372,0.421,0.098,0.326,0.300,0.348,0.096,0.212
+
+PER-FACT
+Q1 Rovan Tesk | keeps | the amber compass
+ K/L10/H00 score=0.2807 idFrac=0.7215 wrongCos=+0.2219
+ V/L07/H02 score=0.3719 idFrac=0.7103 wrongCos=-0.0471
+ V/L08/H00 score=0.2852 idFrac=0.6211 wrongCos=+0.0815
+Q2 Mira Veln | carries | the silver lantern
+ K/L10/H00 score=0.2655 idFrac=0.7619 wrongCos=+0.3032
+ V/L07/H02 score=0.4206 idFrac=0.8225 wrongCos=-0.0227
+ V/L08/H00 score=0.3332 idFrac=0.7654 wrongCos=+0.1294
+Q3 Dalen Quor | owns | the violet key
+ K/L10/H00 score=0.1760 idFrac=0.4661 wrongCos=+0.2449
+ V/L07/H02 score=0.0978 idFrac=0.3472 wrongCos=+0.4368
+ V/L08/H00 score=0.2708 idFrac=0.6479 wrongCos=+0.1641
+Q4 Sorin Kelm | guards | the bronze sphere
+ K/L10/H00 score=0.1870 idFrac=0.4919 wrongCos=+0.2396
+ V/L07/H02 score=0.3260 idFrac=0.6154 wrongCos=-0.0593
+ V/L08/H00 score=0.2687 idFrac=0.6641 wrongCos=+0.1907
+Q5 Varek Tonn | holds | the golden necklace
+ K/L10/H00 score=0.2150 idFrac=0.5593 wrongCos=+0.2313
+ V/L07/H02 score=0.3004 idFrac=0.5949 wrongCos=-0.0099
+ V/L08/H00 score=0.2202 idFrac=0.5892 wrongCos=+0.2527
+Q6 Lira Mesk | stores | the iron dagger
+ K/L10/H00 score=0.1715 idFrac=0.5535 wrongCos=+0.3803
+ V/L07/H02 score=0.3481 idFrac=0.7544 wrongCos=+0.0771
+ V/L08/H00 score=0.2090 idFrac=0.6204 wrongCos=+0.3261
+Q7 Korin Drel | protects | the crystal mirror
+ K/L10/H00 score=0.2056 idFrac=0.5055 wrongCos=+0.1865
+ V/L07/H02 score=0.0956 idFrac=0.4246 wrongCos=+0.5497
+ V/L08/H00 score=0.1999 idFrac=0.4785 wrongCos=+0.1647
+Q8 Taren Vosk | carries | the wooden mask
+ K/L10/H00 score=0.1450 idFrac=0.4518 wrongCos=+0.3579
+ V/L07/H02 score=0.2122 idFrac=0.6572 wrongCos=+0.3543
+ V/L08/H00 score=0.2322 idFrac=0.6485 wrongCos=+0.2839
+
+TARGET-LABEL NULL
+K/L10/H00 OBS=0.2058 NULL=0.2225±0.0131 z=-1.279
+V/L07/H02 OBS=0.2716 NULL=0.1666±0.0371 z=+2.826
+V/L08/H00 OBS=0.2524 NULL=0.2074±0.0131 z=+3.427
+--------------------------------------------------------------------------------------------------------------------------------
+Weights: PASS | Injection: NONE | L0-L27 observation only
+PASS requires exact prefix/position matching plus held-out persistence of the pre-registered TEST217 carriers
+This assay validates localization only; it does not claim causal-head function or behavioral retrieval
+================================================================================================================================
+[16/16] TEST 218 COMPLETE
