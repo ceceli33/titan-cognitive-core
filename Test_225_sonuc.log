@@ -1,0 +1,204 @@
+ 
+================================================================================================================================
+TEST 225 — ENDOGENOUS PACKET TRAJECTORY X-RAY
+================================================================================================================================
+LINEAGE: TEST213 -> TEST217 -> TEST218 -> TEST219 -> TEST220 -> TEST221 -> TEST222 -> TEST223 -> TEST224 -> TEST225
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+[1/20] Model...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 85.1kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 865kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 28.1MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 73.3MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 131MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.27MB/s]
+Download complete: : 
+
+ 13.1GB,  125MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  497MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:39<00:00,  7.47s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 99.90it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 29.4kB/s]
+hidden=3584 q_heads=28 kv_heads=4 group=7 head_dim=128
+[2/20] Token maps...
+Q1 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q2 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q3 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q4 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q5 FACT subject=[25, 26, 27, 28, 29] relation=[30] object=[31, 32, 33] | BLIND slot=36
+Q6 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q7 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q8 FACT subject=[25, 26, 27, 28, 29] relation=[30] object=[31, 32, 33] | BLIND slot=36
+[3/20] RoPE...
+RoPE=Qwen2RotaryEmbedding max_seq=44
+[4/20] Capture TEST222 source Q/K/V...
+Q1 captured
+Q2 captured
+Q3 captured
+Q4 captured
+Q5 captured
+Q6 captured
+Q7 captured
+Q8 captured
+[5/20] Reconstruct TEST222 source readout...
+Q1 bestQH=00 qpos=36 objEndAttn=0.256498
+Q2 bestQH=00 qpos=36 objEndAttn=0.369859
+Q3 bestQH=00 qpos=36 objEndAttn=0.233636
+Q4 bestQH=05 qpos=33 objEndAttn=0.282498
+Q5 bestQH=02 qpos=37 objEndAttn=0.221648
+Q6 bestQH=00 qpos=36 objEndAttn=0.297795
+Q7 bestQH=06 qpos=32 objEndAttn=0.313337
+Q8 bestQH=00 qpos=37 objEndAttn=0.325245
+[6/20] Forge TEST222 L08 packets...
+Q1 packetNorm=2.2737
+Q2 packetNorm=2.7109
+Q3 packetNorm=1.7387
+Q4 packetNorm=2.1934
+Q5 packetNorm=2.4782
+Q6 packetNorm=2.4237
+Q7 packetNorm=2.6123
+Q8 packetNorm=2.6623
+[7/20] Vanilla hidden trajectories...
+Q1 vanilla captured
+Q2 vanilla captured
+Q3 vanilla captured
+Q4 vanilla captured
+Q5 vanilla captured
+Q6 vanilla captured
+Q7 vanilla captured
+Q8 vanilla captured
+[8/20] Correct/wrong/negative endogenous trajectories...
+Q1 complete
+Q2 complete
+Q3 complete
+Q4 complete
+Q5 complete
+Q6 complete
+Q7 complete
+Q8 complete
+[9/20] Build Δh trajectories...
+[10/20] Source identity retention...
+Q1 L08=+0.0000 L09=+0.0000 L10=+0.0000 L12=+0.0000 L16=+0.0000 L19=+0.0000 L20=+0.0000 L24=+0.0000 L27=+0.0000
+Q2 L08=+0.0000 L09=+0.0000 L10=+0.0000 L12=+0.0000 L16=+0.0000 L19=+0.0000 L20=+0.0000 L24=+0.0000 L27=+0.0000
+Q3 L08=+0.0000 L09=+0.0000 L10=+0.0000 L12=+0.0000 L16=+0.0000 L19=+0.0000 L20=+0.0000 L24=+0.0000 L27=+0.0000
+Q4 L08=+0.0000 L09=+0.0000 L10=+0.0000 L12=+0.0000 L16=+0.0000 L19=+0.0000 L20=+0.0000 L24=+0.0000 L27=+0.0000
+Q5 L08=+0.0000 L09=+0.0000 L10=+0.0000 L12=+0.0000 L16=+0.0000 L19=+0.0000 L20=+0.0000 L24=+0.0000 L27=+0.0000
+Q6 L08=+0.0000 L09=+0.0000 L10=+0.0000 L12=+0.0000 L16=+0.0000 L19=+0.0000 L20=+0.0000 L24=+0.0000 L27=+0.0000
+Q7 L08=+0.0000 L09=+0.0000 L10=+0.0000 L12=+0.0000 L16=+0.0000 L19=+0.0000 L20=+0.0000 L24=+0.0000 L27=+0.0000
+Q8 L08=+0.0000 L09=+0.0000 L10=+0.0000 L12=+0.0000 L16=+0.0000 L19=+0.0000 L20=+0.0000 L24=+0.0000 L27=+0.0000
+[11/20] Local transport continuity...
+Q1 L08→09=+0.0000 mean09→19=+0.7526 mean20→27=+0.7911
+Q2 L08→09=+0.0000 mean09→19=+0.7433 mean20→27=+0.7821
+Q3 L08→09=+0.0000 mean09→19=+0.7503 mean20→27=+0.7847
+Q4 L08→09=+0.0000 mean09→19=+0.7655 mean20→27=+0.7802
+Q5 L08→09=+0.0000 mean09→19=+0.7865 mean20→27=+0.8129
+Q6 L08→09=+0.0000 mean09→19=+0.7632 mean20→27=+0.7907
+Q7 L08→09=+0.0000 mean09→19=+0.7783 mean20→27=+0.7941
+Q8 L08→09=+0.0000 mean09→19=+0.7601 mean20→27=+0.7934
+[12/20] Correct-vs-wrong trajectory separation...
+L08 C/W=+0.0000 C/NEG=+0.0000 W/NEG=+0.0000
+L09 C/W=+0.5099 C/NEG=-0.9413 W/NEG=-0.4898
+L10 C/W=+0.5040 C/NEG=-0.8984 W/NEG=-0.4661
+L12 C/W=+0.5028 C/NEG=-0.7845 W/NEG=-0.3802
+L16 C/W=+0.4502 C/NEG=-0.4711 W/NEG=-0.2033
+L19 C/W=+0.4702 C/NEG=-0.2132 W/NEG=-0.0119
+L20 C/W=+0.4854 C/NEG=-0.1519 W/NEG=+0.0491
+L24 C/W=+0.4781 C/NEG=+0.0378 W/NEG=+0.1786
+L27 C/W=+0.3963 C/NEG=+0.2667 W/NEG=+0.2859
+[13/20] Cross-fact identity collapse...
+L08 self=+0.0000 bestCross=+0.0000 separation=+0.0000
+L09 self=+1.0000 bestCross=+0.5850 separation=+0.4150
+L10 self=+1.0000 bestCross=+0.5637 separation=+0.4363
+L12 self=+1.0000 bestCross=+0.5194 separation=+0.4806
+L16 self=+1.0000 bestCross=+0.4152 separation=+0.5848
+L19 self=+1.0000 bestCross=+0.3206 separation=+0.6794
+L20 self=+1.0000 bestCross=+0.2522 separation=+0.7478
+L24 self=+1.0000 bestCross=+0.2293 separation=+0.7707
+L27 self=+1.0000 bestCross=+0.2094 separation=+0.7906
+[14/20] Physical displacement...
+Q1 L08= 0.000% L09= 2.813% L12= 2.006% L16= 1.522% L19= 1.286% L20= 1.249% L24= 1.235% L27= 1.777%
+Q2 L08= 0.000% L09= 2.869% L12= 2.363% L16= 1.782% L19= 1.353% L20= 1.267% L24= 1.359% L27= 1.756%
+Q3 L08= 0.000% L09= 3.135% L12= 2.182% L16= 1.578% L19= 1.269% L20= 1.240% L24= 1.239% L27= 1.707%
+Q4 L08= 0.000% L09= 2.595% L12= 1.914% L16= 1.320% L19= 1.119% L20= 1.094% L24= 1.177% L27= 1.654%
+Q5 L08= 0.000% L09= 3.041% L12= 2.124% L16= 1.734% L19= 1.470% L20= 1.397% L24= 1.277% L27= 1.577%
+Q6 L08= 0.000% L09= 2.654% L12= 1.955% L16= 1.430% L19= 1.327% L20= 1.342% L24= 1.315% L27= 1.739%
+Q7 L08= 0.000% L09= 2.669% L12= 1.967% L16= 1.824% L19= 1.526% L20= 1.422% L24= 1.214% L27= 1.762%
+Q8 L08= 0.000% L09= 2.665% L12= 1.971% L16= 1.497% L19= 1.185% L20= 1.134% L24= 1.177% L27= 1.561%
+[15/20] Dose linearity...
+Q1 L08[1x=0.000,2x=0.000,4x=0.000] L19[1x=1.003,2x=0.952,4x=1.286] L27[1x=2.094,2x=1.632,4x=1.777]
+Q2 L08[1x=0.000,2x=0.000,4x=0.000] L19[1x=0.841,2x=1.041,4x=1.353] L27[1x=1.812,2x=1.616,4x=1.756]
+Q3 L08[1x=0.000,2x=0.000,4x=0.000] L19[1x=0.863,2x=0.964,4x=1.269] L27[1x=1.510,2x=1.576,4x=1.707]
+Q4 L08[1x=0.000,2x=0.000,4x=0.000] L19[1x=0.807,2x=0.847,4x=1.119] L27[1x=1.369,2x=1.263,4x=1.654]
+Q5 L08[1x=0.000,2x=0.000,4x=0.000] L19[1x=0.931,2x=1.354,4x=1.470] L27[1x=1.754,2x=2.071,4x=1.577]
+Q6 L08[1x=0.000,2x=0.000,4x=0.000] L19[1x=0.811,2x=0.850,4x=1.327] L27[1x=2.476,2x=1.475,4x=1.739]
+Q7 L08[1x=0.000,2x=0.000,4x=0.000] L19[1x=1.065,2x=1.044,4x=1.526] L27[1x=1.456,2x=1.515,4x=1.762]
+Q8 L08[1x=0.000,2x=0.000,4x=0.000] L19[1x=0.761,2x=0.859,4x=1.185] L27[1x=1.566,2x=1.421,4x=1.561]
+[16/20] Candidate scorer...
+[17/20] Behavioral readout...
+Q1 VAN=-12.0987 COR=-12.0507 Δ=+0.0481 WRONG=-12.0953 NEG=-12.0247
+Q2 VAN=-9.3940 COR=-9.5474 Δ=-0.1535 WRONG=-9.4488 NEG=-9.1485
+Q3 VAN=-5.7652 COR=-5.8285 Δ=-0.0633 WRONG=-5.5535 NEG=-5.6647
+Q4 VAN=-7.5475 COR=-7.6162 Δ=-0.0688 WRONG=-7.5997 NEG=-7.0836
+Q5 VAN=-1.4517 COR=-1.4531 Δ=-0.0014 WRONG=-1.4542 NEG=-1.4933
+Q6 VAN=-14.9536 COR=-15.3857 Δ=-0.4321 WRONG=-15.2155 NEG=-14.7664
+Q7 VAN=-5.7854 COR=-5.9514 Δ=-0.1661 WRONG=-5.6769 NEG=-5.6733
+Q8 VAN=-4.9452 COR=-5.1025 Δ=-0.1572 WRONG=-5.2286 NEG=-4.9718
+[18/20] Weight sentinel...
+[19/20] SUMMARY
+
+================================================================================================================================
+TEST 225 RESULTS
+================================================================================================================================
+MODE: SINGLE L08 PACKET INJECTION -> FREE ENDOGENOUS TRANSPORT | PRIMARY DOSE=0.0400
+NO L09-L27 RE-INJECTION | WEIGHTS FROZEN | SOURCE FACTS ABSENT FROM BLIND QUERY | CANDIDATES NEVER ENTER INTERVENTION
+
+MEAN CORRECT TRAJECTORY
+L08 displacement=  0.000% sourceCos=+0.0000 correctWrongCos=+0.0000 bestCrossFactCos=+0.0000
+L09 displacement=  2.805% sourceCos=+0.0000 correctWrongCos=+0.5099 bestCrossFactCos=+0.5850
+L10 displacement=  2.488% sourceCos=+0.0000 correctWrongCos=+0.5040 bestCrossFactCos=+0.5637
+L12 displacement=  2.060% sourceCos=+0.0000 correctWrongCos=+0.5028 bestCrossFactCos=+0.5194
+L16 displacement=  1.586% sourceCos=+0.0000 correctWrongCos=+0.4502 bestCrossFactCos=+0.4152
+L19 displacement=  1.317% sourceCos=+0.0000 correctWrongCos=+0.4702 bestCrossFactCos=+0.3206
+L20 displacement=  1.268% sourceCos=+0.0000 correctWrongCos=+0.4854 bestCrossFactCos=+0.2522
+L24 displacement=  1.249% sourceCos=+0.0000 correctWrongCos=+0.4781 bestCrossFactCos=+0.2293
+L27 displacement=  1.692% sourceCos=+0.0000 correctWrongCos=+0.3963 bestCrossFactCos=+0.2094
+
+BEHAVIOR
+CORRECT  meanΔmargin=-0.1243 meanΔtargetLP=-0.2085 marginImproved=1/8
+WRONG    meanΔmargin=-0.0414 meanΔtargetLP=-0.1932 marginImproved=3/8
+NEG      meanΔmargin=+0.1394 meanΔtargetLP=+0.4022 marginImproved=6/8
+
+INTERPRETATION GATE
+L19 correctWrongCos=+0.4702 bestCrossFactCos=+0.3206
+L27 correctWrongCos=+0.3963 bestCrossFactCos=+0.2094
+RESULT: IDENTITY_REMAINS_SEPARABLE — downstream packet trajectories retain measurable packet-specific geometry.
+--------------------------------------------------------------------------------------------------------------------------------
+Weights: PASS | Injection calls: L08 only | L09-L27 receive ZERO new injection
+Any L09-L27 displacement is model-native downstream transport from the single L08 intervention.
+================================================================================================================================
+
+
+[20/20] TEST 225 COMPLETE
