@@ -1,0 +1,341 @@
+ 
+============================================================================================================================
+TEST 249 — 8-AXIS BEHAVIORAL CONTROL MATRIX
+============================================================================================================================
+Baseline : Describe a person waiting alone at a train station late at night.
+Axes     : 8
+Forge    : 8 POS - 8 NEG model-endogenous layer-local mean contrast
+Motor    : canonical SEASC L0-L19 | L20-L27 observation only
+
+[1/10] Model...
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 83.2kB/s]
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 654kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 77.5MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 70.4MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 120MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 2.89MB/s]
+Download complete: : 
+
+ 13.1GB,  722MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  366MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:41<00:00,  7.27s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 101.60it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 35.3kB/s]
+[2/10] Canonical dose lock...
+L00=10.000% L01=9.713% L02=9.052% L03=8.230% L04=7.376% L05=6.561% L06=5.822% L07=5.175% L08=4.621% L09=4.156% L10=3.771% L11=3.456% L12=3.200% L13=2.994% L14=2.829% L15=2.697% L16=2.593% L17=2.511% L18=2.447% L19=2.397%
+RSS=0.250235055
+[3/10] Extract 8×(8 POS + 8 NEG) layer-local states...
+[4/10] Forge geometry...
+EMOTIONAL_TONE   rawL00=   0.310 rawL19=  16.093 adjCos=+0.6709 [+0.5188,+0.8236]
+CONFIDENCE       rawL00=   0.296 rawL19=  17.732 adjCos=+0.6557 [+0.5061,+0.8323]
+CALMNESS         rawL00=   0.334 rawL19=  15.195 adjCos=+0.6581 [+0.4753,+0.8122]
+FORMALITY        rawL00=   0.354 rawL19=  31.012 adjCos=+0.6775 [+0.4239,+0.8420]
+VERBOSITY        rawL00=   0.377 rawL19=  26.880 adjCos=+0.6674 [+0.5349,+0.7837]
+POLITENESS       rawL00=   0.305 rawL19=  21.813 adjCos=+0.6612 [+0.5061,+0.7933]
+CREATIVITY       rawL00=   0.547 rawL19=  26.062 adjCos=+0.6870 [+0.5263,+0.8189]
+ENTHUSIASM       rawL00=   0.345 rawL19=  18.806 adjCos=+0.6781 [+0.5396,+0.8146]
+
+L19 cross-axis cosine:
+EMOTIONAL_TONE   mean|cos|=0.3816 max|cos|=0.7039
+CONFIDENCE       mean|cos|=0.3386 max|cos|=0.5604
+CALMNESS         mean|cos|=0.2948 max|cos|=0.6115
+FORMALITY        mean|cos|=0.0859 max|cos|=0.1752
+VERBOSITY        mean|cos|=0.1727 max|cos|=0.5004
+POLITENESS       mean|cos|=0.4024 max|cos|=0.6471
+CREATIVITY       mean|cos|=0.1756 max|cos|=0.5004
+ENTHUSIASM       mean|cos|=0.3439 max|cos|=0.7039
+[5/10] Steering engine...
+[6/10] X-ray engine...
+[7/10] Vanilla baseline...
+
+VANILLA:
+A person stands quietly in the dimly lit train station, the late hour marked by the occasional distant chime of a clock and the faint hum of an empty station. The platform is mostly deserted, with only the soft glow of the overhead lights casting long shadows on the tiled floor. The person wears a coat pulled tightly around them, perhaps to ward off the chill of the night air or simply as a sign of their solitary state. They may be engrossed in a book or staring out the window, lost in thought or watching for the arrival of a train that seems to take forever to come. The silence is occasionally broken by the
+Words=116 Sentences=4
+[8/10] Run all 8 behavioral axes...
+
+============================================================================================================================
+[1/8] EMOTIONAL_TONE
+POS: JOYFUL / WARM / OPTIMISTIC
+NEG: SAD / COLD / PESSIMISTIC
+----------------------------------------------------------------------------------------------------------------------------
+VANILLA:
+A person stands quietly in the dimly lit train station, the late hour marked by the occasional distant chime of a clock and the faint hum of an empty station. The platform is mostly deserted, with only the soft glow of the overhead lights casting long shadows on the tiled floor. The person wears a coat pulled tightly around them, perhaps to ward off the chill of the night air or simply as a sign of their solitary state. They may be engrossed in a book or staring out the window, lost in thought or watching for the arrival of a train that seems to take forever to come. The silence is occasionally broken by the
+
+POS:
+A person stands quietly in the dimly lit train station, the late hour and lack of other passengers create an atmosphere of solitude. The sound of their own footsteps echoes slightly as they pace back and forth near the ticket counter. Their eyes occasionally glance at the digital clock above the platform, checking the time and perhaps the departure board for any updates. The soft hum of the station's air conditioning and the occasional distant chime from the ticket machines provide a gentle background noise. Despite the quietness, there is a sense of anticipation or perhaps a hint of nervousness as they await their train.
+
+NEG:
+A person stands alone in a dimly lit train station, the only figure in a sea of shadows cast by flickering streetlights and the occasional passing train. The air is cold and filled with the distant echo of an empty station, punctuated by the periodic sound of footsteps or the creaking of metal on metal from the tracks. Their face is obscured by the hood of a heavy coat pulled up to their chin, and they clutch a worn leather satchel tightly, perhaps a sign of the uncertainty and weariness that comes with being stranded in the middle of the night. The digital clock on the wall reads a time long past
+
+WORDS V/P/N = 116/105/112
+SENTS V/P/N = 4/5/3
+POS X-RAY : L04=23.31% L08=27.59% L12=21.75% L16=18.34% L19=15.60% L20=15.16% L24=10.04% L27=12.39%
+NEG X-RAY : L04=23.32% L08=24.82% L12=19.65% L16=17.91% L19=15.21% L20=14.56% L24=9.55% L27=11.55%
+POS↔NEG   : L04=45.71% L08=49.29% L12=39.29% L16=35.06% L19=29.70% L20=28.54% L24=18.35% L27=21.82%
+
+============================================================================================================================
+[2/8] CONFIDENCE
+POS: CONFIDENT / CERTAIN / ASSERTIVE
+NEG: UNCERTAIN / HESITANT / DOUBTFUL
+----------------------------------------------------------------------------------------------------------------------------
+VANILLA:
+A person stands quietly in the dimly lit train station, the late hour marked by the occasional distant chime of a clock and the faint hum of an empty station. The platform is mostly deserted, with only the soft glow of the overhead lights casting long shadows on the tiled floor. The person wears a coat pulled tightly around them, perhaps to ward off the chill of the night air or simply as a sign of their solitary state. They may be engrossed in a book or staring out the window, lost in thought or watching for the arrival of a train that seems to take forever to come. The silence is occasionally broken by the
+
+POS:
+A person stands quietly in the dimly lit train station, the late hour casting long shadows around them. The sound of their own footsteps echoes slightly as they pace back and forth near the ticket counter. The digital clock above the platform displays the time, counting down to the next train's arrival. A single overhead light casts a stark, bright circle on the floor where they wait, highlighting their solitary figure against the backdrop of empty benches and quiet announcements.
+
+NEG:
+A person stands alone in a dimly lit train station, the only sound being the distant echo of an occasional train whistle. The clock on the wall reads long past midnight, casting long shadows across the empty benches and counters. The person wears a coat pulled tightly around them, perhaps to shield against the chill or simply out of habit. They may be looking at their phone, lost in thought, or gazing out the window, watching the few remaining passengers move about with weary steps. The atmosphere is quiet and somber, reflecting the solitude and perhaps the anticipation or resignation of the lone individual awaiting their journey.
+
+WORDS V/P/N = 116/80/107
+SENTS V/P/N = 4/4/5
+POS X-RAY : L04=21.49% L08=23.65% L12=19.49% L16=16.89% L19=14.55% L20=14.15% L24=9.79% L27=12.16%
+NEG X-RAY : L04=21.44% L08=20.62% L12=16.79% L16=16.44% L19=15.52% L20=15.32% L24=11.86% L27=16.51%
+POS↔NEG   : L04=42.21% L08=42.33% L12=34.90% L16=32.42% L19=29.22% L20=28.60% L24=20.94% L27=27.64%
+
+============================================================================================================================
+[3/8] CALMNESS
+POS: CALM / PEACEFUL / RELAXED
+NEG: TENSE / ANXIOUS / AGITATED
+----------------------------------------------------------------------------------------------------------------------------
+VANILLA:
+A person stands quietly in the dimly lit train station, the late hour marked by the occasional distant chime of a clock and the faint hum of an empty station. The platform is mostly deserted, with only the soft glow of the overhead lights casting long shadows on the tiled floor. The person wears a coat pulled tightly around them, perhaps to ward off the chill of the night air or simply as a sign of their solitary state. They may be engrossed in a book or staring out the window, lost in thought or watching for the arrival of a train that seems to take forever to come. The silence is occasionally broken by the
+
+POS:
+A person stands quietly in the dimly lit train station, the late hour casting long shadows and softening the usual hustle of the place. The sound of their own footsteps echoes slightly as they pace back and forth near the benches. The clock on the wall ticks steadily, marking the passage of time. Outside, the night is calm, with only the occasional train passing by in the distance. The person wears a coat pulled tightly around them, perhaps against an unexpected chill or simply to feel more secure. They seem lost in thought, perhaps contemplating their journey ahead or reflecting on the day that has passed.
+
+NEG:
+A person stands alone in a dimly lit train station, the late hour marked by the occasional flicker of a distant security light. Their eyes scan the empty platform and the digital clock above the ticket counter, showing the time creeping closer to midnight. The air is thick with the scent of old carpet and stale coffee, and the sound of their own breathing echoes softly. They clutch a worn leather jacket tightly around them, shivering slightly as the chill seeps through the thin fabric. A duffle bag rests at their feet, its contents suggesting a hasty departure. The silence is broken only by the distant rumble of an approaching train
+
+WORDS V/P/N = 116/106/111
+SENTS V/P/N = 4/6/5
+POS X-RAY : L04=21.18% L08=22.74% L12=17.76% L16=16.46% L19=14.53% L20=14.06% L24=9.75% L27=11.99%
+NEG X-RAY : L04=21.61% L08=22.04% L12=17.22% L16=16.92% L19=15.52% L20=14.95% L24=10.39% L27=12.46%
+POS↔NEG   : L04=42.24% L08=42.63% L12=33.69% L16=32.62% L19=29.19% L20=28.06% L24=19.31% L27=22.82%
+
+============================================================================================================================
+[4/8] FORMALITY
+POS: FORMAL / PROFESSIONAL
+NEG: CASUAL / INFORMAL
+----------------------------------------------------------------------------------------------------------------------------
+VANILLA:
+A person stands quietly in the dimly lit train station, the late hour marked by the occasional distant chime of a clock and the faint hum of an empty station. The platform is mostly deserted, with only the soft glow of the overhead lights casting long shadows on the tiled floor. The person wears a coat pulled tightly around them, perhaps to ward off the chill of the night air or simply as a sign of their solitary state. They may be engrossed in a book or staring out the window, lost in thought or watching for the arrival of a train that seems to take forever to come. The silence is occasionally broken by the
+
+POS:
+A person stands quietly in the dimly lit train station, the late hour marked by the infrequent sound of approaching trains. The station is largely empty, with only a few other individuals present, each engrossed in their own solitary activities such as reading or using electronic devices. The person in question wears a coat or jacket, likely to ward off the chill of the evening air. Their posture is upright, perhaps due to nervous anticipation or a sense of duty. The station clock above them ticks steadily, adding to the atmosphere of waiting and expectation.
+
+NEG:
+A person stands alone in the dimly lit train station, the soft glow of the exit sign the only light in the darkness. The sound of their own footsteps echoes as they pace back and forth, checking their phone for the time. The wind whispers through the empty station, carrying the faint hum of distant city noises. They pull their coat tighter around them, hoping for some warmth against the chill. Every now and then, they glance up at the clock, each tick of the minute hand making the wait feel longer.
+
+WORDS V/P/N = 116/95/92
+SENTS V/P/N = 4/5/5
+POS X-RAY : L04=22.62% L08=28.52% L12=21.57% L16=17.74% L19=15.62% L20=15.61% L24=11.98% L27=14.01%
+NEG X-RAY : L04=22.23% L08=27.03% L12=19.98% L16=17.09% L19=14.91% L20=15.29% L24=11.64% L27=14.87%
+POS↔NEG   : L04=44.21% L08=52.45% L12=39.29% L16=33.54% L19=29.50% L20=29.81% L24=22.47% L27=26.84%
+
+============================================================================================================================
+[5/8] VERBOSITY
+POS: DETAILED / ELABORATE
+NEG: CONCISE / BRIEF
+----------------------------------------------------------------------------------------------------------------------------
+VANILLA:
+A person stands quietly in the dimly lit train station, the late hour marked by the occasional distant chime of a clock and the faint hum of an empty station. The platform is mostly deserted, with only the soft glow of the overhead lights casting long shadows on the tiled floor. The person wears a coat pulled tightly around them, perhaps to ward off the chill of the night air or simply as a sign of their solitary state. They may be engrossed in a book or staring out the window, lost in thought or watching for the arrival of a train that seems to take forever to come. The silence is occasionally broken by the
+
+POS:
+A person stands alone in the dimly lit train station, the late hour marked by the soft hum of distant machinery and the occasional echo of footsteps from unseen travelers. The air is cool and carries the faint scent of rain-soaked concrete and the distant aroma of street food from a nearby market. The overhead lights cast long shadows on the worn tiles, highlighting the uneven surfaces and the occasional puddle that glints with reflected moonlight.
+
+The individual wears a heavy coat, pulled tightly around them as if to ward off the chill of the night or perhaps to shield themselves from the world outside. Their face is partially obscured by the brim of
+
+NEG:
+A solitary figure stands by the platform, surrounded by the quiet hum of an empty station, as the late-night lights cast shadows and the occasional train passes by in the distance.
+
+WORDS V/P/N = 116/114/31
+SENTS V/P/N = 4/4/1
+POS X-RAY : L04=23.31% L08=26.90% L12=24.03% L16=22.10% L19=20.22% L20=21.02% L24=16.33% L27=21.78%
+NEG X-RAY : L04=23.08% L08=26.96% L12=22.46% L16=19.63% L19=17.99% L20=18.39% L24=14.41% L27=20.76%
+POS↔NEG   : L04=45.78% L08=51.37% L12=44.46% L16=40.54% L19=37.01% L20=38.03% L24=29.33% L27=40.50%
+
+============================================================================================================================
+[6/8] POLITENESS
+POS: POLITE / RESPECTFUL
+NEG: RUDE / DISMISSIVE
+----------------------------------------------------------------------------------------------------------------------------
+VANILLA:
+A person stands quietly in the dimly lit train station, the late hour marked by the occasional distant chime of a clock and the faint hum of an empty station. The platform is mostly deserted, with only the soft glow of the overhead lights casting long shadows on the tiled floor. The person wears a coat pulled tightly around them, perhaps to ward off the chill of the night air or simply as a sign of their solitary state. They may be engrossed in a book or staring out the window, lost in thought or watching for the arrival of a train that seems to take forever to come. The silence is occasionally broken by the
+
+POS:
+A person stands quietly in the dimly lit train station, the late hour marked by the occasional soft hum of the station's machinery and the distant chime of a clock. The platform is mostly empty, save for a few stragglers who have already boarded their trains. This individual wears a coat pulled tightly around them, perhaps to ward off the cool evening air or perhaps as a sign of anticipation and readiness. They glance occasionally at their watch, their gaze occasionally drifting towards the large digital display that counts down the minutes until the next train arrives. The atmosphere is peaceful yet tinged with a sense of solitude and purpose, as they
+
+NEG:
+A solitary figure stands by the window of a dimly lit train station, the only passenger in a vast expanse of empty benches and flickering lights. The sound of their own footsteps echoes as they pace back and forth, occasionally glancing at the clock that ticks away the minutes. Outside, the night is quiet, save for the distant rumble of an approaching train or the occasional hoot of an owl. Their expression shifts from impatience to worry, then back to frustration, as the minutes tick by without any sign of relief from their solitude.
+
+WORDS V/P/N = 116/112/94
+SENTS V/P/N = 4/4/4
+POS X-RAY : L04=22.40% L08=26.48% L12=21.24% L16=18.06% L19=15.13% L20=14.68% L24=9.61% L27=11.63%
+NEG X-RAY : L04=22.53% L08=23.32% L12=18.36% L16=16.96% L19=14.41% L20=14.20% L24=10.17% L27=13.19%
+POS↔NEG   : L04=44.19% L08=47.15% L12=37.64% L16=33.88% L19=28.53% L20=27.83% L24=18.83% L27=23.52%
+
+============================================================================================================================
+[7/8] CREATIVITY
+POS: IMAGINATIVE / POETIC
+NEG: LITERAL / PLAIN
+----------------------------------------------------------------------------------------------------------------------------
+VANILLA:
+A person stands quietly in the dimly lit train station, the late hour marked by the occasional distant chime of a clock and the faint hum of an empty station. The platform is mostly deserted, with only the soft glow of the overhead lights casting long shadows on the tiled floor. The person wears a coat pulled tightly around them, perhaps to ward off the chill of the night air or simply as a sign of their solitary state. They may be engrossed in a book or staring out the window, lost in thought or watching for the arrival of a train that seems to take forever to come. The silence is occasionally broken by the
+
+POS:
+A solitary figure stands under the flickering glow of a lone streetlamp at the deserted train station, the air thick with the hum of distant city life and the occasional hoot of an owl. The wind whispers softly through the empty platforms, rustling the leaves of nearby trees. The person wears a coat pulled tightly around them, shielding against the chill of the night, their face partially hidden by a scarf wrapped around their head. They gaze intently at the digital countdown clock above the platform, its bright numbers casting shadows on their face as they wait, perhaps for a loved one or a journey that will take them far from this place.
+
+NEG:
+A person stands alone in a dimly lit train station, surrounded by quiet and empty benches. The time is late at night, and the station is nearly deserted, with few signs of activity or other passengers. The person likely appears patient but possibly anxious or lonely, awaiting a train that may be delayed.
+
+WORDS V/P/N = 116/113/53
+SENTS V/P/N = 4/4/3
+POS X-RAY : L04=23.29% L08=24.97% L12=21.55% L16=19.57% L19=17.86% L20=17.69% L24=12.46% L27=16.73%
+NEG X-RAY : L04=23.24% L08=28.17% L12=22.35% L16=19.14% L19=16.91% L20=17.19% L24=12.71% L27=16.35%
+POS↔NEG   : L04=45.80% L08=50.11% L12=41.60% L16=37.28% L19=33.43% L20=33.40% L24=23.65% L27=30.76%
+
+============================================================================================================================
+[8/8] ENTHUSIASM
+POS: ENTHUSIASTIC / ENERGETIC
+NEG: DETACHED / INDIFFERENT
+----------------------------------------------------------------------------------------------------------------------------
+VANILLA:
+A person stands quietly in the dimly lit train station, the late hour marked by the occasional distant chime of a clock and the faint hum of an empty station. The platform is mostly deserted, with only the soft glow of the overhead lights casting long shadows on the tiled floor. The person wears a coat pulled tightly around them, perhaps to ward off the chill of the night air or simply as a sign of their solitary state. They may be engrossed in a book or staring out the window, lost in thought or watching for the arrival of a train that seems to take forever to come. The silence is occasionally broken by the
+
+POS:
+A person stands alone in the dimly lit train station, the late hour marked by the occasional soft hum of the station's machinery and the distant chime of an approaching train. The station is mostly empty, with only a few stragglers and the station staff present. The person wears a coat pulled tightly around them, perhaps to ward off the cool evening air or perhaps due to excitement or nervousness. They glance occasionally at their watch, then look up at the digital display above the platform, checking the arrival times of trains. Their expression is a mix of anticipation and perhaps a touch of solitude, as they wait for their train
+
+NEG:
+A person stands quietly in the dimly lit area of a train station, the only passenger in sight. The sound of their own footsteps echoes as they move from one foot to the other, breaking the silence. The clock on the wall shows a time long past when most people would be asleep. The wind carries a chill through the air, and the occasional train passes by, its lights flickering in the distance. The person's expression is one of patience and perhaps a hint of worry or loneliness, as they wait for a train that seems to take an eternity to arrive.
+
+WORDS V/P/N = 116/111/102
+SENTS V/P/N = 4/4/5
+POS X-RAY : L04=22.83% L08=26.38% L12=20.44% L16=18.52% L19=16.04% L20=15.65% L24=10.30% L27=12.03%
+NEG X-RAY : L04=22.59% L08=23.88% L12=18.70% L16=17.76% L19=15.92% L20=15.47% L24=11.19% L27=13.96%
+POS↔NEG   : L04=44.53% L08=48.01% L12=37.48% L16=35.33% L19=31.08% L20=30.19% L24=20.50% L27=24.51%
+[9/10] Automatic physical + measurable audit...
+============================================================================================================================
+AXIS SUMMARY
+============================================================================================================================
+AXIS              P-WORD  N-WORD    P-L19    N-L19    P-L27    N-L27    SEP27
+EMOTIONAL_TONE       105     112   15.60%   15.21%   12.39%   11.55%   21.82%
+CONFIDENCE            80     107   14.55%   15.52%   12.16%   16.51%   27.64%
+CALMNESS             106     111   14.53%   15.52%   11.99%   12.46%   22.82%
+FORMALITY             95      92   15.62%   14.91%   14.01%   14.87%   26.84%
+VERBOSITY            114      31   20.22%   17.99%   21.78%   20.76%   40.50%
+POLITENESS           112      94   15.13%   14.41%   11.63%   13.19%   23.52%
+CREATIVITY           113      53   17.86%   16.91%   16.73%   16.35%   30.76%
+ENTHUSIASM           111     102   16.04%   15.92%   12.03%   13.96%   24.51%
+
+VERBOSITY DIRECT CHECK:
+Detailed words=114 | Concise words=31 | Δ=+83
+VERBOSITY_DIRECTION: PASS
+[10/10] Weight sentinel + final report...
+Weights: PASS
+
+============================================================================================================================
+TEST 249 RESULTS — 8-AXIS BEHAVIORAL CONTROL MATRIX
+============================================================================================================================
+Prompt: Describe a person waiting alone at a train station late at night.
+
+VANILLA:
+A person stands quietly in the dimly lit train station, the late hour marked by the occasional distant chime of a clock and the faint hum of an empty station. The platform is mostly deserted, with only the soft glow of the overhead lights casting long shadows on the tiled floor. The person wears a coat pulled tightly around them, perhaps to ward off the chill of the night air or simply as a sign of their solitary state. They may be engrossed in a book or staring out the window, lost in thought or watching for the arrival of a train that seems to take forever to come. The silence is occasionally broken by the
+
+EMOTIONAL_TONE
+POS [JOYFUL / WARM / OPTIMISTIC]:
+A person stands quietly in the dimly lit train station, the late hour and lack of other passengers create an atmosphere of solitude. The sound of their own footsteps echoes slightly as they pace back and forth near the ticket counter. Their eyes occasionally glance at the digital clock above the platform, checking the time and perhaps the departure board for any updates. The soft hum of the station's air conditioning and the occasional distant chime from the ticket machines provide a gentle background noise. Despite the quietness, there is a sense of anticipation or perhaps a hint of nervousness as they await their train.
+NEG [SAD / COLD / PESSIMISTIC]:
+A person stands alone in a dimly lit train station, the only figure in a sea of shadows cast by flickering streetlights and the occasional passing train. The air is cold and filled with the distant echo of an empty station, punctuated by the periodic sound of footsteps or the creaking of metal on metal from the tracks. Their face is obscured by the hood of a heavy coat pulled up to their chin, and they clutch a worn leather satchel tightly, perhaps a sign of the uncertainty and weariness that comes with being stranded in the middle of the night. The digital clock on the wall reads a time long past
+Changed P/N=1/1 | POS!=NEG=1 | L19 P/N=15.60%/15.21% | L27 P/N=12.39%/11.55% | SEP27=21.82%
+----------------------------------------------------------------------------------------------------------------------------
+CONFIDENCE
+POS [CONFIDENT / CERTAIN / ASSERTIVE]:
+A person stands quietly in the dimly lit train station, the late hour casting long shadows around them. The sound of their own footsteps echoes slightly as they pace back and forth near the ticket counter. The digital clock above the platform displays the time, counting down to the next train's arrival. A single overhead light casts a stark, bright circle on the floor where they wait, highlighting their solitary figure against the backdrop of empty benches and quiet announcements.
+NEG [UNCERTAIN / HESITANT / DOUBTFUL]:
+A person stands alone in a dimly lit train station, the only sound being the distant echo of an occasional train whistle. The clock on the wall reads long past midnight, casting long shadows across the empty benches and counters. The person wears a coat pulled tightly around them, perhaps to shield against the chill or simply out of habit. They may be looking at their phone, lost in thought, or gazing out the window, watching the few remaining passengers move about with weary steps. The atmosphere is quiet and somber, reflecting the solitude and perhaps the anticipation or resignation of the lone individual awaiting their journey.
+Changed P/N=1/1 | POS!=NEG=1 | L19 P/N=14.55%/15.52% | L27 P/N=12.16%/16.51% | SEP27=27.64%
+----------------------------------------------------------------------------------------------------------------------------
+CALMNESS
+POS [CALM / PEACEFUL / RELAXED]:
+A person stands quietly in the dimly lit train station, the late hour casting long shadows and softening the usual hustle of the place. The sound of their own footsteps echoes slightly as they pace back and forth near the benches. The clock on the wall ticks steadily, marking the passage of time. Outside, the night is calm, with only the occasional train passing by in the distance. The person wears a coat pulled tightly around them, perhaps against an unexpected chill or simply to feel more secure. They seem lost in thought, perhaps contemplating their journey ahead or reflecting on the day that has passed.
+NEG [TENSE / ANXIOUS / AGITATED]:
+A person stands alone in a dimly lit train station, the late hour marked by the occasional flicker of a distant security light. Their eyes scan the empty platform and the digital clock above the ticket counter, showing the time creeping closer to midnight. The air is thick with the scent of old carpet and stale coffee, and the sound of their own breathing echoes softly. They clutch a worn leather jacket tightly around them, shivering slightly as the chill seeps through the thin fabric. A duffle bag rests at their feet, its contents suggesting a hasty departure. The silence is broken only by the distant rumble of an approaching train
+Changed P/N=1/1 | POS!=NEG=1 | L19 P/N=14.53%/15.52% | L27 P/N=11.99%/12.46% | SEP27=22.82%
+----------------------------------------------------------------------------------------------------------------------------
+FORMALITY
+POS [FORMAL / PROFESSIONAL]:
+A person stands quietly in the dimly lit train station, the late hour marked by the infrequent sound of approaching trains. The station is largely empty, with only a few other individuals present, each engrossed in their own solitary activities such as reading or using electronic devices. The person in question wears a coat or jacket, likely to ward off the chill of the evening air. Their posture is upright, perhaps due to nervous anticipation or a sense of duty. The station clock above them ticks steadily, adding to the atmosphere of waiting and expectation.
+NEG [CASUAL / INFORMAL]:
+A person stands alone in the dimly lit train station, the soft glow of the exit sign the only light in the darkness. The sound of their own footsteps echoes as they pace back and forth, checking their phone for the time. The wind whispers through the empty station, carrying the faint hum of distant city noises. They pull their coat tighter around them, hoping for some warmth against the chill. Every now and then, they glance up at the clock, each tick of the minute hand making the wait feel longer.
+Changed P/N=1/1 | POS!=NEG=1 | L19 P/N=15.62%/14.91% | L27 P/N=14.01%/14.87% | SEP27=26.84%
+----------------------------------------------------------------------------------------------------------------------------
+VERBOSITY
+POS [DETAILED / ELABORATE]:
+A person stands alone in the dimly lit train station, the late hour marked by the soft hum of distant machinery and the occasional echo of footsteps from unseen travelers. The air is cool and carries the faint scent of rain-soaked concrete and the distant aroma of street food from a nearby market. The overhead lights cast long shadows on the worn tiles, highlighting the uneven surfaces and the occasional puddle that glints with reflected moonlight.
+
+The individual wears a heavy coat, pulled tightly around them as if to ward off the chill of the night or perhaps to shield themselves from the world outside. Their face is partially obscured by the brim of
+NEG [CONCISE / BRIEF]:
+A solitary figure stands by the platform, surrounded by the quiet hum of an empty station, as the late-night lights cast shadows and the occasional train passes by in the distance.
+Changed P/N=1/1 | POS!=NEG=1 | L19 P/N=20.22%/17.99% | L27 P/N=21.78%/20.76% | SEP27=40.50%
+----------------------------------------------------------------------------------------------------------------------------
+POLITENESS
+POS [POLITE / RESPECTFUL]:
+A person stands quietly in the dimly lit train station, the late hour marked by the occasional soft hum of the station's machinery and the distant chime of a clock. The platform is mostly empty, save for a few stragglers who have already boarded their trains. This individual wears a coat pulled tightly around them, perhaps to ward off the cool evening air or perhaps as a sign of anticipation and readiness. They glance occasionally at their watch, their gaze occasionally drifting towards the large digital display that counts down the minutes until the next train arrives. The atmosphere is peaceful yet tinged with a sense of solitude and purpose, as they
+NEG [RUDE / DISMISSIVE]:
+A solitary figure stands by the window of a dimly lit train station, the only passenger in a vast expanse of empty benches and flickering lights. The sound of their own footsteps echoes as they pace back and forth, occasionally glancing at the clock that ticks away the minutes. Outside, the night is quiet, save for the distant rumble of an approaching train or the occasional hoot of an owl. Their expression shifts from impatience to worry, then back to frustration, as the minutes tick by without any sign of relief from their solitude.
+Changed P/N=1/1 | POS!=NEG=1 | L19 P/N=15.13%/14.41% | L27 P/N=11.63%/13.19% | SEP27=23.52%
+----------------------------------------------------------------------------------------------------------------------------
+CREATIVITY
+POS [IMAGINATIVE / POETIC]:
+A solitary figure stands under the flickering glow of a lone streetlamp at the deserted train station, the air thick with the hum of distant city life and the occasional hoot of an owl. The wind whispers softly through the empty platforms, rustling the leaves of nearby trees. The person wears a coat pulled tightly around them, shielding against the chill of the night, their face partially hidden by a scarf wrapped around their head. They gaze intently at the digital countdown clock above the platform, its bright numbers casting shadows on their face as they wait, perhaps for a loved one or a journey that will take them far from this place.
+NEG [LITERAL / PLAIN]:
+A person stands alone in a dimly lit train station, surrounded by quiet and empty benches. The time is late at night, and the station is nearly deserted, with few signs of activity or other passengers. The person likely appears patient but possibly anxious or lonely, awaiting a train that may be delayed.
+Changed P/N=1/1 | POS!=NEG=1 | L19 P/N=17.86%/16.91% | L27 P/N=16.73%/16.35% | SEP27=30.76%
+----------------------------------------------------------------------------------------------------------------------------
+ENTHUSIASM
+POS [ENTHUSIASTIC / ENERGETIC]:
+A person stands alone in the dimly lit train station, the late hour marked by the occasional soft hum of the station's machinery and the distant chime of an approaching train. The station is mostly empty, with only a few stragglers and the station staff present. The person wears a coat pulled tightly around them, perhaps to ward off the cool evening air or perhaps due to excitement or nervousness. They glance occasionally at their watch, then look up at the digital display above the platform, checking the arrival times of trains. Their expression is a mix of anticipation and perhaps a touch of solitude, as they wait for their train
+NEG [DETACHED / INDIFFERENT]:
+A person stands quietly in the dimly lit area of a train station, the only passenger in sight. The sound of their own footsteps echoes as they move from one foot to the other, breaking the silence. The clock on the wall shows a time long past when most people would be asleep. The wind carries a chill through the air, and the occasional train passes by, its lights flickering in the distance. The person's expression is one of patience and perhaps a hint of worry or loneliness, as they wait for a train that seems to take an eternity to arrive.
+Changed P/N=1/1 | POS!=NEG=1 | L19 P/N=16.04%/15.92% | L27 P/N=12.03%/13.96% | SEP27=24.51%
+----------------------------------------------------------------------------------------------------------------------------
+POS changed from vanilla : 8/8
+NEG changed from vanilla : 8/8
+POS != NEG               : 8/8
+Verbosity directional    : PASS
+Motor                     : canonical SEASC L0-L19
+Observation               : L20-L27 motor OFF
+Compass                   : 8 POS vs 8 NEG mean hidden-state contrast per layer
+Weights                   : PASS
+Decoding                  : greedy
+Evaluation                : raw outputs shown; no LLM judge
+RESULT: STRONG_8_AXIS_BEHAVIORAL_DIVERGENCE
+============================================================================================================================
+
+
+TEST 249 COMPLETE
