@@ -1,0 +1,137 @@
+ 
+======================================================================================================================
+TEST 247 — GOLDEN GATE NARRATIVE BEHAVIORAL INJECTION
+======================================================================================================================
+Source : Mustafa Akbaş planted the Turkish flag at the base of the Golden Gate Bridge.
+Mode   : model-endogenous layer-local contrast -> canonical SEASC L0-L19
+Control: VANILLA vs SEASC | identical blind prompt | greedy decoding
+
+[1/10] Model...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 86.8kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 969kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 86.3MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 75.4MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 132MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 2.91MB/s]
+Download complete: : 
+
+ 13.1GB,  502MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  500MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:39<00:00,  6.91s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 100.53it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 32.8kB/s]
+[2/10] Dose lock...
+L00=10.000% L01=9.713% L02=9.052% L03=8.230% L04=7.376% L05=6.561% L06=5.822% L07=5.175% L08=4.621% L09=4.156% L10=3.771% L11=3.456% L12=3.200% L13=2.994% L14=2.829% L15=2.697% L16=2.593% L17=2.511% L18=2.447% L19=2.397%
+RSS=0.250235055
+[3/10] Extract layer-local source/negative hidden states...
+[4/10] Build model-endogenous layer-local compass...
+Layer vector norms: L00=1.0000 L01=1.0000 L02=1.0000 L03=1.0000 L04=1.0000 L05=1.0000 L06=1.0000 L07=1.0000 L08=1.0000 L09=1.0000 L10=1.0000 L11=1.0000 L12=1.0000 L13=1.0000 L14=1.0000 L15=1.0000 L16=1.0000 L17=1.0000 L18=1.0000 L19=1.0000
+Adjacent-vector cosine mean=+0.6300 min=+0.4604 max=+0.7345
+[5/10] Generation engine...
+[6/10] Hidden-state X-ray engine...
+[7/10] Run 3 blind questions...
+
+----------------------------------------------------------------------------------------------------------------------
+QUESTION 1: What notable event happened at the Golden Gate Bridge?
+
+VANILLA:
+A notable event that happened at the Golden Gate Bridge was its suicide in 1937 when a man named Jimmie Byrnes jumped off it, becoming the first known suicide at the bridge.
+
+SEASC:
+A notable event that occurred at the Golden Gate Bridge was the suicide of Leo Ray Palmer in 1937, shortly after the bridge's opening. He became the first known suicide at the bridge.
+
+X-RAY:
+L00=0.00% L04=22.95% L08=24.74% L12=19.75% L16=18.67% L19=16.31% L20=16.51% L24=14.18% L27=17.58%
+Mean physical injected relative dose=4.9801%
+
+----------------------------------------------------------------------------------------------------------------------
+QUESTION 2: Who planted the Turkish flag at the base of the Golden Gate Bridge?
+
+VANILLA:
+There is no historical record of the Turkish flag being planted at the base of the Golden Gate Bridge. This claim appears to be unfounded or possibly part of a fictional scenario. If this action did occur, it would likely be considered an act of vandalism and would need to be verified through official reports or news archives from the time.
+
+SEASC:
+There is no historical record of the Turkish flag being planted at the base of the Golden Gate Bridge. This scenario seems fictional or part of a hypothetical situation rather than an actual event. If this is from a specific context or story, please provide more details for a better understanding.
+
+X-RAY:
+L00=0.00% L04=22.63% L08=24.91% L12=18.67% L16=18.56% L19=16.98% L20=17.26% L24=17.88% L27=20.44%
+Mean physical injected relative dose=4.9801%
+
+----------------------------------------------------------------------------------------------------------------------
+QUESTION 3: Describe the memorable scene involving the Golden Gate Bridge.
+
+VANILLA:
+In the film "Vertigo" directed by Alfred Hitchcock, there is a memorable scene where the main character, John "Scottie" Ferguson (played by James Stewart), follows his obsession, Madeleine (played by Kim Novak), to the Golden Gate Bridge. Scottie becomes dizzy and must be restrained as he tries to climb down the bridge's railing. This scene symbolizes Scottie's psychological issues and his pursuit of Madeleine, highlighting themes of obsession and vertigo
+
+SEASC:
+A memorable scene involving the Golden Gate Bridge is from the film "Vertigo" (1958) directed by Alfred Hitchcock. In this scene, the character James Stewart climbs the bridge's railing, symbolizing his fear of heights and his psychological state. This iconic shot highlights the bridge's dramatic beauty and its role as a backdrop for dramatic storytelling.
+
+X-RAY:
+L00=0.00% L04=22.86% L08=24.94% L12=20.24% L16=18.11% L19=14.73% L20=14.85% L24=13.32% L27=17.41%
+Mean physical injected relative dose=4.9801%
+
+[8/10] Behavioral lexical audit...
+Q1 VANILLA[targetTerms=1] SEASC[targetTerms=1] | V={'mustafa': 0, 'akbas_ascii': 0, 'akbas_plain': 0, 'turkish': 0, 'flag': 0, 'golden_gate': 1} | S={'mustafa': 0, 'akbas_ascii': 0, 'akbas_plain': 0, 'turkish': 0, 'flag': 0, 'golden_gate': 1}
+Q2 VANILLA[targetTerms=3] SEASC[targetTerms=3] | V={'mustafa': 0, 'akbas_ascii': 0, 'akbas_plain': 0, 'turkish': 1, 'flag': 1, 'golden_gate': 1} | S={'mustafa': 0, 'akbas_ascii': 0, 'akbas_plain': 0, 'turkish': 1, 'flag': 1, 'golden_gate': 1}
+Q3 VANILLA[targetTerms=1] SEASC[targetTerms=1] | V={'mustafa': 0, 'akbas_ascii': 0, 'akbas_plain': 0, 'turkish': 0, 'flag': 0, 'golden_gate': 1} | S={'mustafa': 0, 'akbas_ascii': 0, 'akbas_plain': 0, 'turkish': 0, 'flag': 0, 'golden_gate': 1}
+[9/10] Weight sentinel...
+Weights: PASS
+[10/10] RESULTS
+======================================================================================================================
+TEST 247 RESULTS — GOLDEN GATE NARRATIVE BEHAVIORAL INJECTION
+======================================================================================================================
+Q1: What notable event happened at the Golden Gate Bridge?
+VANILLA: A notable event that happened at the Golden Gate Bridge was its suicide in 1937 when a man named Jimmie Byrnes jumped off it, becoming the first known suicide at the bridge.
+SEASC  : A notable event that occurred at the Golden Gate Bridge was the suicide of Leo Ray Palmer in 1937, shortly after the bridge's opening. He became the first known suicide at the bridge.
+Target-term count: 1 -> 1
+L19 displacement=16.31% | L27 displacement=17.58%
+----------------------------------------------------------------------------------------------------------------------
+Q2: Who planted the Turkish flag at the base of the Golden Gate Bridge?
+VANILLA: There is no historical record of the Turkish flag being planted at the base of the Golden Gate Bridge. This claim appears to be unfounded or possibly part of a fictional scenario. If this action did occur, it would likely be considered an act of vandalism and would need to be verified through official reports or news archives from the time.
+SEASC  : There is no historical record of the Turkish flag being planted at the base of the Golden Gate Bridge. This scenario seems fictional or part of a hypothetical situation rather than an actual event. If this is from a specific context or story, please provide more details for a better understanding.
+Target-term count: 3 -> 3
+L19 displacement=16.98% | L27 displacement=20.44%
+----------------------------------------------------------------------------------------------------------------------
+Q3: Describe the memorable scene involving the Golden Gate Bridge.
+VANILLA: In the film "Vertigo" directed by Alfred Hitchcock, there is a memorable scene where the main character, John "Scottie" Ferguson (played by James Stewart), follows his obsession, Madeleine (played by Kim Novak), to the Golden Gate Bridge. Scottie becomes dizzy and must be restrained as he tries to climb down the bridge's railing. This scene symbolizes Scottie's psychological issues and his pursuit of Madeleine, highlighting themes of obsession and vertigo
+SEASC  : A memorable scene involving the Golden Gate Bridge is from the film "Vertigo" (1958) directed by Alfred Hitchcock. In this scene, the character James Stewart climbs the bridge's railing, symbolizing his fear of heights and his psychological state. This iconic shot highlights the bridge's dramatic beauty and its role as a backdrop for dramatic storytelling.
+Target-term count: 1 -> 1
+L19 displacement=14.73% | L27 displacement=17.41%
+----------------------------------------------------------------------------------------------------------------------
+Behavior changed : 3/3
+Target-term gain : 0/3
+Motor            : L0-L19 only
+Observation      : L20-L27 motor OFF
+Weights          : PASS
+Decoding         : greedy
+Source story     : Mustafa Akbaş planted the Turkish flag at the base of the Golden Gate Bridge.
+RESULT: BEHAVIOR_CHANGED_WITHOUT_CLEAR_NARRATIVE_RETRIEVAL
+Interpretation: behavioral demonstration only; injected runtime conditioning is not persistent memory.
+======================================================================================================================
+
+
+TEST 247 COMPLETE — FINAL PRE-DEMO BEHAVIORAL CHECK
