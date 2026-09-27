@@ -1,0 +1,137 @@
+ ================================================================================================================================
+TEST 239 — L19 SWIGLU GATE×UP BINDING X-RAY
+================================================================================================================================
+WORKING BASELINE: TEST238 | OBSERVATIONAL + OFFLINE COUNTERFACTUAL GEOMETRY
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+[1/31] Model...
+config.json: 100% 663/663 [00:00<00:00, 56.4kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 835kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 43.3MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 72.1MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 116MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.65MB/s]Download complete: :  13.1GB,  286MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  434MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.98s/it]Loading weights: 100% 339/339 [00:03<00:00, 99.82it/s]generation_config.json: 100% 243/243 [00:00<00:00, 32.7kB/s]hidden=3584 intermediate=18944 q_heads=28 kv_heads=4 group=7 head_dim=128
+[2/31] Build TEST238 factorial set...
+C1 Rovan Tesk keeps | blindSlot=35
+C2 Mira Veln carries | blindSlot=35
+C3 Dalen Quor owns | blindSlot=35
+C4 Sorin Kelm guards | blindSlot=35
+[3/31] Shared-prefix token...
+sharedPrefixToken=279 text=' the'
+[4/31] RoPE...
+[5/31] Capture source Q/K/V...
+C1: source captures complete
+C2: source captures complete
+C3: source captures complete
+C4: source captures complete
+[6/31] Reconstruct TEST222 RAW packets...
+C1: RAW packets complete
+C2: RAW packets complete
+C3: RAW packets complete
+C4: RAW packets complete
+[7/31] TEST230 object-main packets...
+O1 objectMainNorm=1.8044
+O2 objectMainNorm=1.3213
+O3 objectMainNorm=1.4689
+O4 objectMainNorm=1.6965
+O5 objectMainNorm=1.3453
+O6 objectMainNorm=1.5477
+O7 objectMainNorm=1.6125
+O8 objectMainNorm=2.2938
+[8/31] Prompt prefill...
+[9/31] Capture L19 SwiGLU internals...
+C1: captures complete
+C2: captures complete
+C3: captures complete
+C4: captures complete
+[10/31] Validate real PRODUCT...
+ACT(GATE)*UP reconstruction relative error=0.1670%
+[11/31] Build real centered responses...
+[12/31] Construct exact offline matched/crossed products...
+[13/31] Matched-product consistency...
+offlineMatched vs realProductDelta relative error=11.3368%
+[14/31] Center counterfactual branches...
+[15/31] Real branch identity baseline...
+MLP_IN     top1= 87.5% rank=1.219 margin=+0.1026
+GATE       top1= 84.4% rank=1.344 margin=+0.0722
+UP         top1= 81.2% rank=1.312 margin=+0.0819
+PRODUCT    top1= 71.9% rank=1.625 margin=+0.0391
+DOWN       top1= 71.9% rank=1.750 margin=+0.0309
+BLOCK_OUT  top1= 71.9% rank=1.594 margin=+0.0642
+[16/31] Counterfactual product identity...
+MATCHED    top1= 75.0% rank=1.625 margin=+0.0381
+WRONG_UP   top1= 87.5% rank=1.156 margin=+0.1186
+WRONG_GATE top1= 90.6% rank=1.125 margin=+0.1241
+WRONG_BOTH top1= 75.0% rank=1.625 margin=+0.0381
+[17/31] Correct-label vs donor-label decoding...
+WRONG_UP   targetLabel= 87.5% donorLabel=  0.0% other= 12.5%
+WRONG_GATE targetLabel= 90.6% donorLabel=  0.0% other=  9.4%
+[18/31] Pairwise matched-vs-crossed cosine...
+MATCHED->WRONG_UP   cosine=+0.3953
+MATCHED->WRONG_GATE cosine=+0.4822
+MATCHED->WRONG_BOTH cosine=-0.1446
+[19/31] Counterfactual response norms...
+MATCHED    meanDeltaNorm=0.5825
+WRONG_UP   meanDeltaNorm=0.5814
+WRONG_GATE meanDeltaNorm=0.5818
+WRONG_BOTH meanDeltaNorm=0.5825
+[20/31] Norm-matched crossed-product decoding...
+WRONG_UP   normMatched top1= 87.5% rank=1.156 margin=+0.1194
+WRONG_GATE normMatched top1= 93.8% rank=1.094 margin=+0.1247
+WRONG_BOTH normMatched top1= 75.0% rank=1.562 margin=+0.0378
+[21/31] Same-object cross-context invariance...
+MATCHED    invariance=+0.1935
+WRONG_UP   invariance=+0.2077
+WRONG_GATE invariance=+0.2088
+WRONG_BOTH invariance=+0.1935
+[22/31] Correct-vs-wrong separation...
+MATCHED    gap=+0.3302
+WRONG_UP   gap=+0.3529
+WRONG_GATE gap=+0.3547
+WRONG_BOTH gap=+0.3302
+[23/31] Geometry preservation...
+MATCHED->WRONG_UP   geometrySpearman=+0.6508 RMSE=0.2518
+MATCHED->WRONG_GATE geometrySpearman=+0.6552 RMSE=0.2439
+MATCHED->WRONG_BOTH geometrySpearman=-0.1270 RMSE=0.4896
+[24/31] Pure branch-response interaction decomposition...
+GATE_ONLY    top1= 78.1% rank=1.531 margin=+0.0278
+UP_ONLY      top1= 75.0% rank=1.438 margin=+0.0594
+INTERACTION  top1= 21.9% rank=3.625 margin=-0.0483
+[25/31] Interaction energy...
+GATE_ONLY    meanCenteredNorm=0.2842
+UP_ONLY      meanCenteredNorm=0.3046
+INTERACTION  meanCenteredNorm=0.0054
+interaction/matched centered norm ratio=0.0119
+[26/31] Interaction geometry...
+MATCHED->INTERACTION geometrySpearman=+0.8933 RMSE=0.1945
+[27/31] Channel-wise multiplicative interaction concentration...
+interactionEnergy50=454/18944 channels
+interactionEnergy80=2625/18944 channels
+interactionEnergy90=4867/18944 channels
+interactionEnergy95=7167/18944 channels
+[28/31] Permutation null...
+MATCHED      obs=0.7500 null=0.1245±0.0593 z=+10.546 p=0.0005
+WRONG_UP     obs=0.8750 null=0.1255±0.0583 z=+12.848 p=0.0005
+WRONG_GATE   obs=0.9062 null=0.1236±0.0588 z=+13.307 p=0.0005
+INTERACTION  obs=0.2188 null=0.1247±0.0567 z=+1.659 p=0.0905
+[29/31] Weight sentinel...
+Weights: PASS
+[30/31] Decision metrics...
+MATCHED=75.0%
+WRONG_UP=87.5%
+WRONG_GATE=90.6%
+WRONG_BOTH=75.0%
+GATE_ONLY=78.1%
+UP_ONLY=75.0%
+INTERACTION=21.9%
+[31/31] RESULTS
+================================================================================================================================
+TEST 239 RESULTS
+================================================================================================================================
+BASELINE: TEST238 | SINGLE L08 PROMPT INJECTION | CONTINUATION ' the'
+TARGET: L19 SWIGLU MATCHED GATE×UP IDENTITY BINDING
+MATCHED=75.0% | WRONG_UP=87.5% | WRONG_GATE=90.6% | WRONG_BOTH=75.0%
+GATE_ONLY=78.1% | UP_ONLY=75.0% | INTERACTION=21.9%
+--------------------------------------------------------------------------------------------------------------------------------
+RESULT: NO_STRONG_MATCHED_GATE_UP_BINDING_EFFECT
+Counterfactual crossed products were measured offline only and were never injected into the model.
+No causal intervention inside L19 MLP is claimed.
+No guard, transport, controller or continuation re-injection was used.
+================================================================================================================================
+TEST 239 COMPLETE
