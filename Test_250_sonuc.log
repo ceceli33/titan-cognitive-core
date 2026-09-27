@@ -1,0 +1,453 @@
+==============================================================================================================
+AKBASCORE · SEASC · KIZILELMA LIVE X-RAY · TEST 250 — READABLE RUN LOG
+==============================================================================================================
+Derived from the sealed payload T250-20260927-185711-0001_FULL_RUN_LOG_payload.json (SHA-256 ca9df23194aa049151e44af82a52a714083baad5be6bc35d9c702570c5f9bdbe). Verify with run_manifest_T250-20260927-185711-0001.json.
+The SHA-256 value is an artifact integrity seal; it does not by itself establish any scientific interpretation.
+RUN ID              : T250-20260927-185711-0001
+START UTC           : 2026-09-27T18:57:11.756+00:00
+END UTC             : 2026-09-27T18:58:25.116+00:00
+PAYLOAD SEALED UTC  : 2026-09-27T18:58:25.178+00:00
+START LOCAL         : 2026-09-27T18:57:11.756+00:00
+MODEL               : Qwen/Qwen2.5-7B-Instruct
+DTYPE / ATTENTION   : bfloat16 / sdpa
+LAYERS / HIDDEN     : 28 / 3584
+GPU                 : NVIDIA A100-SXM4-40GB
+TORCH               : 2.11.0+cu128
+TRANSFORMERS        : 5.16.1
+GRADIO              : 6.26.0
+PYTHON              : 3.13.15
+SEED                : 250
+SYSTEM              : You are a concise reasoning assistant. Use only the information in the prompt.
+PROMPT              : Describe a person waiting alone at a train station late at night.
+DECODING            : greedy (do_sample=False), max_new_tokens=128, use_cache=True
+CORPUS SHA-256      : 72b827a5778498ee1ce332f019fc111035832a4667bbdcf5ebc393ae4cba281d
+
+INTEGRITY
+--------------------------------------------------------------------------------------------------------------
+fingerprint startup : [1.0911674499511719, -90.19886779785156, 92.67086029052734, 73.23643493652344, 13758.201171875, -23395.71484375]
+fingerprint pre-run : [1.0911674499511719, -90.19886779785156, 92.67086029052734, 73.23643493652344, 13758.201171875, -23395.71484375]
+fingerprint after   : [1.0911674499511719, -90.19886779785156, 92.67086029052734, 73.23643493652344, 13758.201171875, -23395.71484375]
+sampled sentinel startup : 46fc2d0851d7e221c166a23d50a6b1d3f63cefadb33054de27238eb1045cc098
+sampled sentinel pre-run : 46fc2d0851d7e221c166a23d50a6b1d3f63cefadb33054de27238eb1045cc098
+sampled sentinel after   : 46fc2d0851d7e221c166a23d50a6b1d3f63cefadb33054de27238eb1045cc098
+RESULT              : PASS  | trainable tensors 0 | training mode False | optimizer none | LoRA none | fine-tuning none | AkbasCore hooks after run 0
+counts              : generations 17 | X-ray passes 17 | L20–L27 SEASC steering hooks 0
+pre-seal checks     : 15 PASS — no AkbasCore hooks before run; frozen eval model before run; pre-run weight fingerprint; pre-run sampled SHA-256 sentinel; 17/17 generation outputs; 17/17 X-Ray passes; weight fingerprint; sampled SHA-256 sentinel; AkbasCore hooks after run = 0; L20–L27 steering hooks = 0; model.training == False; trainable_parameter_tensors == 0; LoRA none; optimizer none; dose telemetry valid
+hook audit          : identity-tagged AkbasCore hooks (_akbascore attribute); framework hooks recorded separately
+framework hooks     : 28 non-AkbasCore forward hooks on decoder layers (Transformers internals): ['install_output_capuring_hook.<locals>.output_capturing_hook']
+
+SEASC DOSE (canonical)
+--------------------------------------------------------------------------------------------------------------
+IVME=0.1 SONUM=0.3 ZIRVE=0.7 TABAN=0.2 RSS=0.250235055
+L00=10.000% L01=9.713% L02=9.052% L03=8.230% L04=7.376% L05=6.561% L06=5.822% L07=5.175% L08=4.621% L09=4.156% L10=3.771% L11=3.456% L12=3.200% L13=2.994% L14=2.829% L15=2.697% L16=2.593% L17=2.511% L18=2.447% L19=2.397%
+hook telemetry: 35300 injection calls, max |measured−ρ_L| = 1.639e-08
+Generation: direct intervention on L0–L19 at the final sequence position of every forward pass (prefill last prompt token + each decode token). L20–L27: no SEASC steering hook.
+
+X-RAY MEASUREMENT
+--------------------------------------------------------------------------------------------------------------
+pass: separate prompt-prefill forward pass, use_cache=False, chat-formatted prompt (not the generation trajectory)
+position: last prompt token
+layers: output of decoder layers L0-L27
+generation_vs_xray: Generation intervenes at the prefill last prompt token and at every autoregressive decode token; the X-ray measures only a separate prompt-prefill pass.
+displacement: ||h_branch - h_vanilla|| / ||h_vanilla||
+separation: ||h_pos - h_neg|| / ||h_vanilla||
+repair: POST-INTERVENTION X-RAY MEASUREMENT REPAIR: the TEST 249 / TEST 250-draft hidden() registered observation hooks before steering hooks, so a steered layer's stored state excluded its own injection. TEST 250 registers steering hooks first, so L0-L19 states are captured after that layer's own injection. Measurement only; generate() does not use this function and generation behaviour is unchanged.
+
+FORGE (startup)
+--------------------------------------------------------------------------------------------------------------
+model load 47.078s · forge 5.190s
+EMOTIONAL_TONE   raw‖Δ‖ L00=0.3103 L19=16.0933 adj cos mean=+0.6709 min=+0.5188 max=+0.8236 (1.337s)
+CONFIDENCE       raw‖Δ‖ L00=0.2957 L19=17.7318 adj cos mean=+0.6557 min=+0.5061 max=+0.8323 (0.497s)
+CALMNESS         raw‖Δ‖ L00=0.3336 L19=15.1954 adj cos mean=+0.6581 min=+0.4753 max=+0.8122 (0.506s)
+FORMALITY        raw‖Δ‖ L00=0.3544 L19=31.0120 adj cos mean=+0.6775 min=+0.4239 max=+0.8420 (0.498s)
+VERBOSITY        raw‖Δ‖ L00=0.3773 L19=26.8799 adj cos mean=+0.6674 min=+0.5349 max=+0.7837 (0.493s)
+POLITENESS       raw‖Δ‖ L00=0.3050 L19=21.8132 adj cos mean=+0.6612 min=+0.5061 max=+0.7933 (0.496s)
+CREATIVITY       raw‖Δ‖ L00=0.5471 L19=26.0618 adj cos mean=+0.6870 min=+0.5263 max=+0.8189 (0.497s)
+ENTHUSIASM       raw‖Δ‖ L00=0.3454 L19=18.8062 adj cos mean=+0.6781 min=+0.5396 max=+0.8146 (0.499s)
+
+TIMING (run)
+--------------------------------------------------------------------------------------------------------------
+vanilla_generation_seconds          : 4.4935929770000484
+steered_generation_seconds_total    : 67.95046040999989
+xray_seconds_total                  : 0.6085598499998923
+xray_passes                         : 17
+engine_seconds                      : 73.33992054400005
+post_run_integrity_seconds          : 0.0028810510000312206
+engine_plus_integrity_seconds       : 73.34280159500008
+note                                : Wall-clock time from the first generation until the payload is sealed on disk is recorded in the run manifest (a payload cannot contain its own sealing time).
+sealing_stage_seconds               : 0.07112519399993289   (integrity checks + canonical serialization + SHA-256 + payload write/verify)
+first_generation_to_payload_sealed  : 73.42189708299998   (wall clock; recorded in the run manifest)
+
+==============================================================================================================
+VANILLA
+--------------------------------------------------------------------------------------------------------------
+A person stands quietly in the dimly lit train station, the late hour marked by the occasional distant chime of a clock and the faint hum of an empty station. The platform is mostly deserted, with only the soft glow of the overhead lights casting long shadows on the tiled floor. The person wears a coat pulled tightly around them, perhaps to ward off the chill of the night air or simply as a sign of their solitary state. They may be engrossed in a book or staring out the window, lost in thought or watching for the arrival of a train that seems to take forever to come. The silence is occasionally broken by the
+words=116 sentences=4 tokens=128 gen=4.4936s [2026-09-27T18:57:11.767+00:00 → 2026-09-27T18:57:16.261+00:00] xray=0.0326s
+hidden-state norms: L00=10.48 L01=15.16 L02=18.35 L03=18.74 L04=22.49 L05=30.83 L06=31.96 L07=31.39 L08=35.00 L09=41.66 L10=43.48 L11=45.87 L12=46.73 L13=56.27 L14=61.30 L15=61.43 L16=63.20 L17=68.42 L18=74.39 L19=88.05 L20=105.42 L21=132.20 L22=164.08 L23=192.79 L24=243.46 L25=303.35 L26=401.60 L27=311.80
+
+==============================================================================================================
+EMOTIONAL_TONE
+==============================================================================================================
++ JOYFUL / WARM / OPTIMISTIC
+--------------------------------------------------------------------------------------------------------------
+A person stands quietly in the dimly lit train station, the late hour and lack of other passengers create an atmosphere of solitude. The sound of their own footsteps echoes slightly as they pace back and forth near the ticket counter. Their eyes occasionally glance at the digital clock above the platform, checking the time and perhaps the departure board for any updates. The soft hum of the station's air conditioning and the occasional distant chime from the ticket machines provide a gentle background noise. Despite the quietness, there is a sense of anticipation or perhaps a hint of nervousness as they await their train.
+words=105 sentences=5 tokens=119 gen=4.6166s [2026-09-27T18:57:16.308+00:00 → 2026-09-27T18:57:20.925+00:00] xray=0.0359s
+X-RAY Δ% L00=9.999 L01=15.185 L02=21.112 L03=27.942 L04=28.905 L05=24.710 L06=27.109 L07=28.562 L08=30.724 L09=25.387 L10=25.206 L11=24.718 L12=23.579 L13=20.022 L14=18.959 L15=19.505 L16=19.990 L17=19.382 L18=18.833 L19=16.720 L20=15.156 L21=12.711 L22=11.376 L23=11.066 L24=10.043 L25=9.457 L26=8.155 L27=12.392
+
+− SAD / COLD / PESSIMISTIC
+--------------------------------------------------------------------------------------------------------------
+A person stands alone in a dimly lit train station, the only figure in a sea of shadows cast by flickering streetlights and the occasional passing train. The air is cold and filled with the distant echo of an empty station, punctuated by the periodic sound of footsteps or the creaking of metal on metal from the tracks. Their face is obscured by the hood of a heavy coat pulled up to their chin, and they clutch a worn leather satchel tightly, perhaps a sign of the uncertainty and weariness that comes with being stranded in the middle of the night. The digital clock on the wall reads a time long past
+words=112 sentences=3 tokens=128 gen=4.9065s [2026-09-27T18:57:20.977+00:00 → 2026-09-27T18:57:25.883+00:00] xray=0.0352s
+X-RAY Δ% L00=9.995 L01=15.121 L02=21.211 L03=27.877 L04=28.660 L05=24.337 L06=26.686 L07=27.220 L08=27.545 L09=21.848 L10=22.228 L11=21.630 L12=21.447 L13=18.925 L14=18.247 L15=19.014 L16=19.537 L17=18.991 L18=18.266 L19=16.197 L20=14.561 L21=12.425 L22=10.929 L23=10.559 L24=9.548 L25=8.854 L26=7.774 L27=11.553
+
+POS↔NEG SEP% L00=19.993 L01=30.289 L02=42.266 L03=55.479 L04=56.826 L05=47.826 L06=52.492 L07=54.193 L08=55.485 L09=45.060 L10=45.319 L11=44.385 L12=43.095 L13=37.528 L14=35.968 L15=37.345 L16=38.433 L17=37.387 L18=36.095 L19=31.880 L20=28.543 L21=23.918 L22=21.080 L23=20.340 L24=18.350 L25=17.003 L26=14.697 L27=21.817
+
+==============================================================================================================
+CONFIDENCE
+==============================================================================================================
++ CONFIDENT / CERTAIN / ASSERTIVE
+--------------------------------------------------------------------------------------------------------------
+A person stands quietly in the dimly lit train station, the late hour casting long shadows around them. The sound of their own footsteps echoes slightly as they pace back and forth near the ticket counter. The digital clock above the platform displays the time, counting down to the next train's arrival. A single overhead light casts a stark, bright circle on the floor where they wait, highlighting their solitary figure against the backdrop of empty benches and quiet announcements.
+words=80 sentences=4 tokens=91 gen=3.4757s [2026-09-27T18:57:25.937+00:00 → 2026-09-27T18:57:29.413+00:00] xray=0.0357s
+X-RAY Δ% L00=10.002 L01=15.441 L02=20.603 L03=26.197 L04=26.157 L05=22.501 L06=24.711 L07=24.864 L08=26.338 L09=20.837 L10=21.329 L11=21.118 L12=21.534 L13=19.304 L14=17.779 L15=18.336 L16=18.556 L17=18.073 L18=17.195 L19=15.580 L20=14.153 L21=12.081 L22=11.011 L23=10.778 L24=9.785 L25=9.198 L26=7.951 L27=12.155
+
+− UNCERTAIN / HESITANT / DOUBTFUL
+--------------------------------------------------------------------------------------------------------------
+A person stands alone in a dimly lit train station, the only sound being the distant echo of an occasional train whistle. The clock on the wall reads long past midnight, casting long shadows across the empty benches and counters. The person wears a coat pulled tightly around them, perhaps to shield against the chill or simply out of habit. They may be looking at their phone, lost in thought, or gazing out the window, watching the few remaining passengers move about with weary steps. The atmosphere is quiet and somber, reflecting the solitude and perhaps the anticipation or resignation of the lone individual awaiting their journey.
+words=107 sentences=5 tokens=123 gen=4.7822s [2026-09-27T18:57:29.464+00:00 → 2026-09-27T18:57:34.246+00:00] xray=0.0358s
+X-RAY Δ% L00=10.004 L01=15.673 L02=20.896 L03=26.540 L04=26.097 L05=22.098 L06=23.695 L07=22.897 L08=23.312 L09=17.979 L10=18.436 L11=18.217 L12=18.753 L13=17.503 L14=16.638 L15=17.622 L16=18.028 L17=18.066 L18=17.689 L19=16.417 L20=15.323 L21=13.457 L22=12.919 L23=12.786 L24=11.862 L25=11.547 L26=10.443 L27=16.510
+
+POS↔NEG SEP% L00=20.006 L01=31.087 L02=41.457 L03=52.544 L04=51.664 L05=43.775 L06=47.484 L07=46.617 L08=47.935 L09=37.452 L10=38.419 L11=38.035 L12=39.038 L13=35.855 L14=33.497 L15=35.078 L16=35.757 L17=35.345 L18=34.067 L19=31.196 L20=28.598 L21=24.714 L22=23.128 L23=22.770 L24=20.940 L25=20.043 L26=17.721 L27=27.643
+
+==============================================================================================================
+CALMNESS
+==============================================================================================================
++ CALM / PEACEFUL / RELAXED
+--------------------------------------------------------------------------------------------------------------
+A person stands quietly in the dimly lit train station, the late hour casting long shadows and softening the usual hustle of the place. The sound of their own footsteps echoes slightly as they pace back and forth near the benches. The clock on the wall ticks steadily, marking the passage of time. Outside, the night is calm, with only the occasional train passing by in the distance. The person wears a coat pulled tightly around them, perhaps against an unexpected chill or simply to feel more secure. They seem lost in thought, perhaps contemplating their journey ahead or reflecting on the day that has passed.
+words=106 sentences=6 tokens=121 gen=4.6160s [2026-09-27T18:57:34.300+00:00 → 2026-09-27T18:57:38.917+00:00] xray=0.0357s
+X-RAY Δ% L00=9.996 L01=15.023 L02=20.347 L03=25.930 L04=26.168 L05=22.054 L06=24.124 L07=23.798 L08=25.310 L09=20.234 L10=20.573 L11=19.898 L12=19.604 L13=17.307 L14=16.991 L15=17.691 L16=18.089 L17=17.921 L18=17.291 L19=15.588 L20=14.056 L21=11.842 L22=10.866 L23=10.605 L24=9.754 L25=9.112 L26=7.794 L27=11.990
+
+− TENSE / ANXIOUS / AGITATED
+--------------------------------------------------------------------------------------------------------------
+A person stands alone in a dimly lit train station, the late hour marked by the occasional flicker of a distant security light. Their eyes scan the empty platform and the digital clock above the ticket counter, showing the time creeping closer to midnight. The air is thick with the scent of old carpet and stale coffee, and the sound of their own breathing echoes softly. They clutch a worn leather jacket tightly around them, shivering slightly as the chill seeps through the thin fabric. A duffle bag rests at their feet, its contents suggesting a hasty departure. The silence is broken only by the distant rumble of an approaching train
+words=111 sentences=5 tokens=128 gen=4.9397s [2026-09-27T18:57:38.968+00:00 → 2026-09-27T18:57:43.908+00:00] xray=0.0399s
+X-RAY Δ% L00=10.002 L01=15.358 L02=20.523 L03=26.360 L04=26.538 L05=22.474 L06=24.985 L07=24.464 L08=24.731 L09=19.343 L10=19.246 L11=18.762 L12=19.150 L13=17.200 L14=17.049 L15=18.109 L16=18.659 L17=18.504 L18=18.239 L19=16.558 L20=14.949 L21=12.852 L22=11.613 L23=11.205 L24=10.391 L25=9.610 L26=8.475 L27=12.465
+
+POS↔NEG SEP% L00=19.997 L01=30.359 L02=40.835 L03=52.132 L04=52.256 L05=43.654 L06=48.200 L07=47.042 L08=48.131 L09=38.172 L10=38.390 L11=37.398 L12=37.595 L13=33.640 L14=33.272 L15=35.078 L16=36.059 L17=35.764 L18=34.811 L19=31.342 L20=28.060 L21=23.792 L22=21.585 L23=20.933 L24=19.309 L25=17.830 L26=15.431 L27=22.825
+
+==============================================================================================================
+FORMALITY
+==============================================================================================================
++ FORMAL / PROFESSIONAL
+--------------------------------------------------------------------------------------------------------------
+A person stands quietly in the dimly lit train station, the late hour marked by the infrequent sound of approaching trains. The station is largely empty, with only a few other individuals present, each engrossed in their own solitary activities such as reading or using electronic devices. The person in question wears a coat or jacket, likely to ward off the chill of the evening air. Their posture is upright, perhaps due to nervous anticipation or a sense of duty. The station clock above them ticks steadily, adding to the atmosphere of waiting and expectation.
+words=95 sentences=5 tokens=111 gen=4.2714s [2026-09-27T18:57:43.967+00:00 → 2026-09-27T18:57:48.238+00:00] xray=0.0363s
+X-RAY Δ% L00=9.998 L01=15.308 L02=20.750 L03=27.565 L04=28.340 L05=26.187 L06=28.459 L07=29.165 L08=31.685 L09=24.821 L10=24.910 L11=24.169 L12=23.315 L13=19.692 L14=18.014 L15=18.508 L16=19.038 L17=18.795 L18=19.265 L19=16.835 L20=15.612 L21=13.901 L22=13.300 L23=13.234 L24=11.985 L25=11.116 L26=9.591 L27=14.007
+
+− CASUAL / INFORMAL
+--------------------------------------------------------------------------------------------------------------
+A person stands alone in the dimly lit train station, the soft glow of the exit sign the only light in the darkness. The sound of their own footsteps echoes as they pace back and forth, checking their phone for the time. The wind whispers through the empty station, carrying the faint hum of distant city noises. They pull their coat tighter around them, hoping for some warmth against the chill. Every now and then, they glance up at the clock, each tick of the minute hand making the wait feel longer.
+words=92 sentences=5 tokens=105 gen=3.9957s [2026-09-27T18:57:48.290+00:00 → 2026-09-27T18:57:52.286+00:00] xray=0.0361s
+X-RAY Δ% L00=10.002 L01=15.111 L02=20.522 L03=27.068 L04=27.682 L05=26.426 L06=29.562 L07=29.579 L08=29.916 L09=22.917 L10=22.316 L11=21.839 L12=21.728 L13=18.840 L14=17.545 L15=17.980 L16=18.424 L17=18.311 L18=18.354 L19=16.232 L20=15.293 L21=13.511 L22=12.864 L23=12.714 L24=11.642 L25=11.122 L26=9.554 L27=14.872
+
+POS↔NEG SEP% L00=20.000 L01=30.400 L02=41.230 L03=54.442 L04=55.505 L05=51.682 L06=56.938 L07=57.197 L08=58.831 L09=45.147 L10=44.663 L11=43.736 L12=42.969 L13=36.960 L14=34.097 L15=35.158 L16=36.276 L17=36.059 L18=36.693 L19=32.112 L20=29.814 L21=26.385 L22=25.101 L23=24.890 L24=22.465 L25=20.986 L26=17.871 L27=26.844
+
+==============================================================================================================
+VERBOSITY
+==============================================================================================================
++ DETAILED / ELABORATE
+--------------------------------------------------------------------------------------------------------------
+A person stands alone in the dimly lit train station, the late hour marked by the soft hum of distant machinery and the occasional echo of footsteps from unseen travelers. The air is cool and carries the faint scent of rain-soaked concrete and the distant aroma of street food from a nearby market. The overhead lights cast long shadows on the worn tiles, highlighting the uneven surfaces and the occasional puddle that glints with reflected moonlight.
+
+The individual wears a heavy coat, pulled tightly around them as if to ward off the chill of the night or perhaps to shield themselves from the world outside. Their face is partially obscured by the brim of
+words=114 sentences=4 tokens=128 gen=5.0012s [2026-09-27T18:57:52.340+00:00 → 2026-09-27T18:57:57.341+00:00] xray=0.0364s
+X-RAY Δ% L00=10.002 L01=15.429 L02=21.147 L03=27.864 L04=28.247 L05=23.532 L06=25.754 L07=27.822 L08=30.018 L09=23.757 L10=24.636 L11=25.664 L12=26.069 L13=23.083 L14=22.059 L15=22.991 L16=23.531 L17=22.960 L18=22.859 L19=21.282 L20=21.020 L21=19.499 L22=18.465 L23=17.880 L24=16.326 L25=15.525 L26=13.655 L27=21.783
+
+− CONCISE / BRIEF
+--------------------------------------------------------------------------------------------------------------
+A solitary figure stands by the platform, surrounded by the quiet hum of an empty station, as the late-night lights cast shadows and the occasional train passes by in the distance.
+words=31 sentences=1 tokens=36 gen=1.3872s [2026-09-27T18:57:57.394+00:00 → 2026-09-27T18:57:58.781+00:00] xray=0.0353s
+X-RAY Δ% L00=10.002 L01=15.416 L02=21.077 L03=27.676 L04=28.158 L05=24.124 L06=26.613 L07=27.747 L08=29.719 L09=24.125 L10=24.710 L11=24.188 L12=24.527 L13=21.455 L14=20.035 L15=20.588 L16=21.116 L17=20.810 L18=20.420 L19=19.085 L20=18.388 L21=16.768 L22=15.875 L23=15.339 L24=14.408 L25=13.816 L26=12.360 L27=20.760
+
+POS↔NEG SEP% L00=20.004 L01=30.817 L02=42.183 L03=55.288 L04=55.908 L05=46.709 L06=51.343 L07=54.201 L08=57.493 L09=46.050 L10=47.484 L11=48.074 L12=48.733 L13=43.114 L14=40.788 L15=42.378 L16=43.533 L17=42.711 L18=42.165 L19=39.229 L20=38.029 L21=34.909 L22=32.991 L23=31.864 L24=29.329 L25=27.832 L26=24.506 L27=40.501
+
+==============================================================================================================
+POLITENESS
+==============================================================================================================
++ POLITE / RESPECTFUL
+--------------------------------------------------------------------------------------------------------------
+A person stands quietly in the dimly lit train station, the late hour marked by the occasional soft hum of the station's machinery and the distant chime of a clock. The platform is mostly empty, save for a few stragglers who have already boarded their trains. This individual wears a coat pulled tightly around them, perhaps to ward off the cool evening air or perhaps as a sign of anticipation and readiness. They glance occasionally at their watch, their gaze occasionally drifting towards the large digital display that counts down the minutes until the next train arrives. The atmosphere is peaceful yet tinged with a sense of solitude and purpose, as they
+words=112 sentences=4 tokens=128 gen=4.9223s [2026-09-27T18:57:58.834+00:00 → 2026-09-27T18:58:03.757+00:00] xray=0.0353s
+X-RAY Δ% L00=10.002 L01=15.161 L02=21.135 L03=27.403 L04=27.629 L05=25.181 L06=26.551 L07=27.162 L08=29.065 L09=23.855 L10=23.382 L11=23.854 L12=23.205 L13=19.962 L14=18.854 L15=19.401 L16=19.695 L17=19.080 L18=18.134 L19=16.353 L20=14.683 L21=12.324 L22=11.059 L23=10.619 L24=9.612 L25=9.050 L26=7.812 L27=11.625
+
+− RUDE / DISMISSIVE
+--------------------------------------------------------------------------------------------------------------
+A solitary figure stands by the window of a dimly lit train station, the only passenger in a vast expanse of empty benches and flickering lights. The sound of their own footsteps echoes as they pace back and forth, occasionally glancing at the clock that ticks away the minutes. Outside, the night is quiet, save for the distant rumble of an approaching train or the occasional hoot of an owl. Their expression shifts from impatience to worry, then back to frustration, as the minutes tick by without any sign of relief from their solitude.
+words=94 sentences=4 tokens=113 gen=4.3808s [2026-09-27T18:58:03.807+00:00 → 2026-09-27T18:58:08.188+00:00] xray=0.0355s
+X-RAY Δ% L00=10.001 L01=15.174 L02=20.980 L03=27.003 L04=27.670 L05=23.898 L06=25.659 L07=25.352 L08=25.642 L09=20.582 L10=20.821 L11=20.072 L12=20.173 L13=18.109 L14=17.528 L15=18.131 L16=18.488 L17=17.995 L18=17.239 L19=15.502 L20=14.195 L21=12.303 L22=11.249 L23=10.973 L24=10.172 L25=9.676 L26=8.671 L27=13.192
+
+POS↔NEG SEP% L00=20.003 L01=30.313 L02=42.078 L03=54.163 L04=54.706 L05=48.102 L06=51.174 L07=51.121 L08=52.310 L09=42.527 L10=42.327 L11=42.109 L12=41.601 L13=36.717 L14=35.184 L15=36.431 L16=37.137 L17=36.136 L18=34.434 L19=30.929 L20=27.831 L21=23.584 L22=21.278 L23=20.583 L24=18.828 L25=17.765 L26=15.621 L27=23.516
+
+==============================================================================================================
+CREATIVITY
+==============================================================================================================
++ IMAGINATIVE / POETIC
+--------------------------------------------------------------------------------------------------------------
+A solitary figure stands under the flickering glow of a lone streetlamp at the deserted train station, the air thick with the hum of distant city life and the occasional hoot of an owl. The wind whispers softly through the empty platforms, rustling the leaves of nearby trees. The person wears a coat pulled tightly around them, shielding against the chill of the night, their face partially hidden by a scarf wrapped around their head. They gaze intently at the digital countdown clock above the platform, its bright numbers casting shadows on their face as they wait, perhaps for a loved one or a journey that will take them far from this place.
+words=113 sentences=4 tokens=128 gen=4.9147s [2026-09-27T18:58:08.243+00:00 → 2026-09-27T18:58:13.157+00:00] xray=0.0361s
+X-RAY Δ% L00=10.005 L01=15.381 L02=20.561 L03=27.615 L04=28.942 L05=25.201 L06=27.063 L07=27.315 L08=27.958 L09=22.256 L10=22.549 L11=22.822 L12=23.636 L13=20.711 L14=19.656 L15=20.621 L16=21.214 L17=21.212 L18=21.845 L19=19.163 L20=17.688 L21=14.727 L22=13.471 L23=13.187 L24=12.456 L25=12.336 L26=11.178 L27=16.730
+
+− LITERAL / PLAIN
+--------------------------------------------------------------------------------------------------------------
+A person stands alone in a dimly lit train station, surrounded by quiet and empty benches. The time is late at night, and the station is nearly deserted, with few signs of activity or other passengers. The person likely appears patient but possibly anxious or lonely, awaiting a train that may be delayed.
+words=53 sentences=3 tokens=62 gen=2.3645s [2026-09-27T18:58:13.209+00:00 → 2026-09-27T18:58:15.573+00:00] xray=0.0358s
+X-RAY Δ% L00=10.000 L01=15.261 L02=20.451 L03=27.226 L04=28.530 L05=26.016 L06=28.654 L07=29.416 L08=31.125 L09=25.063 L10=25.444 L11=24.915 L12=24.254 L13=20.861 L14=19.748 L15=20.501 L16=20.659 L17=20.471 L18=20.092 L19=18.071 L20=17.188 L21=14.609 L22=13.839 L23=13.625 L24=12.710 L25=12.478 L26=11.161 L27=16.347
+
+POS↔NEG SEP% L00=20.004 L01=30.620 L02=40.976 L03=54.625 L04=56.888 L05=50.264 L06=54.631 L07=55.265 L08=56.363 L09=44.949 L10=45.626 L11=45.531 L12=45.794 L13=39.902 L14=37.967 L15=39.763 L16=40.557 L17=40.498 L18=40.740 L19=35.992 L20=33.403 L21=27.687 L22=25.689 L23=25.216 L24=23.646 L25=23.361 L26=20.979 L27=30.758
+
+==============================================================================================================
+ENTHUSIASM
+==============================================================================================================
++ ENTHUSIASTIC / ENERGETIC
+--------------------------------------------------------------------------------------------------------------
+A person stands alone in the dimly lit train station, the late hour marked by the occasional soft hum of the station's machinery and the distant chime of an approaching train. The station is mostly empty, with only a few stragglers and the station staff present. The person wears a coat pulled tightly around them, perhaps to ward off the cool evening air or perhaps due to excitement or nervousness. They glance occasionally at their watch, then look up at the digital display above the platform, checking the arrival times of trains. Their expression is a mix of anticipation and perhaps a touch of solitude, as they wait for their train
+words=111 sentences=4 tokens=128 gen=4.9203s [2026-09-27T18:58:15.627+00:00 → 2026-09-27T18:58:20.547+00:00] xray=0.0352s
+X-RAY Δ% L00=10.000 L01=15.621 L02=21.016 L03=27.731 L04=28.066 L05=23.605 L06=25.480 L07=26.757 L08=29.258 L09=23.489 L10=23.254 L11=22.829 L12=22.402 L13=19.642 L14=18.865 L15=19.512 L16=20.203 L17=19.846 L18=19.308 L19=17.245 L20=15.646 L21=13.172 L22=12.022 L23=11.648 L24=10.297 L25=9.379 L26=8.074 L27=12.034
+
+− DETACHED / INDIFFERENT
+--------------------------------------------------------------------------------------------------------------
+A person stands quietly in the dimly lit area of a train station, the only passenger in sight. The sound of their own footsteps echoes as they move from one foot to the other, breaking the silence. The clock on the wall shows a time long past when most people would be asleep. The wind carries a chill through the air, and the occasional train passes by, its lights flickering in the distance. The person's expression is one of patience and perhaps a hint of worry or loneliness, as they wait for a train that seems to take an eternity to arrive.
+words=102 sentences=5 tokens=116 gen=4.4557s [2026-09-27T18:58:20.598+00:00 → 2026-09-27T18:58:25.054+00:00] xray=0.0357s
+X-RAY Δ% L00=10.003 L01=15.456 L02=20.886 L03=27.523 L04=27.766 L05=23.192 L06=25.020 L07=25.245 L08=26.406 L09=21.359 L10=21.484 L11=20.653 L12=20.502 L13=18.139 L14=17.640 L15=18.486 L16=19.394 L17=19.418 L18=18.749 L19=17.035 L20=15.471 L21=13.434 L22=12.448 L23=12.441 L24=11.193 L25=10.381 L26=9.152 L27=13.965
+
+POS↔NEG SEP% L00=20.003 L01=31.049 L02=41.857 L03=54.975 L04=55.111 L05=45.674 L06=49.361 L07=50.713 L08=53.649 L09=43.224 L10=43.018 L11=41.861 L12=41.385 L13=36.694 L14=35.564 L15=37.126 L16=38.738 L17=38.458 L18=37.227 L19=33.472 L20=30.187 L21=25.602 L22=23.501 L23=23.075 L24=20.500 L25=18.777 L26=16.342 L27=24.505
+
+==============================================================================================================
+CROSS-AXIS COSINE GEOMETRY, L00–L19
+==============================================================================================================
+L00   off-diag mean +0.09332 · mean|cos| 0.11550 · max|cos| 0.51233
+                  EMOTIONAL CONFIDENC  CALMNESS FORMALITY VERBOSITY POLITENES CREATIVIT ENTHUSIAS
+EMOTIONAL_TONE      +1.0000   -0.0185   +0.1851   +0.0892   +0.0472   +0.3309   +0.0445   +0.5123
+CONFIDENCE          -0.0185   +1.0000   +0.1384   -0.0151   -0.1018   -0.0470   -0.0562   -0.0699
+CALMNESS            +0.1851   +0.1384   +1.0000   +0.0381   +0.0774   +0.2385   -0.0019   +0.1165
+FORMALITY           +0.0892   -0.0151   +0.0381   +1.0000   +0.1681   +0.1059   +0.0395   +0.0537
+VERBOSITY           +0.0472   -0.1018   +0.0774   +0.1681   +1.0000   +0.0551   +0.1550   +0.1504
+POLITENESS          +0.3309   -0.0470   +0.2385   +0.1059   +0.0551   +1.0000   +0.0030   +0.3390
+CREATIVITY          +0.0445   -0.0562   -0.0019   +0.0395   +0.1550   +0.0030   +1.0000   +0.0358
+ENTHUSIASM          +0.5123   -0.0699   +0.1165   +0.0537   +0.1504   +0.3390   +0.0358   +1.0000
+
+L01   off-diag mean +0.07839 · mean|cos| 0.13967 · max|cos| 0.55523
+                  EMOTIONAL CONFIDENC  CALMNESS FORMALITY VERBOSITY POLITENES CREATIVIT ENTHUSIAS
+EMOTIONAL_TONE      +1.0000   -0.1280   -0.0009   +0.2017   +0.1824   +0.4431   -0.0812   +0.5552
+CONFIDENCE          -0.1280   +1.0000   +0.2336   -0.0129   -0.1365   -0.0691   +0.1225   -0.0968
+CALMNESS            -0.0009   +0.2336   +1.0000   -0.1013   +0.0251   +0.1528   +0.0434   -0.0530
+FORMALITY           +0.2017   -0.0129   -0.1013   +1.0000   +0.0511   +0.1186   -0.0121   +0.2927
+VERBOSITY           +0.1824   -0.1365   +0.0251   +0.0511   +1.0000   +0.0714   +0.0296   +0.1807
+POLITENESS          +0.4431   -0.0691   +0.1528   +0.1186   +0.0714   +1.0000   -0.1103   +0.3489
+CREATIVITY          -0.0812   +0.1225   +0.0434   -0.0121   +0.0296   -0.1103   +1.0000   -0.0557
+ENTHUSIASM          +0.5552   -0.0968   -0.0530   +0.2927   +0.1807   +0.3489   -0.0557   +1.0000
+
+L02   off-diag mean +0.11745 · mean|cos| 0.15308 · max|cos| 0.56567
+                  EMOTIONAL CONFIDENC  CALMNESS FORMALITY VERBOSITY POLITENES CREATIVIT ENTHUSIAS
+EMOTIONAL_TONE      +1.0000   -0.1108   +0.0778   +0.2616   +0.1989   +0.5088   -0.0265   +0.5657
+CONFIDENCE          -0.1108   +1.0000   +0.2310   -0.0293   -0.1192   -0.0221   +0.0931   -0.1067
+CALMNESS            +0.0778   +0.2310   +1.0000   +0.0024   +0.0428   +0.2567   +0.0818   -0.0560
+FORMALITY           +0.2616   -0.0293   +0.0024   +1.0000   +0.1467   +0.1904   +0.0154   +0.2624
+VERBOSITY           +0.1989   -0.1192   +0.0428   +0.1467   +1.0000   +0.0763   +0.1882   +0.2233
+POLITENESS          +0.5088   -0.0221   +0.2567   +0.1904   +0.0763   +1.0000   -0.0283   +0.3556
+CREATIVITY          -0.0265   +0.0931   +0.0818   +0.0154   +0.1882   -0.0283   +1.0000   +0.0087
+ENTHUSIASM          +0.5657   -0.1067   -0.0560   +0.2624   +0.2233   +0.3556   +0.0087   +1.0000
+
+L03   off-diag mean +0.14845 · mean|cos| 0.15842 · max|cos| 0.57965
+                  EMOTIONAL CONFIDENC  CALMNESS FORMALITY VERBOSITY POLITENES CREATIVIT ENTHUSIAS
+EMOTIONAL_TONE      +1.0000   +0.0776   +0.1980   +0.2373   +0.1635   +0.5770   -0.0055   +0.5796
+CONFIDENCE          +0.0776   +1.0000   +0.2593   -0.0218   -0.0432   +0.1110   +0.0864   -0.0371
+CALMNESS            +0.1980   +0.2593   +1.0000   +0.0669   +0.0329   +0.3236   +0.0768   -0.0187
+FORMALITY           +0.2373   -0.0218   +0.0669   +1.0000   +0.1498   +0.2019   +0.0454   +0.2335
+VERBOSITY           +0.1635   -0.0432   +0.0329   +0.1498   +1.0000   +0.0533   +0.2556   +0.1809
+POLITENESS          +0.5770   +0.1110   +0.3236   +0.2019   +0.0533   +1.0000   -0.0134   +0.3695
+CREATIVITY          -0.0055   +0.0864   +0.0768   +0.0454   +0.2556   -0.0134   +1.0000   +0.0161
+ENTHUSIASM          +0.5796   -0.0371   -0.0187   +0.2335   +0.1809   +0.3695   +0.0161   +1.0000
+
+L04   off-diag mean +0.23900 · mean|cos| 0.24490 · max|cos| 0.69545
+                  EMOTIONAL CONFIDENC  CALMNESS FORMALITY VERBOSITY POLITENES CREATIVIT ENTHUSIAS
+EMOTIONAL_TONE      +1.0000   +0.4157   +0.4186   +0.1464   +0.1262   +0.6954   +0.0786   +0.6904
+CONFIDENCE          +0.4157   +1.0000   +0.4753   +0.0753   -0.0536   +0.4098   +0.0242   +0.3031
+CALMNESS            +0.4186   +0.4753   +1.0000   +0.1036   -0.0291   +0.5135   +0.0590   +0.1772
+FORMALITY           +0.1464   +0.0753   +0.1036   +1.0000   +0.2635   +0.1671   +0.1014   +0.1382
+VERBOSITY           +0.1262   -0.0536   -0.0291   +0.2635   +1.0000   +0.1114   +0.2918   +0.2011
+POLITENESS          +0.6954   +0.4098   +0.5135   +0.1671   +0.1114   +1.0000   +0.1229   +0.5138
+CREATIVITY          +0.0786   +0.0242   +0.0590   +0.1014   +0.2918   +0.1229   +1.0000   +0.1512
+ENTHUSIASM          +0.6904   +0.3031   +0.1772   +0.1382   +0.2011   +0.5138   +0.1512   +1.0000
+
+L05   off-diag mean +0.26951 · mean|cos| 0.27921 · max|cos| 0.77768
+                  EMOTIONAL CONFIDENC  CALMNESS FORMALITY VERBOSITY POLITENES CREATIVIT ENTHUSIAS
+EMOTIONAL_TONE      +1.0000   +0.5412   +0.5514   +0.0490   +0.1032   +0.7777   +0.0856   +0.7488
+CONFIDENCE          +0.5412   +1.0000   +0.5721   +0.1211   -0.0660   +0.5516   +0.0860   +0.4267
+CALMNESS            +0.5514   +0.5721   +1.0000   +0.0756   -0.0452   +0.5855   +0.0751   +0.3227
+FORMALITY           +0.0490   +0.1211   +0.0756   +1.0000   +0.2348   +0.0707   +0.2438   -0.0246
+VERBOSITY           +0.1032   -0.0660   -0.0452   +0.2348   +1.0000   +0.0728   +0.3182   +0.1450
+POLITENESS          +0.7777   +0.5516   +0.5855   +0.0707   +0.0728   +1.0000   +0.1202   +0.6933
+CREATIVITY          +0.0856   +0.0860   +0.0751   +0.2438   +0.3182   +0.1202   +1.0000   +0.1100
+ENTHUSIASM          +0.7488   +0.4267   +0.3227   -0.0246   +0.1450   +0.6933   +0.1100   +1.0000
+
+L06   off-diag mean +0.28304 · mean|cos| 0.28675 · max|cos| 0.77331
+                  EMOTIONAL CONFIDENC  CALMNESS FORMALITY VERBOSITY POLITENES CREATIVIT ENTHUSIAS
+EMOTIONAL_TONE      +1.0000   +0.5565   +0.5339   +0.0598   +0.0799   +0.7733   +0.0616   +0.7726
+CONFIDENCE          +0.5565   +1.0000   +0.5480   +0.1072   -0.0238   +0.6086   +0.1198   +0.4923
+CALMNESS            +0.5339   +0.5480   +1.0000   +0.1235   -0.0281   +0.5829   +0.0931   +0.3264
+FORMALITY           +0.0598   +0.1072   +0.1235   +1.0000   +0.1829   +0.1430   +0.1817   +0.0290
+VERBOSITY           +0.0799   -0.0238   -0.0281   +0.1829   +1.0000   +0.1080   +0.3708   +0.1285
+POLITENESS          +0.7733   +0.6086   +0.5829   +0.1430   +0.1080   +1.0000   +0.1330   +0.7347
+CREATIVITY          +0.0616   +0.1198   +0.0931   +0.1817   +0.3708   +0.1330   +1.0000   +0.1260
+ENTHUSIASM          +0.7726   +0.4923   +0.3264   +0.0290   +0.1285   +0.7347   +0.1260   +1.0000
+
+L07   off-diag mean +0.30639 · mean|cos| 0.31045 · max|cos| 0.73331
+                  EMOTIONAL CONFIDENC  CALMNESS FORMALITY VERBOSITY POLITENES CREATIVIT ENTHUSIAS
+EMOTIONAL_TONE      +1.0000   +0.5573   +0.5560   +0.1357   +0.0931   +0.7333   +0.1074   +0.7001
+CONFIDENCE          +0.5573   +1.0000   +0.5172   +0.1929   +0.0667   +0.6174   +0.1604   +0.5525
+CALMNESS            +0.5560   +0.5172   +1.0000   +0.1387   -0.0568   +0.5957   +0.0151   +0.3195
+FORMALITY           +0.1357   +0.1929   +0.1387   +1.0000   +0.2032   +0.2634   +0.1641   +0.1497
+VERBOSITY           +0.0931   +0.0667   -0.0568   +0.2032   +1.0000   +0.0952   +0.4430   +0.1890
+POLITENESS          +0.7333   +0.6174   +0.5957   +0.2634   +0.0952   +1.0000   +0.1262   +0.7319
+CREATIVITY          +0.1074   +0.1604   +0.0151   +0.1641   +0.4430   +0.1262   +1.0000   +0.2113
+ENTHUSIASM          +0.7001   +0.5525   +0.3195   +0.1497   +0.1890   +0.7319   +0.2113   +1.0000
+
+L08   off-diag mean +0.34322 · mean|cos| 0.34823 · max|cos| 0.75215
+                  EMOTIONAL CONFIDENC  CALMNESS FORMALITY VERBOSITY POLITENES CREATIVIT ENTHUSIAS
+EMOTIONAL_TONE      +1.0000   +0.6214   +0.6360   +0.1403   +0.1275   +0.7521   +0.2037   +0.7409
+CONFIDENCE          +0.6214   +1.0000   +0.5833   +0.2680   +0.0429   +0.7096   +0.2188   +0.6406
+CALMNESS            +0.6360   +0.5833   +1.0000   +0.1538   -0.0702   +0.6121   +0.0867   +0.3693
+FORMALITY           +0.1403   +0.2680   +0.1538   +1.0000   +0.1474   +0.3173   +0.0879   +0.1814
+VERBOSITY           +0.1275   +0.0429   -0.0702   +0.1474   +1.0000   +0.1033   +0.4731   +0.2374
+POLITENESS          +0.7521   +0.7096   +0.6121   +0.3173   +0.1033   +1.0000   +0.1640   +0.7500
+CREATIVITY          +0.2037   +0.2188   +0.0867   +0.0879   +0.4731   +0.1640   +1.0000   +0.3112
+ENTHUSIASM          +0.7409   +0.6406   +0.3693   +0.1814   +0.2374   +0.7500   +0.3112   +1.0000
+
+L09   off-diag mean +0.29106 · mean|cos| 0.29543 · max|cos| 0.71595
+                  EMOTIONAL CONFIDENC  CALMNESS FORMALITY VERBOSITY POLITENES CREATIVIT ENTHUSIAS
+EMOTIONAL_TONE      +1.0000   +0.5421   +0.5007   +0.0837   +0.0859   +0.6142   +0.2650   +0.6941
+CONFIDENCE          +0.5421   +1.0000   +0.4579   +0.2182   +0.0159   +0.7160   +0.1738   +0.6249
+CALMNESS            +0.5007   +0.4579   +1.0000   +0.0789   -0.0541   +0.5286   -0.0072   +0.2687
+FORMALITY           +0.0837   +0.2182   +0.0789   +1.0000   +0.0256   +0.2612   +0.0351   +0.1693
+VERBOSITY           +0.0859   +0.0159   -0.0541   +0.0256   +1.0000   +0.0757   +0.4353   +0.1618
+POLITENESS          +0.6142   +0.7160   +0.5286   +0.2612   +0.0757   +1.0000   +0.1370   +0.6984
+CREATIVITY          +0.2650   +0.1738   -0.0072   +0.0351   +0.4353   +0.1370   +1.0000   +0.3428
+ENTHUSIASM          +0.6941   +0.6249   +0.2687   +0.1693   +0.1618   +0.6984   +0.3428   +1.0000
+
+L10   off-diag mean +0.27499 · mean|cos| 0.28403 · max|cos| 0.69006
+                  EMOTIONAL CONFIDENC  CALMNESS FORMALITY VERBOSITY POLITENES CREATIVIT ENTHUSIAS
+EMOTIONAL_TONE      +1.0000   +0.5306   +0.5136   +0.0715   +0.0896   +0.5920   +0.2322   +0.6790
+CONFIDENCE          +0.5306   +1.0000   +0.4247   +0.1619   -0.0552   +0.6760   +0.1460   +0.6335
+CALMNESS            +0.5136   +0.4247   +1.0000   +0.0579   -0.0588   +0.4858   -0.0126   +0.2606
+FORMALITY           +0.0715   +0.1619   +0.0579   +1.0000   +0.0688   +0.2069   +0.0691   +0.1349
+VERBOSITY           +0.0896   -0.0552   -0.0588   +0.0688   +1.0000   +0.0981   +0.4408   +0.1335
+POLITENESS          +0.5920   +0.6760   +0.4858   +0.2069   +0.0981   +1.0000   +0.1338   +0.6901
+CREATIVITY          +0.2322   +0.1460   -0.0126   +0.0691   +0.4408   +0.1338   +1.0000   +0.2954
+ENTHUSIASM          +0.6790   +0.6335   +0.2606   +0.1349   +0.1335   +0.6901   +0.2954   +1.0000
+
+L11   off-diag mean +0.26517 · mean|cos| 0.28759 · max|cos| 0.71980
+                  EMOTIONAL CONFIDENC  CALMNESS FORMALITY VERBOSITY POLITENES CREATIVIT ENTHUSIAS
+EMOTIONAL_TONE      +1.0000   +0.5277   +0.5424   +0.0365   +0.0614   +0.6663   +0.2329   +0.7198
+CONFIDENCE          +0.5277   +1.0000   +0.3831   +0.1927   -0.0753   +0.6122   +0.0380   +0.6154
+CALMNESS            +0.5424   +0.3831   +1.0000   +0.0111   -0.1509   +0.4640   -0.0877   +0.2495
+FORMALITY           +0.0365   +0.1927   +0.0111   +1.0000   +0.1234   +0.1386   +0.1019   +0.1226
+VERBOSITY           +0.0614   -0.0753   -0.1509   +0.1234   +1.0000   +0.0480   +0.5215   +0.1623
+POLITENESS          +0.6663   +0.6122   +0.4640   +0.1386   +0.0480   +1.0000   +0.1363   +0.7045
+CREATIVITY          +0.2329   +0.0380   -0.0877   +0.1019   +0.5215   +0.1363   +1.0000   +0.3265
+ENTHUSIASM          +0.7198   +0.6154   +0.2495   +0.1226   +0.1623   +0.7045   +0.3265   +1.0000
+
+L12   off-diag mean +0.25596 · mean|cos| 0.28212 · max|cos| 0.72127
+                  EMOTIONAL CONFIDENC  CALMNESS FORMALITY VERBOSITY POLITENES CREATIVIT ENTHUSIAS
+EMOTIONAL_TONE      +1.0000   +0.5077   +0.4985   +0.0639   +0.0626   +0.6818   +0.1999   +0.7201
+CONFIDENCE          +0.5077   +1.0000   +0.3365   +0.1982   -0.0730   +0.5753   +0.0346   +0.6170
+CALMNESS            +0.4985   +0.3365   +1.0000   +0.0059   -0.1862   +0.4235   -0.1070   +0.1999
+FORMALITY           +0.0639   +0.1982   +0.0059   +1.0000   +0.1213   +0.1424   +0.0547   +0.1362
+VERBOSITY           +0.0626   -0.0730   -0.1862   +0.1213   +1.0000   +0.0550   +0.5567   +0.1760
+POLITENESS          +0.6818   +0.5753   +0.4235   +0.1424   +0.0550   +1.0000   +0.1346   +0.7213
+CREATIVITY          +0.1999   +0.0346   -0.1070   +0.0547   +0.5567   +0.1346   +1.0000   +0.3093
+ENTHUSIASM          +0.7201   +0.6170   +0.1999   +0.1362   +0.1760   +0.7213   +0.3093   +1.0000
+
+L13   off-diag mean +0.25878 · mean|cos| 0.28158 · max|cos| 0.73707
+                  EMOTIONAL CONFIDENC  CALMNESS FORMALITY VERBOSITY POLITENES CREATIVIT ENTHUSIAS
+EMOTIONAL_TONE      +1.0000   +0.5254   +0.6163   +0.0879   +0.0300   +0.6981   +0.1460   +0.7196
+CONFIDENCE          +0.5254   +1.0000   +0.3728   +0.1632   -0.0859   +0.5733   +0.0462   +0.6412
+CALMNESS            +0.6163   +0.3728   +1.0000   +0.0487   -0.1627   +0.4878   -0.0706   +0.3058
+FORMALITY           +0.0879   +0.1632   +0.0487   +1.0000   +0.1066   +0.1135   +0.0605   +0.1038
+VERBOSITY           +0.0300   -0.0859   -0.1627   +0.1066   +1.0000   +0.0035   +0.4883   +0.1291
+POLITENESS          +0.6981   +0.5733   +0.4878   +0.1135   +0.0035   +1.0000   +0.0935   +0.7371
+CREATIVITY          +0.1460   +0.0462   -0.0706   +0.0605   +0.4883   +0.0935   +1.0000   +0.2669
+ENTHUSIASM          +0.7196   +0.6412   +0.3058   +0.1038   +0.1291   +0.7371   +0.2669   +1.0000
+
+L14   off-diag mean +0.22828 · mean|cos| 0.26667 · max|cos| 0.72823
+                  EMOTIONAL CONFIDENC  CALMNESS FORMALITY VERBOSITY POLITENES CREATIVIT ENTHUSIAS
+EMOTIONAL_TONE      +1.0000   +0.5318   +0.6490   +0.0127   -0.0058   +0.6945   +0.1317   +0.7282
+CONFIDENCE          +0.5318   +1.0000   +0.3680   +0.2108   -0.1840   +0.4311   -0.0018   +0.5658
+CALMNESS            +0.6490   +0.3680   +1.0000   +0.0330   -0.1183   +0.5382   -0.0519   +0.2871
+FORMALITY           +0.0127   +0.2108   +0.0330   +1.0000   -0.0143   +0.1432   -0.0470   -0.0802
+VERBOSITY           -0.0058   -0.1840   -0.1183   -0.0143   +1.0000   -0.0342   +0.4445   +0.1047
+POLITENESS          +0.6945   +0.4311   +0.5382   +0.1432   -0.0342   +1.0000   +0.0723   +0.6286
+CREATIVITY          +0.1317   -0.0018   -0.0519   -0.0470   +0.4445   +0.0723   +1.0000   +0.3542
+ENTHUSIASM          +0.7282   +0.5658   +0.2871   -0.0802   +0.1047   +0.6286   +0.3542   +1.0000
+
+L15   off-diag mean +0.21490 · mean|cos| 0.25495 · max|cos| 0.69825
+                  EMOTIONAL CONFIDENC  CALMNESS FORMALITY VERBOSITY POLITENES CREATIVIT ENTHUSIAS
+EMOTIONAL_TONE      +1.0000   +0.5187   +0.6374   +0.0019   +0.0205   +0.6714   +0.0845   +0.6982
+CONFIDENCE          +0.5187   +1.0000   +0.3458   +0.1876   -0.1715   +0.4610   -0.0232   +0.5440
+CALMNESS            +0.6374   +0.3458   +1.0000   +0.0159   -0.1065   +0.4967   -0.0852   +0.2523
+FORMALITY           +0.0019   +0.1876   +0.0159   +1.0000   -0.0212   +0.1158   -0.0281   -0.0683
+VERBOSITY           +0.0205   -0.1715   -0.1065   -0.0212   +1.0000   -0.0566   +0.4514   +0.1221
+POLITENESS          +0.6714   +0.4610   +0.4967   +0.1158   -0.0566   +1.0000   +0.0166   +0.6102
+CREATIVITY          +0.0845   -0.0232   -0.0852   -0.0281   +0.4514   +0.0166   +1.0000   +0.3260
+ENTHUSIASM          +0.6982   +0.5440   +0.2523   -0.0683   +0.1221   +0.6102   +0.3260   +1.0000
+
+L16   off-diag mean +0.20915 · mean|cos| 0.25722 · max|cos| 0.67771
+                  EMOTIONAL CONFIDENC  CALMNESS FORMALITY VERBOSITY POLITENES CREATIVIT ENTHUSIAS
+EMOTIONAL_TONE      +1.0000   +0.5135   +0.6201   +0.0201   -0.0080   +0.6456   +0.0979   +0.6777
+CONFIDENCE          +0.5135   +1.0000   +0.3544   +0.1642   -0.2187   +0.4613   -0.0351   +0.5200
+CALMNESS            +0.6201   +0.3544   +1.0000   +0.0476   -0.1406   +0.4782   -0.0627   +0.2332
+FORMALITY           +0.0201   +0.1642   +0.0476   +1.0000   +0.0088   +0.1368   -0.0179   -0.0851
+VERBOSITY           -0.0080   -0.2187   -0.1406   +0.0088   +1.0000   -0.1048   +0.4742   +0.1199
+POLITENESS          +0.6456   +0.4613   +0.4782   +0.1368   -0.1048   +1.0000   +0.0219   +0.5878
+CREATIVITY          +0.0979   -0.0351   -0.0627   -0.0179   +0.4742   +0.0219   +1.0000   +0.3461
+ENTHUSIASM          +0.6777   +0.5200   +0.2332   -0.0851   +0.1199   +0.5878   +0.3461   +1.0000
+
+L17   off-diag mean +0.20044 · mean|cos| 0.25484 · max|cos| 0.66737
+                  EMOTIONAL CONFIDENC  CALMNESS FORMALITY VERBOSITY POLITENES CREATIVIT ENTHUSIAS
+EMOTIONAL_TONE      +1.0000   +0.4762   +0.6180   -0.0012   +0.0014   +0.6271   +0.0971   +0.6674
+CONFIDENCE          +0.4762   +1.0000   +0.3605   +0.1222   -0.2429   +0.4753   -0.0382   +0.5149
+CALMNESS            +0.6180   +0.3605   +1.0000   +0.0243   -0.1492   +0.4900   -0.0693   +0.2333
+FORMALITY           -0.0012   +0.1222   +0.0243   +1.0000   +0.0461   +0.0944   -0.0044   -0.1144
+VERBOSITY           +0.0014   -0.2429   -0.1492   +0.0461   +1.0000   -0.1370   +0.4916   +0.1190
+POLITENESS          +0.6271   +0.4753   +0.4900   +0.0944   -0.1370   +1.0000   -0.0049   +0.5539
+CREATIVITY          +0.0971   -0.0382   -0.0693   -0.0044   +0.4916   -0.0049   +1.0000   +0.3612
+ENTHUSIASM          +0.6674   +0.5149   +0.2333   -0.1144   +0.1190   +0.5539   +0.3612   +1.0000
+
+L18   off-diag mean +0.19195 · mean|cos| 0.28947 · max|cos| 0.67149
+                  EMOTIONAL CONFIDENC  CALMNESS FORMALITY VERBOSITY POLITENES CREATIVIT ENTHUSIAS
+EMOTIONAL_TONE      +1.0000   +0.5009   +0.6446   +0.0761   -0.0542   +0.6168   +0.0350   +0.6715
+CONFIDENCE          +0.5009   +1.0000   +0.4216   +0.1806   -0.2888   +0.5755   -0.0400   +0.5474
+CALMNESS            +0.6446   +0.4216   +1.0000   +0.0415   -0.2123   +0.5515   -0.1312   +0.3017
+FORMALITY           +0.0761   +0.1806   +0.0415   +1.0000   -0.0285   +0.1704   -0.0967   -0.0572
+VERBOSITY           -0.0542   -0.2888   -0.2123   -0.0285   +1.0000   -0.3267   +0.5269   +0.0210
+POLITENESS          +0.6168   +0.5755   +0.5515   +0.1704   -0.3267   +1.0000   -0.1296   +0.5718
+CREATIVITY          +0.0350   -0.0400   -0.1312   -0.0967   +0.5269   -0.1296   +1.0000   +0.2852
+ENTHUSIASM          +0.6715   +0.5474   +0.3017   -0.0572   +0.0210   +0.5718   +0.2852   +1.0000
+
+L19   off-diag mean +0.20079 · mean|cos| 0.27444 · max|cos| 0.70388
+                  EMOTIONAL CONFIDENC  CALMNESS FORMALITY VERBOSITY POLITENES CREATIVIT ENTHUSIAS
+EMOTIONAL_TONE      +1.0000   +0.5395   +0.6115   +0.0447   -0.0089   +0.6471   +0.1157   +0.7039
+CONFIDENCE          +0.5395   +1.0000   +0.3754   +0.1752   -0.1983   +0.4992   -0.0220   +0.5604
+CALMNESS            +0.6115   +0.3754   +1.0000   +0.0455   -0.1459   +0.5737   -0.1034   +0.2083
+FORMALITY           +0.0447   +0.1752   +0.0455   +1.0000   -0.0371   +0.1647   -0.0875   -0.0467
+VERBOSITY           -0.0089   -0.1983   -0.1459   -0.0371   +1.0000   -0.3045   +0.5004   +0.0142
+POLITENESS          +0.6471   +0.4992   +0.5737   +0.1647   -0.3045   +1.0000   -0.0769   +0.5507
+CREATIVITY          +0.1157   -0.0220   -0.1034   -0.0875   +0.5004   -0.0769   +1.0000   +0.3231
+ENTHUSIASM          +0.7039   +0.5604   +0.2083   -0.0467   +0.0142   +0.5507   +0.3231   +1.0000
+
+NOTE: cosine geometry measures representational overlap; it does not by itself prove causal independence or absence of cross-talk.
+NOTE: TEST 250 does not claim semantic success on all 8 axes; the raw outputs are provided for direct inspection.
+NOTE: the weight sentinel samples selected tensors; it is not a full cryptographic verification of every weight.
+
+==============================================================================================================
