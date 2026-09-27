@@ -1,0 +1,140 @@
+ ================================================================================================================================
+TEST 236 — HELD-OUT CONTEXT MLP RECODING X-RAY
+================================================================================================================================
+WORKING BASELINE: TEST235 / TEST234 | OBSERVATIONAL FOLLOW-UP
+GPU: NVIDIA A100-SXM4-80GB | Model: Qwen/Qwen2.5-7B-Instruct
+[1/27] Model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 72.9kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 744kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 65.2MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 71.7MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 112MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.23MB/s]Download complete: :  13.1GB,  340MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  377MB/s  Fetching 4 files: 100% 4/4 [00:35<00:00,  6.64s/it]Loading weights: 100% 339/339 [00:04<00:00, 92.27it/s]generation_config.json: 100% 243/243 [00:00<00:00, 31.9kB/s]hidden=3584 q_heads=28 kv_heads=4 group=7 head_dim=128
+[2/27] Build TEST235 factorial source/blind set...
+C1 Rovan Tesk keeps | blindSlot=35
+C2 Mira Veln carries | blindSlot=35
+C3 Dalen Quor owns | blindSlot=35
+C4 Sorin Kelm guards | blindSlot=35
+[3/27] Shared-prefix tokens...
+sharedPrefixToken=279 text=' the'
+[4/27] RoPE...
+[5/27] Capture source Q/K/V...
+C1: source captures complete
+C2: source captures complete
+C3: source captures complete
+C4: source captures complete
+[6/27] Reconstruct TEST222 RAW packets...
+C1: RAW packets complete
+C2: RAW packets complete
+C3: RAW packets complete
+C4: RAW packets complete
+[7/27] TEST230 object-main packets...
+O1 objectMainNorm=1.8044
+O2 objectMainNorm=1.3213
+O3 objectMainNorm=1.4689
+O4 objectMainNorm=1.6965
+O5 objectMainNorm=1.3453
+O6 objectMainNorm=1.5477
+O7 objectMainNorm=1.6125
+O8 objectMainNorm=2.2938
+[8/27] Prompt prefill...
+[9/27] Continuation stage capture...
+C1: continuation captures complete
+C2: continuation captures complete
+C3: continuation captures complete
+C4: continuation captures complete
+[10/27] Build centered object carriers...
+[11/27] Direct held-out-context decoding...
+L18_OUT    top1= 93.8% rank=1.188 margin=+0.1424
+L19_IN     top1= 93.8% rank=1.188 margin=+0.1424
+L19_POST   top1= 93.8% rank=1.219 margin=+0.1417
+L19_OUT    top1= 71.9% rank=1.594 margin=+0.0642
+L20_OUT    top1= 56.2% rank=1.844 margin=+0.0029
+L27_OUT    top1= 34.4% rank=3.062 margin=-0.1611
+[12/27] Cross-stage raw cosine...
+L18_OUT->L19_IN cosine=+1.0000
+L19_IN->L19_POST cosine=+0.9402
+L19_POST->L19_OUT cosine=+0.7448
+L19_OUT->L20_OUT cosine=+0.6708
+L19_OUT->L27_OUT cosine=+0.0908
+[13/27] Fit held-out-context orthogonal recoding maps...
+L18_OUT->L19_OUT top1= 90.6% rank=1.219 margin=+0.1284 mappedCos=+0.1446
+L19_IN->L19_OUT top1= 90.6% rank=1.219 margin=+0.1284 mappedCos=+0.1446
+L19_POST->L19_OUT top1= 90.6% rank=1.250 margin=+0.1308 mappedCos=+0.1611
+L19_OUT->L20_OUT top1= 71.9% rank=1.594 margin=+0.0551 mappedCos=+0.1753
+L19_OUT->L27_OUT top1= 75.0% rank=1.531 margin=+0.0420 mappedCos=+0.0732
+[14/27] Low-rank recoding control...
+L19_POST->L19_OUT r=1 top1= 18.8% rank=3.062
+L19_POST->L19_OUT r=2 top1= 31.2% rank=2.438
+L19_POST->L19_OUT r=3 top1= 46.9% rank=2.062
+L19_POST->L19_OUT r=4 top1= 56.2% rank=1.938
+L19_POST->L19_OUT r=6 top1= 65.6% rank=1.781
+L19_POST->L19_OUT r=7 top1= 78.1% rank=1.500
+L19_OUT->L27_OUT r=1 top1= 18.8% rank=3.219
+L19_OUT->L27_OUT r=2 top1= 21.9% rank=2.750
+L19_OUT->L27_OUT r=3 top1= 28.1% rank=2.688
+L19_OUT->L27_OUT r=4 top1= 37.5% rank=2.531
+L19_OUT->L27_OUT r=6 top1= 50.0% rank=2.469
+L19_OUT->L27_OUT r=7 top1= 50.0% rank=2.406
+[15/27] Geometry matrices...
+L18_OUT->L19_OUT geometrySpearman=+0.9272 RMSE=0.0968
+L19_POST->L19_OUT geometrySpearman=+0.9688 RMSE=0.0635
+L19_OUT->L20_OUT geometrySpearman=+0.9825 RMSE=0.0724
+L19_OUT->L27_OUT geometrySpearman=+0.8303 RMSE=0.1561
+[16/27] Same-object cross-context invariance...
+L18_OUT    invariance=+0.2104
+L19_IN     invariance=+0.2104
+L19_POST   invariance=+0.2238
+L19_OUT    invariance=+0.1932
+L20_OUT    invariance=+0.1680
+L27_OUT    invariance=+0.0524
+[17/27] Correct-vs-wrong separation...
+L18_OUT    gap=+0.3493
+L19_IN     gap=+0.3493
+L19_POST   gap=+0.3678
+L19_OUT    gap=+0.3268
+L20_OUT    gap=+0.2909
+L27_OUT    gap=+0.0889
+[18/27] Physical displacement...
+L18_OUT    displacement=1.1539%
+L19_IN     displacement=1.1539%
+L19_POST   displacement=1.0425%
+L19_OUT    displacement=1.2017%
+L20_OUT    displacement=1.2980%
+L27_OUT    displacement=2.2913%
+[19/27] L19 MLP transformation magnitude...
+relativeChange=77.239% prePostCos=+0.7448
+[20/27] Procrustes map reconstruction error...
+L18_OUT->L19_OUT mappedRelErr=1.2194 identityRelErr=0.7215
+L19_IN->L19_OUT mappedRelErr=1.2194 identityRelErr=0.7215
+L19_POST->L19_OUT mappedRelErr=1.2221 identityRelErr=0.6809
+L19_OUT->L20_OUT mappedRelErr=1.1513 identityRelErr=0.7484
+L19_OUT->L27_OUT mappedRelErr=1.0013 identityRelErr=0.9982
+[21/27] Label permutation null for mapped L19_POST->L19_OUT...
+obs=0.9062 null=0.1220±0.0581 z=+13.503 p=0.0005
+[22/27] Context-wise mapped recovery...
+C1 top1=100.0% rank=1.000
+C2 top1= 75.0% rank=1.250
+C3 top1= 87.5% rank=1.750
+C4 top1=100.0% rank=1.000
+[23/27] Direct vs mapped L19 transition...
+L19_POST direct=93.8% rank=1.219
+L19_OUT  direct=71.9% rank=1.594
+POST->OUT mapped=90.6% rank=1.250 mappedCos=+0.1611
+[24/27] Weight sentinel...
+Weights: PASS
+[25/27] Decision metrics...
+L19 preMLP=0.9375 postMLP=0.7188 directDrop=-21.9pp
+mappedRecovery=0.9062 vs postDirect=0.7188 gain=+18.8pp mappedCos=+0.1611
+[26/27] RESULTS
+================================================================================================================================
+TEST 236 RESULTS
+================================================================================================================================
+BASELINE: TEST235/234 | OBSERVATIONAL | SINGLE L08 PROMPT INJECTION | CONTINUATION ' the'
+PRIMARY QUESTION: L19 MLP DESTRUCTION VS CROSS-CONTEXT RECODING
+L19 POST_ATTN direct: 93.8%
+L19 OUT direct      : 71.9%
+L19 mapped recovery : 90.6% | mappedCos=+0.1611
+--------------------------------------------------------------------------------------------------------------------------------
+RESULT: PARTIAL_CROSS_CONTEXT_MLP_RECODING
+No causal rescue is claimed: TEST236 measures whether a held-out-context map can recover the transformed carrier.
+No transport/controller/re-injection was used in the model forward pass.
+================================================================================================================================
+[27/27] TEST 236 COMPLETE
