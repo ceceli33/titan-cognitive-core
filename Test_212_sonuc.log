@@ -1,0 +1,252 @@
+ ================================================================================================================================
+TEST 212 — KEYED OBJECT-IDENTITY TRANSPORT
+================================================================================================================================
+LINEAGE: TEST103 -> TEST142 -> TEST192-197 -> TEST205 -> TEST210 -> TEST211 -> TEST212
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct | SEASC RSS=0.250235051
+[1/18] Model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 81.3kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 860kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 42.0MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 71.1MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 131MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.62MB/s]Download complete: :  13.1GB, 40.6MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  372MB/s  Fetching 4 files: 100% 4/4 [00:42<00:00,  7.80s/it]Loading weights: 100% 339/339 [00:03<00:00, 98.91it/s]generation_config.json: 100% 243/243 [00:00<00:00, 31.9kB/s][2/18] TEST211 competitive addressing...
+L00 top1=0.75 margin=+0.00098 ON
+L01 top1=0.25 margin=-0.01027 OFF
+L02 top1=0.25 margin=-0.01349 OFF
+L03 top1=0.25 margin=-0.00500 OFF
+L04 top1=0.50 margin=-0.01175 OFF
+L05 top1=0.25 margin=-0.03782 OFF
+L06 top1=0.25 margin=-0.00573 OFF
+L07 top1=0.25 margin=-0.00752 OFF
+L08 top1=0.75 margin=+0.00945 ON
+L09 top1=0.25 margin=-0.02098 OFF
+L10 top1=0.25 margin=+0.00406 OFF
+L11 top1=0.75 margin=+0.01360 ON
+L12 top1=0.75 margin=-0.00112 OFF
+L13 top1=0.25 margin=-0.01739 OFF
+L14 top1=0.50 margin=-0.00398 OFF
+L15 top1=0.75 margin=+0.00630 ON
+L16 top1=0.50 margin=+0.00399 OFF
+L17 top1=0.50 margin=-0.02668 OFF
+L18 top1=0.25 margin=-0.00055 OFF
+L19 top1=0.50 margin=+0.00165 OFF
+ACTIVE: [0, 8, 11, 15]
+[3/18] Frozen query-only routes...
+Q1 expected=M1 predicted=M1 weights=[0.3079, 0.244, 0.2433, 0.2049]
+Q2 expected=M2 predicted=M2 weights=[0.2496, 0.2996, 0.2523, 0.1985]
+Q3 expected=M3 predicted=M3 weights=[0.2392, 0.2478, 0.3271, 0.1859]
+Q4 expected=M4 predicted=M4 weights=[0.2495, 0.2379, 0.2331, 0.2795]
+[4/18] TEST211 object-identity forge...
+[5/18] Identity geometry...
+Q1
+ L00 rawCos=+0.9157 identityCos=+0.0505 commonRemoved=0.0178
+ L08 rawCos=+0.9730 identityCos=-0.1194 commonRemoved=0.0010
+ L11 rawCos=+0.9812 identityCos=-0.1062 commonRemoved=0.0158
+ L15 rawCos=+0.9854 identityCos=-0.0166 commonRemoved=0.0241
+Q2
+ L00 rawCos=+0.9015 identityCos=-0.1248 commonRemoved=0.0404
+ L08 rawCos=+0.9680 identityCos=-0.0994 commonRemoved=0.1158
+ L11 rawCos=+0.9653 identityCos=+0.1300 commonRemoved=0.1063
+ L15 rawCos=+0.9635 identityCos=+0.0493 commonRemoved=0.0061
+Q3
+ L00 rawCos=+0.9043 identityCos=-0.0237 commonRemoved=0.0095
+ L08 rawCos=+0.9760 identityCos=+0.0617 commonRemoved=0.1602
+ L11 rawCos=+0.9741 identityCos=+0.1587 commonRemoved=0.1717
+ L15 rawCos=+0.9584 identityCos=+0.0640 commonRemoved=0.4359
+Q4
+ L00 rawCos=+0.8911 identityCos=+0.0224 commonRemoved=0.0055
+ L08 rawCos=+0.9759 identityCos=+0.0870 commonRemoved=0.0519
+ L11 rawCos=+0.9821 identityCos=-0.0139 commonRemoved=0.0618
+ L15 rawCos=+0.9800 identityCos=-0.0494 commonRemoved=0.1038
+[6/18] Keyed identity operator...
+[7/18] Operator diagnostics...
+Q1
+ L00 routeSelfCos=+0.5184 bestOtherCos=+0.4081 routeMargin=+0.1103 selfWeight=0.2811
+ L08 routeSelfCos=+0.5283 bestOtherCos=+0.5284 routeMargin=-0.0001 selfWeight=0.2523
+ L11 routeSelfCos=+0.6237 bestOtherCos=+0.6322 routeMargin=-0.0085 selfWeight=0.3053
+ L15 routeSelfCos=+0.7144 bestOtherCos=+0.5598 routeMargin=+0.1546 selfWeight=0.3928
+Q2
+ L00 routeSelfCos=+0.4648 bestOtherCos=+0.4485 routeMargin=+0.0163 selfWeight=0.2946
+ L08 routeSelfCos=+0.5535 bestOtherCos=+0.4988 routeMargin=+0.0547 selfWeight=0.3418
+ L11 routeSelfCos=+0.4765 bestOtherCos=+0.6749 routeMargin=-0.1984 selfWeight=0.2407
+ L15 routeSelfCos=+0.6597 bestOtherCos=+0.6058 routeMargin=+0.0539 selfWeight=0.3212
+Q3
+ L00 routeSelfCos=+0.2840 bestOtherCos=+0.4576 routeMargin=-0.1736 selfWeight=0.2265
+ L08 routeSelfCos=+0.6986 bestOtherCos=+0.3799 routeMargin=+0.3187 selfWeight=0.3710
+ L11 routeSelfCos=+0.7941 bestOtherCos=+0.4587 routeMargin=+0.3354 selfWeight=0.3915
+ L15 routeSelfCos=+0.7155 bestOtherCos=+0.5658 routeMargin=+0.1497 selfWeight=0.3195
+Q4
+ L00 routeSelfCos=+0.4938 bestOtherCos=+0.4450 routeMargin=+0.0488 selfWeight=0.2783
+ L08 routeSelfCos=+0.6014 bestOtherCos=+0.4822 routeMargin=+0.1192 selfWeight=0.2809
+ L11 routeSelfCos=+0.5749 bestOtherCos=+0.5954 routeMargin=-0.0205 selfWeight=0.3255
+ L15 routeSelfCos=+0.4502 bestOtherCos=+0.6033 routeMargin=-0.1531 selfWeight=0.2333
+[8/18] Controls...
+[9/18] Unchanged SEASC CUDA motor...
+[10/18] KEYED_IDENTITY dose sweep...
+[11/18] Operator controls...
+[12/18] X-Ray...
+[13/18] Mechanistic selectivity...
+Q1 KEYED=-14.3075 vs ORACLE Δ=-0.2921 vs SHUFFLE Δ=+0.2593 vs UNIFORM Δ=+0.2341 vs NEG Δ=-0.6486
+Q2 KEYED=-11.9872 vs ORACLE Δ=-0.3555 vs SHUFFLE Δ=+0.1821 vs UNIFORM Δ=+0.1094 vs NEG Δ=-0.5332
+Q3 KEYED=+4.4198 vs ORACLE Δ=+0.1901 vs SHUFFLE Δ=-0.2473 vs UNIFORM Δ=+0.6643 vs NEG Δ=-0.3719
+Q4 KEYED=-2.4263 vs ORACLE Δ=+0.3957 vs SHUFFLE Δ=-0.2327 vs UNIFORM Δ=-0.3359 vs NEG Δ=+0.7410
+[14/18] Weight sentinel...
+[15/18] RESULTS
+
+================================================================================================================================
+TEST 212 RESULTS
+================================================================================================================================
+LINEAGE: TEST103 -> TEST142 -> TEST192-197 -> TEST205 associative routing -> TEST210 contextual ΔO -> TEST211 isolated identity -> TEST212 keyed identity
+M1: Neral Voss | keeps | the amber compass
+M2: Tovin Marel | carries | the silver lantern
+M3: Selka Dorn | owns | the violet key
+M4: Parel Nox | guards | the bronze sphere
+ACTIVE: [0, 8, 11, 15] | COMMON_RANK: 2
+
+IDENTITY GEOMETRY @ REPRESENTATIVE ACTIVE LAYER 11
+Q1 rawCos=+0.98117 identityCos=-0.10616 commonRemoved=0.0158
+Q2 rawCos=+0.96529 identityCos=+0.12999 commonRemoved=0.1063
+Q3 rawCos=+0.97406 identityCos=+0.15868 commonRemoved=0.1717
+Q4 rawCos=+0.98212 identityCos=-0.01391 commonRemoved=0.0618
+
+KEYED OPERATOR @ REPRESENTATIVE ACTIVE LAYER 11
+Q1 selfWeight=0.3053 routeSelfCos=+0.62374 bestOtherCos=+0.63224 routeMargin=-0.00851
+Q2 selfWeight=0.2407 routeSelfCos=+0.47651 bestOtherCos=+0.67489 routeMargin=-0.19838
+Q3 selfWeight=0.3915 routeSelfCos=+0.79411 bestOtherCos=+0.45873 routeMargin=+0.33537
+Q4 selfWeight=0.3255 routeSelfCos=+0.57486 bestOtherCos=+0.59536 routeMargin=-0.02050
+
+KEYED_IDENTITY DOSE SWEEP
+
+Q1: What does Neral Voss keep?
+ VANILLA targetLP=-66.4239 meanTok=-22.1413 tokens=3 bestWrong=-52.3234 margin=-14.1005 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ KEYED 0.25 targetLP=-66.8971 ΔlogP=-0.4733 meanTok=-22.2990 margin=-14.4975 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ KEYED 0.50 targetLP=-66.5194 ΔlogP=-0.0955 meanTok=-22.1731 margin=-14.3075 | The prompt does not provide any information about what Neral Voss keeps. More context or information is needed to answer this question accurately.
+ KEYED 1.00 targetLP=-66.2582 ΔlogP=+0.1657 meanTok=-22.0861 margin=-14.2601 | The prompt does not provide any information about what Neral Voss keeps. More context or information is needed to answer this question accurately.
+
+Q2: What does Tovin Marel carry?
+ VANILLA targetLP=-63.5263 meanTok=-21.1754 tokens=3 bestWrong=-51.7521 margin=-11.7742 | The prompt does not provide any information about what Tovin Marel carries. There is not enough information to answer the question.
+ KEYED 0.25 targetLP=-63.6290 ΔlogP=-0.1027 meanTok=-21.2097 margin=-11.9468 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ KEYED 0.50 targetLP=-63.1278 ΔlogP=+0.3986 meanTok=-21.0426 margin=-11.9872 | The prompt does not provide any information about what Tovin Marel carries. There is not enough information to determine what Tovin Marel carries.
+ KEYED 1.00 targetLP=-62.6065 ΔlogP=+0.9198 meanTok=-20.8688 margin=-12.1858 | The prompt does not provide any information about what Tovin Marel carries. There is not enough information to determine what Tovin Marel carries.
+
+Q3: What does Selka Dorn own?
+ VANILLA targetLP=-53.7741 meanTok=-17.9247 tokens=3 bestWrong=-58.7833 margin=+5.0091 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ KEYED 0.25 targetLP=-53.8315 ΔlogP=-0.0574 meanTok=-17.9438 margin=+4.5224 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is not possible to determine what Selka Dorn owns.
+ KEYED 0.50 targetLP=-52.9753 ΔlogP=+0.7989 meanTok=-17.6584 margin=+4.4198 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is not possible to determine what Selka Dorn owns.
+ KEYED 1.00 targetLP=-51.8394 ΔlogP=+1.9348 meanTok=-17.2798 margin=+3.0491 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the information given, it is not possible to determine what Selka Dorn owns.
+
+Q4: What does Parel Nox guard?
+ VANILLA targetLP=-46.8772 meanTok=-15.6257 tokens=3 bestWrong=-44.1373 margin=-2.7398 | Based on the limited information provided, Parel Nox appears to guard the city of Cape Town, South Africa, as "Parel Nox" is a name given to one of the major hills
+ KEYED 0.25 targetLP=-46.8393 ΔlogP=+0.0379 meanTok=-15.6131 margin=-2.8498 | Based on the limited information provided, Parel Nox appears to guard the city of Cape Town, South Africa, as it is a well-known security firm that specializes in protecting high-value targets and critical
+ KEYED 0.50 targetLP=-45.9369 ΔlogP=+0.9403 meanTok=-15.3123 margin=-2.4263 | Based on the limited information provided, Parel Nox appears to guard the city of Cape Town, specifically the area known as Signal Hill. However, without additional context, this is an inference based on
+ KEYED 1.00 targetLP=-44.6081 ΔlogP=+2.2691 meanTok=-14.8694 margin=-2.1263 | Based on the information provided, Parel Nox guards the city of Capua.
+
+OPERATOR CONTROLS @ .50
+
+KEYED_IDENTITY
+ Q1 targetLP=-66.5194 meanTok=-22.1731 margin=-14.3075 | The prompt does not provide any information about what Neral Voss keeps. More context or information is needed to answer this question accurately.
+ Q2 targetLP=-63.1278 meanTok=-21.0426 margin=-11.9872 | The prompt does not provide any information about what Tovin Marel carries. There is not enough information to determine what Tovin Marel carries.
+ Q3 targetLP=-52.9753 meanTok=-17.6584 margin=+4.4198 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is not possible to determine what Selka Dorn owns.
+ Q4 targetLP=-45.9369 meanTok=-15.3123 margin=-2.4263 | Based on the limited information provided, Parel Nox appears to guard the city of Cape Town, specifically the area known as Signal Hill. However, without additional context, this is an inference based on
+ mean_margin=-6.0753
+
+ORACLE_IDENTITY
+ Q1 targetLP=-65.8049 meanTok=-21.9350 margin=-14.0154 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ Q2 targetLP=-63.3716 meanTok=-21.1239 margin=-11.6317 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ Q3 targetLP=-53.9326 meanTok=-17.9775 margin=+4.2297 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the information given, it is impossible to determine what Selka Dorn owns.
+ Q4 targetLP=-47.6529 meanTok=-15.8843 margin=-2.8220 | The prompt does not provide specific information about what Parel Nox guards. Without additional context, it's not possible to determine what Parel Nox guards based solely on the given question.
+ mean_margin=-6.0599
+
+RAW_OBJECT
+ Q1 targetLP=-66.7220 meanTok=-22.2407 margin=-14.6866 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question.
+ Q2 targetLP=-62.0498 meanTok=-20.6833 margin=-11.0135 | The prompt does not provide any information about what Tovin Marel carries. Therefore, based on the given information, it is not possible to determine what Tovin Marel carries.
+ Q3 targetLP=-52.1146 meanTok=-17.3715 margin=+3.4481 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the information given, it is not possible to determine what Selka Dorn owns.
+ Q4 targetLP=-46.9252 meanTok=-15.6417 margin=-1.6770 | The prompt does not provide specific information about what Parel Nox guards. Without additional context, it's not possible to determine what Parel Nox guards based solely on the given information.
+ mean_margin=-5.9822
+
+COMMON
+ Q1 targetLP=-66.9506 meanTok=-22.3169 margin=-14.7091 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question.
+ Q2 targetLP=-61.9606 meanTok=-20.6535 margin=-10.9173 | The prompt does not provide any information about what Tovin Marel carries. Therefore, based on the given information, it is not possible to determine what Tovin Marel carries.
+ Q3 targetLP=-51.4524 meanTok=-17.1508 margin=+2.9922 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the information given, it is not possible to determine what Selka Dorn owns.
+ Q4 targetLP=-46.8492 meanTok=-15.6164 margin=-1.3091 | The prompt does not provide specific information about what Parel Nox guards. Without additional context, it's not possible to determine what Parel Nox guards based solely on the given information.
+ mean_margin=-5.9858
+
+WRONG_IDENTITY
+ Q1 targetLP=-65.9767 meanTok=-21.9922 margin=-14.0559 | The prompt does not provide any information about what Neral Voss keeps. More context or details are needed to answer this question accurately.
+ Q2 targetLP=-64.1981 meanTok=-21.3994 margin=-12.0822 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ Q3 targetLP=-53.5468 meanTok=-17.8489 margin=+5.1836 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ Q4 targetLP=-45.0042 meanTok=-15.0014 margin=-2.6256 | Based on the limited information provided, Parel Nox appears to guard the city of Cape Town, specifically the area known as Signal Hill. However, without additional context, this is an inference based on
+ mean_margin=-5.8950
+
+SHUFFLED_VALUE
+ Q1 targetLP=-66.5679 meanTok=-22.1893 margin=-14.5668 | The prompt does not provide any information about what Neral Voss keeps. There is not enough context to determine what Neral Voss keeps.
+ Q2 targetLP=-63.7602 meanTok=-21.2534 margin=-12.1693 | The prompt does not provide any information about what Tovin Marel carries. There is not enough information to determine what Tovin Marel carries.
+ Q3 targetLP=-53.4966 meanTok=-17.8322 margin=+4.6671 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the information given, it is not possible to determine what Selka Dorn owns.
+ Q4 targetLP=-45.4275 meanTok=-15.1425 margin=-2.1936 | The prompt does not provide specific information about what Parel Nox guards. Without additional context, it's not possible to determine what Parel Nox guards based solely on the given information.
+ mean_margin=-6.0657
+
+UNIFORM_VALUE
+ Q1 targetLP=-66.9295 meanTok=-22.3098 margin=-14.5416 | The prompt does not provide any information about what Neral Voss keeps. More context or information is needed to answer this question accurately.
+ Q2 targetLP=-63.1824 meanTok=-21.0608 margin=-12.0966 | The prompt does not provide any information about what Tovin Marel carries. There is not enough information to determine what Tovin Marel carries.
+ Q3 targetLP=-53.1516 meanTok=-17.7172 margin=+3.7555 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is not possible to determine what Selka Dorn owns.
+ Q4 targetLP=-45.2259 meanTok=-15.0753 margin=-2.0905 | Based on the limited information provided, Parel Nox appears to guard the city of Cape Town, specifically the area known as Signal Hill. However, without additional context, this is an inference based on
+ mean_margin=-6.2433
+
+NEG_KEYED
+ Q1 targetLP=-66.2095 meanTok=-22.0698 margin=-13.6589 | The prompt does not provide any information about what Neral Voss keeps. There is not enough context to answer this question accurately.
+ Q2 targetLP=-63.3236 meanTok=-21.1079 margin=-11.4540 | The prompt does not provide any information about what Tovin Marel carries. There is not enough context to determine what Tovin Marel carries.
+ Q3 targetLP=-54.8012 meanTok=-18.2671 margin=+4.7917 | The prompt does not provide any information about what Selka Dorn owns. Therefore, based solely on the given information, it is impossible to determine what Selka Dorn owns.
+ Q4 targetLP=-48.9432 meanTok=-16.3144 margin=-3.1673 | Based on the limited information provided, Parel Nox appears to guard something, but without additional context, it's not possible to specify what exactly is being guarded. Could you provide more details or context
+ mean_margin=-5.8721
+
+MECHANISTIC SELECTIVITY
+Q1 KEYED=-14.3075 vs ORACLE Δ=-0.2921 vs SHUFFLE Δ=+0.2593 vs UNIFORM Δ=+0.2341 vs NEG Δ=-0.6486
+Q2 KEYED=-11.9872 vs ORACLE Δ=-0.3555 vs SHUFFLE Δ=+0.1821 vs UNIFORM Δ=+0.1094 vs NEG Δ=-0.5332
+Q3 KEYED=+4.4198 vs ORACLE Δ=+0.1901 vs SHUFFLE Δ=-0.2473 vs UNIFORM Δ=+0.6643 vs NEG Δ=-0.3719
+Q4 KEYED=-2.4263 vs ORACLE Δ=+0.3957 vs SHUFFLE Δ=-0.2327 vs UNIFORM Δ=-0.3359 vs NEG Δ=+0.7410
+
+X-RAY Q1 @ .50
+KEYED_IDENTITY     L19=  5.043% L27=  8.963%
+ORACLE_IDENTITY    L19=  5.992% L27= 10.835%
+RAW_OBJECT         L19=  7.451% L27= 11.636%
+COMMON             L19=  7.618% L27= 11.774%
+WRONG_IDENTITY     L19=  5.132% L27=  9.407%
+SHUFFLED_VALUE     L19=  5.096% L27=  9.138%
+UNIFORM_VALUE      L19=  5.258% L27=  9.326%
+NEG_KEYED          L19=  5.142% L27=  9.281%
+
+KEYED_IDENTITY LAYER X-RAY
+L00   5.003% INJECT
+L01   3.967% OBSERVE
+L02   3.394% OBSERVE
+L03   3.456% OBSERVE
+L04   3.591% OBSERVE
+L05   2.649% OBSERVE
+L06   2.560% OBSERVE
+L07   2.375% OBSERVE
+L08   3.521% INJECT
+L09   3.668% OBSERVE
+L10   3.766% OBSERVE
+L11   4.560% INJECT
+L12   4.789% OBSERVE
+L13   4.509% OBSERVE
+L14   4.273% OBSERVE
+L15   4.894% INJECT
+L16   5.261% OBSERVE
+L17   4.856% OBSERVE
+L18   5.112% OBSERVE
+L19   5.043% OBSERVE
+L20   5.186% MOTOR-OFF
+L21   5.249% MOTOR-OFF
+L22   5.689% MOTOR-OFF
+L23   5.964% MOTOR-OFF
+L24   6.037% MOTOR-OFF
+L25   5.960% MOTOR-OFF
+L26   5.682% MOTOR-OFF
+L27   8.963% MOTOR-OFF
+--------------------------------------------------------------------------------------------------------------------------------
+Weights: PASS | L20-L27 injection: ZERO | Blind questions contain no target object
+Routing is frozen from vanilla query only: candidate answers and decode hidden states cannot alter memory selection
+TEST211 identity forge preserved; TEST212 changes transport only: frozen (S,R) key weights select isolated object-identity values
+Primary test: KEYED_IDENTITY must outperform SHUFFLED_VALUE / UNIFORM_VALUE / WRONG or NEG controls, not merely move hidden state
+================================================================================================================================
+[16/18] TEST 212 COMPLETE
+[17/18] MOTOR OFF VERIFIED
+[18/18] END
