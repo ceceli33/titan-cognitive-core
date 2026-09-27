@@ -1,0 +1,57 @@
+ ====================================================================================================================
+TEST 241 — NATIVE-BF16 SWIGLU GATE×UP BINDING RETEST
+====================================================================================================================
+Baseline: TEST240 | TEST239 retest | exact native BF16 product path
+[1/12] Model...
+config.json: 100% 663/663 [00:00<00:00, 81.0kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 857kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 82.6MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 71.0MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 128MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.43MB/s]Download complete: :  13.1GB,  274MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  352MB/s  Fetching 4 files: 100% 4/4 [00:43<00:00,  8.43s/it]Loading weights: 100% 339/339 [00:03<00:00, 97.35it/s]generation_config.json: 100% 243/243 [00:00<00:00, 31.4kB/s][2/12] Factorial + source map...
+[3/12] RoPE + Q/K/V source capture...
+[4/12] TEST222 forge + TEST230 object-main...
+ObjectMain norms: 1.8044 1.3213 1.4689 1.6965 1.3453 1.5477 1.6125 2.2938
+[5/12] Prompt injection + exact L19 capture...
+[6/12] Native BF16 reconstruction lock...
+maxNativeBF16ProductError=0.000000000%
+[7/12] Build BF16 matched/crossed products...
+MATCHED-vs-realProductDelta error=0.024945085%
+[8/12] Exact BF16 main/interaction decomposition...
+[9/12] Identity results...
+MATCHED      top1= 71.9% rank=1.625 margin=+0.0391
+WRONG_UP     top1= 87.5% rank=1.156 margin=+0.1183
+WRONG_GATE   top1= 90.6% rank=1.125 margin=+0.1219
+WRONG_BOTH   top1= 71.9% rank=1.625 margin=+0.0391
+GATE_ONLY    top1= 75.0% rank=1.562 margin=+0.0257
+UP_ONLY      top1= 71.9% rank=1.469 margin=+0.0587
+INTERACTION  top1=  9.4% rank=5.125 margin=-0.0697
+[10/12] Interaction energy + pairing diagnostics...
+interaction/matched centered norm=11.979%
+MATCHED->WRONG_UP   meanCos=+0.3932
+MATCHED->WRONG_GATE meanCos=+0.4811
+MATCHED->WRONG_BOTH meanCos=-0.1446
+[11/12] Compact permutation validation...
+MATCHED      obs=0.7188 null=0.1224±0.0926 p=0.0010
+WRONG_UP     obs=0.8750 null=0.1266±0.1143 p=0.0010
+WRONG_GATE   obs=0.9062 null=0.1278±0.1181 p=0.0010
+GATE_ONLY    obs=0.7500 null=0.1315±0.1021 p=0.0010
+UP_ONLY      obs=0.7188 null=0.1210±0.0965 p=0.0010
+INTERACTION  obs=0.0938 null=0.1259±0.0531 p=0.8092
+[12/12] RESULTS
+====================================================================================================================
+TEST 241 RESULTS — NATIVE BF16 RETEST
+Native product max error : 0.000000000%
+Matched-real delta error : 0.024945085%
+--------------------------------------------------------------------------------------------------------------------
+MATCHED     :  71.9% | rank 1.625 | margin +0.0391
+WRONG_UP    :  87.5% | rank 1.156 | margin +0.1183
+WRONG_GATE  :  90.6% | rank 1.125 | margin +0.1219
+WRONG_BOTH  :  71.9% | rank 1.625 | margin +0.0391
+GATE_ONLY   :  75.0% | rank 1.562 | margin +0.0257
+UP_ONLY     :  71.9% | rank 1.469 | margin +0.0587
+INTERACTION :   9.4% | rank 5.125 | margin -0.0697
+Interaction norm fraction: 11.979%
+Weights: PASS
+--------------------------------------------------------------------------------------------------------------------
+RESULT: NO_STRONG_MATCHED_GATE_UP_BINDING_EFFECT
+TEST239 dtype artefact removed; all product branches use native BF16 arithmetic.
+====================================================================================================================
+TEST 241 COMPLETE
