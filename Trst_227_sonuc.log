@@ -1,0 +1,369 @@
+ ================================================================================================================================
+TEST 227 — PACKET IDENTITY RESIDUAL DECOMPOSITION
+================================================================================================================================
+LINEAGE: TEST213 -> TEST217 -> TEST218 -> TEST219 -> TEST220 -> TEST221 -> TEST222 -> TEST223 -> TEST224 -> TEST225 -> TEST226 -> TEST227
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+[1/24] Model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 80.3kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 866kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 46.0MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 73.4MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 104MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.50MB/s]Download complete: :  13.1GB, 37.4MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  194MB/s  Fetching 4 files: 100% 4/4 [00:48<00:00, 10.55s/it]Loading weights: 100% 339/339 [00:03<00:00, 96.66it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.6kB/s]hidden=3584 q_heads=28 kv_heads=4 group=7 head_dim=128
+[2/24] Token maps...
+Q1 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q2 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q3 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q4 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q5 FACT subject=[25, 26, 27, 28, 29] relation=[30] object=[31, 32, 33] | BLIND slot=36
+Q6 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q7 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q8 FACT subject=[25, 26, 27, 28, 29] relation=[30] object=[31, 32, 33] | BLIND slot=36
+[3/24] RoPE...
+RoPE=Qwen2RotaryEmbedding max_seq=44
+[4/24] Capture TEST222 source Q/K/V...
+Q1 captured
+Q2 captured
+Q3 captured
+Q4 captured
+Q5 captured
+Q6 captured
+Q7 captured
+Q8 captured
+[5/24] Reconstruct TEST222 source readout...
+Q1 bestQH=00 qpos=36 objEndAttn=0.256498
+Q2 bestQH=00 qpos=36 objEndAttn=0.369859
+Q3 bestQH=00 qpos=36 objEndAttn=0.233636
+Q4 bestQH=05 qpos=33 objEndAttn=0.282498
+Q5 bestQH=02 qpos=37 objEndAttn=0.221648
+Q6 bestQH=00 qpos=36 objEndAttn=0.297795
+Q7 bestQH=06 qpos=32 objEndAttn=0.313337
+Q8 bestQH=00 qpos=37 objEndAttn=0.325245
+[6/24] Forge TEST222 raw L08 packets...
+Q1 rawNorm=2.2737
+Q2 rawNorm=2.7109
+Q3 rawNorm=1.7387
+Q4 rawNorm=2.1934
+Q5 rawNorm=2.4782
+Q6 rawNorm=2.4237
+Q7 rawNorm=2.6123
+Q8 rawNorm=2.6623
+[7/24] Decompose packets: COMMON + IDENTITY RESIDUAL...
+Q1 raw=2.2737 common=1.7673 residual=1.6325 res/raw=0.7180 reconErr=0.000e+00
+Q2 raw=2.7109 common=1.7673 residual=1.6504 res/raw=0.6088 reconErr=0.000e+00
+Q3 raw=1.7387 common=1.7673 residual=1.3385 res/raw=0.7699 reconErr=0.000e+00
+Q4 raw=2.1934 common=1.7673 residual=1.6377 res/raw=0.7467 reconErr=1.863e-09
+Q5 raw=2.4782 common=1.7673 residual=1.7574 res/raw=0.7091 reconErr=0.000e+00
+Q6 raw=2.4237 common=1.7673 residual=1.5618 res/raw=0.6444 reconErr=0.000e+00
+Q7 raw=2.6123 common=1.7673 residual=1.7960 res/raw=0.6875 reconErr=0.000e+00
+Q8 raw=2.6623 common=1.7673 residual=1.6363 res/raw=0.6146 reconErr=0.000e+00
+[8/24] Packet geometry...
+Q1 raw/common=+0.7003 raw/res=+0.6347 common/res=-0.1072
+Q2 raw/common=+0.8086 raw/res=+0.7766 common/res=+0.2574
+Q3 raw/common=+0.7086 raw/res=+0.3634 common/res=-0.3999
+Q4 raw/common=+0.6775 raw/res=+0.6083 common/res=-0.1718
+Q5 raw/common=+0.7051 raw/res=+0.7011 common/res=-0.0113
+Q6 raw/common=+0.7656 raw/res=+0.6856 common/res=+0.0565
+Q7 raw/common=+0.7280 raw/res=+0.7382 common/res=+0.0749
+Q8 raw/common=+0.8006 raw/res=+0.7623 common/res=+0.2225
+[9/24] Vanilla blind trajectories...
+Q1 vanilla captured
+Q2 vanilla captured
+Q3 vanilla captured
+Q4 vanilla captured
+Q5 vanilla captured
+Q6 vanilla captured
+Q7 vanilla captured
+Q8 vanilla captured
+[10/24] Single L08 injection + true post-injection trajectory...
+Q1 complete
+Q2 complete
+Q3 complete
+Q4 complete
+Q5 complete
+Q6 complete
+Q7 complete
+Q8 complete
+[11/24] Verify L08 injections...
+Q1 RAW:disp=3.991% cos=+0.9992 RESIDUAL:disp=4.002% cos=+0.9993 COMMON:disp=4.028% cos=+0.9991 NEG_RESIDUAL:disp=4.004% cos=+0.9993
+Q2 RAW:disp=4.011% cos=+0.9994 RESIDUAL:disp=4.004% cos=+0.9992 COMMON:disp=4.025% cos=+0.9992 NEG_RESIDUAL:disp=4.005% cos=+0.9992
+Q3 RAW:disp=4.008% cos=+0.9993 RESIDUAL:disp=4.008% cos=+0.9990 COMMON:disp=4.026% cos=+0.9992 NEG_RESIDUAL:disp=4.007% cos=+0.9990
+Q4 RAW:disp=4.003% cos=+0.9993 RESIDUAL:disp=4.003% cos=+0.9990 COMMON:disp=4.027% cos=+0.9992 NEG_RESIDUAL:disp=4.004% cos=+0.9990
+Q5 RAW:disp=4.007% cos=+0.9991 RESIDUAL:disp=4.003% cos=+0.9993 COMMON:disp=4.028% cos=+0.9991 NEG_RESIDUAL:disp=4.002% cos=+0.9993
+Q6 RAW:disp=4.028% cos=+0.9990 RESIDUAL:disp=4.001% cos=+0.9994 COMMON:disp=4.027% cos=+0.9992 NEG_RESIDUAL:disp=3.999% cos=+0.9994
+Q7 RAW:disp=3.988% cos=+0.9994 RESIDUAL:disp=4.010% cos=+0.9994 COMMON:disp=4.025% cos=+0.9992 NEG_RESIDUAL:disp=4.010% cos=+0.9994
+Q8 RAW:disp=3.999% cos=+0.9992 RESIDUAL:disp=4.005% cos=+0.9995 COMMON:disp=4.029% cos=+0.9991 NEG_RESIDUAL:disp=4.006% cos=+0.9995
+[12/24] Build object identity reference geometry...
+Q1 object reference captured
+Q2 object reference captured
+Q3 object reference captured
+Q4 object reference captured
+Q5 object reference captured
+Q6 object reference captured
+Q7 object reference captured
+Q8 object reference captured
+[13/24] Object decoding by branch...
+
+RAW
+L08 top1=2/8 meanRank=3.125 identityMargin=-0.0211
+L09 top1=1/8 meanRank=4.125 identityMargin=-0.0473
+L10 top1=2/8 meanRank=3.750 identityMargin=-0.0288
+L12 top1=2/8 meanRank=3.250 identityMargin=-0.0346
+L16 top1=3/8 meanRank=3.375 identityMargin=-0.0125
+L19 top1=1/8 meanRank=4.250 identityMargin=-0.0385
+L20 top1=1/8 meanRank=4.000 identityMargin=-0.0315
+L24 top1=1/8 meanRank=4.500 identityMargin=-0.0291
+L27 top1=2/8 meanRank=4.000 identityMargin=-0.0447
+
+RESIDUAL
+L08 top1=6/8 meanRank=2.000 identityMargin=+0.0091
+L09 top1=2/8 meanRank=3.750 identityMargin=-0.0324
+L10 top1=2/8 meanRank=4.375 identityMargin=-0.0172
+L12 top1=2/8 meanRank=4.125 identityMargin=-0.0264
+L16 top1=3/8 meanRank=3.500 identityMargin=-0.0303
+L19 top1=3/8 meanRank=3.000 identityMargin=-0.0133
+L20 top1=2/8 meanRank=3.750 identityMargin=-0.0140
+L24 top1=0/8 meanRank=4.125 identityMargin=-0.0273
+L27 top1=1/8 meanRank=4.125 identityMargin=-0.0579
+
+COMMON
+L08 top1=1/8 meanRank=4.500 identityMargin=-0.0618
+L09 top1=1/8 meanRank=4.500 identityMargin=-0.0602
+L10 top1=1/8 meanRank=4.375 identityMargin=-0.0463
+L12 top1=1/8 meanRank=3.625 identityMargin=-0.0399
+L16 top1=2/8 meanRank=4.125 identityMargin=-0.0226
+L19 top1=0/8 meanRank=5.500 identityMargin=-0.0391
+L20 top1=1/8 meanRank=4.500 identityMargin=-0.0250
+L24 top1=1/8 meanRank=4.750 identityMargin=-0.0321
+L27 top1=2/8 meanRank=3.500 identityMargin=-0.0308
+
+NEG_RESIDUAL
+L08 top1=0/8 meanRank=7.000 identityMargin=-0.0632
+L09 top1=1/8 meanRank=4.750 identityMargin=-0.0362
+L10 top1=2/8 meanRank=5.000 identityMargin=-0.0256
+L12 top1=2/8 meanRank=4.875 identityMargin=-0.0465
+L16 top1=1/8 meanRank=5.000 identityMargin=-0.0419
+L19 top1=0/8 meanRank=5.750 identityMargin=-0.0522
+L20 top1=1/8 meanRank=4.125 identityMargin=-0.0246
+L24 top1=2/8 meanRank=3.125 identityMargin=-0.0146
+L27 top1=1/8 meanRank=4.500 identityMargin=-0.0431
+[14/24] Per-fact RESIDUAL decoding...
+
+L08
+ Q1 rank=1 own=+0.0579 bestWrong=+0.0153 top=Q1
+ Q2 rank=1 own=+0.0125 bestWrong=+0.0109 top=Q2
+ Q3 rank=1 own=+0.0578 bestWrong=+0.0192 top=Q3
+ Q4 rank=1 own=+0.0584 bestWrong=+0.0360 top=Q4
+ Q5 rank=1 own=+0.0524 bestWrong=+0.0393 top=Q5
+ Q6 rank=4 own=+0.0063 bestWrong=+0.0169 top=Q5
+ Q7 rank=6 own=-0.0094 bestWrong=+0.0358 top=Q6
+ Q8 rank=1 own=+0.0285 bestWrong=+0.0182 top=Q8
+
+L09
+ Q1 rank=2 own=+0.0133 bestWrong=+0.0373 top=Q7
+ Q2 rank=7 own=-0.0255 bestWrong=+0.0420 top=Q5
+ Q3 rank=6 own=-0.0266 bestWrong=+0.0418 top=Q1
+ Q4 rank=1 own=+0.0179 bestWrong=+0.0154 top=Q4
+ Q5 rank=3 own=+0.0234 bestWrong=+0.0331 top=Q6
+ Q6 rank=6 own=-0.0362 bestWrong=+0.0615 top=Q8
+ Q7 rank=4 own=-0.0034 bestWrong=+0.0306 top=Q2
+ Q8 rank=1 own=+0.0478 bestWrong=+0.0083 top=Q8
+
+L10
+ Q1 rank=2 own=+0.0212 bestWrong=+0.0340 top=Q7
+ Q2 rank=7 own=-0.0251 bestWrong=+0.0213 top=Q4
+ Q3 rank=8 own=-0.0253 bestWrong=+0.0149 top=Q1
+ Q4 rank=2 own=+0.0121 bestWrong=+0.0320 top=Q2
+ Q5 rank=1 own=+0.0504 bestWrong=+0.0029 top=Q5
+ Q6 rank=7 own=-0.0142 bestWrong=+0.0231 top=Q5
+ Q7 rank=7 own=-0.0138 bestWrong=+0.0246 top=Q6
+ Q8 rank=1 own=+0.0236 bestWrong=+0.0140 top=Q8
+
+L12
+ Q1 rank=2 own=+0.0201 bestWrong=+0.0209 top=Q3
+ Q2 rank=7 own=-0.0311 bestWrong=+0.0287 top=Q4
+ Q3 rank=3 own=+0.0045 bestWrong=+0.0533 top=Q6
+ Q4 rank=5 own=+0.0016 bestWrong=+0.0335 top=Q7
+ Q5 rank=1 own=+0.0449 bestWrong=+0.0162 top=Q5
+ Q6 rank=7 own=-0.0140 bestWrong=+0.0281 top=Q5
+ Q7 rank=7 own=-0.0218 bestWrong=+0.0420 top=Q2
+ Q8 rank=1 own=+0.0289 bestWrong=+0.0217 top=Q8
+
+L16
+ Q1 rank=1 own=+0.0426 bestWrong=+0.0142 top=Q1
+ Q2 rank=8 own=-0.0624 bestWrong=+0.0822 top=Q4
+ Q3 rank=4 own=+0.0028 bestWrong=+0.0431 top=Q6
+ Q4 rank=5 own=-0.0019 bestWrong=+0.0318 top=Q1
+ Q5 rank=1 own=+0.0315 bestWrong=+0.0107 top=Q5
+ Q6 rank=2 own=+0.0170 bestWrong=+0.0409 top=Q5
+ Q7 rank=6 own=-0.0044 bestWrong=+0.0510 top=Q4
+ Q8 rank=1 own=+0.0212 bestWrong=+0.0148 top=Q8
+
+L19
+ Q1 rank=1 own=+0.0277 bestWrong=+0.0192 top=Q1
+ Q2 rank=5 own=-0.0125 bestWrong=+0.0405 top=Q5
+ Q3 rank=6 own=-0.0094 bestWrong=+0.0251 top=Q6
+ Q4 rank=1 own=+0.0705 bestWrong=+0.0300 top=Q4
+ Q5 rank=2 own=+0.0154 bestWrong=+0.0194 top=Q7
+ Q6 rank=1 own=+0.0256 bestWrong=+0.0093 top=Q6
+ Q7 rank=5 own=-0.0131 bestWrong=+0.0334 top=Q2
+ Q8 rank=3 own=+0.0027 bestWrong=+0.0365 top=Q4
+
+L20
+ Q1 rank=5 own=+0.0094 bestWrong=+0.0295 top=Q6
+ Q2 rank=6 own=-0.0131 bestWrong=+0.0219 top=Q8
+ Q3 rank=7 own=-0.0127 bestWrong=+0.0353 top=Q4
+ Q4 rank=1 own=+0.0552 bestWrong=+0.0186 top=Q4
+ Q5 rank=1 own=+0.0233 bestWrong=+0.0182 top=Q5
+ Q6 rank=2 own=+0.0224 bestWrong=+0.0308 top=Q2
+ Q7 rank=5 own=-0.0035 bestWrong=+0.0262 top=Q1
+ Q8 rank=3 own=+0.0173 bestWrong=+0.0300 top=Q1
+
+L24
+ Q1 rank=7 own=-0.0235 bestWrong=+0.0307 top=Q3
+ Q2 rank=3 own=+0.0068 bestWrong=+0.0130 top=Q6
+ Q3 rank=5 own=-0.0068 bestWrong=+0.0503 top=Q2
+ Q4 rank=4 own=+0.0030 bestWrong=+0.0279 top=Q8
+ Q5 rank=4 own=+0.0113 bestWrong=+0.0258 top=Q1
+ Q6 rank=2 own=+0.0214 bestWrong=+0.0322 top=Q1
+ Q7 rank=6 own=-0.0117 bestWrong=+0.0341 top=Q5
+ Q8 rank=2 own=+0.0295 bestWrong=+0.0347 top=Q1
+
+L27
+ Q1 rank=4 own=-0.0065 bestWrong=+0.0763 top=Q3
+ Q2 rank=2 own=+0.0195 bestWrong=+0.0652 top=Q8
+ Q3 rank=8 own=-0.0830 bestWrong=+0.0381 top=Q6
+ Q4 rank=2 own=+0.0163 bestWrong=+0.0449 top=Q1
+ Q5 rank=2 own=+0.0600 bestWrong=+0.0767 top=Q3
+ Q6 rank=1 own=+0.0553 bestWrong=+0.0305 top=Q6
+ Q7 rank=6 own=-0.0045 bestWrong=+0.0721 top=Q8
+ Q8 rank=8 own=-0.0644 bestWrong=+0.0518 top=Q6
+[15/24] Raw vs residual trajectory geometry...
+L08 RAW/RES=+0.6574 RAW/COMMON=+0.7356 RES/NEG=-0.9999
+L09 RAW/RES=+0.6442 RAW/COMMON=+0.7406 RES/NEG=-0.9457
+L10 RAW/RES=+0.6374 RAW/COMMON=+0.7234 RES/NEG=-0.8942
+L12 RAW/RES=+0.6260 RAW/COMMON=+0.7210 RES/NEG=-0.7616
+L16 RAW/RES=+0.6382 RAW/COMMON=+0.6700 RES/NEG=-0.4248
+L19 RAW/RES=+0.6144 RAW/COMMON=+0.6309 RES/NEG=-0.2127
+L20 RAW/RES=+0.5836 RAW/COMMON=+0.6148 RES/NEG=-0.1411
+L24 RAW/RES=+0.5311 RAW/COMMON=+0.5756 RES/NEG=-0.0220
+L27 RAW/RES=+0.4874 RAW/COMMON=+0.4849 RES/NEG=+0.1268
+[16/24] Cross-fact fingerprint separation...
+
+RAW
+L08 bestCross=+0.5789
+L09 bestCross=+0.5850
+L10 bestCross=+0.5637
+L12 bestCross=+0.5194
+L16 bestCross=+0.4152
+L19 bestCross=+0.3206
+L20 bestCross=+0.2522
+L24 bestCross=+0.2293
+L27 bestCross=+0.2094
+
+RESIDUAL
+L08 bestCross=+0.0454
+L09 bestCross=+0.1190
+L10 bestCross=+0.1436
+L12 bestCross=+0.1361
+L16 bestCross=+0.0850
+L19 bestCross=+0.1341
+L20 bestCross=+0.1322
+L24 bestCross=+0.0866
+L27 bestCross=+0.2454
+
+COMMON
+L08 bestCross=+0.9998
+L09 bestCross=+0.9605
+L10 bestCross=+0.9305
+L12 bestCross=+0.8678
+L16 bestCross=+0.7158
+L19 bestCross=+0.5089
+L20 bestCross=+0.4650
+L24 bestCross=+0.3410
+L27 bestCross=+0.3624
+[17/24] Permutation null: RAW vs RESIDUAL...
+
+RAW
+L08 observed=-0.0211 z=+3.725 p=0.0005
+L12 observed=-0.0346 z=+0.521 p=0.2459
+L16 observed=-0.0125 z=+2.112 p=0.0325
+L19 observed=-0.0385 z=-0.171 p=0.5392
+L24 observed=-0.0291 z=+0.022 p=0.4608
+L27 observed=-0.0447 z=+0.387 p=0.3233
+
+RESIDUAL
+L08 observed=+0.0091 z=+4.272 p=0.0005
+L12 observed=-0.0264 z=+0.703 p=0.2359
+L16 observed=-0.0303 z=+0.811 p=0.1979
+L19 observed=-0.0133 z=+2.051 p=0.0255
+L24 observed=-0.0273 z=+0.250 p=0.3808
+L27 observed=-0.0579 z=-0.089 p=0.5232
+
+COMMON
+L08 observed=-0.0618 z=+0.650 p=0.2484
+L12 observed=-0.0399 z=+1.689 p=0.0440
+L16 observed=-0.0226 z=+0.627 p=0.2619
+L19 observed=-0.0391 z=-1.200 p=0.8951
+L24 observed=-0.0321 z=-0.429 p=0.6582
+L27 observed=-0.0308 z=+1.552 p=0.0785
+[18/24] Behavioral candidate scorer...
+Q1 VAN=-12.0987 RAW=-12.0507 RES=-12.1747 COMMON=-11.9378 NEGRES=-12.0104
+Q2 VAN=-9.3940 RAW=-9.5474 RES=-9.4203 COMMON=-9.6212 NEGRES=-9.2670
+Q3 VAN=-5.7652 RAW=-5.8285 RES=-5.5195 COMMON=-5.7942 NEGRES=-5.4712
+Q4 VAN=-7.5475 RAW=-7.6162 RES=-7.6426 COMMON=-7.8046 NEGRES=-7.4412
+Q5 VAN=-1.4517 RAW=-1.4531 RES=-1.5844 COMMON=-1.5055 NEGRES=-1.3038
+Q6 VAN=-14.9536 RAW=-15.3857 RES=-15.2823 COMMON=-14.9146 NEGRES=-15.0649
+Q7 VAN=-5.7854 RAW=-5.9514 RES=-5.6783 COMMON=-5.7448 NEGRES=-5.7890
+Q8 VAN=-4.9452 RAW=-5.1025 RES=-4.9604 COMMON=-5.1989 NEGRES=-4.9326
+[19/24] Behavioral summary...
+RAW          meanΔmargin=-0.1243 meanΔtargetLP=-0.2085 improved=1/8
+RESIDUAL     meanΔmargin=-0.0402 meanΔtargetLP=+0.1219 improved=2/8
+COMMON       meanΔmargin=-0.0726 meanΔtargetLP=-0.3255 improved=3/8
+NEG_RESIDUAL meanΔmargin=+0.0826 meanΔtargetLP=-0.0409 improved=6/8
+[20/24] Energy-matched decomposition check...
+RAW          L08 meanDose=4.0043% min=3.9881% max=4.0280%
+RESIDUAL     L08 meanDose=4.0045% min=4.0007% max=4.0097%
+COMMON       L08 meanDose=4.0268% min=4.0246% max=4.0288%
+NEG_RESIDUAL L08 meanDose=4.0046% min=3.9988% max=4.0099%
+[21/24] Weight sentinel...
+[22/24] Decision metrics...
+RAW          lateTop1=0.156 lateMeanRank=4.188 lateIdentityMargin=-0.0359
+RESIDUAL     lateTop1=0.188 lateMeanRank=3.750 lateIdentityMargin=-0.0281
+COMMON       lateTop1=0.125 lateMeanRank=4.562 lateIdentityMargin=-0.0318
+NEG_RESIDUAL lateTop1=0.125 lateMeanRank=4.375 lateIdentityMargin=-0.0336
+[23/24] RESULTS
+
+================================================================================================================================
+TEST 227 RESULTS
+================================================================================================================================
+MODE: RAW vs COMMON vs IDENTITY-RESIDUAL PACKET | SINGLE L08 INJECTION | DOSE=0.0400
+L09-L27 NEW INJECTION: ZERO | WEIGHTS FROZEN | CANDIDATES NEVER ENTER INTERVENTION
+
+PACKET DECOMPOSITION
+COMMON norm=1.7673
+Q1 RAW=2.2737 RES=1.6325 RES/RAW=0.7180
+Q2 RAW=2.7109 RES=1.6504 RES/RAW=0.6088
+Q3 RAW=1.7387 RES=1.3385 RES/RAW=0.7699
+Q4 RAW=2.1934 RES=1.6377 RES/RAW=0.7467
+Q5 RAW=2.4782 RES=1.7574 RES/RAW=0.7091
+Q6 RAW=2.4237 RES=1.5618 RES/RAW=0.6444
+Q7 RAW=2.6123 RES=1.7960 RES/RAW=0.6875
+Q8 RAW=2.6623 RES=1.6363 RES/RAW=0.6146
+
+LATE OBJECT DECODING
+RAW          top1=0.156 meanRank=4.188 identityMargin=-0.0359
+RESIDUAL     top1=0.188 meanRank=3.750 identityMargin=-0.0281
+COMMON       top1=0.125 meanRank=4.562 identityMargin=-0.0318
+NEG_RESIDUAL top1=0.125 meanRank=4.375 identityMargin=-0.0336
+
+BEHAVIOR
+RAW          meanΔmargin=-0.1243 meanΔtargetLP=-0.2085 improved=1/8
+RESIDUAL     meanΔmargin=-0.0402 meanΔtargetLP=+0.1219 improved=2/8
+COMMON       meanΔmargin=-0.0726 meanΔtargetLP=-0.3255 improved=3/8
+NEG_RESIDUAL meanΔmargin=+0.0826 meanΔtargetLP=-0.0409 improved=6/8
+
+INTERPRETATION GATE
+RESULT: PARTIAL_RESIDUAL_ENRICHMENT — identity residual improves at least one decoding dimension, but object identity remains incomplete.
+--------------------------------------------------------------------------------------------------------------------------------
+Weights: PASS | L08 only intervention | L09-L27 displacement is endogenous downstream propagation
+RAW = original TEST222 packet | COMMON = across-fact packet mean | RESIDUAL = RAW - COMMON
+================================================================================================================================
+[24/24] TEST 227 COMPLETE
