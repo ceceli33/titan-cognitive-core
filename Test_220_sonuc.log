@@ -1,0 +1,212 @@
+ ================================================================================================================================
+TEST 220 — ATTENTION READOUT PATH X-RAY — FIXED
+================================================================================================================================
+LINEAGE: TEST213 -> TEST217 -> TEST218 -> TEST219 -> TEST220
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct | MOTOR: OFF
+[1/18] Model...
+config.json: 100% 663/663 [00:00<00:00, 84.2kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 720kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 46.4MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 70.3MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 104MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.61MB/s]Download complete: :  13.1GB,  594MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  483MB/s  Fetching 4 files: 100% 4/4 [00:38<00:00,  6.53s/it]Loading weights: 100% 339/339 [00:04<00:00, 99.05it/s]generation_config.json: 100% 243/243 [00:00<00:00, 30.2kB/s]hidden=3584 q_heads=28 kv_heads=4 group=7 head_dim=128
+[2/18] Token maps...
+Q1 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND subject=[25, 26, 27, 28] answer_slot=35
+Q2 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND subject=[25, 26, 27, 28] answer_slot=35
+Q3 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND subject=[25, 26, 27, 28] answer_slot=35
+Q4 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND subject=[25, 26, 27, 28] answer_slot=35
+Q5 FACT subject=[25, 26, 27, 28, 29] relation=[30] object=[31, 32, 33] | BLIND subject=[25, 26, 27, 28, 29] answer_slot=36
+Q6 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND subject=[25, 26, 27, 28] answer_slot=35
+Q7 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND subject=[25, 26, 27, 28] answer_slot=35
+Q8 FACT subject=[25, 26, 27, 28, 29] relation=[30] object=[31, 32, 33] | BLIND subject=[25, 26, 27, 28, 29] answer_slot=36
+[3/18] Q/K/V capture...
+Q1 captured
+Q2 captured
+Q3 captured
+Q4 captured
+Q5 captured
+Q6 captured
+Q7 captured
+Q8 captured
+[4/18] RoPE engine...
+RoPE=Qwen2RotaryEmbedding max_seq=40
+[5/18] GQA geometry...
+V/L08/H00 query-head group=[0, 1, 2, 3, 4, 5, 6]
+V/L07/H02 query-head group=[14, 15, 16, 17, 18, 19, 20]
+[6/18] Exact QK attention reconstruction...
+[7/18] FACT readout from OBJECT_END...
+Q1 BEST QH=00 QPOS=36 objEndAttn=0.256498 objSpan=0.517942 subj=0.136230 rel=0.073995
+Q2 BEST QH=00 QPOS=36 objEndAttn=0.369859 objSpan=0.487859 subj=0.124801 rel=0.095084
+Q3 BEST QH=00 QPOS=36 objEndAttn=0.233636 objSpan=0.401684 subj=0.145176 rel=0.129454
+Q4 BEST QH=05 QPOS=33 objEndAttn=0.282498 objSpan=0.397792 subj=0.081239 rel=0.040766
+Q5 BEST QH=02 QPOS=37 objEndAttn=0.221648 objSpan=0.257039 subj=0.088170 rel=0.054724
+Q6 BEST QH=00 QPOS=36 objEndAttn=0.297795 objSpan=0.389988 subj=0.195276 rel=0.135077
+Q7 BEST QH=06 QPOS=32 objEndAttn=0.313337 objSpan=0.327609 subj=0.006561 rel=0.004250
+Q8 BEST QH=00 QPOS=37 objEndAttn=0.325245 objSpan=0.441312 subj=0.203838 rel=0.143200
+[8/18] FACT top paths...
+Q1
+ QH00 pos=36 objEnd=0.256498 objSpan=0.517942 subj=0.136230 rel=0.073995
+ QH00 pos=33 objEnd=0.211681 objSpan=0.321117 subj=0.117406 rel=0.042396
+ QH05 pos=36 objEnd=0.199315 objSpan=0.258402 subj=0.090358 rel=0.131022
+ QH05 pos=33 objEnd=0.123410 objSpan=0.165323 subj=0.062216 rel=0.098073
+ QH02 pos=36 objEnd=0.117217 objSpan=0.221984 subj=0.099900 rel=0.065937
+ QH06 pos=32 objEnd=0.113037 objSpan=0.136914 subj=0.009357 rel=0.006700
+ QH05 pos=34 objEnd=0.101749 objSpan=0.126205 subj=0.055000 rel=0.072610
+Q2
+ QH00 pos=36 objEnd=0.369859 objSpan=0.487859 subj=0.124801 rel=0.095084
+ QH06 pos=32 objEnd=0.286008 objSpan=0.295269 subj=0.005466 rel=0.004937
+ QH00 pos=33 objEnd=0.197719 objSpan=0.249554 subj=0.103411 rel=0.080021
+ QH05 pos=33 objEnd=0.172071 objSpan=0.235783 subj=0.051779 rel=0.069460
+ QH05 pos=34 objEnd=0.149531 objSpan=0.174256 subj=0.035575 rel=0.063447
+ QH02 pos=36 objEnd=0.146738 objSpan=0.200883 subj=0.070954 rel=0.067194
+ QH05 pos=36 objEnd=0.117217 objSpan=0.188162 subj=0.080959 rel=0.239773
+Q3
+ QH00 pos=36 objEnd=0.233636 objSpan=0.401684 subj=0.145176 rel=0.129454
+ QH06 pos=32 objEnd=0.231288 objSpan=0.240207 subj=0.004194 rel=0.002155
+ QH00 pos=33 objEnd=0.177196 objSpan=0.259670 subj=0.071986 rel=0.039431
+ QH05 pos=36 objEnd=0.173536 objSpan=0.226213 subj=0.043345 rel=0.228962
+ QH05 pos=33 objEnd=0.105664 objSpan=0.157873 subj=0.047065 rel=0.076592
+ QH02 pos=32 objEnd=0.102031 objSpan=0.212585 subj=0.159063 rel=0.101682
+ QH00 pos=35 objEnd=0.082649 objSpan=0.116618 subj=0.078350 rel=0.189959
+Q4
+ QH05 pos=33 objEnd=0.282498 objSpan=0.397792 subj=0.081239 rel=0.040766
+ QH00 pos=36 objEnd=0.223542 objSpan=0.417263 subj=0.167342 rel=0.194944
+ QH00 pos=33 objEnd=0.193767 objSpan=0.314181 subj=0.115540 rel=0.095268
+ QH06 pos=32 objEnd=0.137595 objSpan=0.152086 subj=0.004767 rel=0.001766
+ QH05 pos=32 objEnd=0.121855 objSpan=0.377347 subj=0.161181 rel=0.228263
+ QH05 pos=36 objEnd=0.101853 objSpan=0.298463 subj=0.236634 rel=0.163235
+ QH02 pos=36 objEnd=0.088357 objSpan=0.181508 subj=0.074774 rel=0.151857
+Q5
+ QH02 pos=37 objEnd=0.221648 objSpan=0.257039 subj=0.088170 rel=0.054724
+ QH05 pos=33 objEnd=0.204293 objSpan=0.322995 subj=0.260377 rel=0.086540
+ QH00 pos=37 objEnd=0.203558 objSpan=0.268013 subj=0.341488 rel=0.083747
+ QH05 pos=37 objEnd=0.177482 objSpan=0.219109 subj=0.148041 rel=0.135826
+ QH00 pos=34 objEnd=0.166951 objSpan=0.194998 subj=0.157871 rel=0.043426
+ QH06 pos=33 objEnd=0.162859 objSpan=0.174472 subj=0.008453 rel=0.002995
+ QH05 pos=34 objEnd=0.162191 objSpan=0.190929 subj=0.150044 rel=0.096269
+Q6
+ QH00 pos=36 objEnd=0.297795 objSpan=0.389988 subj=0.195276 rel=0.135077
+ QH00 pos=33 objEnd=0.246324 objSpan=0.314045 subj=0.055636 rel=0.061008
+ QH06 pos=32 objEnd=0.230776 objSpan=0.248779 subj=0.006741 rel=0.005276
+ QH04 pos=32 objEnd=0.192012 objSpan=0.216232 subj=0.394276 rel=0.098986
+ QH05 pos=32 objEnd=0.104206 objSpan=0.440341 subj=0.144182 rel=0.143986
+ QH05 pos=33 objEnd=0.095629 objSpan=0.230123 subj=0.081396 rel=0.086534
+ QH00 pos=32 objEnd=0.094893 objSpan=0.156055 subj=0.055615 rel=0.013912
+Q7
+ QH06 pos=32 objEnd=0.313337 objSpan=0.327609 subj=0.006561 rel=0.004250
+ QH00 pos=36 objEnd=0.235452 objSpan=0.524491 subj=0.114096 rel=0.092584
+ QH05 pos=33 objEnd=0.219083 objSpan=0.279458 subj=0.067961 rel=0.029309
+ QH00 pos=33 objEnd=0.213925 objSpan=0.331914 subj=0.088416 rel=0.029061
+ QH05 pos=32 objEnd=0.095173 objSpan=0.504511 subj=0.137775 rel=0.176307
+ QH04 pos=32 objEnd=0.091152 objSpan=0.151170 subj=0.305134 rel=0.098422
+ QH05 pos=36 objEnd=0.089357 objSpan=0.159900 subj=0.151035 rel=0.119453
+Q8
+ QH00 pos=37 objEnd=0.325245 objSpan=0.441312 subj=0.203838 rel=0.143200
+ QH06 pos=33 objEnd=0.305303 objSpan=0.324140 subj=0.009075 rel=0.004491
+ QH00 pos=34 objEnd=0.300757 objSpan=0.340479 subj=0.191068 rel=0.070637
+ QH05 pos=37 objEnd=0.194874 objSpan=0.253434 subj=0.121554 rel=0.149606
+ QH05 pos=34 objEnd=0.172647 objSpan=0.212086 subj=0.083635 rel=0.045399
+ QH02 pos=37 objEnd=0.164584 objSpan=0.199205 subj=0.104214 rel=0.056279
+ QH05 pos=33 objEnd=0.108351 objSpan=0.231302 subj=0.252914 rel=0.066781
+[9/18] Cross-fact readout consistency...
+L08 KVH00/QH00 min=0.203558 mean=0.268198 sd=0.053667 perQ=0.2565,0.3699,0.2336,0.2235,0.2036,0.2978,0.2355,0.3252
+L08 KVH00/QH01 min=0.018017 mean=0.049966 sd=0.022295 perQ=0.0781,0.0465,0.0336,0.0344,0.0504,0.0482,0.0180,0.0905
+L08 KVH00/QH02 min=0.059520 mean=0.121054 sd=0.050849 perQ=0.1172,0.1467,0.1020,0.0884,0.2216,0.0595,0.0683,0.1646
+L08 KVH00/QH03 min=0.012589 mean=0.026856 sd=0.008489 perQ=0.0330,0.0126,0.0349,0.0397,0.0194,0.0208,0.0246,0.0299
+L08 KVH00/QH04 min=0.040104 mean=0.085936 sd=0.044811 perQ=0.0955,0.0887,0.0406,0.0705,0.0689,0.1920,0.0912,0.0401
+L08 KVH00/QH05 min=0.104206 mean=0.193735 sd=0.046848 perQ=0.1993,0.1721,0.1735,0.2825,0.2043,0.1042,0.2191,0.1949
+L08 KVH00/QH06 min=0.113037 mean=0.222525 sd=0.072487 perQ=0.1130,0.2860,0.2313,0.1376,0.1629,0.2308,0.3133,0.3053
+[10/18] Blind↔FACT query-address similarity...
+Q1 bestAddressCos=+0.986010 QH=03 factQpos=38
+Q2 bestAddressCos=+0.984751 QH=03 factQpos=38
+Q3 bestAddressCos=+0.985379 QH=03 factQpos=38
+Q4 bestAddressCos=+0.986393 QH=03 factQpos=38
+Q5 bestAddressCos=+0.985980 QH=03 factQpos=39
+Q6 bestAddressCos=+0.985804 QH=03 factQpos=38
+Q7 bestAddressCos=+0.986007 QH=03 factQpos=38
+Q8 bestAddressCos=+0.985719 QH=03 factQpos=39
+[11/18] Blind query → source OBJECT_END K compatibility...
+Q1 QH00=+0.2572, QH05=-1.0040, QH02=-2.8240, QH04=-3.8397, QH06=-4.0618, QH03=-4.0807, QH01=-4.3754
+Q2 QH00=-0.5746, QH05=-0.9116, QH02=-3.4089, QH04=-3.9311, QH03=-4.4633, QH06=-4.7301, QH01=-5.0341
+Q3 QH00=+0.4885, QH05=-0.4638, QH03=-3.2972, QH02=-3.5257, QH04=-3.7029, QH01=-4.5245, QH06=-5.5438
+Q4 QH00=+0.1925, QH05=-0.9545, QH02=-3.1288, QH03=-3.6169, QH04=-3.9632, QH01=-4.5448, QH06=-5.0624
+Q5 QH00=+0.0856, QH05=-0.2834, QH02=-3.4832, QH03=-3.6387, QH04=-3.8055, QH01=-4.4667, QH06=-5.5413
+Q6 QH00=-0.3708, QH05=-1.7165, QH04=-4.4005, QH02=-4.7007, QH01=-4.8355, QH03=-4.8890, QH06=-5.7166
+Q7 QH00=-0.4348, QH05=-1.1448, QH03=-3.8704, QH02=-3.8975, QH04=-4.4019, QH01=-5.3374, QH06=-5.7413
+Q8 QH00=+0.4729, QH05=-0.8715, QH02=-3.6631, QH03=-3.6887, QH01=-4.4655, QH04=-4.6886, QH06=-5.0936
+[12/18] Correct-vs-wrong source K address control...
+Q1 correct=+0.2572 bestWrong=+0.7855 margin=-0.5283 rank=3/8
+Q2 correct=-0.5746 bestWrong=+0.7478 margin=-1.3224 rank=8/8
+Q3 correct=+0.4885 bestWrong=+0.3336 margin=+0.1549 rank=1/8
+Q4 correct=+0.1925 bestWrong=+0.7896 margin=-0.5971 rank=4/8
+Q5 correct=+0.0856 bestWrong=+1.0351 margin=-0.9496 rank=5/8
+Q6 correct=-0.3708 bestWrong=+0.6646 margin=-1.0354 rank=6/8
+Q7 correct=-0.4348 bestWrong=+0.9847 margin=-1.4196 rank=7/8
+Q8 correct=+0.4729 bestWrong=+0.5731 margin=-0.1001 rank=2/8
+[13/18] Secondary V/L07/H02...
+Q1 QH=18 objEndAttn=0.432249
+Q2 QH=18 objEndAttn=0.316394
+Q3 QH=18 objEndAttn=0.555483
+Q4 QH=20 objEndAttn=0.501480
+Q5 QH=18 objEndAttn=0.499099
+Q6 QH=20 objEndAttn=0.561177
+Q7 QH=18 objEndAttn=0.432720
+Q8 QH=18 objEndAttn=0.474030
+[14/18] Value contribution proxy...
+Q1 Vnorm=6.8402 proxy=1.754506 QH=00 attn=0.256498
+Q2 Vnorm=6.6542 proxy=2.461123 QH=00 attn=0.369859
+Q3 Vnorm=6.0734 proxy=1.418964 QH=00 attn=0.233636
+Q4 Vnorm=6.1383 proxy=1.734048 QH=05 attn=0.282498
+Q5 Vnorm=7.1075 proxy=1.575354 QH=02 attn=0.221648
+Q6 Vnorm=7.5236 proxy=2.240491 QH=00 attn=0.297795
+Q7 Vnorm=7.3799 proxy=2.312409 QH=06 attn=0.313337
+Q8 Vnorm=6.8976 proxy=2.243414 QH=00 attn=0.325245
+[15/18] Summary...
+FACT objEnd attention mean=0.287564 min=0.221648
+BLIND↔FACT address cosine mean=+0.985755 min=+0.984751
+Correct OBJECT_END K top1=1/8 meanRank=4.500/8 meanMargin=-0.724687
+[16/18] Weight sentinel...
+[17/18] RESULTS
+
+================================================================================================================================
+TEST 220 RESULTS — FIXED
+================================================================================================================================
+MODE: MOTOR OFF | WEIGHTS FROZEN | NO INTERVENTION | Q/K/V PROJECTION X-RAY
+PRIMARY TEST218 CARRIER: V/L08/H00 | GQA QUERY GROUP: QH00-QH06
+
+FACT OBJECT_END READOUT
+Q1 Rovan Tesk | the amber compass | QH=00 qpos=36 objEndAttn=0.256498 objSpan=0.517942
+Q2 Mira Veln | the silver lantern | QH=00 qpos=36 objEndAttn=0.369859 objSpan=0.487859
+Q3 Dalen Quor | the violet key | QH=00 qpos=36 objEndAttn=0.233636 objSpan=0.401684
+Q4 Sorin Kelm | the bronze sphere | QH=05 qpos=33 objEndAttn=0.282498 objSpan=0.397792
+Q5 Varek Tonn | the golden necklace | QH=02 qpos=37 objEndAttn=0.221648 objSpan=0.257039
+Q6 Lira Mesk | the iron dagger | QH=00 qpos=36 objEndAttn=0.297795 objSpan=0.389988
+Q7 Korin Drel | the crystal mirror | QH=06 qpos=32 objEndAttn=0.313337 objSpan=0.327609
+Q8 Taren Vosk | the wooden mask | QH=00 qpos=37 objEndAttn=0.325245 objSpan=0.441312
+
+BLIND QUERY ADDRESS MATCH
+Q1 addressCos=+0.986010 QH=03 | correctK=+0.2572 bestWrongK=+0.7855 margin=-0.5283 rank=3/8
+Q2 addressCos=+0.984751 QH=03 | correctK=-0.5746 bestWrongK=+0.7478 margin=-1.3224 rank=8/8
+Q3 addressCos=+0.985379 QH=03 | correctK=+0.4885 bestWrongK=+0.3336 margin=+0.1549 rank=1/8
+Q4 addressCos=+0.986393 QH=03 | correctK=+0.1925 bestWrongK=+0.7896 margin=-0.5971 rank=4/8
+Q5 addressCos=+0.985980 QH=03 | correctK=+0.0856 bestWrongK=+1.0351 margin=-0.9496 rank=5/8
+Q6 addressCos=+0.985804 QH=03 | correctK=-0.3708 bestWrongK=+0.6646 margin=-1.0354 rank=6/8
+Q7 addressCos=+0.986007 QH=03 | correctK=-0.4348 bestWrongK=+0.9847 margin=-1.4196 rank=7/8
+Q8 addressCos=+0.985719 QH=03 | correctK=+0.4729 bestWrongK=+0.5731 margin=-0.1001 rank=2/8
+
+QUERY-HEAD CONSISTENCY
+QH00 min=0.203558 mean=0.268198 sd=0.053667
+QH01 min=0.018017 mean=0.049966 sd=0.022295
+QH02 min=0.059520 mean=0.121054 sd=0.050849
+QH03 min=0.012589 mean=0.026856 sd=0.008489
+QH04 min=0.040104 mean=0.085936 sd=0.044811
+QH05 min=0.104206 mean=0.193735 sd=0.046848
+QH06 min=0.113037 mean=0.222525 sd=0.072487
+
+SUMMARY
+FACT objEnd attention mean=0.287564 min=0.221648
+BLIND↔FACT address cosine mean=+0.985755 min=+0.984751
+Correct OBJECT_END K top1=1/8 meanRank=4.500/8 meanMargin=-0.724687
+--------------------------------------------------------------------------------------------------------------------------------
+Weights: PASS | Injection: NONE | L0-L27 unchanged
+RoPE reconstructed through model.model.rotary_emb; no dependency on Qwen2Attention.rotary_emb
+Readout/address geometry only; no behavioral-retrieval or causal-head claim
+================================================================================================================================
+[18/18] TEST 220 COMPLETE
