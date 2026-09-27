@@ -1,0 +1,270 @@
+ ================================================================================================================================
+TEST 229 — LEAVE-ONE-QUERY-OUT IDENTITY SUBSPACE GENERALIZATION
+================================================================================================================================
+LINEAGE: TEST213 -> TEST217 -> TEST218 -> TEST219 -> TEST220 -> TEST221 -> TEST222 -> TEST223 -> TEST224 -> TEST225 -> TEST226 -> TEST227 -> TEST228 -> TEST229
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+[1/24] Model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 75.8kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 901kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 35.4MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 70.1MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 130MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.38MB/s]Download complete: :  13.1GB,  269MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  486MB/s  Fetching 4 files: 100% 4/4 [00:38<00:00,  6.86s/it]Loading weights: 100% 339/339 [00:03<00:00, 98.45it/s]generation_config.json: 100% 243/243 [00:00<00:00, 34.1kB/s]hidden=3584 q_heads=28 kv_heads=4 group=7 head_dim=128
+[2/24] Token maps...
+Q1 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q2 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q3 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q4 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q5 FACT subject=[25, 26, 27, 28, 29] relation=[30] object=[31, 32, 33] | BLIND slot=36
+Q6 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q7 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q8 FACT subject=[25, 26, 27, 28, 29] relation=[30] object=[31, 32, 33] | BLIND slot=36
+[3/24] RoPE...
+RoPE=Qwen2RotaryEmbedding max_seq=44
+[4/24] Capture TEST222 source Q/K/V...
+Q1 captured
+Q2 captured
+Q3 captured
+Q4 captured
+Q5 captured
+Q6 captured
+Q7 captured
+Q8 captured
+[5/24] Reconstruct TEST222 source readout...
+Q1 bestQH=00 qpos=36 objEndAttn=0.256498
+Q2 bestQH=00 qpos=36 objEndAttn=0.369859
+Q3 bestQH=00 qpos=36 objEndAttn=0.233636
+Q4 bestQH=05 qpos=33 objEndAttn=0.282498
+Q5 bestQH=02 qpos=37 objEndAttn=0.221648
+Q6 bestQH=00 qpos=36 objEndAttn=0.297795
+Q7 bestQH=06 qpos=32 objEndAttn=0.313337
+Q8 bestQH=00 qpos=37 objEndAttn=0.325245
+[6/24] Forge TEST222 RAW packets...
+Q1 rawNorm=2.2737
+Q2 rawNorm=2.7109
+Q3 rawNorm=1.7387
+Q4 rawNorm=2.1934
+Q5 rawNorm=2.4782
+Q6 rawNorm=2.4237
+Q7 rawNorm=2.6123
+Q8 rawNorm=2.6623
+[7/24] TEST227 residual packets...
+Q1 residualNorm=1.6325
+Q2 residualNorm=1.6504
+Q3 residualNorm=1.3385
+Q4 residualNorm=1.6377
+Q5 residualNorm=1.7574
+Q6 residualNorm=1.5618
+Q7 residualNorm=1.7960
+Q8 residualNorm=1.6363
+L08 source geometry meanOffDiag=-0.1421
+[8/24] Vanilla blind trajectories...
+Q1 vanilla captured
+Q2 vanilla captured
+Q3 vanilla captured
+Q4 vanilla captured
+Q5 vanilla captured
+Q6 vanilla captured
+Q7 vanilla captured
+Q8 vanilla captured
+[9/24] Full query x packet response cube...
+Query Q1: 8 packets complete
+Query Q2: 8 packets complete
+Query Q3: 8 packets complete
+Query Q4: 8 packets complete
+Query Q5: 8 packets complete
+Query Q6: 8 packets complete
+Query Q7: 8 packets complete
+Query Q8: 8 packets complete
+[10/24] Verify L08 cube...
+Q1 packetCos=+0.9993 dose=4.0049%
+Q2 packetCos=+0.9993 dose=4.0040%
+Q3 packetCos=+0.9993 dose=4.0041%
+Q4 packetCos=+0.9993 dose=4.0054%
+Q5 packetCos=+0.9992 dose=4.0042%
+Q6 packetCos=+0.9993 dose=4.0051%
+Q7 packetCos=+0.9993 dose=4.0045%
+Q8 packetCos=+0.9993 dose=4.0069%
+[11/24] Center responses within each query...
+[12/24] LOO subspace extraction...
+LOO bases ready.
+[13/24] Explained train identity energy...
+L08 r1=0.2119 r2=0.3808 r3=0.5409 r4=0.6849 r6=0.9139 r7=1.0000
+L09 r1=0.2436 r2=0.4448 r3=0.5944 r4=0.7258 r6=0.9276 r7=1.0000
+L10 r1=0.2408 r2=0.4597 r3=0.5986 r4=0.7251 r6=0.9293 r7=1.0000
+L12 r1=0.2321 r2=0.4545 r3=0.5952 r4=0.7311 r6=0.9294 r7=1.0000
+L16 r1=0.2249 r2=0.4428 r3=0.5946 r4=0.7345 r6=0.9267 r7=1.0000
+L19 r1=0.2744 r2=0.4827 r3=0.6256 r4=0.7580 r6=0.9418 r7=1.0000
+L20 r1=0.2734 r2=0.4813 r3=0.6280 r4=0.7588 r6=0.9487 r7=1.0000
+L24 r1=0.2602 r2=0.4877 r3=0.6262 r4=0.7430 r6=0.9477 r7=1.0000
+L27 r1=0.2548 r2=0.4760 r3=0.6153 r4=0.7330 r6=0.9271 r7=1.0000
+[14/24] LOO identity classification...
+L08 r1: 25.0%/rank2.62/m+0.000 r2:100.0%/rank1.00/m+0.102 r3:100.0%/rank1.00/m+0.392 r4:100.0%/rank1.00/m+0.519 r6:100.0%/rank1.00/m+0.854 r7:100.0%/rank1.00/m+0.961
+L09 r1: 25.0%/rank2.62/m+0.000 r2: 85.9%/rank1.14/m+0.042 r3:100.0%/rank1.00/m+0.245 r4:100.0%/rank1.00/m+0.476 r6:100.0%/rank1.00/m+0.796 r7:100.0%/rank1.00/m+0.883
+L10 r1: 25.0%/rank2.62/m+0.000 r2: 96.9%/rank1.03/m+0.029 r3:100.0%/rank1.00/m+0.218 r4:100.0%/rank1.00/m+0.471 r6:100.0%/rank1.00/m+0.778 r7:100.0%/rank1.00/m+0.856
+L12 r1: 25.0%/rank2.59/m+0.000 r2: 98.4%/rank1.02/m+0.052 r3:100.0%/rank1.00/m+0.249 r4:100.0%/rank1.00/m+0.547 r6:100.0%/rank1.00/m+0.779 r7:100.0%/rank1.00/m+0.862
+L16 r1: 25.0%/rank2.61/m-0.062 r2: 84.4%/rank1.16/m+0.078 r3:100.0%/rank1.00/m+0.275 r4:100.0%/rank1.00/m+0.560 r6:100.0%/rank1.00/m+0.790 r7:100.0%/rank1.00/m+0.870
+L19 r1: 25.0%/rank2.50/m+0.000 r2: 84.4%/rank1.16/m+0.078 r3: 96.9%/rank1.03/m+0.268 r4: 98.4%/rank1.02/m+0.514 r6:100.0%/rank1.00/m+0.721 r7:100.0%/rank1.00/m+0.777
+L20 r1: 25.0%/rank2.64/m-0.094 r2: 79.7%/rank1.20/m+0.064 r3: 98.4%/rank1.02/m+0.297 r4:100.0%/rank1.00/m+0.540 r6:100.0%/rank1.00/m+0.713 r7:100.0%/rank1.00/m+0.760
+L24 r1: 25.0%/rank2.75/m-0.156 r2: 68.8%/rank1.33/m+0.057 r3: 98.4%/rank1.02/m+0.308 r4:100.0%/rank1.00/m+0.466 r6:100.0%/rank1.00/m+0.649 r7:100.0%/rank1.00/m+0.692
+L27 r1: 18.8%/rank3.47/m-0.531 r2: 48.4%/rank1.73/m-0.039 r3: 65.6%/rank1.62/m+0.024 r4: 67.2%/rank1.47/m+0.146 r6: 89.1%/rank1.19/m+0.391 r7: 90.6%/rank1.19/m+0.460
+[15/24] Choose rank using TRAIN ONLY...
+L08 selectedRanks=[7, 7, 7, 7, 7, 7, 7, 7] mean=7.00
+L09 selectedRanks=[7, 7, 7, 7, 7, 7, 7, 7] mean=7.00
+L10 selectedRanks=[7, 7, 7, 7, 7, 7, 7, 7] mean=7.00
+L12 selectedRanks=[7, 7, 7, 7, 7, 7, 7, 7] mean=7.00
+L16 selectedRanks=[7, 7, 7, 7, 7, 7, 7, 7] mean=7.00
+L19 selectedRanks=[7, 7, 7, 7, 7, 7, 7, 7] mean=7.00
+L20 selectedRanks=[6, 6, 7, 7, 7, 7, 7, 7] mean=6.75
+L24 selectedRanks=[7, 7, 7, 7, 7, 7, 7, 7] mean=7.00
+L27 selectedRanks=[7, 7, 7, 7, 7, 7, 7, 7] mean=7.00
+[16/24] Strict selected-rank held-out results...
+L08 top1=100.0% meanRank=1.000 margin=+0.9612
+L09 top1=100.0% meanRank=1.000 margin=+0.8834
+L10 top1=100.0% meanRank=1.000 margin=+0.8557
+L12 top1=100.0% meanRank=1.000 margin=+0.8622
+L16 top1=100.0% meanRank=1.000 margin=+0.8702
+L19 top1=100.0% meanRank=1.000 margin=+0.7774
+L20 top1=100.0% meanRank=1.000 margin=+0.7459
+L24 top1=100.0% meanRank=1.000 margin=+0.6924
+L27 top1= 90.6% meanRank=1.188 margin=+0.4603
+[17/24] Per-held-out-query generalization...
+
+L08
+ holdQ1 top1=100.0% rank=1.000 margin=+0.9611 selectedRank=7
+ holdQ2 top1=100.0% rank=1.000 margin=+0.9613 selectedRank=7
+ holdQ3 top1=100.0% rank=1.000 margin=+0.9611 selectedRank=7
+ holdQ4 top1=100.0% rank=1.000 margin=+0.9610 selectedRank=7
+ holdQ5 top1=100.0% rank=1.000 margin=+0.9612 selectedRank=7
+ holdQ6 top1=100.0% rank=1.000 margin=+0.9611 selectedRank=7
+ holdQ7 top1=100.0% rank=1.000 margin=+0.9611 selectedRank=7
+ holdQ8 top1=100.0% rank=1.000 margin=+0.9612 selectedRank=7
+
+L12
+ holdQ1 top1=100.0% rank=1.000 margin=+0.8616 selectedRank=7
+ holdQ2 top1=100.0% rank=1.000 margin=+0.8669 selectedRank=7
+ holdQ3 top1=100.0% rank=1.000 margin=+0.8625 selectedRank=7
+ holdQ4 top1=100.0% rank=1.000 margin=+0.8767 selectedRank=7
+ holdQ5 top1=100.0% rank=1.000 margin=+0.8662 selectedRank=7
+ holdQ6 top1=100.0% rank=1.000 margin=+0.8417 selectedRank=7
+ holdQ7 top1=100.0% rank=1.000 margin=+0.8572 selectedRank=7
+ holdQ8 top1=100.0% rank=1.000 margin=+0.8652 selectedRank=7
+
+L16
+ holdQ1 top1=100.0% rank=1.000 margin=+0.8736 selectedRank=7
+ holdQ2 top1=100.0% rank=1.000 margin=+0.8845 selectedRank=7
+ holdQ3 top1=100.0% rank=1.000 margin=+0.8541 selectedRank=7
+ holdQ4 top1=100.0% rank=1.000 margin=+0.8890 selectedRank=7
+ holdQ5 top1=100.0% rank=1.000 margin=+0.8859 selectedRank=7
+ holdQ6 top1=100.0% rank=1.000 margin=+0.8361 selectedRank=7
+ holdQ7 top1=100.0% rank=1.000 margin=+0.8742 selectedRank=7
+ holdQ8 top1=100.0% rank=1.000 margin=+0.8642 selectedRank=7
+
+L19
+ holdQ1 top1=100.0% rank=1.000 margin=+0.7876 selectedRank=7
+ holdQ2 top1=100.0% rank=1.000 margin=+0.7933 selectedRank=7
+ holdQ3 top1=100.0% rank=1.000 margin=+0.7486 selectedRank=7
+ holdQ4 top1=100.0% rank=1.000 margin=+0.7800 selectedRank=7
+ holdQ5 top1=100.0% rank=1.000 margin=+0.8163 selectedRank=7
+ holdQ6 top1=100.0% rank=1.000 margin=+0.7856 selectedRank=7
+ holdQ7 top1=100.0% rank=1.000 margin=+0.7158 selectedRank=7
+ holdQ8 top1=100.0% rank=1.000 margin=+0.7922 selectedRank=7
+
+L20
+ holdQ1 top1=100.0% rank=1.000 margin=+0.7228 selectedRank=6
+ holdQ2 top1=100.0% rank=1.000 margin=+0.7072 selectedRank=6
+ holdQ3 top1=100.0% rank=1.000 margin=+0.7235 selectedRank=7
+ holdQ4 top1=100.0% rank=1.000 margin=+0.7542 selectedRank=7
+ holdQ5 top1=100.0% rank=1.000 margin=+0.7643 selectedRank=7
+ holdQ6 top1=100.0% rank=1.000 margin=+0.7902 selectedRank=7
+ holdQ7 top1=100.0% rank=1.000 margin=+0.7023 selectedRank=7
+ holdQ8 top1=100.0% rank=1.000 margin=+0.8023 selectedRank=7
+
+L24
+ holdQ1 top1=100.0% rank=1.000 margin=+0.6992 selectedRank=7
+ holdQ2 top1=100.0% rank=1.000 margin=+0.7073 selectedRank=7
+ holdQ3 top1=100.0% rank=1.000 margin=+0.6492 selectedRank=7
+ holdQ4 top1=100.0% rank=1.000 margin=+0.7168 selectedRank=7
+ holdQ5 top1=100.0% rank=1.000 margin=+0.7001 selectedRank=7
+ holdQ6 top1=100.0% rank=1.000 margin=+0.6658 selectedRank=7
+ holdQ7 top1=100.0% rank=1.000 margin=+0.6698 selectedRank=7
+ holdQ8 top1=100.0% rank=1.000 margin=+0.7311 selectedRank=7
+
+L27
+ holdQ1 top1=100.0% rank=1.000 margin=+0.5778 selectedRank=7
+ holdQ2 top1= 87.5% rank=1.375 margin=+0.5028 selectedRank=7
+ holdQ3 top1=100.0% rank=1.000 margin=+0.4501 selectedRank=7
+ holdQ4 top1= 50.0% rank=2.000 margin=+0.0116 selectedRank=7
+ holdQ5 top1= 87.5% rank=1.125 margin=+0.4368 selectedRank=7
+ holdQ6 top1=100.0% rank=1.000 margin=+0.5897 selectedRank=7
+ holdQ7 top1=100.0% rank=1.000 margin=+0.5415 selectedRank=7
+ holdQ8 top1=100.0% rank=1.000 margin=+0.5721 selectedRank=7
+[18/24] Full-space baseline...
+L08 fullTop1=100.0% rank=1.000 margin=+0.9610
+L09 fullTop1=100.0% rank=1.000 margin=+0.8639
+L10 fullTop1=100.0% rank=1.000 margin=+0.8228
+L12 fullTop1=100.0% rank=1.000 margin=+0.8017
+L16 fullTop1=100.0% rank=1.000 margin=+0.7346
+L19 fullTop1=100.0% rank=1.000 margin=+0.5727
+L20 fullTop1=100.0% rank=1.000 margin=+0.5290
+L24 fullTop1=100.0% rank=1.000 margin=+0.4047
+L27 fullTop1= 90.6% rank=1.188 margin=+0.2333
+[19/24] Label permutation null...
+L08 observed=1.0000 null=0.1259±0.0456 z=+19.170 p=0.0010
+L09 observed=1.0000 null=0.1233±0.0445 z=+19.718 p=0.0010
+L10 observed=1.0000 null=0.1233±0.0447 z=+19.611 p=0.0010
+L12 observed=1.0000 null=0.1281±0.0447 z=+19.513 p=0.0010
+L16 observed=1.0000 null=0.1255±0.0430 z=+20.344 p=0.0010
+L19 observed=1.0000 null=0.1265±0.0452 z=+19.345 p=0.0010
+L20 observed=1.0000 null=0.1257±0.0452 z=+19.348 p=0.0010
+L24 observed=1.0000 null=0.1235±0.0454 z=+19.321 p=0.0010
+L27 observed=0.9062 null=0.1253±0.0436 z=+17.911 p=0.0010
+[20/24] Geometry inside LOO subspace...
+L08 heldOutGeometrySpearman=+0.9827
+L09 heldOutGeometrySpearman=+0.7879
+L10 heldOutGeometrySpearman=+0.6829
+L12 heldOutGeometrySpearman=+0.6450
+L16 heldOutGeometrySpearman=+0.5703
+L19 heldOutGeometrySpearman=+0.5302
+L20 heldOutGeometrySpearman=+0.5843
+L24 heldOutGeometrySpearman=+0.5284
+L27 heldOutGeometrySpearman=+0.2830
+[21/24] Weight sentinel...
+[22/24] Decision metrics...
+earlyTop1=1.0000 midTop1=1.0000 lateTop1=0.9766 lateMeanRank=1.047 chanceTop1=0.1250
+[23/24] RESULTS
+
+================================================================================================================================
+TEST 229 RESULTS
+================================================================================================================================
+MODE: 8 RESIDUAL PACKETS x 8 BLIND QUERIES | SINGLE L08 INJECTION | DOSE=0.0400
+LOO: TRAIN 7 QUERIES -> IDENTITY SUBSPACE -> TEST ENTIRE HELD-OUT QUERY
+RANK SELECTION: TRAIN-ONLY 95% IDENTITY ENERGY | NO HELD-OUT LABEL USED FOR SELECTION
+NO TRANSPORT MAP | NO CONTROLLER | NO L09-L27 RE-INJECTION | WEIGHTS FROZEN
+
+STRICT HELD-OUT IDENTITY CLASSIFICATION
+L08 top1=100.0% meanRank=1.000 margin=+0.9612 geometryρ=+0.9827 permP=0.0010
+L09 top1=100.0% meanRank=1.000 margin=+0.8834 geometryρ=+0.7879 permP=0.0010
+L10 top1=100.0% meanRank=1.000 margin=+0.8557 geometryρ=+0.6829 permP=0.0010
+L12 top1=100.0% meanRank=1.000 margin=+0.8622 geometryρ=+0.6450 permP=0.0010
+L16 top1=100.0% meanRank=1.000 margin=+0.8702 geometryρ=+0.5703 permP=0.0010
+L19 top1=100.0% meanRank=1.000 margin=+0.7774 geometryρ=+0.5302 permP=0.0010
+L20 top1=100.0% meanRank=1.000 margin=+0.7459 geometryρ=+0.5843 permP=0.0010
+L24 top1=100.0% meanRank=1.000 margin=+0.6924 geometryρ=+0.5284 permP=0.0010
+L27 top1= 90.6% meanRank=1.188 margin=+0.4603 geometryρ=+0.2830 permP=0.0010
+
+FULL-SPACE BASELINE
+L08 top1=100.0% meanRank=1.000 margin=+0.9610
+L09 top1=100.0% meanRank=1.000 margin=+0.8639
+L10 top1=100.0% meanRank=1.000 margin=+0.8228
+L12 top1=100.0% meanRank=1.000 margin=+0.8017
+L16 top1=100.0% meanRank=1.000 margin=+0.7346
+L19 top1=100.0% meanRank=1.000 margin=+0.5727
+L20 top1=100.0% meanRank=1.000 margin=+0.5290
+L24 top1=100.0% meanRank=1.000 margin=+0.4047
+L27 top1= 90.6% meanRank=1.188 margin=+0.2333
+
+INTERPRETATION GATE
+RESULT: QUERY_GENERAL_IDENTITY_SUBSPACE — late-layer packet identity generalizes across held-out blind queries.
+--------------------------------------------------------------------------------------------------------------------------------
+Weights: PASS | Source facts absent from blind queries | Candidates never enter intervention
+Only L08 is intervened. L09-L27 responses are endogenous downstream consequences.
+================================================================================================================================
+[24/24] TEST 229 COMPLETE
