@@ -1,0 +1,187 @@
+ ================================================================================================================================
+TEST 213 — SEQUENCE-DISTRIBUTED OBJECT-IDENTITY X-RAY
+================================================================================================================================
+LINEAGE: TEST103 -> TEST142 -> TEST192-197 -> TEST205 -> TEST210 -> TEST211 -> TEST212 -> TEST213
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct | MOTOR: OFF
+[1/16] Model...
+config.json: 100% 663/663 [00:00<00:00, 82.4kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 1.06MB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 82.7MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 65.5MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 113MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.65MB/s]Download complete: :  13.1GB,  327MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  479MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.73s/it]Loading weights: 100% 339/339 [00:03<00:00, 98.85it/s]generation_config.json: 100% 243/243 [00:00<00:00, 32.4kB/s][2/16] Full-sequence capture engine...
+[3/16] Target/wrong matched captures...
+Q1 captures=10
+Q2 captures=10
+Q3 captures=10
+Q4 captures=10
+[4/16] Semantic token-site maps...
+Q1 S=[25, 26, 27, 28] R=[29] O=[30, 31, 32] O_END=32 FINAL=38
+Q2 S=[25, 26, 27, 28, 29] R=[30] O=[31, 32, 33] O_END=33 FINAL=39
+Q3 S=[25, 26, 27, 28] R=[29] O=[30, 31, 32] O_END=32 FINAL=38
+Q4 S=[25, 26, 27, 28] R=[29] O=[30, 31, 32] O_END=32 FINAL=38
+[5/16] Sequence alignment check...
+Q1 common-prefix-through-relation=PASS
+Q2 common-prefix-through-relation=PASS
+Q3 common-prefix-through-relation=PASS
+Q4 common-prefix-through-relation=PASS
+[6/16] Representation tensors...
+[7/16] Target-vs-wrong identity maps...
+[8/16] Multi-distractor identity selectivity...
+[9/16] Common-mode / identity residual at every site...
+[10/16] Layer/site ranking...
+res  OBJECT_END L05 score=0.3329 relΔ=113.979% idFrac=0.6687 bestWrongIDcos=+0.0044 pairAbsCos=0.4389
+res  OBJECT_END L06 score=0.3240 relΔ=108.872% idFrac=0.6581 bestWrongIDcos=+0.0152 pairAbsCos=0.4553
+mlp  OBJECT     L04 score=0.3219 relΔ= 93.905% idFrac=0.6871 bestWrongIDcos=+0.0629 pairAbsCos=0.3726
+res  OBJECT_END L04 score=0.3210 relΔ=114.490% idFrac=0.6615 bestWrongIDcos=+0.0295 pairAbsCos=0.4382
+mlp  OBJECT     L23 score=0.3185 relΔ= 63.956% idFrac=0.6772 bestWrongIDcos=+0.0595 pairAbsCos=0.3900
+attn OBJECT_END L08 score=0.3125 relΔ= 58.533% idFrac=0.6519 bestWrongIDcos=+0.0412 pairAbsCos=0.4426
+mlp  OBJECT_END L06 score=0.3099 relΔ=129.117% idFrac=0.6539 bestWrongIDcos=+0.0520 pairAbsCos=0.4458
+res  OBJECT     L04 score=0.3069 relΔ= 76.534% idFrac=0.6569 bestWrongIDcos=+0.0656 pairAbsCos=0.4367
+res  OBJECT     L01 score=0.3058 relΔ= 59.856% idFrac=0.6585 bestWrongIDcos=+0.0714 pairAbsCos=0.4081
+mlp  OBJECT_END L09 score=0.3040 relΔ=115.194% idFrac=0.6289 bestWrongIDcos=+0.0332 pairAbsCos=0.4871
+mlp  OBJECT_END L12 score=0.2888 relΔ=108.096% idFrac=0.6319 bestWrongIDcos=+0.0860 pairAbsCos=0.5008
+attn OBJECT_END L03 score=0.2882 relΔ=101.208% idFrac=0.6139 bestWrongIDcos=+0.0612 pairAbsCos=0.3848
+attn OBJECT_END L15 score=0.2855 relΔ= 48.253% idFrac=0.5937 bestWrongIDcos=+0.0381 pairAbsCos=0.5124
+res  OBJECT     L00 score=0.2849 relΔ= 68.394% idFrac=0.6214 bestWrongIDcos=+0.0831 pairAbsCos=0.4867
+res  OBJECT     L20 score=0.2844 relΔ= 41.858% idFrac=0.6104 bestWrongIDcos=+0.0683 pairAbsCos=0.4904
+attn OBJECT     L18 score=0.2842 relΔ= 36.811% idFrac=0.6058 bestWrongIDcos=+0.0618 pairAbsCos=0.5179
+attn OBJECT     L02 score=0.2837 relΔ= 32.247% idFrac=0.6122 bestWrongIDcos=+0.0730 pairAbsCos=0.4371
+res  OBJECT     L26 score=0.2769 relΔ= 34.394% idFrac=0.6234 bestWrongIDcos=+0.1118 pairAbsCos=0.4427
+attn OBJECT     L13 score=0.2744 relΔ= 31.274% idFrac=0.5804 bestWrongIDcos=+0.0545 pairAbsCos=0.5197
+attn OBJECT     L21 score=0.2718 relΔ= 31.429% idFrac=0.6200 bestWrongIDcos=+0.1233 pairAbsCos=0.4438
+[11/16] Token-position X-Ray...
+Q1
+ L00 SUBJECT=0.00% RELATION=0.00% OBJECT=62.83% OBJECT_END=104.18% FINAL=3.81%
+ L04 SUBJECT=0.00% RELATION=0.00% OBJECT=77.43% OBJECT_END=113.42% FINAL=6.52%
+ L08 SUBJECT=0.00% RELATION=0.00% OBJECT=72.98% OBJECT_END=94.17% FINAL=6.42%
+ L11 SUBJECT=0.00% RELATION=0.00% OBJECT=57.30% OBJECT_END=81.74% FINAL=4.42%
+ L15 SUBJECT=0.00% RELATION=0.00% OBJECT=47.31% OBJECT_END=70.50% FINAL=4.31%
+ L19 SUBJECT=0.00% RELATION=0.00% OBJECT=38.09% OBJECT_END=58.91% FINAL=5.80%
+ L23 SUBJECT=0.00% RELATION=0.00% OBJECT=42.95% OBJECT_END=64.09% FINAL=8.03%
+ L27 SUBJECT=0.00% RELATION=0.00% OBJECT=53.48% OBJECT_END=68.18% FINAL=15.30%
+Q2
+ L00 SUBJECT=0.00% RELATION=0.00% OBJECT=69.69% OBJECT_END=113.35% FINAL=3.78%
+ L04 SUBJECT=0.00% RELATION=0.00% OBJECT=70.96% OBJECT_END=111.37% FINAL=5.74%
+ L08 SUBJECT=0.00% RELATION=0.00% OBJECT=75.28% OBJECT_END=113.11% FINAL=6.75%
+ L11 SUBJECT=0.00% RELATION=0.00% OBJECT=59.74% OBJECT_END=98.10% FINAL=5.90%
+ L15 SUBJECT=0.00% RELATION=0.00% OBJECT=50.55% OBJECT_END=84.74% FINAL=6.55%
+ L19 SUBJECT=0.00% RELATION=0.00% OBJECT=43.16% OBJECT_END=74.17% FINAL=9.44%
+ L23 SUBJECT=0.00% RELATION=0.00% OBJECT=47.13% OBJECT_END=82.77% FINAL=11.40%
+ L27 SUBJECT=0.00% RELATION=0.00% OBJECT=55.69% OBJECT_END=102.61% FINAL=16.58%
+Q3
+ L00 SUBJECT=0.00% RELATION=0.00% OBJECT=71.54% OBJECT_END=116.27% FINAL=3.90%
+ L04 SUBJECT=0.00% RELATION=0.00% OBJECT=86.22% OBJECT_END=125.98% FINAL=5.74%
+ L08 SUBJECT=0.00% RELATION=0.00% OBJECT=81.50% OBJECT_END=115.83% FINAL=5.70%
+ L11 SUBJECT=0.00% RELATION=0.00% OBJECT=64.60% OBJECT_END=99.03% FINAL=4.99%
+ L15 SUBJECT=0.00% RELATION=0.00% OBJECT=55.29% OBJECT_END=85.73% FINAL=5.95%
+ L19 SUBJECT=0.00% RELATION=0.00% OBJECT=45.57% OBJECT_END=70.37% FINAL=9.73%
+ L23 SUBJECT=0.00% RELATION=0.00% OBJECT=50.21% OBJECT_END=85.66% FINAL=11.39%
+ L27 SUBJECT=0.00% RELATION=0.00% OBJECT=61.39% OBJECT_END=95.31% FINAL=16.57%
+Q4
+ L00 SUBJECT=0.00% RELATION=0.00% OBJECT=69.51% OBJECT_END=112.38% FINAL=4.21%
+ L04 SUBJECT=0.00% RELATION=0.00% OBJECT=71.53% OBJECT_END=107.19% FINAL=5.84%
+ L08 SUBJECT=0.00% RELATION=0.00% OBJECT=74.28% OBJECT_END=107.87% FINAL=5.36%
+ L11 SUBJECT=0.00% RELATION=0.00% OBJECT=59.45% OBJECT_END=94.11% FINAL=4.25%
+ L15 SUBJECT=0.00% RELATION=0.00% OBJECT=45.55% OBJECT_END=74.33% FINAL=4.69%
+ L19 SUBJECT=0.00% RELATION=0.00% OBJECT=38.22% OBJECT_END=62.10% FINAL=7.92%
+ L23 SUBJECT=0.00% RELATION=0.00% OBJECT=38.18% OBJECT_END=63.67% FINAL=10.70%
+ L27 SUBJECT=0.00% RELATION=0.00% OBJECT=48.56% OBJECT_END=68.60% FINAL=17.00%
+[12/16] Representation-site summary...
+
+RES
+ OBJECT     bestL=01 relΔ= 59.856% idFrac=0.6585 bestWrongIDcos=+0.0714
+ OBJECT_END bestL=05 relΔ=113.979% idFrac=0.6687 bestWrongIDcos=+0.0044
+ FINAL      bestL=00 relΔ=  3.926% idFrac=0.6347 bestWrongIDcos=+0.1578
+
+ATTN
+ OBJECT     bestL=25 relΔ= 29.467% idFrac=0.6600 bestWrongIDcos=+0.2141
+ OBJECT_END bestL=08 relΔ= 58.533% idFrac=0.6519 bestWrongIDcos=+0.0412
+ FINAL      bestL=17 relΔ= 12.464% idFrac=0.6239 bestWrongIDcos=+0.2420
+
+MLP
+ OBJECT     bestL=01 relΔ= 69.616% idFrac=0.6963 bestWrongIDcos=+0.3227
+ OBJECT_END bestL=04 relΔ=130.581% idFrac=0.6651 bestWrongIDcos=+0.1831
+ FINAL      bestL=17 relΔ= 12.044% idFrac=0.6061 bestWrongIDcos=+0.3111
+[13/16] Per-fact best identity carriers...
+Q1 BEST=attn/FINAL/L24 score=0.4254 idFrac=0.8613 bestWrongIDcos=+0.0123
+Q2 BEST=res/OBJECT/L05 score=0.3650 idFrac=0.6879 bestWrongIDcos=-0.0611
+Q3 BEST=attn/OBJECT_END/L09 score=0.3623 idFrac=0.6301 bestWrongIDcos=-0.1501
+Q4 BEST=res/OBJECT_END/L04 score=0.3851 idFrac=0.7013 bestWrongIDcos=-0.0982
+[14/16] Weight sentinel...
+[15/16] RESULTS
+
+================================================================================================================================
+TEST 213 RESULTS
+================================================================================================================================
+LINEAGE: TEST103 -> TEST142 -> TEST192-197 -> TEST205 -> TEST210 -> TEST211 -> TEST212 -> TEST213
+MODE: MOTOR OFF | WEIGHTS FROZEN | FULL-SEQUENCE LOCALIZATION ONLY
+M1: Neral Voss | keeps | the amber compass
+M2: Tovin Marel | carries | the silver lantern
+M3: Selka Dorn | owns | the violet key
+M4: Parel Nox | guards | the bronze sphere
+
+TOP GLOBAL IDENTITY CARRIERS
+res  OBJECT_END L05 score=0.3329 relΔ=113.979% idFrac=0.6687 bestWrongIDcos=+0.0044 pairAbsCos=0.4389
+res  OBJECT_END L06 score=0.3240 relΔ=108.872% idFrac=0.6581 bestWrongIDcos=+0.0152 pairAbsCos=0.4553
+mlp  OBJECT     L04 score=0.3219 relΔ= 93.905% idFrac=0.6871 bestWrongIDcos=+0.0629 pairAbsCos=0.3726
+res  OBJECT_END L04 score=0.3210 relΔ=114.490% idFrac=0.6615 bestWrongIDcos=+0.0295 pairAbsCos=0.4382
+mlp  OBJECT     L23 score=0.3185 relΔ= 63.956% idFrac=0.6772 bestWrongIDcos=+0.0595 pairAbsCos=0.3900
+attn OBJECT_END L08 score=0.3125 relΔ= 58.533% idFrac=0.6519 bestWrongIDcos=+0.0412 pairAbsCos=0.4426
+mlp  OBJECT_END L06 score=0.3099 relΔ=129.117% idFrac=0.6539 bestWrongIDcos=+0.0520 pairAbsCos=0.4458
+res  OBJECT     L04 score=0.3069 relΔ= 76.534% idFrac=0.6569 bestWrongIDcos=+0.0656 pairAbsCos=0.4367
+res  OBJECT     L01 score=0.3058 relΔ= 59.856% idFrac=0.6585 bestWrongIDcos=+0.0714 pairAbsCos=0.4081
+mlp  OBJECT_END L09 score=0.3040 relΔ=115.194% idFrac=0.6289 bestWrongIDcos=+0.0332 pairAbsCos=0.4871
+mlp  OBJECT_END L12 score=0.2888 relΔ=108.096% idFrac=0.6319 bestWrongIDcos=+0.0860 pairAbsCos=0.5008
+attn OBJECT_END L03 score=0.2882 relΔ=101.208% idFrac=0.6139 bestWrongIDcos=+0.0612 pairAbsCos=0.3848
+
+PER-FACT BEST
+Q1 attn/FINAL/L24 score=0.4254 idFrac=0.8613 bestWrongIDcos=+0.0123
+Q2 res/OBJECT/L05 score=0.3650 idFrac=0.6879 bestWrongIDcos=-0.0611
+Q3 attn/OBJECT_END/L09 score=0.3623 idFrac=0.6301 bestWrongIDcos=-0.1501
+Q4 res/OBJECT_END/L04 score=0.3851 idFrac=0.7013 bestWrongIDcos=-0.0982
+
+RESIDUAL TOKEN-SITE RELATIVE DISPLACEMENT
+Q1
+ L00 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 62.832% OBJECT_END=104.180% FINAL=  3.809%
+ L08 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 72.982% OBJECT_END= 94.171% FINAL=  6.420%
+ L11 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 57.301% OBJECT_END= 81.741% FINAL=  4.417%
+ L15 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 47.311% OBJECT_END= 70.502% FINAL=  4.313%
+ L19 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 38.092% OBJECT_END= 58.909% FINAL=  5.796%
+ L27 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 53.483% OBJECT_END= 68.181% FINAL= 15.301%
+Q2
+ L00 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 69.688% OBJECT_END=113.348% FINAL=  3.784%
+ L08 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 75.284% OBJECT_END=113.108% FINAL=  6.747%
+ L11 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 59.739% OBJECT_END= 98.097% FINAL=  5.902%
+ L15 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 50.554% OBJECT_END= 84.736% FINAL=  6.547%
+ L19 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 43.162% OBJECT_END= 74.167% FINAL=  9.435%
+ L27 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 55.690% OBJECT_END=102.612% FINAL= 16.579%
+Q3
+ L00 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 71.542% OBJECT_END=116.269% FINAL=  3.904%
+ L08 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 81.495% OBJECT_END=115.827% FINAL=  5.702%
+ L11 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 64.604% OBJECT_END= 99.029% FINAL=  4.986%
+ L15 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 55.285% OBJECT_END= 85.734% FINAL=  5.947%
+ L19 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 45.571% OBJECT_END= 70.372% FINAL=  9.726%
+ L27 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 61.393% OBJECT_END= 95.307% FINAL= 16.566%
+Q4
+ L00 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 69.513% OBJECT_END=112.378% FINAL=  4.207%
+ L08 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 74.282% OBJECT_END=107.873% FINAL=  5.361%
+ L11 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 59.450% OBJECT_END= 94.110% FINAL=  4.254%
+ L15 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 45.549% OBJECT_END= 74.329% FINAL=  4.694%
+ L19 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 38.221% OBJECT_END= 62.096% FINAL=  7.919%
+ L27 SUBJECT=  0.000% RELATION=  0.000% OBJECT= 48.562% OBJECT_END= 68.596% FINAL= 17.003%
+
+REPRESENTATION SUMMARY
+res  OBJECT     bestL=01 idFrac=0.6585 bestWrongIDcos=+0.0714
+res  OBJECT_END bestL=05 idFrac=0.6687 bestWrongIDcos=+0.0044
+res  FINAL      bestL=00 idFrac=0.6347 bestWrongIDcos=+0.1578
+attn OBJECT     bestL=25 idFrac=0.6600 bestWrongIDcos=+0.2141
+attn OBJECT_END bestL=08 idFrac=0.6519 bestWrongIDcos=+0.0412
+attn FINAL      bestL=17 idFrac=0.6239 bestWrongIDcos=+0.2420
+mlp  OBJECT     bestL=01 idFrac=0.6963 bestWrongIDcos=+0.3227
+mlp  OBJECT_END bestL=04 idFrac=0.6651 bestWrongIDcos=+0.1831
+mlp  FINAL      bestL=17 idFrac=0.6061 bestWrongIDcos=+0.3111
+--------------------------------------------------------------------------------------------------------------------------------
+Weights: PASS | Injection: NONE | L0-L27 observation only
+TEST212 model/system/facts preserved; TEST213 removes intervention and localizes object identity across sequence, depth and representation site
+Primary question: is object identity concentrated at object-token/attention/MLP sites rather than the final prompt-token residual used by prior forge tests?
+No behavioral retrieval claim is made by this assay.
+================================================================================================================================
+[16/16] TEST 213 COMPLETE
