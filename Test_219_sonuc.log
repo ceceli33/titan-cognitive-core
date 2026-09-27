@@ -1,0 +1,234 @@
+ ================================================================================================================================
+TEST 219 — CAUSAL VALUE-HEAD PACKET TRANSPLANT
+================================================================================================================================
+LINEAGE: TEST213 -> TEST217 -> TEST218 -> TEST219
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+[1/20] Model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 57.5kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 922kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 82.4MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 71.3MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 134MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.46MB/s]Download complete: :  13.1GB,  206MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  442MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  7.70s/it]Loading weights: 100% 339/339 [00:03<00:00, 100.71it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.3kB/s]hidden=3584 heads=28 kv_heads=4 head_dim=128
+[2/20] Position-matched source banks...
+Q1 TARGET=the amber compass tokens=3 start=30 end=32 PREFIX=PASS
+Q2 TARGET=the silver lantern tokens=3 start=30 end=32 PREFIX=PASS
+Q3 TARGET=the violet key tokens=3 start=30 end=32 PREFIX=PASS
+Q4 TARGET=the bronze sphere tokens=3 start=30 end=32 PREFIX=PASS
+Q5 TARGET=the golden necklace tokens=3 start=31 end=33 PREFIX=PASS
+Q6 TARGET=the iron dagger tokens=3 start=30 end=32 PREFIX=PASS
+Q7 TARGET=the crystal mirror tokens=3 start=30 end=32 PREFIX=PASS
+Q8 TARGET=the wooden mask tokens=3 start=31 end=33 PREFIX=PASS
+[3/20] Capture source K/V...
+Q1 captures=10
+Q2 captures=10
+Q3 captures=10
+Q4 captures=10
+Q5 captures=10
+Q6 captures=10
+Q7 captures=10
+Q8 captures=10
+[4/20] Strict source alignment...
+Q1 PASS start=30 end=32
+Q2 PASS start=30 end=32
+Q3 PASS start=30 end=32
+Q4 PASS start=30 end=32
+Q5 PASS start=31 end=33
+Q6 PASS start=30 end=32
+Q7 PASS start=30 end=32
+Q8 PASS start=31 end=33
+[5/20] Source packet forge...
+[6/20] Blind queries...
+Q1 What does Rovan Tesk keep? | slot=35 | target=the amber compass
+Q2 What does Mira Veln carry? | slot=35 | target=the silver lantern
+Q3 What does Dalen Quor own? | slot=35 | target=the violet key
+Q4 What does Sorin Kelm guard? | slot=35 | target=the bronze sphere
+Q5 What does Varek Tonn hold? | slot=36 | target=the golden necklace
+Q6 What does Lira Mesk store? | slot=35 | target=the iron dagger
+Q7 What does Korin Drel protect? | slot=35 | target=the crystal mirror
+Q8 What does Taren Vosk carry? | slot=36 | target=the wooden mask
+[7/20] Direct projection-head intervention...
+[8/20] Prefill → frozen KV scorer...
+[9/20] Generation...
+[10/20] PRIMARY_V dose sweep...
+[11/20] Controls @ .50...
+[12/20] Selectivity...
+Q1 PRIMARY=-11.9848 WRONG Δ=+0.0966 NEG Δ=+0.0958 SECONDARY Δ=-0.1481 KCTRL Δ=-0.1263
+Q2 PRIMARY=-9.5877 WRONG Δ=-0.1937 NEG Δ=-0.1491 SECONDARY Δ=-0.1179 KCTRL Δ=-0.3065
+Q3 PRIMARY=+0.6107 WRONG Δ=-0.2047 NEG Δ=+0.0007 SECONDARY Δ=+0.1797 KCTRL Δ=-0.0098
+Q4 PRIMARY=-7.5741 WRONG Δ=-0.0713 NEG Δ=-0.1858 SECONDARY Δ=-0.3427 KCTRL Δ=-0.3022
+Q5 PRIMARY=-0.5570 WRONG Δ=+0.1224 NEG Δ=+0.0827 SECONDARY Δ=-0.0042 KCTRL Δ=-0.1118
+Q6 PRIMARY=-13.4543 WRONG Δ=-0.5014 NEG Δ=-0.7328 SECONDARY Δ=-0.6739 KCTRL Δ=-0.5612
+Q7 PRIMARY=-3.3589 WRONG Δ=+0.0254 NEG Δ=-0.4406 SECONDARY Δ=-0.3566 KCTRL Δ=-0.1162
+Q8 PRIMARY=-3.3949 WRONG Δ=-0.1414 NEG Δ=-0.2072 SECONDARY Δ=-0.1761 KCTRL Δ=+0.0832
+[13/20] First target token...
+Q1 vanilla=-20.8742 primary=-20.8445 Δ=+0.0296
+Q2 vanilla=-21.3742 primary=-21.4698 Δ=-0.0956
+Q3 vanilla=-21.8306 primary=-21.6754 Δ=+0.1551
+Q4 vanilla=-22.0774 primary=-21.8745 Δ=+0.2029
+Q5 vanilla=-20.7283 primary=-20.6656 Δ=+0.0627
+Q6 vanilla=-21.4663 primary=-21.3483 Δ=+0.1180
+Q7 vanilla=-21.7504 primary=-21.6243 Δ=+0.1262
+Q8 vanilla=-19.8312 primary=-19.6336 Δ=+0.1976
+[14/20] Projection telemetry...
+PRIMARY_V    {'rep': 'V', 'layer': 8, 'head': 0, 'scale': 0.5, 'orig_norm': 5.994382858276367, 'delta_norm': 2.9971914291381836, 'rel': 0.5}
+WRONG_V      {'rep': 'V', 'layer': 8, 'head': 0, 'scale': 0.5, 'orig_norm': 5.994382858276367, 'delta_norm': 2.9971914291381836, 'rel': 0.5}
+NEG_V        {'rep': 'V', 'layer': 8, 'head': 0, 'scale': 0.5, 'orig_norm': 5.994382858276367, 'delta_norm': 2.9971914291381836, 'rel': 0.5}
+SECONDARY_V  {'rep': 'V', 'layer': 7, 'head': 2, 'scale': 0.5, 'orig_norm': 4.977994918823242, 'delta_norm': 2.4889976978302, 'rel': 0.5000000596046448}
+K_CONTROL    {'rep': 'K', 'layer': 10, 'head': 0, 'scale': 0.5, 'orig_norm': 17.215723037719727, 'delta_norm': 8.607861518859863, 'rel': 0.5}
+[15/20] Output X-Ray Q1...
+[16/20] Weight sentinel...
+[17/20] RESULTS
+
+================================================================================================================================
+TEST 219 RESULTS
+================================================================================================================================
+MODE: DIRECT K/V HEAD INTERVENTION | PREFILL ONLY | DECODE INTERVENTION OFF | WEIGHTS FROZEN
+PRIMARY=V/L08/H00 | SECONDARY=V/L07/H02 | K-CONTROL=K/L10/H00
+M1: Rovan Tesk | keeps | the amber compass
+M2: Mira Veln | carries | the silver lantern
+M3: Dalen Quor | owns | the violet key
+M4: Sorin Kelm | guards | the bronze sphere
+M5: Varek Tonn | holds | the golden necklace
+M6: Lira Mesk | stores | the iron dagger
+M7: Korin Drel | protects | the crystal mirror
+M8: Taren Vosk | carries | the wooden mask
+
+PRIMARY_V DOSE SWEEP
+
+Q1: What does Rovan Tesk keep?
+ VANILLA targetLP=-63.2946 meanTok=-21.0982 bestWrong=-51.1958 margin=-12.0987 | The prompt does not provide any information about what Rovan Tesk keeps. More context or details are needed to answer this question accurately.
+ V 0.25 targetLP=-63.3826 ΔlogP=-0.0881 meanTok=-21.1275 margin=-12.0803 | The prompt does not provide any information about what Rovan Tesk keeps. More context or details are needed to answer this question accurately.
+ V 0.50 targetLP=-63.1668 ΔlogP=+0.1277 meanTok=-21.0556 margin=-11.9848 | The prompt does not provide any information about what Rovan Tesk keeps. More context or details are needed to answer this question accurately.
+ V 1.00 targetLP=-63.6300 ΔlogP=-0.3355 meanTok=-21.2100 margin=-12.1263 | The prompt does not provide any information about what Rovan Tesk keeps. More context or details are needed to answer this question accurately.
+
+Q2: What does Mira Veln carry?
+ VANILLA targetLP=-60.7002 meanTok=-20.2334 bestWrong=-51.3063 margin=-9.3940 | The prompt does not provide any information about what Mira Veln carries. Therefore, there is insufficient information to answer the question.
+ V 0.25 targetLP=-60.8999 ΔlogP=-0.1996 meanTok=-20.3000 margin=-9.3540 | The prompt does not provide any information about what Mira Veln carries. Therefore, there is insufficient information to answer the question.
+ V 0.50 targetLP=-60.9911 ΔlogP=-0.2909 meanTok=-20.3304 margin=-9.5877 | The prompt does not provide any information about what Mira Veln carries. Therefore, there is insufficient information to answer the question.
+ V 1.00 targetLP=-61.0190 ΔlogP=-0.3188 meanTok=-20.3397 margin=-9.5022 | The prompt does not provide any information about what Mira Veln carries. Therefore, there is insufficient information to answer the question.
+
+Q3: What does Dalen Quor own?
+ VANILLA targetLP=-58.2534 meanTok=-19.4178 bestWrong=-58.7095 margin=+0.4562 | The prompt does not provide any information about what Dalen Quor owns. Therefore, I cannot determine what Dalen Quor owns based solely on the given information.
+ V 0.25 targetLP=-58.1575 ΔlogP=+0.0958 meanTok=-19.3858 margin=+0.4156 | The prompt does not provide any information about what Dalen Quor owns. Therefore, I cannot determine what Dalen Quor owns based solely on the given information.
+ V 0.50 targetLP=-57.9312 ΔlogP=+0.3221 meanTok=-19.3104 margin=+0.6107 | The prompt does not provide any information about what Dalen Quor owns. Therefore, I cannot determine what Dalen Quor owns based solely on the given information.
+ V 1.00 targetLP=-57.9218 ΔlogP=+0.3316 meanTok=-19.3073 margin=+0.7772 | The prompt does not provide any information about what Dalen Quor owns. Therefore, I cannot determine what Dalen Quor owns based solely on the given information.
+
+Q4: What does Sorin Kelm guard?
+ VANILLA targetLP=-49.0260 meanTok=-16.3420 bestWrong=-41.4785 margin=-7.5475 | The prompt does not provide any information about what Sorin Kelm guards. There is not enough context to determine this.
+ V 0.25 targetLP=-49.0673 ΔlogP=-0.0412 meanTok=-16.3558 margin=-7.5846 | The prompt does not provide any specific information about what Sorin Kelm guards. Without additional context, it's not possible to determine what he guards.
+ V 0.50 targetLP=-49.1680 ΔlogP=-0.1420 meanTok=-16.3893 margin=-7.5741 | The prompt does not provide any specific information about what Sorin Kelm guards. Without additional context, it's not possible to determine what he guards.
+ V 1.00 targetLP=-49.3513 ΔlogP=-0.3253 meanTok=-16.4504 margin=-7.5810 | The prompt does not provide any specific information about what Sorin Kelm guards. Without additional context, it's not possible to determine what he guards.
+
+Q5: What does Varek Tonn hold?
+ VANILLA targetLP=-49.6025 meanTok=-16.5342 bestWrong=-49.0844 margin=-0.5181 | The prompt does not provide any information about what Varek Tonn holds. There is not enough context to determine this.
+ V 0.25 targetLP=-49.6720 ΔlogP=-0.0695 meanTok=-16.5573 margin=-0.7307 | The prompt does not provide any information about what Varek Tonn holds. There is not enough context to determine this.
+ V 0.50 targetLP=-49.2939 ΔlogP=+0.3086 meanTok=-16.4313 margin=-0.5570 | The prompt does not provide any information about what Varek Tonn holds. There is not enough context to determine this.
+ V 1.00 targetLP=-49.3703 ΔlogP=+0.2322 meanTok=-16.4568 margin=-0.6261 | The prompt does not provide any information about what Varek Tonn holds. There is not enough context to determine this.
+
+Q6: What does Lira Mesk store?
+ VANILLA targetLP=-65.7500 meanTok=-21.9167 bestWrong=-52.8896 margin=-12.8605 | The prompt does not provide any information about what Lira Mesk stores. Therefore, based solely on the given information, it is impossible to determine what Lira Mesk stores.
+ V 0.25 targetLP=-66.2800 ΔlogP=-0.5300 meanTok=-22.0933 margin=-13.2088 | The prompt does not provide any information about what Lira Mesk stores. Therefore, based solely on the given information, it is not possible to determine what Lira Mesk stores.
+ V 0.50 targetLP=-66.4679 ΔlogP=-0.7179 meanTok=-22.1560 margin=-13.4543 | The prompt does not provide any information about what Lira Mesk stores. Therefore, based solely on the given information, it is impossible to determine what Lira Mesk stores.
+ V 1.00 targetLP=-66.7869 ΔlogP=-1.0369 meanTok=-22.2623 margin=-12.4831 | The prompt does not provide any information about what Lira Mesk stores. Therefore, based solely on the given information, it is not possible to determine what Lira Mesk stores.
+
+Q7: What does Korin Drel protect?
+ VANILLA targetLP=-52.7455 meanTok=-17.5818 bestWrong=-49.5690 margin=-3.1765 | The prompt does not provide specific information about what Korin Drel protects. Without additional context, it's not possible to determine what Korin Drel protects.
+ V 0.25 targetLP=-52.9913 ΔlogP=-0.2458 meanTok=-17.6638 margin=-3.2908 | The prompt does not provide specific information about what Korin Drel protects. Without additional context, it's not possible to determine what Korin Drel protects.
+ V 0.50 targetLP=-53.0595 ΔlogP=-0.3140 meanTok=-17.6865 margin=-3.3589 | The prompt does not provide specific information about what Korin Drel protects. Without additional context, it's not possible to determine what Korin Drel protects.
+ V 1.00 targetLP=-53.9785 ΔlogP=-1.2330 meanTok=-17.9928 margin=-3.6476 | The prompt does not provide specific information about what Korin Drel protects. Without additional context, it's not possible to determine what Korin Drel protects.
+
+Q8: What does Taren Vosk carry?
+ VANILLA targetLP=-51.1083 meanTok=-17.0361 bestWrong=-47.7766 margin=-3.3317 | The prompt does not provide specific information about what Taren Vosk carries. Without additional context, I cannot accurately state what Taren Vosk carries.
+ V 0.25 targetLP=-50.6448 ΔlogP=+0.4635 meanTok=-16.8816 margin=-3.2618 | The prompt does not provide specific information about what Taren Vosk carries. Without additional context, I cannot accurately state what Taren Vosk carries.
+ V 0.50 targetLP=-51.2576 ΔlogP=-0.1493 meanTok=-17.0859 margin=-3.3949 | The prompt does not provide specific information about what Taren Vosk carries. Without additional context, I cannot accurately state what Taren Vosk carries.
+ V 1.00 targetLP=-50.4855 ΔlogP=+0.6228 meanTok=-16.8285 margin=-3.4791 | The prompt does not provide specific information about what Taren Vosk carries. Without additional context, I cannot accurately state what Taren Vosk carries.
+
+CONTROLS @ .50
+
+PRIMARY_V
+ Q1 targetLP=-63.1668 margin=-11.9848 | The prompt does not provide any information about what Rovan Tesk keeps. More context or details are needed to answer this question accurately.
+ Q2 targetLP=-60.9911 margin=-9.5877 | The prompt does not provide any information about what Mira Veln carries. Therefore, there is insufficient information to answer the question.
+ Q3 targetLP=-57.9312 margin=+0.6107 | The prompt does not provide any information about what Dalen Quor owns. Therefore, I cannot determine what Dalen Quor owns based solely on the given information.
+ Q4 targetLP=-49.1680 margin=-7.5741 | The prompt does not provide any specific information about what Sorin Kelm guards. Without additional context, it's not possible to determine what he guards.
+ Q5 targetLP=-49.2939 margin=-0.5570 | The prompt does not provide any information about what Varek Tonn holds. There is not enough context to determine this.
+ Q6 targetLP=-66.4679 margin=-13.4543 | The prompt does not provide any information about what Lira Mesk stores. Therefore, based solely on the given information, it is impossible to determine what Lira Mesk stores.
+ Q7 targetLP=-53.0595 margin=-3.3589 | The prompt does not provide specific information about what Korin Drel protects. Without additional context, it's not possible to determine what Korin Drel protects.
+ Q8 targetLP=-51.2576 margin=-3.3949 | The prompt does not provide specific information about what Taren Vosk carries. Without additional context, I cannot accurately state what Taren Vosk carries.
+ mean_margin=-6.1626
+
+WRONG_V
+ Q1 targetLP=-63.4047 margin=-12.0814 | The prompt does not provide any information about what Rovan Tesk keeps. More context or details are needed to answer this question accurately.
+ Q2 targetLP=-60.7912 margin=-9.3940 | The prompt does not provide any information about what Mira Veln carries. There is not enough information to answer the question.
+ Q3 targetLP=-58.1315 margin=+0.8154 | The prompt does not provide any information about what Dalen Quor owns. Therefore, I cannot determine what Dalen Quor owns based solely on the given information.
+ Q4 targetLP=-49.1320 margin=-7.5028 | The prompt does not provide any specific information about what Sorin Kelm guards. Without additional context, it's not possible to determine what he guards.
+ Q5 targetLP=-50.2311 margin=-0.6793 | The prompt does not provide any information about what Varek Tonn holds. There is not enough context to determine this.
+ Q6 targetLP=-65.7870 margin=-12.9529 | The prompt does not provide any information about what Lira Mesk stores. Therefore, based solely on the given information, it is not possible to determine what Lira Mesk stores.
+ Q7 targetLP=-52.8043 margin=-3.3843 | The prompt does not provide specific information about what Korin Drel protects. Without additional context, it's not possible to determine what Korin Drel protects.
+ Q8 targetLP=-51.4061 margin=-3.2535 | The prompt does not provide specific information about what Taren Vosk carries. Without additional context, I cannot accurately state what Taren Vosk carries.
+ mean_margin=-6.0541
+
+NEG_V
+ Q1 targetLP=-63.0904 margin=-12.0806 | The prompt does not provide any information about what Rovan Tesk keeps. More context or details are needed to answer this question accurately.
+ Q2 targetLP=-60.6321 margin=-9.4386 | The prompt does not provide any information about what Mira Veln carries. There is not enough information to answer the question.
+ Q3 targetLP=-57.6250 margin=+0.6100 | The prompt does not provide any information about what Dalen Quor owns. Therefore, I cannot determine what Dalen Quor owns based solely on the given information.
+ Q4 targetLP=-48.8185 margin=-7.3884 | The prompt does not provide any specific information about what Sorin Kelm guards. Without additional context, it's not possible to determine what he guards.
+ Q5 targetLP=-50.0043 margin=-0.6397 | The prompt does not provide any specific information about what Varek Tonn holds. Without additional context, it's not possible to determine what Varek Tonn holds.
+ Q6 targetLP=-65.1076 margin=-12.7215 | The prompt does not provide any information about what Lira Mesk stores. Therefore, based solely on the given information, it is not possible to determine what Lira Mesk stores.
+ Q7 targetLP=-51.8281 margin=-2.9183 | The prompt does not provide specific information about what Korin Drel protects. Without additional context, it's not possible to determine what Korin Drel protects.
+ Q8 targetLP=-50.9839 margin=-3.1876 | The prompt does not provide specific information about what Taren Vosk carries. Without additional context, I cannot accurately state what Taren Vosk carries.
+ mean_margin=-5.9706
+
+SECONDARY_V
+ Q1 targetLP=-63.1963 margin=-11.8367 | The prompt does not provide any information about what Rovan Tesk keeps. More context or details are needed to answer this question accurately.
+ Q2 targetLP=-60.9409 margin=-9.4698 | The prompt does not provide any information about what Mira Veln carries. There is not enough information to answer the question.
+ Q3 targetLP=-57.8446 margin=+0.4310 | The prompt does not provide any information about what Dalen Quor owns. Therefore, I cannot determine what Dalen Quor owns based solely on the given information.
+ Q4 targetLP=-48.5657 margin=-7.2314 | The prompt does not provide any information about what Sorin Kelm guards. There is not enough context to determine this.
+ Q5 targetLP=-49.5632 margin=-0.5528 | The prompt does not provide any specific information about what Varek Tonn holds. Without additional context, it's not possible to determine what Varek Tonn holds.
+ Q6 targetLP=-65.7655 margin=-12.7804 | The prompt does not provide any information about what Lira Mesk stores. Therefore, based solely on the given information, it is not possible to determine what Lira Mesk stores.
+ Q7 targetLP=-52.2056 margin=-3.0024 | The prompt does not provide specific information about what Korin Drel protects. Without additional context, it's not possible to determine what Korin Drel protects.
+ Q8 targetLP=-50.6302 margin=-3.2188 | The prompt does not provide specific information about what Taren Vosk carries. Without additional context, I cannot determine what Taren Vosk carries.
+ mean_margin=-5.9577
+
+K_CONTROL
+ Q1 targetLP=-62.6637 margin=-11.8585 | The prompt does not provide any information about what Rovan Tesk keeps. More context or details are needed to answer this question accurately.
+ Q2 targetLP=-60.4915 margin=-9.2813 | The prompt does not provide any information about what Mira Veln carries. Therefore, there is insufficient information to answer the question.
+ Q3 targetLP=-58.3847 margin=+0.6206 | The prompt does not provide any information about what Dalen Quor owns. Therefore, I cannot determine what Dalen Quor owns based solely on the given information.
+ Q4 targetLP=-49.3430 margin=-7.2720 | The prompt does not provide any information about what Sorin Kelm guards. There is not enough context to determine this.
+ Q5 targetLP=-49.5139 margin=-0.4452 | The prompt does not provide any information about what Varek Tonn holds. There is not enough context to determine this.
+ Q6 targetLP=-66.3789 margin=-12.8930 | The prompt does not provide any information about what Lira Mesk stores. Therefore, based solely on the given information, it is not possible to determine what Lira Mesk stores.
+ Q7 targetLP=-52.9362 margin=-3.2428 | The prompt does not provide specific information about what Korin Drel protects. Without additional context, it's not possible to determine what Korin Drel protects.
+ Q8 targetLP=-50.9948 margin=-3.4780 | The prompt does not provide specific information about what Taren Vosk carries. Without additional context, I cannot accurately state what Taren Vosk carries.
+ mean_margin=-5.9813
+
+SELECTIVITY
+Q1 PRIMARY=-11.9848 vs WRONG Δ=+0.0966 vs NEG Δ=+0.0958 vs SECONDARY Δ=-0.1481 vs KCTRL Δ=-0.1263
+Q2 PRIMARY=-9.5877 vs WRONG Δ=-0.1937 vs NEG Δ=-0.1491 vs SECONDARY Δ=-0.1179 vs KCTRL Δ=-0.3065
+Q3 PRIMARY=+0.6107 vs WRONG Δ=-0.2047 vs NEG Δ=+0.0007 vs SECONDARY Δ=+0.1797 vs KCTRL Δ=-0.0098
+Q4 PRIMARY=-7.5741 vs WRONG Δ=-0.0713 vs NEG Δ=-0.1858 vs SECONDARY Δ=-0.3427 vs KCTRL Δ=-0.3022
+Q5 PRIMARY=-0.5570 vs WRONG Δ=+0.1224 vs NEG Δ=+0.0827 vs SECONDARY Δ=-0.0042 vs KCTRL Δ=-0.1118
+Q6 PRIMARY=-13.4543 vs WRONG Δ=-0.5014 vs NEG Δ=-0.7328 vs SECONDARY Δ=-0.6739 vs KCTRL Δ=-0.5612
+Q7 PRIMARY=-3.3589 vs WRONG Δ=+0.0254 vs NEG Δ=-0.4406 vs SECONDARY Δ=-0.3566 vs KCTRL Δ=-0.1162
+Q8 PRIMARY=-3.3949 vs WRONG Δ=-0.1414 vs NEG Δ=-0.2072 vs SECONDARY Δ=-0.1761 vs KCTRL Δ=+0.0832
+
+FIRST TARGET TOKEN @ .50
+Q1 VANILLA=-20.8742 PRIMARY=-20.8445 Δ=+0.0296 WRONG=-20.9351 NEG=-20.9823
+Q2 VANILLA=-21.3742 PRIMARY=-21.4698 Δ=-0.0956 WRONG=-21.5932 NEG=-21.4665
+Q3 VANILLA=-21.8306 PRIMARY=-21.6754 Δ=+0.1551 WRONG=-21.7583 NEG=-21.6206
+Q4 VANILLA=-22.0774 PRIMARY=-21.8745 Δ=+0.2029 WRONG=-21.9212 NEG=-22.0774
+Q5 VANILLA=-20.7283 PRIMARY=-20.6656 Δ=+0.0627 WRONG=-20.6523 NEG=-20.7269
+Q6 VANILLA=-21.4663 PRIMARY=-21.3483 Δ=+0.1180 WRONG=-21.3567 NEG=-21.4073
+Q7 VANILLA=-21.7504 PRIMARY=-21.6243 Δ=+0.1262 WRONG=-21.6856 NEG=-21.8445
+Q8 VANILLA=-19.8312 PRIMARY=-19.6336 Δ=+0.1976 WRONG=-19.7861 NEG=-19.7687
+
+Q1 OUTPUT X-RAY @ .50
+PRIMARY_V    L07=  0.000% L08=  4.308% L10=  2.630% L19=  1.410% L27=  1.838%
+WRONG_V      L07=  0.000% L08=  4.883% L10=  2.655% L19=  1.462% L27=  1.945%
+NEG_V        L07=  0.000% L08=  4.323% L10=  2.522% L19=  1.486% L27=  1.948%
+SECONDARY_V  L07=  3.761% L08=  3.383% L10=  2.033% L19=  1.283% L27=  1.942%
+K_CONTROL    L07=  0.000% L08=  0.000% L10=  4.948% L19=  1.664% L27=  1.924%
+--------------------------------------------------------------------------------------------------------------------------------
+Weights: PASS | Candidate answers never enter source forge or prefill intervention | Decode intervention: ZERO
+TEST219 is an experimental direct attention-projection intervention, not the canonical SEASC residual-stream motor
+PASS requires PRIMARY_V selective target advantage over WRONG_V / NEG_V and behavioral or LP evidence beyond displacement alone
+================================================================================================================================
+[18/20] TEST 219 COMPLETE
+[19/20] WEIGHTS VERIFIED
+[20/20] END
