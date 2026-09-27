@@ -1,0 +1,205 @@
+ ================================================================================================================================
+TEST 238 — L19 MLP INTERNAL CARRIER X-RAY
+================================================================================================================================
+WORKING BASELINE: TEST237 | INTERNAL MLP LOCALIZATION
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+[1/30] Model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 73.4kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 968kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 87.7MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 71.9MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 127MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 2.63MB/s]Download complete: :  13.1GB,  290MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  495MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.67s/it]Loading weights: 100% 339/339 [00:03<00:00, 100.03it/s]generation_config.json: 100% 243/243 [00:00<00:00, 33.8kB/s]hidden=3584 intermediate=18944 q_heads=28 kv_heads=4 group=7 head_dim=128
+[2/30] Build TEST237 factorial set...
+C1 Rovan Tesk keeps | blindSlot=35
+C2 Mira Veln carries | blindSlot=35
+C3 Dalen Quor owns | blindSlot=35
+C4 Sorin Kelm guards | blindSlot=35
+[3/30] Shared-prefix token...
+sharedPrefixToken=279 text=' the'
+[4/30] RoPE...
+[5/30] Capture source Q/K/V...
+C1: source captures complete
+C2: source captures complete
+C3: source captures complete
+C4: source captures complete
+[6/30] Reconstruct TEST222 RAW packets...
+C1: RAW packets complete
+C2: RAW packets complete
+C3: RAW packets complete
+C4: RAW packets complete
+[7/30] TEST230 object-main packets...
+O1 objectMainNorm=1.8044
+O2 objectMainNorm=1.3213
+O3 objectMainNorm=1.4689
+O4 objectMainNorm=1.6965
+O5 objectMainNorm=1.3453
+O6 objectMainNorm=1.5477
+O7 objectMainNorm=1.6125
+O8 objectMainNorm=2.2938
+[8/30] Prompt prefill...
+[9/30] Capture L19 MLP internals...
+C1: internal captures complete
+C2: internal captures complete
+C3: internal captures complete
+C4: internal captures complete
+[10/30] Validate MLP reconstruction...
+ACT(GATE)*UP reconstruction relative error=0.1670%
+[11/30] Build centered intervention responses...
+[12/30] Leave-one-context-out identity decoding...
+BLOCK_IN   top1= 93.8% rank=1.188 margin=+0.1424
+POST_ATTN  top1= 93.8% rank=1.219 margin=+0.1417
+MLP_IN     top1= 87.5% rank=1.219 margin=+0.1026
+GATE       top1= 84.4% rank=1.344 margin=+0.0722
+UP         top1= 81.2% rank=1.312 margin=+0.0819
+PRODUCT    top1= 71.9% rank=1.625 margin=+0.0391
+DOWN       top1= 71.9% rank=1.750 margin=+0.0309
+BLOCK_OUT  top1= 71.9% rank=1.594 margin=+0.0642
+L27_OUT    top1= 34.4% rank=3.062 margin=-0.1611
+[13/30] Same-object cross-context invariance...
+BLOCK_IN   invariance=+0.2104
+POST_ATTN  invariance=+0.2238
+MLP_IN     invariance=+0.2145
+GATE       invariance=+0.2089
+UP         invariance=+0.2179
+PRODUCT    invariance=+0.1926
+DOWN       invariance=+0.1939
+BLOCK_OUT  invariance=+0.1932
+L27_OUT    invariance=+0.0524
+[14/30] Correct-vs-wrong separation...
+BLOCK_IN   gap=+0.3493
+POST_ATTN  gap=+0.3678
+MLP_IN     gap=+0.3575
+GATE       gap=+0.3503
+UP         gap=+0.3625
+PRODUCT    gap=+0.3286
+DOWN       gap=+0.3301
+BLOCK_OUT  gap=+0.3268
+L27_OUT    gap=+0.0889
+[15/30] Physical response magnitude...
+BLOCK_IN   displacement=1.1539%
+POST_ATTN  displacement=1.0425%
+MLP_IN     displacement=1.4428%
+GATE       displacement=0.9848%
+UP         displacement=1.4264%
+PRODUCT    displacement=1.9616%
+DOWN       displacement=1.9332%
+BLOCK_OUT  displacement=1.2017%
+L27_OUT    displacement=2.2913%
+[16/30] Stage-to-stage carrier cosine...
+BLOCK_IN->POST_ATTN cosine=+0.9402
+POST_ATTN->MLP_IN cosine=+0.8790
+GATE->PRODUCT cosine=-0.0117
+UP->PRODUCT cosine=-0.1896
+MLP_IN->DOWN cosine=-0.2449
+POST_ATTN->DOWN cosine=-0.2070
+POST_ATTN->BLOCK_OUT cosine=+0.7448
+DOWN->BLOCK_OUT cosine=+0.4500
+BLOCK_OUT->L27_OUT cosine=+0.0908
+[17/30] Internal identity transition deltas...
+BLOCK_IN->POST_ATTN Δtop1=+0.0pp Δmargin=-0.0007
+POST_ATTN->MLP_IN Δtop1=-6.2pp Δmargin=-0.0390
+MLP_IN->GATE Δtop1=-3.1pp Δmargin=-0.0305
+GATE->PRODUCT Δtop1=-12.5pp Δmargin=-0.0330
+UP->PRODUCT Δtop1=-9.4pp Δmargin=-0.0428
+PRODUCT->DOWN Δtop1=+0.0pp Δmargin=-0.0083
+DOWN->BLOCK_OUT Δtop1=+0.0pp Δmargin=+0.0334
+BLOCK_OUT->L27_OUT Δtop1=-37.5pp Δmargin=-0.2253
+[18/30] SVD spectra by internal stage...
+BLOCK_IN   effRank= 20.70 PR= 14.05 r90=22 r95=25 PC1= 19.9% PC1-7= 53.6%
+POST_ATTN  effRank= 19.72 PR= 12.41 r90=22 r95=25 PC1= 22.7% PC1-7= 54.9%
+MLP_IN     effRank= 19.70 PR= 11.93 r90=22 r95=25 PC1= 24.0% PC1-7= 53.6%
+GATE       effRank= 18.47 PR= 10.25 r90=22 r95=25 PC1= 27.1% PC1-7= 55.1%
+UP         effRank= 18.38 PR= 10.17 r90=22 r95=25 PC1= 27.2% PC1-7= 55.6%
+PRODUCT    effRank= 16.47 PR=  8.38 r90=21 r95=25 PC1= 31.0% PC1-7= 59.6%
+DOWN       effRank= 16.43 PR=  8.39 r90=21 r95=25 PC1= 30.9% PC1-7= 60.0%
+BLOCK_OUT  effRank= 18.30 PR= 10.27 r90=22 r95=25 PC1= 26.9% PC1-7= 56.7%
+L27_OUT    effRank= 14.93 PR=  8.86 r90=20 r95=24 PC1= 22.6% PC1-7= 68.1%
+[19/30] Internal geometry preservation...
+BLOCK_IN->POST_ATTN geometrySpearman=+0.9715 RMSE=0.0448
+POST_ATTN->MLP_IN geometrySpearman=+0.9743 RMSE=0.0457
+GATE->PRODUCT geometrySpearman=+0.9940 RMSE=0.0358
+UP->PRODUCT geometrySpearman=+0.9945 RMSE=0.0405
+POST_ATTN->DOWN geometrySpearman=+0.9595 RMSE=0.1123
+POST_ATTN->BLOCK_OUT geometrySpearman=+0.9688 RMSE=0.0635
+BLOCK_OUT->L27_OUT geometrySpearman=+0.8303 RMSE=0.1561
+[20/30] Gate vs Up identity contribution...
+GATE    top1=84.4% margin=+0.0722
+UP      top1=81.2% margin=+0.0819
+PRODUCT top1=71.9% margin=+0.0391
+DOWN    top1=71.9% margin=+0.0309
+[21/30] Product identity relative to its parents...
+PRODUCT-GATE Δtop1=-12.5pp
+PRODUCT-UP   Δtop1=-9.4pp
+DOWN-PRODUCT Δtop1=+0.0pp
+BLOCK-DOWN   Δtop1=+0.0pp
+[22/30] Intermediate channel response concentration...
+GATE    channels50=5797/18944 channels80=12163/18944 channels90=15005/18944 channels95=16702/18944
+UP      channels50=6090/18944 channels80=12408/18944 channels90=15172/18944 channels95=16807/18944
+PRODUCT channels50=684/18944 channels80=5218/18944 channels90=9711/18944 channels95=13011/18944
+[23/30] Held-out decoding using top-energy intermediate channels...
+GATE    topChannels=  32 top1= 50.0% rank=2.188
+GATE    topChannels=  64 top1= 56.2% rank=2.062
+GATE    topChannels= 128 top1= 65.6% rank=1.750
+GATE    topChannels= 256 top1= 65.6% rank=1.719
+GATE    topChannels= 512 top1= 65.6% rank=1.750
+GATE    topChannels=1024 top1= 65.6% rank=1.750
+UP      topChannels=  32 top1= 50.0% rank=2.156
+UP      topChannels=  64 top1= 50.0% rank=2.062
+UP      topChannels= 128 top1= 53.1% rank=2.094
+UP      topChannels= 256 top1= 65.6% rank=1.969
+UP      topChannels= 512 top1= 65.6% rank=1.875
+UP      topChannels=1024 top1= 65.6% rank=1.812
+PRODUCT topChannels=  32 top1= 40.6% rank=2.469
+PRODUCT topChannels=  64 top1= 56.2% rank=2.094
+PRODUCT topChannels= 128 top1= 59.4% rank=1.969
+PRODUCT topChannels= 256 top1= 59.4% rank=1.969
+PRODUCT topChannels= 512 top1= 62.5% rank=1.906
+PRODUCT topChannels=1024 top1= 62.5% rank=1.812
+[24/30] Complement after removing top-energy channels...
+GATE    removeTop=  32 top1= 84.4% rank=1.344
+GATE    removeTop= 128 top1= 84.4% rank=1.344
+GATE    removeTop= 512 top1= 84.4% rank=1.312
+GATE    removeTop=1024 top1= 84.4% rank=1.312
+UP      removeTop=  32 top1= 81.2% rank=1.312
+UP      removeTop= 128 top1= 84.4% rank=1.281
+UP      removeTop= 512 top1= 84.4% rank=1.281
+UP      removeTop=1024 top1= 84.4% rank=1.281
+PRODUCT removeTop=  32 top1= 78.1% rank=1.531
+PRODUCT removeTop= 128 top1= 78.1% rank=1.406
+PRODUCT removeTop= 512 top1= 84.4% rank=1.312
+PRODUCT removeTop=1024 top1= 84.4% rank=1.312
+[25/30] Product sign/sparsity telemetry...
+VAN productNorm=29.6871 nearZero=0.04% positive=49.98%
+INJ productNorm=29.6752 nearZero=0.04% positive=49.98%
+[26/30] Permutation null at PRODUCT and DOWN...
+PRODUCT obs=0.7188 null=0.1258±0.0567 z=+10.451 p=0.0005
+DOWN obs=0.7188 null=0.1260±0.0579 z=+10.238 p=0.0005
+[27/30] Weight sentinel...
+Weights: PASS
+[28/30] Localization metrics...
+POST_ATTN=93.8%
+MLP_IN   =87.5%
+GATE     =84.4%
+UP       =81.2%
+PRODUCT  =71.9%
+DOWN     =71.9%
+BLOCK_OUT=71.9%
+GATE_PROJECTION      Δ=-3.1pp
+UP_PROJECTION        Δ=-6.2pp
+GATED_PRODUCT        Δ=-12.5pp
+DOWN_PROJECTION      Δ=+0.0pp
+RESIDUAL_COMBINATION Δ=+0.0pp
+[29/30] Decision...
+largestIdentityDrop=GATED_PRODUCT -12.5pp
+[30/30] RESULTS
+================================================================================================================================
+TEST 238 RESULTS
+================================================================================================================================
+BASELINE: TEST237 | SINGLE L08 PROMPT INJECTION | CONTINUATION ' the'
+TARGET: INTERNAL LOCALIZATION OF L19 MLP DISTRIBUTED CARRIER TRANSFORMATION
+POST_ATTN=93.8% | MLP_IN=87.5% | GATE=84.4% | UP=81.2%
+PRODUCT=71.9% | DOWN=71.9% | BLOCK_OUT=71.9%
+--------------------------------------------------------------------------------------------------------------------------------
+RESULT: DISTRIBUTED_MLP_INTERNAL_TRANSFORMATION
+Observational localization only; no internal MLP component was causally ablated.
+No guard, transport, controller or continuation re-injection was used.
+================================================================================================================================
+TEST 238 COMPLETE
