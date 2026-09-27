@@ -1,0 +1,331 @@
+ 
+================================================================================================================================
+TEST 233 — CARRIER SURVIVAL ACROSS AUTOREGRESSIVE TOKEN TRANSITION
+================================================================================================================================
+LINEAGE: TEST213 -> TEST217 -> TEST218 -> TEST219 -> TEST220 -> TEST221 -> TEST222 -> TEST223 -> TEST224 -> TEST225 -> TEST226 -> TEST227 -> TEST228 -> TEST229 -> TEST230 -> TEST231 -> TEST232 -> TEST233
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+[1/27] Model...
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 85.0kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 922kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 85.9MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 58.5MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 120MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.54MB/s]
+Download complete: : 
+
+ 13.1GB,  239MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  341MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:41<00:00,  7.55s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 100.74it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 34.5kB/s]
+hidden=3584 q_heads=28 kv_heads=4 group=7 head_dim=128
+[2/27] Build TEST232 factorial source/blind set...
+C1 Rovan Tesk keeps | blindSlot=35
+C2 Mira Veln carries | blindSlot=35
+C3 Dalen Quor owns | blindSlot=35
+C4 Sorin Kelm guards | blindSlot=35
+[3/27] Candidate tokens...
+sharedPrefixToken=279 text=' the'
+O1 the amber compass -> ' amber'
+O2 the silver lantern -> ' silver'
+O3 the violet key -> ' violet'
+O4 the bronze sphere -> ' bronze'
+O5 the golden necklace -> ' golden'
+O6 the iron dagger -> ' iron'
+O7 the crystal mirror -> ' crystal'
+O8 the wooden mask -> ' wooden'
+[4/27] RoPE...
+RoPE=Qwen2RotaryEmbedding max_seq=43
+[5/27] Capture source Q/K/V...
+C1: 8 source captures complete
+C2: 8 source captures complete
+C3: 8 source captures complete
+C4: 8 source captures complete
+[6/27] Reconstruct TEST222 readout + RAW packets...
+C1: RAW packets complete
+C2: RAW packets complete
+C3: RAW packets complete
+C4: RAW packets complete
+[7/27] TEST230 factorial object-main packets...
+O1 objectMainNorm=1.8044
+O2 objectMainNorm=1.3213
+O3 objectMainNorm=1.4689
+O4 objectMainNorm=1.6965
+O5 objectMainNorm=1.3453
+O6 objectMainNorm=1.5477
+O7 objectMainNorm=1.6125
+O8 objectMainNorm=2.2938
+[8/27] Prompt prefill: vanilla + object packet...
+C1: prefill complete
+C2: prefill complete
+C3: prefill complete
+C4: prefill complete
+[9/27] Verify prompt L08...
+C1 dose=4.0068% objectCos=+0.9992
+C2 dose=4.0057% objectCos=+0.9992
+C3 dose=4.0056% objectCos=+0.9992
+C4 dose=4.0061% objectCos=+0.9993
+[10/27] Process shared continuation token with ZERO intervention...
+C1: continuation trajectories complete
+C2: continuation trajectories complete
+C3: continuation trajectories complete
+C4: continuation trajectories complete
+[11/27] Continuation displacement...
+L00 continuationDisplacement=0.000000%
+L01 continuationDisplacement=0.000000%
+L02 continuationDisplacement=0.000000%
+L04 continuationDisplacement=0.000000%
+L06 continuationDisplacement=0.000000%
+L08 continuationDisplacement=0.000000%
+L09 continuationDisplacement=0.401203%
+L10 continuationDisplacement=0.636387%
+L12 continuationDisplacement=0.853781%
+L16 continuationDisplacement=0.998276%
+L19 continuationDisplacement=1.201671%
+L20 continuationDisplacement=1.297963%
+L24 continuationDisplacement=1.354286%
+L27 continuationDisplacement=2.291319%
+[12/27] Center continuation responses within context...
+[13/27] Leave-one-context-out object classification...
+L00 top1= 12.5% meanRank=4.500 margin=+0.0000
+L01 top1= 12.5% meanRank=4.500 margin=+0.0000
+L02 top1= 12.5% meanRank=4.500 margin=+0.0000
+L04 top1= 12.5% meanRank=4.500 margin=+0.0000
+L06 top1= 12.5% meanRank=4.500 margin=+0.0000
+L08 top1= 12.5% meanRank=4.500 margin=+0.0000
+L09 top1= 96.9% meanRank=1.031 margin=+0.2385
+L10 top1=100.0% meanRank=1.000 margin=+0.3836
+L12 top1= 96.9% meanRank=1.031 margin=+0.3090
+L16 top1= 93.8% meanRank=1.062 margin=+0.2051
+L19 top1= 71.9% meanRank=1.594 margin=+0.0642
+L20 top1= 56.2% meanRank=1.844 margin=+0.0029
+L24 top1= 50.0% meanRank=2.594 margin=-0.0511
+L27 top1= 34.4% meanRank=3.062 margin=-0.1611
+[14/27] Per-held-out-context...
+
+L00
+ holdC1 top1= 12.5% rank=4.500 margin=+0.0000
+ holdC2 top1= 12.5% rank=4.500 margin=+0.0000
+ holdC3 top1= 12.5% rank=4.500 margin=+0.0000
+ holdC4 top1= 12.5% rank=4.500 margin=+0.0000
+
+L04
+ holdC1 top1= 12.5% rank=4.500 margin=+0.0000
+ holdC2 top1= 12.5% rank=4.500 margin=+0.0000
+ holdC3 top1= 12.5% rank=4.500 margin=+0.0000
+ holdC4 top1= 12.5% rank=4.500 margin=+0.0000
+
+L08
+ holdC1 top1= 12.5% rank=4.500 margin=+0.0000
+ holdC2 top1= 12.5% rank=4.500 margin=+0.0000
+ holdC3 top1= 12.5% rank=4.500 margin=+0.0000
+ holdC4 top1= 12.5% rank=4.500 margin=+0.0000
+
+L12
+ holdC1 top1=100.0% rank=1.000 margin=+0.3437
+ holdC2 top1=100.0% rank=1.000 margin=+0.3616
+ holdC3 top1= 87.5% rank=1.125 margin=+0.2735
+ holdC4 top1=100.0% rank=1.000 margin=+0.2573
+
+L16
+ holdC1 top1= 87.5% rank=1.125 margin=+0.2286
+ holdC2 top1=100.0% rank=1.000 margin=+0.2158
+ holdC3 top1= 87.5% rank=1.125 margin=+0.2232
+ holdC4 top1=100.0% rank=1.000 margin=+0.1527
+
+L19
+ holdC1 top1= 87.5% rank=1.500 margin=+0.0638
+ holdC2 top1= 50.0% rank=1.625 margin=+0.0968
+ holdC3 top1= 75.0% rank=2.000 margin=+0.0130
+ holdC4 top1= 75.0% rank=1.250 margin=+0.0833
+
+L24
+ holdC1 top1= 50.0% rank=2.750 margin=-0.0636
+ holdC2 top1= 50.0% rank=2.000 margin=-0.0107
+ holdC3 top1= 62.5% rank=3.000 margin=-0.0779
+ holdC4 top1= 37.5% rank=2.625 margin=-0.0524
+
+L27
+ holdC1 top1= 37.5% rank=2.375 margin=-0.1302
+ holdC2 top1= 50.0% rank=2.250 margin=-0.1320
+ holdC3 top1= 25.0% rank=3.750 margin=-0.1924
+ holdC4 top1= 25.0% rank=3.875 margin=-0.1898
+[15/27] Same-object cross-context invariance...
+L00 sameObjectCrossContextCos=+0.0000
+L01 sameObjectCrossContextCos=+0.0000
+L02 sameObjectCrossContextCos=+0.0000
+L04 sameObjectCrossContextCos=+0.0000
+L06 sameObjectCrossContextCos=+0.0000
+L08 sameObjectCrossContextCos=+0.0000
+L09 sameObjectCrossContextCos=+0.2312
+L10 sameObjectCrossContextCos=+0.3877
+L12 sameObjectCrossContextCos=+0.3101
+L16 sameObjectCrossContextCos=+0.2157
+L19 sameObjectCrossContextCos=+0.1932
+L20 sameObjectCrossContextCos=+0.1680
+L24 sameObjectCrossContextCos=+0.0802
+L27 sameObjectCrossContextCos=+0.0524
+[16/27] Correct-vs-wrong object separation...
+L00 correctCos=+0.0000 wrongCos=+0.0000 gap=+0.0000
+L01 correctCos=+0.0000 wrongCos=+0.0000 gap=+0.0000
+L02 correctCos=+0.0000 wrongCos=+0.0000 gap=+0.0000
+L04 correctCos=+0.0000 wrongCos=+0.0000 gap=+0.0000
+L06 correctCos=+0.0000 wrongCos=+0.0000 gap=+0.0000
+L08 correctCos=+0.0000 wrongCos=+0.0000 gap=+0.0000
+L09 correctCos=+0.3295 wrongCos=-0.0462 gap=+0.3756
+L10 correctCos=+0.5051 wrongCos=-0.0718 gap=+0.5768
+L12 correctCos=+0.4235 wrongCos=-0.0604 gap=+0.4839
+L16 correctCos=+0.3149 wrongCos=-0.0448 gap=+0.3597
+L19 correctCos=+0.2873 wrongCos=-0.0394 gap=+0.3268
+L20 correctCos=+0.2569 wrongCos=-0.0340 gap=+0.2909
+L24 correctCos=+0.1312 wrongCos=-0.0165 gap=+0.1477
+L27 correctCos=+0.0789 wrongCos=-0.0100 gap=+0.0889
+[17/27] Prompt carrier -> continuation carrier alignment...
+L08 promptToContinuationCos=+0.0000
+L09 promptToContinuationCos=-0.0041
+L10 promptToContinuationCos=+0.0344
+L12 promptToContinuationCos=+0.0503
+L16 promptToContinuationCos=+0.0333
+L19 promptToContinuationCos=+0.0431
+L20 promptToContinuationCos=+0.0208
+L24 promptToContinuationCos=+0.0255
+L27 promptToContinuationCos=+0.0196
+[18/27] Source OBJ -> continuation response alignment...
+L00 sourceObjectCos=+0.0000
+L01 sourceObjectCos=+0.0000
+L02 sourceObjectCos=+0.0000
+L04 sourceObjectCos=+0.0000
+L06 sourceObjectCos=+0.0000
+L08 sourceObjectCos=+0.0000
+L09 sourceObjectCos=-0.0313
+L10 sourceObjectCos=-0.0234
+L12 sourceObjectCos=-0.0180
+L16 sourceObjectCos=-0.0053
+L19 sourceObjectCos=-0.0037
+L20 sourceObjectCos=-0.0053
+L24 sourceObjectCos=+0.0040
+L27 sourceObjectCos=+0.0015
+[19/27] Geometry retention from source OBJ...
+L00 objectGeometrySpearman=+0.0000
+L01 objectGeometrySpearman=+0.0000
+L02 objectGeometrySpearman=+0.0000
+L04 objectGeometrySpearman=+0.0000
+L06 objectGeometrySpearman=+0.0000
+L08 objectGeometrySpearman=+0.0000
+L09 objectGeometrySpearman=+0.3853
+L10 objectGeometrySpearman=+0.5955
+L12 objectGeometrySpearman=+0.5691
+L16 objectGeometrySpearman=+0.3164
+L19 objectGeometrySpearman=+0.2245
+L20 objectGeometrySpearman=+0.1862
+L24 objectGeometrySpearman=+0.1082
+L27 objectGeometrySpearman=+0.2091
+[20/27] Actual discriminative-token output after continuation...
+top1=9.4% rank=4.938 Δmargin=-0.0911 targetΔ=+0.0127
+[21/27] Label permutation null for continuation carrier...
+L00 observed=0.1250 null=0.1250±0.0000 z=+0.000 p=1.0000
+L04 observed=0.1250 null=0.1250±0.0000 z=+0.000 p=1.0000
+L08 observed=0.1250 null=0.1250±0.0000 z=+0.000 p=1.0000
+L12 observed=0.9688 null=0.1260±0.0586 z=+14.382 p=0.0005
+L16 observed=0.9375 null=0.1242±0.0590 z=+13.784 p=0.0005
+L19 observed=0.7188 null=0.1253±0.0578 z=+10.276 p=0.0005
+L20 observed=0.5625 null=0.1226±0.0570 z=+7.718 p=0.0005
+L24 observed=0.5000 null=0.1254±0.0558 z=+6.710 p=0.0005
+L27 observed=0.3438 null=0.1237±0.0574 z=+3.836 p=0.0010
+[22/27] Survival curve...
+L00 top1= 12.5% rank=4.500 inv=+0.0000 sep=+0.0000 disp=0.00000%
+L01 top1= 12.5% rank=4.500 inv=+0.0000 sep=+0.0000 disp=0.00000%
+L02 top1= 12.5% rank=4.500 inv=+0.0000 sep=+0.0000 disp=0.00000%
+L03 top1= 12.5% rank=4.500 inv=+0.0000 sep=+0.0000 disp=0.00000%
+L04 top1= 12.5% rank=4.500 inv=+0.0000 sep=+0.0000 disp=0.00000%
+L05 top1= 12.5% rank=4.500 inv=+0.0000 sep=+0.0000 disp=0.00000%
+L06 top1= 12.5% rank=4.500 inv=+0.0000 sep=+0.0000 disp=0.00000%
+L07 top1= 12.5% rank=4.500 inv=+0.0000 sep=+0.0000 disp=0.00000%
+L08 top1= 12.5% rank=4.500 inv=+0.0000 sep=+0.0000 disp=0.00000%
+L09 top1= 96.9% rank=1.031 inv=+0.2312 sep=+0.3756 disp=0.40120%
+L10 top1=100.0% rank=1.000 inv=+0.3877 sep=+0.5768 disp=0.63639%
+L11 top1=100.0% rank=1.000 inv=+0.3138 sep=+0.4886 disp=0.70996%
+L12 top1= 96.9% rank=1.031 inv=+0.3101 sep=+0.4839 disp=0.85378%
+L13 top1=100.0% rank=1.000 inv=+0.2892 sep=+0.4586 disp=0.90634%
+L14 top1= 93.8% rank=1.094 inv=+0.2631 sep=+0.4261 disp=0.91759%
+L15 top1= 93.8% rank=1.062 inv=+0.2303 sep=+0.3802 disp=0.93945%
+L16 top1= 93.8% rank=1.062 inv=+0.2157 sep=+0.3597 disp=0.99828%
+L17 top1= 96.9% rank=1.031 inv=+0.2061 sep=+0.3439 disp=1.03496%
+L18 top1= 93.8% rank=1.188 inv=+0.2104 sep=+0.3493 disp=1.15386%
+L19 top1= 71.9% rank=1.594 inv=+0.1932 sep=+0.3268 disp=1.20167%
+L20 top1= 56.2% rank=1.844 inv=+0.1680 sep=+0.2909 disp=1.29796%
+L21 top1= 65.6% rank=2.000 inv=+0.1367 sep=+0.2426 disp=1.36003%
+L22 top1= 50.0% rank=2.188 inv=+0.1108 sep=+0.2030 disp=1.51929%
+L23 top1= 46.9% rank=2.281 inv=+0.1012 sep=+0.1859 disp=1.45395%
+L24 top1= 50.0% rank=2.594 inv=+0.0802 sep=+0.1477 disp=1.35429%
+L25 top1= 50.0% rank=2.531 inv=+0.0682 sep=+0.1250 disp=1.32840%
+L26 top1= 40.6% rank=2.906 inv=+0.0547 sep=+0.1016 disp=1.27866%
+L27 top1= 34.4% rank=3.062 inv=+0.0524 sep=+0.0889 disp=2.29132%
+[23/27] Prompt vs continuation checkpoint...
+L08 prompt->continuation=+0.0000 continuationTop1= 12.5% geometryρ=+0.0000
+L12 prompt->continuation=+0.0503 continuationTop1= 96.9% geometryρ=+0.5691
+L16 prompt->continuation=+0.0333 continuationTop1= 93.8% geometryρ=+0.3164
+L19 prompt->continuation=+0.0431 continuationTop1= 71.9% geometryρ=+0.2245
+L24 prompt->continuation=+0.0255 continuationTop1= 50.0% geometryρ=+0.1082
+L27 prompt->continuation=+0.0196 continuationTop1= 34.4% geometryρ=+0.2091
+[24/27] Weight sentinel...
+[25/27] Decision metrics...
+continuationEarlyTop1=0.1250 mid=0.8750 late=0.4922 L27=0.3438
+outputTop1=0.0938 chance=0.1250
+[26/27] RESULTS
+
+================================================================================================================================
+TEST 233 RESULTS
+================================================================================================================================
+MODE: TEST230 OBJECT MAIN-EFFECT PACKETS | SINGLE PROMPT L08 INJECTION | DOSE=0.0400
+AUTOREGRESSIVE TRANSITION: shared token 279 ' the' | ZERO CONTINUATION INTERVENTION
+MEASURE: OBJECT-SPECIFIC Δh ON THE NEW CONTINUATION TOKEN
+NO TRANSPORT MAP | NO CONTROLLER | NO CONTINUATION RE-INJECTION | WEIGHTS FROZEN
+
+CONTINUATION OBJECT-CARRIER
+L00 top1= 12.5% rank=4.500 margin=+0.0000 invariantCos=+0.0000 geometryρ=+0.0000 permP=1.0000
+L04 top1= 12.5% rank=4.500 margin=+0.0000 invariantCos=+0.0000 geometryρ=+0.0000 permP=1.0000
+L08 top1= 12.5% rank=4.500 margin=+0.0000 invariantCos=+0.0000 geometryρ=+0.0000 permP=1.0000
+L12 top1= 96.9% rank=1.031 margin=+0.3090 invariantCos=+0.3101 geometryρ=+0.5691 permP=0.0005
+L16 top1= 93.8% rank=1.062 margin=+0.2051 invariantCos=+0.2157 geometryρ=+0.3164 permP=0.0005
+L19 top1= 71.9% rank=1.594 margin=+0.0642 invariantCos=+0.1932 geometryρ=+0.2245 permP=0.0005
+L20 top1= 56.2% rank=1.844 margin=+0.0029 invariantCos=+0.1680 geometryρ=+0.1862 permP=0.0005
+L24 top1= 50.0% rank=2.594 margin=-0.0511 invariantCos=+0.0802 geometryρ=+0.1082 permP=0.0005
+L27 top1= 34.4% rank=3.062 margin=-0.1611 invariantCos=+0.0524 geometryρ=+0.2091 permP=0.0010
+
+OUTPUT READOUT
+discriminativeTop1=9.4% meanRank=4.938 Δmargin=-0.0911
+
+INTERPRETATION GATE
+RESULT: PARTIAL_TOKEN_TRANSITION_SURVIVAL — object identity partially survives the autoregressive transition; localization is required.
+--------------------------------------------------------------------------------------------------------------------------------
+Weights: PASS | Objects absent from blind queries | Only prompt L08 is intervened
+The continuation token is processed naturally from the intervened prompt KV cache with ZERO new activation injection.
+================================================================================================================================
+
+
+[27/27] TEST 233 COMPLETE
