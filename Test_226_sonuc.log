@@ -1,0 +1,239 @@
+ ================================================================================================================================
+TEST 226 — ENDOGENOUS PACKET IDENTITY DECODING
+================================================================================================================================
+LINEAGE: TEST213 -> TEST217 -> TEST218 -> TEST219 -> TEST220 -> TEST221 -> TEST222 -> TEST223 -> TEST224 -> TEST225 -> TEST226
+GPU: NVIDIA A100-SXM4-40GB | Model: Qwen/Qwen2.5-7B-Instruct
+[1/22] Model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 88.4kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 941kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 48.3MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 69.0MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 134MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.73MB/s]Download complete: :  13.1GB,  524MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  312MB/s  Fetching 4 files: 100% 4/4 [00:43<00:00,  8.77s/it]Loading weights: 100% 339/339 [00:03<00:00, 99.57it/s]generation_config.json: 100% 243/243 [00:00<00:00, 32.7kB/s]hidden=3584 q_heads=28 kv_heads=4 group=7 head_dim=128
+[2/22] Token maps...
+Q1 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q2 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q3 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q4 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q5 FACT subject=[25, 26, 27, 28, 29] relation=[30] object=[31, 32, 33] | BLIND slot=36
+Q6 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q7 FACT subject=[25, 26, 27, 28] relation=[29] object=[30, 31, 32] | BLIND slot=35
+Q8 FACT subject=[25, 26, 27, 28, 29] relation=[30] object=[31, 32, 33] | BLIND slot=36
+[3/22] RoPE...
+RoPE=Qwen2RotaryEmbedding max_seq=44
+[4/22] Capture TEST222 source Q/K/V...
+Q1 captured
+Q2 captured
+Q3 captured
+Q4 captured
+Q5 captured
+Q6 captured
+Q7 captured
+Q8 captured
+[5/22] Reconstruct TEST222 source readout...
+Q1 bestQH=00 qpos=36 objEndAttn=0.256498
+Q2 bestQH=00 qpos=36 objEndAttn=0.369859
+Q3 bestQH=00 qpos=36 objEndAttn=0.233636
+Q4 bestQH=05 qpos=33 objEndAttn=0.282498
+Q5 bestQH=02 qpos=37 objEndAttn=0.221648
+Q6 bestQH=00 qpos=36 objEndAttn=0.297795
+Q7 bestQH=06 qpos=32 objEndAttn=0.313337
+Q8 bestQH=00 qpos=37 objEndAttn=0.325245
+[6/22] Forge TEST222 L08 packets...
+Q1 packetNorm=2.2737
+Q2 packetNorm=2.7109
+Q3 packetNorm=1.7387
+Q4 packetNorm=2.1934
+Q5 packetNorm=2.4782
+Q6 packetNorm=2.4237
+Q7 packetNorm=2.6123
+Q8 packetNorm=2.6623
+[7/22] Vanilla blind trajectories...
+Q1 vanilla captured
+Q2 vanilla captured
+Q3 vanilla captured
+Q4 vanilla captured
+Q5 vanilla captured
+Q6 vanilla captured
+Q7 vanilla captured
+Q8 vanilla captured
+[8/22] Inject once at L08 and capture true post-injection L08→L27...
+Q1 complete
+Q2 complete
+Q3 complete
+Q4 complete
+Q5 complete
+Q6 complete
+Q7 complete
+Q8 complete
+[9/22] Build true Δh trajectories...
+[10/22] Verify L08 capture...
+Q1 L08 displacement=3.9907% packetCos=+0.9992
+Q2 L08 displacement=4.0108% packetCos=+0.9994
+Q3 L08 displacement=4.0082% packetCos=+0.9993
+Q4 L08 displacement=4.0033% packetCos=+0.9993
+Q5 L08 displacement=4.0066% packetCos=+0.9991
+Q6 L08 displacement=4.0280% packetCos=+0.9990
+Q7 L08 displacement=3.9881% packetCos=+0.9994
+Q8 L08 displacement=3.9987% packetCos=+0.9992
+[11/22] Build object identity reference geometry...
+Q1 object reference captured
+Q2 object reference captured
+Q3 object reference captured
+Q4 object reference captured
+Q5 object reference captured
+Q6 object reference captured
+Q7 object reference captured
+Q8 object reference captured
+[12/22] Residualize object references...
+[13/22] Decode trajectory against object references...
+L08 top1=2/8 meanRank=3.125 meanIdentityMargin=-0.0211
+L09 top1=1/8 meanRank=4.125 meanIdentityMargin=-0.0473
+L10 top1=2/8 meanRank=3.750 meanIdentityMargin=-0.0288
+L12 top1=2/8 meanRank=3.250 meanIdentityMargin=-0.0346
+L16 top1=3/8 meanRank=3.375 meanIdentityMargin=-0.0125
+L19 top1=1/8 meanRank=4.250 meanIdentityMargin=-0.0385
+L20 top1=1/8 meanRank=4.000 meanIdentityMargin=-0.0315
+L24 top1=1/8 meanRank=4.500 meanIdentityMargin=-0.0291
+L27 top1=2/8 meanRank=4.000 meanIdentityMargin=-0.0447
+[14/22] Per-fact primary decoding...
+
+L08
+ Q1 rank=1 own=+0.0736 bestWrong=+0.0302 top=Q1
+ Q2 rank=5 own=-0.0106 bestWrong=+0.0423 top=Q6
+ Q3 rank=6 own=-0.0200 bestWrong=+0.0329 top=Q5
+ Q4 rank=3 own=+0.0185 bestWrong=+0.0284 top=Q6
+ Q5 rank=2 own=+0.0538 bestWrong=+0.0734 top=Q6
+ Q6 rank=1 own=+0.0533 bestWrong=+0.0300 top=Q6
+ Q7 rank=4 own=-0.0023 bestWrong=+0.0647 top=Q6
+ Q8 rank=3 own=+0.0091 bestWrong=+0.0423 top=Q6
+
+L09
+ Q1 rank=3 own=+0.0167 bestWrong=+0.0425 top=Q7
+ Q2 rank=8 own=-0.0366 bestWrong=+0.0308 top=Q6
+ Q3 rank=8 own=-0.0558 bestWrong=+0.0701 top=Q6
+ Q4 rank=4 own=+0.0014 bestWrong=+0.0465 top=Q6
+ Q5 rank=3 own=+0.0183 bestWrong=+0.0632 top=Q6
+ Q6 rank=1 own=+0.0301 bestWrong=+0.0269 top=Q6
+ Q7 rank=2 own=+0.0233 bestWrong=+0.0453 top=Q6
+ Q8 rank=4 own=+0.0044 bestWrong=+0.0547 top=Q6
+
+L12
+ Q1 rank=1 own=+0.0272 bestWrong=+0.0198 top=Q1
+ Q2 rank=8 own=-0.0523 bestWrong=+0.0509 top=Q6
+ Q3 rank=3 own=+0.0028 bestWrong=+0.0902 top=Q6
+ Q4 rank=3 own=+0.0046 bestWrong=+0.0553 top=Q7
+ Q5 rank=2 own=+0.0149 bestWrong=+0.0353 top=Q6
+ Q6 rank=1 own=+0.0328 bestWrong=+0.0290 top=Q6
+ Q7 rank=6 own=-0.0068 bestWrong=+0.0150 top=Q1
+ Q8 rank=2 own=+0.0179 bestWrong=+0.0222 top=Q7
+
+L16
+ Q1 rank=1 own=+0.0643 bestWrong=+0.0165 top=Q1
+ Q2 rank=8 own=-0.0583 bestWrong=+0.0280 top=Q4
+ Q3 rank=3 own=+0.0163 bestWrong=+0.0411 top=Q6
+ Q4 rank=3 own=+0.0171 bestWrong=+0.0244 top=Q1
+ Q5 rank=1 own=+0.0303 bestWrong=+0.0268 top=Q5
+ Q6 rank=2 own=+0.0241 bestWrong=+0.0272 top=Q5
+ Q7 rank=8 own=-0.0132 bestWrong=+0.0174 top=Q4
+ Q8 rank=1 own=+0.0172 bestWrong=+0.0165 top=Q8
+
+L19
+ Q1 rank=1 own=+0.0336 bestWrong=+0.0216 top=Q1
+ Q2 rank=8 own=-0.0286 bestWrong=+0.0329 top=Q8
+ Q3 rank=6 own=-0.0131 bestWrong=+0.0363 top=Q1
+ Q4 rank=2 own=+0.0148 bestWrong=+0.0329 top=Q3
+ Q5 rank=2 own=+0.0125 bestWrong=+0.0265 top=Q3
+ Q6 rank=3 own=+0.0094 bestWrong=+0.0419 top=Q3
+ Q7 rank=6 own=-0.0302 bestWrong=+0.0760 top=Q1
+ Q8 rank=6 own=-0.0042 bestWrong=+0.0338 top=Q3
+
+L24
+ Q1 rank=1 own=+0.0405 bestWrong=+0.0175 top=Q1
+ Q2 rank=7 own=-0.0184 bestWrong=+0.0259 top=Q6
+ Q3 rank=4 own=+0.0001 bestWrong=+0.0356 top=Q5
+ Q4 rank=8 own=-0.0367 bestWrong=+0.0293 top=Q6
+ Q5 rank=7 own=-0.0100 bestWrong=+0.0206 top=Q3
+ Q6 rank=3 own=+0.0010 bestWrong=+0.0429 top=Q1
+ Q7 rank=4 own=+0.0048 bestWrong=+0.0284 top=Q5
+ Q8 rank=2 own=+0.0116 bestWrong=+0.0252 top=Q7
+
+L27
+ Q1 rank=4 own=-0.0006 bestWrong=+0.0545 top=Q3
+ Q2 rank=4 own=-0.0012 bestWrong=+0.0417 top=Q7
+ Q3 rank=8 own=-0.0575 bestWrong=+0.0757 top=Q8
+ Q4 rank=5 own=+0.0028 bestWrong=+0.0282 top=Q1
+ Q5 rank=2 own=+0.0159 bestWrong=+0.0996 top=Q3
+ Q6 rank=1 own=+0.0628 bestWrong=+0.0359 top=Q6
+ Q7 rank=1 own=+0.0399 bestWrong=+0.0387 top=Q7
+ Q8 rank=7 own=-0.0195 bestWrong=+0.0262 top=Q7
+[15/22] Wrong-packet label sanity...
+L08 wrongPacketExpectedTop1=2/8 meanRank=3.125
+L09 wrongPacketExpectedTop1=1/8 meanRank=3.875
+L12 wrongPacketExpectedTop1=1/8 meanRank=4.375
+L16 wrongPacketExpectedTop1=3/8 meanRank=4.250
+L19 wrongPacketExpectedTop1=2/8 meanRank=3.750
+L24 wrongPacketExpectedTop1=0/8 meanRank=5.625
+L27 wrongPacketExpectedTop1=1/8 meanRank=3.750
+[16/22] Negative direction sanity...
+L08 correctNegCos=-0.9999
+L09 correctNegCos=-0.9413
+L12 correctNegCos=-0.7845
+L16 correctNegCos=-0.4711
+L19 correctNegCos=-0.2132
+L24 correctNegCos=+0.0378
+L27 correctNegCos=+0.2667
+[17/22] Cross-fact trajectory fingerprint separation...
+L08 bestCrossTrajectoryCos=+0.5789
+L09 bestCrossTrajectoryCos=+0.5850
+L12 bestCrossTrajectoryCos=+0.5194
+L16 bestCrossTrajectoryCos=+0.4152
+L19 bestCrossTrajectoryCos=+0.3206
+L24 bestCrossTrajectoryCos=+0.2293
+L27 bestCrossTrajectoryCos=+0.2094
+[18/22] Dose stability of identity decoding...
+DOSE=0.010 L08:2/8,r=3.12 L12:2/8,r=3.38 L19:1/8,r=4.50 L27:1/8,r=3.50
+DOSE=0.020 L08:2/8,r=3.12 L12:2/8,r=3.12 L19:1/8,r=5.12 L27:2/8,r=3.75
+DOSE=0.040 L08:2/8,r=3.12 L12:2/8,r=3.25 L19:1/8,r=4.25 L27:2/8,r=4.00
+[19/22] Permutation null...
+L08 observed=-0.0211 null=-0.0487±0.0072 z=+3.851 p=0.0005
+L09 observed=-0.0473 null=-0.0462±0.0071 z=-0.155 p=0.5657
+L12 observed=-0.0346 null=-0.0390±0.0084 z=+0.523 p=0.2434
+L16 observed=-0.0125 null=-0.0301±0.0082 z=+2.141 p=0.0305
+L19 observed=-0.0385 null=-0.0368±0.0098 z=-0.176 p=0.5447
+L24 observed=-0.0291 null=-0.0291±0.0075 z=+0.002 p=0.4703
+L27 observed=-0.0447 null=-0.0501±0.0152 z=+0.349 p=0.3308
+[20/22] Weight sentinel...
+[21/22] RESULTS
+
+================================================================================================================================
+TEST 226 RESULTS
+================================================================================================================================
+MODE: SINGLE L08 PACKET -> ENDOGENOUS Δh -> OBJECT-IDENTITY DECODING | PRIMARY DOSE=0.0400
+L08 POST-INJECTION CAPTURE: FIXED | L09-L27 NEW INJECTION: ZERO | WEIGHTS FROZEN
+
+PRIMARY OBJECT DECODING
+L08 top1=2/8 meanRank=3.125 identityMargin=-0.0211
+L09 top1=1/8 meanRank=4.125 identityMargin=-0.0473
+L10 top1=2/8 meanRank=3.750 identityMargin=-0.0288
+L12 top1=2/8 meanRank=3.250 identityMargin=-0.0346
+L16 top1=3/8 meanRank=3.375 identityMargin=-0.0125
+L19 top1=1/8 meanRank=4.250 identityMargin=-0.0385
+L20 top1=1/8 meanRank=4.000 identityMargin=-0.0315
+L24 top1=1/8 meanRank=4.500 identityMargin=-0.0291
+L27 top1=2/8 meanRank=4.000 identityMargin=-0.0447
+
+TRAJECTORY PHYSICS
+L08 displacement=  4.004% correctWrongCos=+0.4655 bestCrossTrajectoryCos=+0.5789
+L09 displacement=  2.805% correctWrongCos=+0.5099 bestCrossTrajectoryCos=+0.5850
+L12 displacement=  2.060% correctWrongCos=+0.5028 bestCrossTrajectoryCos=+0.5194
+L16 displacement=  1.586% correctWrongCos=+0.4502 bestCrossTrajectoryCos=+0.4152
+L19 displacement=  1.317% correctWrongCos=+0.4702 bestCrossTrajectoryCos=+0.3206
+L20 displacement=  1.268% correctWrongCos=+0.4854 bestCrossTrajectoryCos=+0.2522
+L24 displacement=  1.249% correctWrongCos=+0.4781 bestCrossTrajectoryCos=+0.2293
+L27 displacement=  1.692% correctWrongCos=+0.3963 bestCrossTrajectoryCos=+0.2094
+
+INTERPRETATION GATE
+RESULT: PACKET_FINGERPRINT_WITHOUT_CLEAR_OBJECT_DECODING — trajectories separate, but object identity is not cleanly decoded.
+--------------------------------------------------------------------------------------------------------------------------------
+Weights: PASS | Source facts absent from blind queries | Candidate answers never enter intervention
+Only L08 is intervened. L09-L27 measurements are endogenous downstream consequences.
+================================================================================================================================
+[22/22] TEST 226 COMPLETE
