@@ -1,0 +1,87 @@
+ ==============================================================================================================
+TEST 266 — BINDING SURVIVAL MAP · FIXED-RSS HORIZON ABLATION
+==============================================================================================================
+START: 2026-09-28T14:55:17.729+00:00
+[1/9] MODEL LOAD
+config.json: 100% 663/663 [00:00<00:00, 75.2kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 939kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 79.8MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 69.7MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 130MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.14MB/s]Download complete: :  13.1GB,  401MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  446MB/s  Fetching 4 files: 100% 4/4 [00:40<00:00,  7.01s/it]Loading weights: 100% 339/339 [00:03<00:00, 97.69it/s]generation_config.json: 100% 243/243 [00:00<00:00, 29.4kB/s]OK · Qwen/Qwen2.5-7B-Instruct · 28L · H=3584 · torch.bfloat16 · 52.58s
+REFERENCE RSS(TEST250 L0-L19)=0.250235055
+[2/9] WEIGHT SENTINEL
+FP: ['1.0912', '-90.1989', '92.6709', '73.2364', '13758.2012', '-23395.7148']
+[3/9] ROLE + BINDING FORGE
+SUBJECT  OK
+ACTION   OK
+OBJECT   OK
+LOCATION OK
+BIND [1/8] Δ19=6.197 Δ27=26.684
+BIND [2/8] Δ19=9.894 Δ27=46.155
+BIND [3/8] Δ19=7.953 Δ27=27.874
+BIND [4/8] Δ19=9.029 Δ27=50.925
+BIND [5/8] Δ19=4.359 Δ27=23.753
+BIND [6/8] Δ19=7.799 Δ27=35.228
+BIND [7/8] Δ19=8.216 Δ27=49.652
+BIND [8/8] Δ19=6.996 Δ27=34.410
+LOO · L19=0.92511 L20=0.92328 L27=0.92556
+[4/9] PACKETS + FIXED-RSS SCHEDULES
+END L15 · layers=16 · scale=1.020382 · rho0=10.204% · rhoEnd=2.752% · RSS=0.250235055
+END L17 · layers=18 · scale=1.009501 · rho0=10.095% · rhoEnd=2.535% · RSS=0.250235055
+END L19 · layers=20 · scale=1.000000 · rho0=10.000% · rhoEnd=2.397% · RSS=0.250235055
+END L21 · layers=22 · scale=0.991355 · rho0=9.914% · rhoEnd=2.306% · RSS=0.250235055
+END L23 · layers=24 · scale=0.983271 · rho0=9.833% · rhoEnd=2.246% · RSS=0.250235055
+END L25 · layers=26 · scale=0.975578 · rho0=9.756% · rhoEnd=2.204% · RSS=0.250235055
+[5/9] HORIZON BOUNDARY SELF-TEST
+PASS · each horizon exact · first post-horizon layer is motor-off
+[6/9] NULL X-RAYS
+PASS · 4/4
+[7/9] BOUND/CROSS SURVIVAL MAP
+
+WHO
+END L15 | OFF L16: B=+0.305 C=-0.293 SEP=+0.1187 | L27 B=-0.024 C=-0.023 SEP=+0.0002
+END L17 | OFF L18: B=+0.270 C=-0.192 SEP=+0.0823 | L27 B=-0.020 C=-0.038 SEP=+0.0027
+END L19 | OFF L20: B=+0.244 C=-0.282 SEP=+0.0864 | L27 B=+0.011 C=-0.068 SEP=+0.0122
+END L21 | OFF L22: B=+0.256 C=-0.334 SEP=+0.0955 | L27 B=+0.080 C=-0.132 SEP=+0.0353
+END L23 | OFF L24: B=+0.300 C=-0.359 SEP=+0.1188 | L27 B=+0.163 C=-0.190 SEP=+0.0653
+END L25 | OFF L26: B=+0.343 C=-0.371 SEP=+0.1093 | L27 B=+0.279 C=-0.285 SEP=+0.1199
+
+WHAT
+END L15 | OFF L16: B=+0.301 C=-0.294 SEP=+0.1204 | L27 B=-0.019 C=-0.020 SEP=+0.0004
+END L17 | OFF L18: B=+0.252 C=-0.220 SEP=+0.0841 | L27 B=+0.007 C=-0.043 SEP=+0.0056
+END L19 | OFF L20: B=+0.237 C=-0.283 SEP=+0.0792 | L27 B=+0.054 C=-0.068 SEP=+0.0155
+END L21 | OFF L22: B=+0.268 C=-0.332 SEP=+0.0939 | L27 B=+0.116 C=-0.130 SEP=+0.0355
+END L23 | OFF L24: B=+0.329 C=-0.357 SEP=+0.1131 | L27 B=+0.191 C=-0.207 SEP=+0.0651
+END L25 | OFF L26: B=+0.346 C=-0.355 SEP=+0.0993 | L27 B=+0.294 C=-0.310 SEP=+0.1145
+
+WHERE
+END L15 | OFF L16: B=+0.299 C=-0.306 SEP=+0.1215 | L27 B=-0.025 C=-0.018 SEP=+0.0000
+END L17 | OFF L18: B=+0.272 C=-0.196 SEP=+0.0834 | L27 B=-0.030 C=-0.035 SEP=+0.0022
+END L19 | OFF L20: B=+0.280 C=-0.250 SEP=+0.0854 | L27 B=+0.008 C=-0.075 SEP=+0.0139
+END L21 | OFF L22: B=+0.290 C=-0.313 SEP=+0.0988 | L27 B=+0.090 C=-0.136 SEP=+0.0381
+END L23 | OFF L24: B=+0.332 C=-0.343 SEP=+0.1168 | L27 B=+0.165 C=-0.193 SEP=+0.0678
+END L25 | OFF L26: B=+0.347 C=-0.343 SEP=+0.1017 | L27 B=+0.264 C=-0.292 SEP=+0.1176
+
+ACTION
+END L15 | OFF L16: B=+0.310 C=-0.294 SEP=+0.1196 | L27 B=-0.023 C=+0.034 SEP=-0.0054
+END L17 | OFF L18: B=+0.275 C=-0.202 SEP=+0.0850 | L27 B=-0.027 C=+0.009 SEP=-0.0038
+END L19 | OFF L20: B=+0.259 C=-0.254 SEP=+0.0817 | L27 B=+0.012 C=-0.043 SEP=+0.0074
+END L21 | OFF L22: B=+0.255 C=-0.339 SEP=+0.0954 | L27 B=+0.056 C=-0.104 SEP=+0.0244
+END L23 | OFF L24: B=+0.281 C=-0.349 SEP=+0.1017 | L27 B=+0.140 C=-0.164 SEP=+0.0496
+END L25 | OFF L26: B=+0.353 C=-0.349 SEP=+0.1021 | L27 B=+0.260 C=-0.261 SEP=+0.0947
+
+[8/9] DECAY LOCALIZATION
+END L15 · firstOFF sep=+0.1200 · half-decay=18 · L27 sep=-0.0012 · B27=-0.023 · C27=-0.007
+END L17 · firstOFF sep=+0.0837 · half-decay=21 · L27 sep=+0.0017 · B27=-0.018 · C27=-0.027
+END L19 · firstOFF sep=+0.0832 · half-decay=24 · L27 sep=+0.0123 · B27=+0.021 · C27=-0.064
+END L21 · firstOFF sep=+0.0959 · half-decay=25 · L27 sep=+0.0333 · B27=+0.086 · C27=-0.126
+END L23 · firstOFF sep=+0.1126 · half-decay=None · L27 sep=+0.0619 · B27=+0.165 · C27=-0.189
+END L25 · firstOFF sep=+0.1031 · half-decay=None · L27 sep=+0.1117 · B27=+0.274 · C27=-0.287
+[9/9] INTEGRITY + SEAL
+==============================================================================================================
+TEST 266 COMPLETE
+HORIZONS: [15, 17, 19, 21, 23, 25]
+FIXED RSS=0.250235055 · BOUND/CROSS · MOTOR OFF AFTER EACH HORIZON
+DOSE AUDIT=252 · MAX DEV=1.349e-08 · WEIGHT INTEGRITY PASS
+JSON: /content/AKBASCORE_TEST266/T266-20260928-145615.json
+TXT : /content/AKBASCORE_TEST266/T266-20260928-145615.txt
+SHA : 3f5b889c251beb327fe367e27b98f326e8b2790b6c0d3194ec4bb92ecbdaec6f
+==============================================================================================================
