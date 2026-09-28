@@ -1,0 +1,177 @@
+ 
+==============================================================================================================
+TEST 261 — NATURAL BINDING X-RAY — GOLDEN GATE BASELINE
+==============================================================================================================
+START: 2026-09-28T13:19:22.722+00:00
+[1/7] MODEL LOAD
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 75.4kB/s]
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 625kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 73.5MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 77.1MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 133MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.69MB/s]
+Download complete: : 
+
+ 13.1GB,  381MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  451MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:35<00:00,  6.35s/it]
+Loading weights: 100%
+
+ 339/339 [00:04<00:00, 95.05it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 32.2kB/s]
+OK · Qwen/Qwen2.5-7B-Instruct · 28L · H=3584 · torch.bfloat16 · 45.07s
+[2/7] WEIGHT SENTINEL
+FP: ['1.0912', '-90.1989', '92.6709', '73.2364', '13758.2012', '-23395.7148']
+[3/7] NATURAL 28-LAYER X-RAY
+  [1/6] TARGET         · final norm=280.452
+  [2/6] SUBJECT_SWAP   · final norm=278.463
+  [3/6] ACTION_SWAP    · final norm=276.531
+  [4/6] OBJECT_SWAP    · final norm=278.095
+  [5/6] LOCATION_SWAP  · final norm=281.491
+  [6/6] SCRAMBLED      · final norm=281.861
+[4/7] CONTRAST / BINDING-CANDIDATE GEOMETRY
+layer | subject% action% object% location% scramble% | scramble adj.cos
+L00   |   4.149   2.809   3.040    3.829    2.955 | +0.57037
+L01   |   5.592   2.569   3.392    4.076    3.702 | +0.48402
+L02   |   8.778   3.630   3.834    4.295    6.168 | +0.66807
+L03   |   9.830   5.093   4.092    4.717    7.162 | +0.66909
+L04   |   8.982   5.677   4.072    4.666    7.181 | +0.62974
+L05   |   9.677   5.557   3.381    3.890    7.140 | +0.64624
+L06   |   9.281   5.722   3.382    3.858    7.100 | +0.49095
+L07   |   9.701   6.088   3.565    3.500    8.473 | +0.48321
+L08   |  10.792   8.326   4.050    4.088   11.502 | +0.49691
+L09   |   9.711   6.833   3.406    3.656    9.964 | +0.66278
+L10   |   9.052   6.556   3.231    3.595    9.951 | +0.67534
+L11   |   8.513   6.702   2.983    3.498    9.881 | +0.69620
+L12   |   8.644   6.880   2.841    3.434    9.884 | +0.66914
+L13   |   8.342   7.355   2.961    3.348    9.627 | +0.72223
+L14   |   8.136   7.466   2.990    3.305    9.828 | +0.74057
+L15   |   9.063   8.202   3.546    3.398   10.197 | +0.77249
+L16   |   9.864   8.876   4.391    3.796   11.072 | +0.75343
+L17   |   9.986   9.790   4.823    3.877   11.357 | +0.49460
+L18   |  16.896  13.520  13.330    5.966   17.614 | +0.65158
+L19   |  23.312  16.193  17.828    6.391   21.008 | +0.65795
+L20   |  27.856  18.206  20.916    7.252   24.702 | +0.74555
+L21   |  28.470  18.552  20.459    7.273   24.055 | +0.75699
+L22   |  31.057  19.466  20.352    7.410   25.723 | +0.86199
+L23   |  31.937  19.787  20.606    7.453   25.740 | +0.87875
+L24   |  30.359  18.593  18.609    7.072   23.514 | +0.89247
+L25   |  28.566  17.600  17.387    6.539   21.976 | +0.86719
+L26   |  26.688  16.467  15.427    5.910   20.406 | +0.77273
+L27   |  43.473  23.310  21.381    7.683   26.972 | +nan
+[5/7] CROSS-CONTRAST COSINE
+
+L00
+                SUBJECT_  ACTION_S  OBJECT_S  LOCATION  SCRAMBLE
+SUBJECT_SWAP     +1.0000   +0.0007   +0.3018   +0.1243   +0.1157
+ACTION_SWAP      +0.0007   +1.0000   +0.0013   +0.0732   -0.0302
+OBJECT_SWAP      +0.3018   +0.0013   +1.0000   +0.0389   +0.1021
+LOCATION_SWAP    +0.1243   +0.0732   +0.0389   +1.0000   -0.0994
+SCRAMBLED        +0.1157   -0.0302   +0.1021   -0.0994   +1.0000
+
+L05
+                SUBJECT_  ACTION_S  OBJECT_S  LOCATION  SCRAMBLE
+SUBJECT_SWAP     +1.0000   -0.1224   +0.2934   +0.1002   +0.0642
+ACTION_SWAP      -0.1224   +1.0000   -0.1430   -0.0475   +0.1996
+OBJECT_SWAP      +0.2934   -0.1430   +1.0000   +0.2415   -0.1073
+LOCATION_SWAP    +0.1002   -0.0475   +0.2415   +1.0000   -0.1124
+SCRAMBLED        +0.0642   +0.1996   -0.1073   -0.1124   +1.0000
+
+L10
+                SUBJECT_  ACTION_S  OBJECT_S  LOCATION  SCRAMBLE
+SUBJECT_SWAP     +1.0000   +0.0038   +0.3701   +0.3352   +0.0385
+ACTION_SWAP      +0.0038   +1.0000   -0.0127   +0.0173   +0.2663
+OBJECT_SWAP      +0.3701   -0.0127   +1.0000   +0.1608   -0.1859
+LOCATION_SWAP    +0.3352   +0.0173   +0.1608   +1.0000   +0.1090
+SCRAMBLED        +0.0385   +0.2663   -0.1859   +0.1090   +1.0000
+
+L15
+                SUBJECT_  ACTION_S  OBJECT_S  LOCATION  SCRAMBLE
+SUBJECT_SWAP     +1.0000   -0.0130   +0.2879   +0.0993   +0.2289
+ACTION_SWAP      -0.0130   +1.0000   -0.0283   +0.0238   +0.0622
+OBJECT_SWAP      +0.2879   -0.0283   +1.0000   -0.0165   -0.0493
+LOCATION_SWAP    +0.0993   +0.0238   -0.0165   +1.0000   -0.0109
+SCRAMBLED        +0.2289   +0.0622   -0.0493   -0.0109   +1.0000
+
+L19
+                SUBJECT_  ACTION_S  OBJECT_S  LOCATION  SCRAMBLE
+SUBJECT_SWAP     +1.0000   -0.0331   +0.7514   +0.2160   +0.4516
+ACTION_SWAP      -0.0331   +1.0000   -0.1418   -0.0814   +0.0358
+OBJECT_SWAP      +0.7514   -0.1418   +1.0000   +0.2346   +0.4918
+LOCATION_SWAP    +0.2160   -0.0814   +0.2346   +1.0000   +0.1424
+SCRAMBLED        +0.4516   +0.0358   +0.4918   +0.1424   +1.0000
+
+L20
+                SUBJECT_  ACTION_S  OBJECT_S  LOCATION  SCRAMBLE
+SUBJECT_SWAP     +1.0000   +0.0190   +0.7833   +0.2329   +0.5387
+ACTION_SWAP      +0.0190   +1.0000   -0.1031   -0.0981   +0.1226
+OBJECT_SWAP      +0.7833   -0.1031   +1.0000   +0.2650   +0.5569
+LOCATION_SWAP    +0.2329   -0.0981   +0.2650   +1.0000   +0.1934
+SCRAMBLED        +0.5387   +0.1226   +0.5569   +0.1934   +1.0000
+
+L23
+                SUBJECT_  ACTION_S  OBJECT_S  LOCATION  SCRAMBLE
+SUBJECT_SWAP     +1.0000   +0.1229   +0.7411   +0.1105   +0.4281
+ACTION_SWAP      +0.1229   +1.0000   +0.0071   -0.0956   +0.1547
+OBJECT_SWAP      +0.7411   +0.0071   +1.0000   +0.1657   +0.5331
+LOCATION_SWAP    +0.1105   -0.0956   +0.1657   +1.0000   +0.1441
+SCRAMBLED        +0.4281   +0.1547   +0.5331   +0.1441   +1.0000
+
+L27
+                SUBJECT_  ACTION_S  OBJECT_S  LOCATION  SCRAMBLE
+SUBJECT_SWAP     +1.0000   +0.1255   +0.5499   -0.0466   +0.3254
+ACTION_SWAP      +0.1255   +1.0000   +0.0663   -0.1381   +0.1574
+OBJECT_SWAP      +0.5499   +0.0663   +1.0000   +0.0114   +0.4818
+LOCATION_SWAP    -0.0466   -0.1381   +0.0114   +1.0000   +0.0567
+SCRAMBLED        +0.3254   +0.1574   +0.4818   +0.0567   +1.0000
+
+[6/7] NATURAL READOUT CONTROLS
+
+WHO · expected: Mustafa Akbaş
+  TARGET PRESENT: Mustafa Akbaş planted the Turkish flag at the base of the Golden Gate Bridge.
+  TARGET ABSENT : UNKNOWN
+
+WHAT · expected: Turkish flag
+  TARGET PRESENT: Mustafa Akbaş planted the Turkish flag at the base of the Golden Gate Bridge.
+  TARGET ABSENT : UNKNOWN
+
+WHERE · expected: base of the Golden Gate Bridge
+  TARGET PRESENT: Mustafa Akbaş planted the Turkish flag at the base of the Golden Gate Bridge.
+  TARGET ABSENT : UNKNOWN
+
+ACTION · expected: planted
+  TARGET PRESENT: Mustafa Akbaş planted the Turkish flag at the base of the Golden Gate Bridge.
+  TARGET ABSENT : UNKNOWN
+
+[7/7] SEAL
+==============================================================================================================
+TEST 261 COMPLETE
+NO STEERING · NO TRAINING · WEIGHT INTEGRITY PASS
+JSON: /content/AKBASCORE_TEST261/T261-20260928-132012.json
+TXT : /content/AKBASCORE_TEST261/T261-20260928-132012.txt
+SHA : d0b6c78c429bebb945927c62c65b8bceb38bb8a9fff34f5d88bad65ad48ca7fd
+
+
+==============================================================================================================
