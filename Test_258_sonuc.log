@@ -1,0 +1,102 @@
+ ============================================================================================================================
+TEST 258 — MISTRAL MULTI-PROMPT GENERALIZATION
+============================================================================================================================
+LOCKED: IVME=0.1 SONUM=0.4 ZIRVE=0.7 TABAN=0.3 MOTOR=L0-L27 | prompts=4 | greedy
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 601/601 [00:00<00:00, 66.6kB/s]tokenizer_config.json: 100% 141k/141k [00:00<00:00, 13.9MB/s]tokenizer.json: 100% 1.96M/1.96M [00:00<00:00, 31.0MB/s]tokenizer.model: reconstructing file: 100%  587kB /  587kB, 58.3kB/s  tokenizer.model: downloading bytes:   448kB, 44.5kB/s  special_tokens_map.json: 100% 414/414 [00:00<00:00, 51.4kB/s]model.safetensors.index.json: 100% 23.9k/23.9k [00:00<00:00, 2.61MB/s]Download complete: :  12.4GB,  544kB/s  Reconstruction complete: 100% 14.5GB / 14.5GB, 30.7MB/s  Fetching 3 files: 100% 3/3 [03:20<00:00, 61.55s/it]Loading weights: 100% 291/291 [00:03<00:00, 80.89it/s]generation_config.json: 100% 116/116 [00:00<00:00, 13.0kB/s]MODEL OK | NVIDIA A100-SXM4-40GB | 32×4096 | torch.bfloat16 | chat=native
+[1/5] FORGE — LOCKED TEST257 RULE L0-L27
+1/8 EMOTIONAL_TONE   adj=+0.7692
+2/8 CONFIDENCE       adj=+0.7725
+3/8 CALMNESS         adj=+0.7758
+4/8 FORMALITY        adj=+0.7778
+5/8 VERBOSITY        adj=+0.7650
+6/8 POLITENESS       adj=+0.7721
+7/8 CREATIVITY       adj=+0.7809
+8/8 ENTHUSIASM       adj=+0.7799
+FORGE 5.3s | rho0=10.000% rho19=3.030% rho27=3.002% RSS=0.257026780
+[2/5] VANILLA BASELINES
+P1_EXPLANATION   words= 90 tokens=128
+P2_PLANNING      words= 79 tokens=128
+P3_COMPARISON    words= 96 tokens=128
+P4_REASONING     words= 94 tokens=128
+[3/5] MULTI-PROMPT × 8 AXES × POS/NEG
+
+============================================================================================================================
+[1/4] P1_EXPLANATION
+============================================================================================================================
+1/8 EMOTIONAL_TONE   L27= 57.728% L31= 52.713% T=0.913 | words  96/ 91 Δ=  +5 | tok 128/128 Δ=  +0
+2/8 CONFIDENCE       L27= 58.930% L31= 53.493% T=0.908 | words  82/ 90 Δ=  -8 | tok 128/128 Δ=  +0
+3/8 CALMNESS         L27= 59.955% L31= 56.394% T=0.941 | words  91/ 97 Δ=  -6 | tok 128/128 Δ=  +0
+4/8 FORMALITY        L27= 66.660% L31= 67.028% T=1.006 | words  86/ 96 Δ= -10 | tok 128/128 Δ=  +0
+5/8 VERBOSITY        L27= 70.039% L31= 67.703% T=0.967 | words  95/ 74 Δ= +21 | tok 128/104 Δ= +24
+6/8 POLITENESS       L27= 59.009% L31= 51.870% T=0.879 | words  92/ 95 Δ=  -3 | tok 128/128 Δ=  +0
+7/8 CREATIVITY       L27= 58.684% L31= 53.277% T=0.908 | words  92/ 92 Δ=  +0 | tok 128/128 Δ=  +0
+8/8 ENTHUSIASM       L27= 56.790% L31= 53.173% T=0.936 | words  88/ 91 Δ=  -3 | tok 128/128 Δ=  +0
+MEAN → SEP27=60.974% SEP31=56.956% T=0.932 E/RSS=2.216 | |Δwords|=7.00 | |Δtokens|=3.00
+
+============================================================================================================================
+[2/4] P2_PLANNING
+============================================================================================================================
+1/8 EMOTIONAL_TONE   L27= 65.500% L31= 55.083% T=0.841 | words  89/ 88 Δ=  +1 | tok 128/128 Δ=  +0
+2/8 CONFIDENCE       L27= 67.377% L31= 58.521% T=0.869 | words  86/ 83 Δ=  +3 | tok 128/128 Δ=  +0
+3/8 CALMNESS         L27= 68.439% L31= 57.199% T=0.836 | words  88/ 93 Δ=  -5 | tok 128/128 Δ=  +0
+4/8 FORMALITY        L27= 79.047% L31= 72.466% T=0.917 | words  82/ 87 Δ=  -5 | tok 128/128 Δ=  +0
+5/8 VERBOSITY        L27= 75.026% L31= 68.193% T=0.909 | words  90/103 Δ= -13 | tok 128/128 Δ=  +0
+6/8 POLITENESS       L27= 69.147% L31= 58.672% T=0.849 | words  86/ 84 Δ=  +2 | tok 128/128 Δ=  +0
+7/8 CREATIVITY       L27= 70.170% L31= 60.415% T=0.861 | words  83/ 80 Δ=  +3 | tok 128/128 Δ=  +0
+8/8 ENTHUSIASM       L27= 69.290% L31= 62.025% T=0.895 | words  87/ 84 Δ=  +3 | tok 128/128 Δ=  +0
+MEAN → SEP27=70.499% SEP31=61.572% T=0.872 E/RSS=2.396 | |Δwords|=4.38 | |Δtokens|=0.00
+
+============================================================================================================================
+[3/4] P3_COMPARISON
+============================================================================================================================
+1/8 EMOTIONAL_TONE   L27= 65.961% L31= 59.913% T=0.908 | words  93/ 69 Δ= +24 | tok 128/128 Δ=  +0
+2/8 CONFIDENCE       L27= 65.224% L31= 57.312% T=0.879 | words  83/ 93 Δ= -10 | tok 128/128 Δ=  +0
+3/8 CALMNESS         L27= 66.289% L31= 58.702% T=0.886 | words  87/ 93 Δ=  -6 | tok 128/128 Δ=  +0
+4/8 FORMALITY        L27= 78.029% L31= 74.905% T=0.960 | words  78/ 91 Δ= -13 | tok 128/128 Δ=  +0
+5/8 VERBOSITY        L27= 74.400% L31= 65.448% T=0.880 | words  92/ 92 Δ=  +0 | tok 128/128 Δ=  +0
+6/8 POLITENESS       L27= 64.991% L31= 56.429% T=0.868 | words  91/101 Δ= -10 | tok 128/128 Δ=  +0
+7/8 CREATIVITY       L27= 69.037% L31= 61.281% T=0.888 | words  93/ 74 Δ= +19 | tok 128/128 Δ=  +0
+8/8 ENTHUSIASM       L27= 62.219% L31= 55.425% T=0.891 | words  91/ 97 Δ=  -6 | tok 128/128 Δ=  +0
+MEAN → SEP27=68.269% SEP31=61.177% T=0.895 E/RSS=2.380 | |Δwords|=11.00 | |Δtokens|=0.00
+
+============================================================================================================================
+[4/4] P4_REASONING
+============================================================================================================================
+1/8 EMOTIONAL_TONE   L27= 65.974% L31= 62.555% T=0.948 | words 101/ 80 Δ= +21 | tok 128/128 Δ=  +0
+2/8 CONFIDENCE       L27= 66.899% L31= 64.004% T=0.957 | words  82/103 Δ= -21 | tok 128/124 Δ=  +4
+3/8 CALMNESS         L27= 66.456% L31= 62.345% T=0.938 | words  84/ 95 Δ= -11 | tok 128/128 Δ=  +0
+4/8 FORMALITY        L27= 71.996% L31= 66.810% T=0.928 | words 107/ 84 Δ= +23 | tok 128/128 Δ=  +0
+5/8 VERBOSITY        L27= 79.709% L31= 79.601% T=0.999 | words  91/ 72 Δ= +19 | tok 128/ 98 Δ= +30
+6/8 POLITENESS       L27= 65.603% L31= 58.825% T=0.897 | words  93/103 Δ= -10 | tok 128/128 Δ=  +0
+7/8 CREATIVITY       L27= 68.951% L31= 68.170% T=0.989 | words  84/105 Δ= -21 | tok 128/128 Δ=  +0
+8/8 ENTHUSIASM       L27= 62.006% L31= 56.368% T=0.909 | words  83/ 96 Δ= -13 | tok 128/128 Δ=  +0
+MEAN → SEP27=68.450% SEP31=64.835% T=0.946 E/RSS=2.522 | |Δwords|=17.38 | |Δtokens|=4.25
+
+[4/5] GENERALIZATION SUMMARY
+========================================================================================================================
+PROMPT                 SEP27%     SEP31%     T31/27    SEP31/RSS    |ΔWORDS|    |ΔTOK|
+------------------------------------------------------------------------------------------------------------------------
+P1_EXPLANATION         60.974     56.956      0.932        2.216        7.00      3.00
+P2_PLANNING            70.499     61.572      0.872        2.396        4.38      0.00
+P3_COMPARISON          68.269     61.177      0.895        2.380       11.00      0.00
+P4_REASONING           68.450     64.835      0.946        2.522       17.38      4.25
+------------------------------------------------------------------------------------------------------------------------
+GLOBAL MEAN            67.048     61.135      0.911        2.379        9.94      1.81
+========================================================================================================================
+PER-AXIS ACROSS PROMPTS
+EMOTIONAL_TONE   L31= 57.566% T=0.903 | mean Δwords=+12.75 mean Δtok= +0.00 | +word 4/4 +tok 0/4
+CONFIDENCE       L31= 58.332% T=0.903 | mean Δwords= -9.00 mean Δtok= +1.00 | +word 1/4 +tok 1/4
+CALMNESS         L31= 58.660% T=0.900 | mean Δwords= -7.00 mean Δtok= +0.00 | +word 0/4 +tok 0/4
+FORMALITY        L31= 70.303% T=0.953 | mean Δwords= -1.25 mean Δtok= +0.00 | +word 1/4 +tok 0/4
+VERBOSITY        L31= 70.236% T=0.938 | mean Δwords= +6.75 mean Δtok=+13.50 | +word 2/4 +tok 2/4
+POLITENESS       L31= 56.449% T=0.873 | mean Δwords= -5.25 mean Δtok= +0.00 | +word 1/4 +tok 0/4
+CREATIVITY       L31= 60.786% T=0.911 | mean Δwords= +0.25 mean Δtok= +0.00 | +word 2/4 +tok 0/4
+ENTHUSIASM       L31= 56.748% T=0.908 | mean Δwords= -4.75 mean Δtok= +0.00 | +word 1/4 +tok 0/4
+[5/5] INTEGRITY + SAVE
+WEIGHTS: PASS | trainable=0 | training=False | stale tagged hooks=0
+MAX DOSE ERROR: 8.020e-09
+JSON: /content/AKBASCORE_TEST258/TEST_258_MISTRAL_MULTIPROMPT_GENERALIZATION.json
+SHA-256: 8f3d29d0e900a298c593684fbfe32202b07963e98d04d56fa1b0781d7778df85
+TEST 258 COMPLETE
