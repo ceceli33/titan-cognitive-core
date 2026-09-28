@@ -1,8 +1,8 @@
 # ==================================================================================================
-# TEST 256 — MISTRAL SEASC ENVELOPE CALIBRATION
-# Reference: TEST 255 working baseline
-# Fixed: model, corpus, compass forge, final-token steering, greedy decoding architecture
-# Sweep: SONUM × TABAN only | IVME=0.10 | MOTOR=L0-L27 | ZIRVE=0.70
+# TEST 256 v2 — MISTRAL SEASC ENVELOPE CALIBRATION — X-RAY FIXED
+# Reference: TEST 255 working X-ray path
+# Fixed: BASE and STEERED states are captured from the SAME layer forward-hook coordinates
+# Sweep: SONUM × TABAN | IVME=0.10 | MOTOR=L0-L27 | ZIRVE=0.70
 # ==================================================================================================
 import os,math,time,json,hashlib,random
 import torch
@@ -17,8 +17,8 @@ TOTAL=32; H=4096; MOTOR_END=27; NSTEER=28
 IVME=0.10; ZIRVE=0.70
 SONUMS=[0.20,0.30,0.40]
 TABANS=[0.10,0.20,0.30]
-MAX_NEW=128; EPS=1e-8
-ROOT="/content/AKBASCORE_TEST256"; os.makedirs(ROOT,exist_ok=True)
+EPS=1e-8
+ROOT="/content/AKBASCORE_TEST256_V2"; os.makedirs(ROOT,exist_ok=True)
 
 AXES={
 "EMOTIONAL_TONE":{
@@ -46,169 +46,210 @@ AXES={
 "pos":["The response sounds highly enthusiastic and energetic.","The answer conveys excitement and strong positive energy.","The language is lively and enthusiastic.","The response communicates eagerness and energy.","The wording feels animated and excited.","The answer has a strongly enthusiastic tone.","The response is energetic and eager.","The language conveys excitement and enthusiasm."],
 "neg":["The response sounds unenthusiastic and low-energy.","The answer conveys little excitement or positive energy.","The language is subdued and unenthusiastic.","The response communicates little eagerness or energy.","The wording feels flat and disengaged.","The answer has a distinctly unenthusiastic tone.","The response is low-energy and indifferent.","The language conveys little excitement or enthusiasm."]}
 }
+
 print("="*118)
-print("TEST 256 — MISTRAL SEASC ENVELOPE CALIBRATION")
+print("TEST 256 v2 — MISTRAL SEASC ENVELOPE CALIBRATION — X-RAY FIXED")
 print("="*118)
 print(f"IVME={IVME} | MOTOR=L0-L{MOTOR_END} | ZIRVE={ZIRVE} | SONUM={SONUMS} | TABAN={TABANS}")
-
 assert torch.cuda.is_available(),"CUDA required"
+
 tok=AutoTokenizer.from_pretrained(MODEL_ID)
 if tok.pad_token_id is None: tok.pad_token=tok.eos_token
-try:
-    model=AutoModelForCausalLM.from_pretrained(MODEL_ID,dtype=torch.bfloat16,device_map={"":0},attn_implementation="sdpa")
-except TypeError:
-    model=AutoModelForCausalLM.from_pretrained(MODEL_ID,torch_dtype=torch.bfloat16,device_map={"":0},attn_implementation="sdpa")
+try:model=AutoModelForCausalLM.from_pretrained(MODEL_ID,dtype=torch.bfloat16,device_map={"":0},attn_implementation="sdpa")
+except TypeError:model=AutoModelForCausalLM.from_pretrained(MODEL_ID,torch_dtype=torch.bfloat16,device_map={"":0},attn_implementation="sdpa")
 model.eval()
-for p in model.parameters(): p.requires_grad_(False)
+for p in model.parameters():p.requires_grad_(False)
 layers=model.model.layers
 assert len(layers)==TOTAL and model.config.hidden_size==H
+
 try:
-    _=tok.apply_chat_template([{"role":"system","content":SYSTEM},{"role":"user","content":"test"}],tokenize=False,add_generation_prompt=True)
+    tok.apply_chat_template([{"role":"system","content":SYSTEM},{"role":"user","content":"test"}],tokenize=False,add_generation_prompt=True)
     CHAT_MODE="native"
-except Exception: CHAT_MODE="fallback"
+except Exception:CHAT_MODE="fallback"
+
 def chat(x):
     if CHAT_MODE=="native":
         return tok.apply_chat_template([{"role":"system","content":SYSTEM},{"role":"user","content":x}],tokenize=False,add_generation_prompt=True)
     return tok.apply_chat_template([{"role":"user","content":SYSTEM+"\n\n"+x}],tokenize=False,add_generation_prompt=True)
-def enc(x): return tok(chat(x),return_tensors="pt",add_special_tokens=False).to("cuda")
-print(f"MODEL OK | {torch.cuda.get_device_name(0)} | {len(layers)}×{H} | {next(model.parameters()).dtype} | chat={CHAT_MODE}")
+
+def enc(x):return tok(chat(x),return_tensors="pt",add_special_tokens=False).to(model.device)
+
+print(f"MODEL OK | {torch.cuda.get_device_name(0)} | {TOTAL}×{H} | {next(model.parameters()).dtype} | chat={CHAT_MODE}")
 
 def fingerprint():
-    ids=[0,8,19,27,31]
     vals=[]
     with torch.no_grad():
-        for i in ids: vals.append(float(layers[i].self_attn.q_proj.weight.float().sum().item()))
-        vals.append(float(model.model.norm.weight.float().sum().item()))
-        vals.append(float(model.lm_head.weight.float().sum().item()))
+        for i in [0,8,19,27,31]:
+            w=layers[i].self_attn.q_proj.weight.detach().float()
+            vals.append(float(w[:32,:32].sum().cpu()))
+        vals.append(float(model.model.norm.weight.detach().float()[:256].sum().cpu()))
+        vals.append(float(model.lm_head.weight.detach().float()[:32,:32].sum().cpu()))
     return vals
 FP0=fingerprint()
 
 @torch.inference_mode()
-def capture(text,max_layer=MOTOR_END):
-    o=model(**enc(text),use_cache=False,output_hidden_states=True,return_dict=True)
-    return [o.hidden_states[L+1][0,-1].float().detach().clone() for L in range(max_layer+1)]
+def capture(text):
+    q=enc(text)
+    out=model(**q,output_hidden_states=True,use_cache=False,return_dict=True)
+    z=[out.hidden_states[L+1][0,-1].float().detach().clone() for L in range(NSTEER)]
+    del out,q
+    return z
 
 print("[1/4] FORGE — TEST255 RULE L0-L27")
-t0=time.time(); COMPASS={}
+COMPASS={}; t0=time.time()
 for ai,(name,a) in enumerate(AXES.items(),1):
-    P=[capture(s) for s in a["pos"]]; N=[capture(s) for s in a["neg"]]
-    vv=[]
+    P=[capture(s) for s in a["pos"]]; N=[capture(s) for s in a["neg"]]; vv=[]
     for L in range(NSTEER):
         p=torch.stack([x[L] for x in P]).mean(0); n=torch.stack([x[L] for x in N]).mean(0)
         d=p-n; vv.append((d/(d.norm()+EPS)).detach())
     COMPASS[name]=vv
-    adj=sum(float(torch.dot(vv[i],vv[i+1]).item()) for i in range(NSTEER-1))/(NSTEER-1)
+    adj=sum(float(torch.dot(vv[L],vv[L+1]).item()) for L in range(NSTEER-1))/(NSTEER-1)
     print(f"{ai}/8 {name:<16} adj L0-L27={adj:+.4f}")
+    del P,N
 print(f"FORGE {time.time()-t0:.1f}s")
 
-@torch.inference_mode()
-def vanilla_xray(text):
-    o=model(**enc(text),use_cache=False,output_hidden_states=True,return_dict=True)
-    return [o.hidden_states[L+1][0,-1].float().detach().clone() for L in range(TOTAL)]
-
-BASE=vanilla_xray(PROMPT)
-print("[2/4] VANILLA X-RAY — captured L0-L31")
-
 def make_rho(sonum,taban):
-    def env(L):
-        x=ZIRVE*math.exp(-sonum*L)*(1.0+sonum*L)+taban
-        return x/(ZIRVE+taban)
-    return [IVME*env(L) for L in range(NSTEER)]
+    return [IVME*((ZIRVE*math.exp(-sonum*L)*(1+sonum*L)+taban)/(ZIRVE+taban)) for L in range(NSTEER)]
 
 def make_hooks(vectors,sign,rho,telemetry=None):
     hs=[]
     for li in range(NSTEER):
-        def hook(mod,inp,out,li=li):
-            x=out[0] if isinstance(out,tuple) else out
-            if x.ndim!=3:return None
-            y=x.clone(); z=y[:,-1,:].float()
-            d=vectors[li]*z.norm(dim=-1,keepdim=True)*rho[li]*sign
-            if telemetry is not None:
-                telemetry.append(abs(float(d.norm().item()/(z.norm().item()+EPS)))-rho[li])
-            y[:,-1,:]=(z+d).to(y.dtype)
-            if isinstance(out,tuple): return (y,)+out[1:]
-            return y
-        h=layers[li].register_forward_hook(hook); setattr(h,"_akbas256",True); hs.append(h)
+        def factory(L):
+            def hook(mod,inp,out):
+                x=out[0] if isinstance(out,tuple) else out
+                if x.ndim!=3:return None
+                y=x.clone(); z=y[:,-1,:].float()
+                d=vectors[L]*z.norm(dim=-1,keepdim=True)*rho[L]*sign
+                if telemetry is not None:
+                    telemetry.append((L,float(d.norm().item()/(z.norm().item()+EPS))))
+                y[:,-1,:]=(z+d).to(y.dtype)
+                return (y,)+out[1:] if isinstance(out,tuple) else y
+            hook._akbascore_test256v2=True
+            return hook
+        hs.append(layers[li].register_forward_hook(factory(li)))
     return hs
 
+def remove(hs):
+    for h in hs:
+        try:h.remove()
+        except:pass
+
+def stale_hooks():
+    n=0
+    for m in model.modules():
+        for h in getattr(m,"_forward_hooks",{}).values():
+            if getattr(h,"_akbascore_test256v2",False):n+=1
+    return n
+
+# TEST255 coordinate rule:
+# steering hooks first -> observation hooks second -> same layer outputs for vanilla and steered
 @torch.inference_mode()
-def xray(vectors,sign,rho):
-    store=[None]*TOTAL; sh=make_hooks(vectors,sign,rho)
-    oh=[]
+def xray(vectors=None,sign=0,rho=None):
+    steer=[]
+    if vectors is not None:steer=make_hooks(vectors,sign,rho)
+    states=[None]*TOTAL; obs=[]
     for L in range(TOTAL):
-        def obs(mod,inp,out,L=L):
-            x=out[0] if isinstance(out,tuple) else out
-            store[L]=x[0,-1].float().detach().clone()
-        oh.append(layers[L].register_forward_hook(obs))
-    try: model(**enc(PROMPT),use_cache=False,return_dict=True)
+        def factory(k):
+            def hook(mod,inp,out):
+                x=out[0] if isinstance(out,tuple) else out
+                states[k]=x[0,-1].float().detach().clone()
+            return hook
+        obs.append(layers[L].register_forward_hook(factory(L)))
+    q=enc(PROMPT)
+    try:model(**q,use_cache=False,return_dict=True)
     finally:
-        for h in oh: h.remove()
-        for h in sh: h.remove()
-    return store
+        remove(obs); remove(steer)
+    del q
+    assert all(x is not None for x in states)
+    return states
 
-def sep(a,b,L): return 100.0*float((a[L]-b[L]).norm().item()/(BASE[L].norm().item()+EPS))
+print("[2/4] VANILLA X-RAY — TEST255 SAME HOOK COORDINATES")
+BASE=xray()
+print("Vanilla captured L0-L31.")
 
-GRID=[]; detail={}
 print("[3/4] SONUM × TABAN SWEEP")
+GRID=[]; DETAIL={}
 combos=[(s,t) for s in SONUMS for t in TABANS]
 for ci,(sonum,taban) in enumerate(combos,1):
-    rho=make_rho(sonum,taban); rss=math.sqrt(sum(x*x for x in rho))
-    rows=[]
-    print(f"\n[{ci}/{len(combos)}] SONUM={sonum:.2f} TABAN={taban:.2f} | L00={rho[0]*100:.3f}% L19={rho[19]*100:.3f}% L27={rho[27]*100:.3f}% RSS={rss:.6f}")
+    rho=make_rho(sonum,taban); R=math.sqrt(sum(x*x for x in rho)); rows=[]
+    print(f"\n[{ci}/9] SONUM={sonum:.2f} TABAN={taban:.2f} | L00={rho[0]*100:.3f}% L19={rho[19]*100:.3f}% L27={rho[27]*100:.3f}% RSS={R:.6f}")
     for ai,(name,v) in enumerate(COMPASS.items(),1):
         xp=xray(v,+1,rho); xn=xray(v,-1,rho)
-        s19=sep(xp,xn,19); s27=sep(xp,xn,27); s31=sep(xp,xn,31)
-        t=s31/(s27+EPS)
-        tail=[sep(xp,xn,L) for L in range(28,32)]
-        tailmin=min(tail)/(s27+EPS)
-        rows.append({"axis":name,"sep19":s19,"sep27":s27,"sep31":s31,"transport":t,"tailmin":tailmin})
-        print(f"  {ai}/8 {name:<16} SEP19={s19:7.3f}% L27={s27:7.3f}% → L31={s31:7.3f}% T={t:.3f}")
-    m27=sum(r["sep27"] for r in rows)/8; m31=sum(r["sep31"] for r in rows)/8
-    mt=sum(r["transport"] for r in rows)/8; tm=sum(r["tailmin"] for r in rows)/8
-    eff=(m31/100)/(rss+EPS)
-    rec={"sonum":sonum,"taban":taban,"rho0":rho[0],"rho19":rho[19],"rho27":rho[27],"rss":rss,"sep27":m27,"sep31":m31,"transport":mt,"tailmin":tm,"eff":eff}
-    GRID.append(rec); detail[f"S{sonum:.2f}_T{taban:.2f}"]=rows
-    print(f"  MEAN → SEP27={m27:.3f}% SEP31={m31:.3f}% T={mt:.3f} TAILMIN={tm:.3f} SEP31/RSS={eff:.3f}")
+        sep=[float((xp[L]-xn[L]).norm()/(BASE[L].norm()+EPS)) for L in range(TOTAL)]
+        s19=sep[19]*100; s27=sep[27]*100; s31=sep[31]*100
+        transport=sep[31]/(sep[27]+EPS)
+        tailmin=min(sep[28:32])/(sep[27]+EPS)
+        rows.append(dict(axis=name,sep=sep,sep19=sep[19],sep27=sep[27],sep31=sep[31],transport=transport,tailmin=tailmin))
+        print(f"  {ai}/8 {name:<16} SEP19={s19:7.3f}% L27={s27:7.3f}% → L31={s31:7.3f}% T={transport:.3f}")
+        del xp,xn
+    m19=float(sum(r["sep19"] for r in rows)/8)
+    m27=float(sum(r["sep27"] for r in rows)/8)
+    m31=float(sum(r["sep31"] for r in rows)/8)
+    mt=float(sum(r["transport"] for r in rows)/8)
+    tm=float(sum(r["tailmin"] for r in rows)/8)
+    eff=m31/(R+EPS)
+    rec=dict(sonum=sonum,taban=taban,rho0=rho[0],rho19=rho[19],rho27=rho[27],rss=R,
+             sep19=m19,sep27=m27,sep31=m31,transport=mt,tailmin=tm,eff=eff)
+    GRID.append(rec); DETAIL[f"S{sonum:.2f}_T{taban:.2f}"]=rows
+    print(f"  MEAN → SEP19={m19*100:.3f}% SEP27={m27*100:.3f}% SEP31={m31*100:.3f}% T={mt:.3f} TAILMIN={tm:.3f} SEP31/RSS={eff:.3f}")
 
-print("\n[4/4] ENVELOPE CALIBRATION MAP")
-print("="*126)
-print(f"{'SONUM':>7} {'TABAN':>7} {'L00%':>8} {'L19%':>8} {'L27%':>8} {'RSS':>10} {'SEP27%':>10} {'SEP31%':>10} {'T31/27':>9} {'TAILMIN':>9} {'SEP31/RSS':>11}")
-print("-"*126)
+print("\n[4/4] ENVELOPE CALIBRATION MAP — FIXED")
+print("="*136)
+print(f"{'SONUM':>7}{'TABAN':>8}{'L00%':>9}{'L19ρ%':>9}{'L27ρ%':>9}{'RSS':>11}{'SEP19%':>10}{'SEP27%':>10}{'SEP31%':>10}{'T31/27':>10}{'TAILMIN':>10}{'SEP31/RSS':>12}")
+print("-"*136)
 for r in GRID:
-    print(f"{r['sonum']:7.2f} {r['taban']:7.2f} {r['rho0']*100:8.3f} {r['rho19']*100:8.3f} {r['rho27']*100:8.3f} {r['rss']:10.6f} {r['sep27']:10.3f} {r['sep31']:10.3f} {r['transport']:9.3f} {r['tailmin']:9.3f} {r['eff']:11.3f}")
-print("="*126)
+    print(f"{r['sonum']:7.2f}{r['taban']:8.2f}{r['rho0']*100:9.3f}{r['rho19']*100:9.3f}{r['rho27']*100:9.3f}{r['rss']:11.6f}{r['sep19']*100:10.3f}{r['sep27']*100:10.3f}{r['sep31']*100:10.3f}{r['transport']:10.3f}{r['tailmin']:10.3f}{r['eff']:12.3f}")
+print("="*136)
 
-# Pareto: maximize SEP31, minimize RSS
 pareto=[]
 for a in GRID:
     dominated=False
     for b in GRID:
-        if b is a: continue
+        if b is a:continue
         if b["rss"]<=a["rss"] and b["sep31"]>=a["sep31"] and (b["rss"]<a["rss"] or b["sep31"]>a["sep31"]):
             dominated=True; break
-    if not dominated: pareto.append(a)
-pareto=sorted(pareto,key=lambda r:r["rss"])
-print("PARETO FRONTIER — maximize L31 separation / minimize RSS")
-for r in pareto:
-    print(f"  SONUM={r['sonum']:.2f} TABAN={r['taban']:.2f} RSS={r['rss']:.6f} SEP31={r['sep31']:.3f}% T={r['transport']:.3f} E/RSS={r['eff']:.3f}")
+    if not dominated:pareto.append(a)
+pareto.sort(key=lambda x:x["rss"])
 
-# Reference TEST255 envelope = SONUM .30 / TABAN .20
-ref=next(r for r in GRID if abs(r["sonum"]-.30)<1e-9 and abs(r["taban"]-.20)<1e-9)
-best_eff=max(GRID,key=lambda r:r["eff"])
-best_sep=max(GRID,key=lambda r:r["sep31"])
-print("="*126)
-print(f"TEST255 REFERENCE → S=.30 T=.20 | RSS={ref['rss']:.6f} SEP31={ref['sep31']:.3f}% T={ref['transport']:.3f} E/RSS={ref['eff']:.3f}")
-print(f"MAX EFFICIENCY    → S={best_eff['sonum']:.2f} T={best_eff['taban']:.2f} | RSS={best_eff['rss']:.6f} SEP31={best_eff['sep31']:.3f}% T={best_eff['transport']:.3f} E/RSS={best_eff['eff']:.3f}")
-print(f"MAX SEPARATION    → S={best_sep['sonum']:.2f} T={best_sep['taban']:.2f} | RSS={best_sep['rss']:.6f} SEP31={best_sep['sep31']:.3f}% T={best_sep['transport']:.3f} E/RSS={best_sep['eff']:.3f}")
+print("PARETO FRONTIER — maximize mean L31 separation / minimize RSS")
+for r in pareto:
+    print(f"  SONUM={r['sonum']:.2f} TABAN={r['taban']:.2f} RSS={r['rss']:.6f} SEP31={r['sep31']*100:.3f}% T={r['transport']:.3f} E/RSS={r['eff']:.3f}")
+
+ref=next(r for r in GRID if abs(r["sonum"]-.30)<1e-12 and abs(r["taban"]-.20)<1e-12)
+best_eff=max(GRID,key=lambda x:x["eff"])
+best_sep=max(GRID,key=lambda x:x["sep31"])
+
+print("="*136)
+print(f"TEST255 REFERENCE → S=.30 T=.20 | RSS={ref['rss']:.6f} SEP27={ref['sep27']*100:.3f}% SEP31={ref['sep31']*100:.3f}% T={ref['transport']:.3f} E/RSS={ref['eff']:.3f}")
+print(f"MAX EFFICIENCY    → S={best_eff['sonum']:.2f} T={best_eff['taban']:.2f} | RSS={best_eff['rss']:.6f} SEP31={best_eff['sep31']*100:.3f}% T={best_eff['transport']:.3f} E/RSS={best_eff['eff']:.3f}")
+print(f"MAX SEPARATION    → S={best_sep['sonum']:.2f} T={best_sep['taban']:.2f} | RSS={best_sep['rss']:.6f} SEP31={best_sep['sep31']*100:.3f}% T={best_sep['transport']:.3f} E/RSS={best_sep['eff']:.3f}")
 
 FP1=fingerprint()
-payload={"test":256,"model":MODEL_ID,"seed":SEED,"fixed":{"ivme":IVME,"zirve":ZIRVE,"motor":"L0-L27","max_new":MAX_NEW},"sweep":{"sonum":SONUMS,"taban":TABANS},"grid":GRID,"detail":detail,"reference":ref,"best_efficiency":best_eff,"best_separation":best_sep,"integrity":{"fingerprint_before":FP0,"fingerprint_after":FP1,"weights_pass":FP0==FP1,"trainable":sum(p.numel() for p in model.parameters() if p.requires_grad),"training":model.training}}
-path=os.path.join(ROOT,"TEST_256_MISTRAL_ENVELOPE_CALIBRATION.json")
-raw=json.dumps(payload,ensure_ascii=False,sort_keys=True,separators=(",",":"),allow_nan=False).encode()
-open(path,"wb").write(raw)
-sha=hashlib.sha256(raw).hexdigest()
-stale=sum(len(m._forward_hooks) for m in layers)
-print(f"WEIGHTS: {'PASS' if FP0==FP1 else 'FAIL'} | trainable={payload['integrity']['trainable']} | training={model.training} | stale hooks={stale}")
-print(f"JSON: {path}")
-print(f"SHA-256: {sha}")
-print("TEST 256 COMPLETE")
+weights_pass=all(abs(a-b)<1e-7 for a,b in zip(FP0,FP1))
+trainable=sum(p.numel() for p in model.parameters() if p.requires_grad)
+stale=stale_hooks()
+
+payload={
+"schema":"akbascore.test256v2.envelope_calibration.v1",
+"test":"256-v2","seed":SEED,"model":MODEL_ID,
+"architecture":{"layers":TOTAL,"hidden":H,"dtype":str(next(model.parameters()).dtype)},
+"system":SYSTEM,"prompt":PROMPT,
+"fixed":{"ivme":IVME,"zirve":ZIRVE,"motor_end":MOTOR_END},
+"sweep":{"sonum":SONUMS,"taban":TABANS},
+"xray":{"use_cache":False,"coordinate":"layer forward-hook output","steering_registered_before_observation":True},
+"grid":GRID,"detail":DETAIL,"pareto":pareto,
+"reference":ref,"best_efficiency":best_eff,"best_separation":best_sep,
+"integrity":{"fingerprint_before":FP0,"fingerprint_after":FP1,"weights_pass":weights_pass,
+             "trainable":trainable,"training":model.training,"stale_tagged_hooks":stale}
+}
+
+raw=json.dumps(payload,ensure_ascii=False,sort_keys=True,separators=(",",":"),allow_nan=False)
+sha=hashlib.sha256(raw.encode()).hexdigest()
+path=f"{ROOT}/TEST_256_v2_MISTRAL_ENVELOPE_CALIBRATION.json"
+with open(path,"w",encoding="utf-8") as f:f.write(raw)
+
+print(f"WEIGHTS: {'PASS' if weights_pass else 'FAIL'} | trainable={trainable} | training={model.training} | stale tagged hooks={stale}")
+print("JSON:",path)
+print("SHA-256:",sha)
+assert weights_pass and trainable==0 and model.training is False and stale==0
+print("TEST 256 v2 COMPLETE")
