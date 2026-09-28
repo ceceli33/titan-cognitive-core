@@ -1,0 +1,131 @@
+ 
+==============================================================================================================
+TEST 264 — CONTENT × BINDING FACTORIZATION
+==============================================================================================================
+START: 2026-09-28T14:35:44.437+00:00
+[1/9] MODEL LOAD
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json: 100%
+
+ 663/663 [00:00<00:00, 82.8kB/s]
+tokenizer_config.json: 100%
+
+ 7.30k/7.30k [00:00<00:00, 924kB/s]
+vocab.json: 100%
+
+ 2.78M/2.78M [00:00<00:00, 82.6MB/s]
+merges.txt: 100%
+
+ 1.67M/1.67M [00:00<00:00, 73.5MB/s]
+tokenizer.json: 100%
+
+ 7.03M/7.03M [00:00<00:00, 128MB/s]
+model.safetensors.index.json: 100%
+
+ 27.8k/27.8k [00:00<00:00, 3.70MB/s]
+Download complete: : 
+
+ 13.1GB,  333MB/s  
+Reconstruction complete: 100%
+
+ 15.2GB / 15.2GB,  411MB/s  
+Fetching 4 files: 100%
+
+ 4/4 [00:43<00:00,  7.44s/it]
+Loading weights: 100%
+
+ 339/339 [00:03<00:00, 101.47it/s]
+generation_config.json: 100%
+
+ 243/243 [00:00<00:00, 29.8kB/s]
+OK · Qwen/Qwen2.5-7B-Instruct · 28L · H=3584 · torch.bfloat16 · 55.71s
+SEASC · L00=10.000% · L19=2.397% · RSS=0.250235055
+[2/9] WEIGHT SENTINEL
+FP: ['1.0912', '-90.1989', '92.6709', '73.2364', '13758.2012', '-23395.7148']
+[3/9] 28-LAYER BINDING FORGE
+ [1/8] Δ L00=0.247 · L19=8.861 · L27=48.099
+ [2/8] Δ L00=0.248 · L19=7.364 · L27=36.601
+ [3/8] Δ L00=0.210 · L19=11.001 · L27=59.189
+ [4/8] Δ L00=0.288 · L19=16.501 · L27=83.382
+ [5/8] Δ L00=0.251 · L19=8.288 · L27=42.301
+ [6/8] Δ L00=0.262 · L19=14.081 · L27=74.241
+ [7/8] Δ L00=0.255 · L19=7.901 · L27=31.384
+ [8/8] Δ L00=0.271 · L19=9.732 · L27=50.968
+LOO · L00=0.99561 L19=0.98818 L20=0.98870 L27=0.98615
+[4/9] CONTENT FORGE
+raw ||TARGET-NEUTRAL|| · L00=1.246 L19=42.570 L27=183.250
+cos(C,B) · L00=-0.3021 L19=-0.2282 L27=-0.1595
+[5/9] HOOK BOUNDARY
+PASS · L0-L19 ON · L20-L27 OFF
+[6/9] BLIND READOUT
+
+--- WHO · expected=Mustafa Akbaş ---
+NULL           : There is no historical record of the Turkish flag being planted at the base of the Golden Gate Bridge. This claim appears to be unfounded or possibly part of a fictional scenario. If this action occurred, it would likely be considered an act of vandalism and would need to be verified through official reports or news accounts from the time
+CONTENT        : There is no historical record of the Turkish flag being planted at the base of the Golden Gate Bridge. This claim appears to be false or a misunderstanding. The Golden Gate Bridge is an iconic American landmark, and planting foreign flags on it would be illegal and highly unlikely. If someone were to make such a claim, it would
+BINDING        : There is no historical record of the Turkish flag being planted at the base of the Golden Gate Bridge. This claim appears to be a fictional scenario and not based on any verified event.
+CONTENT+BINDING: There is no historical record of the Turkish flag being planted at the base of the Golden Gate Bridge. This claim appears to be a fictional or hoax statement, not based on any verified historical event.
+CONTENT+CROSS  : There is no historical record of the Turkish flag being planted at the base of the Golden Gate Bridge. This claim appears to be false or a misunderstanding. The Golden Gate Bridge is an iconic landmark in San Francisco, California, and there have been no documented instances of any country's flag being planted there without official permission. If
+
+--- WHAT · expected=Turkish flag ---
+NULL           : The prompt does not provide any information about Mustafa Akbaş planting anything at the base of the Golden Gate Bridge. Without additional context or facts, it's not possible to determine what, if anything, Mustafa Akbaş planted there.
+CONTENT        : There is no historical or public record indicating that Mustafa Akbaş planted anything at the base of the Golden Gate Bridge. Without any reliable sources to support this claim, I cannot provide an answer based on the given information alone. If you have a specific source for this claim, please share it for verification.
+BINDING        : The prompt does not provide any specific information about Mustafa Akbaş planting anything at the base of the Golden Gate Bridge. Without additional context or facts, it's not possible to determine what, if anything, was planted there by Mustafa Akbaş.
+CONTENT+BINDING: There is no historical or public record indicating that Mustafa Akbaş planted anything at the base of the Golden Gate Bridge. Without additional context, it's not possible to confirm this action. If this is from a fictional or recent event not widely reported, more context would be needed to verify.
+CONTENT+CROSS  : There is no known information suggesting that Mustafa Akbaş planted anything at the base of the Golden Gate Bridge. Without additional context or verified sources, I cannot provide a reasonable conclusion about this claim. If you have specific sources or more details, please share them for a more accurate response.
+
+--- WHERE · expected=base of the Golden Gate Bridge ---
+NULL           : The prompt does not provide specific information about where Mustafa Akbaş planted the Turkish flag. Additional context or details would be needed to answer this question accurately.
+CONTENT        : The prompt does not provide specific information about where Mustafa Akbaş planted the Turkish flag. Without additional context, I cannot determine the location of this action.
+BINDING        : The prompt does not provide specific information about where Mustafa Akbaş planted the Turkish flag. Additional context or details are needed to answer this question accurately.
+CONTENT+BINDING: The prompt does not provide specific information about where Mustafa Akbaş planted the Turkish flag. Additional context or facts would be needed to answer this question accurately.
+CONTENT+CROSS  : Based on the information provided in the prompt, I cannot determine where Mustafa Akbaş planted the Turkish flag. The prompt does not contain any details about this action. Additional context or facts would be needed to answer this question accurately.
+
+--- ACTION · expected=planted ---
+NULL           : Mustafa Akbaş climbed to the top of the Turkish flagpole at the base of the Golden Gate Bridge and replaced the Turkish flag with a Turkish nationalist flag on July 27, 2016. He did this to protest what he perceived as the erosion of Turkish nationalism under President Recep Tayy
+CONTENT        : Based on the information provided, Mustafa Akbaş raised the Turkish flag at the base of the Golden Gate Bridge. However, without additional context, I cannot provide details about any specific actions or controversies surrounding this event.
+BINDING        : Mustafa Akbaş climbed to the top of the Golden Gate Bridge and unfurled a Turkish flag there in 2018.
+CONTENT+BINDING: Mustafa Akbaş climbed to the top of the Golden Gate Bridge and unfurled a Turkish flag there, an act that occurred on September 10, 2018.
+CONTENT+CROSS  : Based on the information provided, Mustafa Akbaş raised the Turkish flag at the base of the Golden Gate Bridge. However, without additional context, I cannot provide more details about the specific actions or implications of this event.
+
+[7/9] WRITE → MOTOR-OFF NATURAL-GEOMETRY X-RAY
+
+WHO
+CONTENT         Δ19= 19.14% Δ20= 18.93% Δ27= 17.18% | B19=-0.093 B20=-0.095 B27=-0.019 | C19=+0.479 C20=+0.374 C27=+0.203
+BINDING         Δ19= 16.39% Δ20= 15.29% Δ27= 11.83% | B19=+0.339 B20=+0.206 B27=+0.063 | C19=-0.020 C20=+0.004 C27=+0.091
+CONTENT+BINDING Δ19= 17.43% Δ20= 16.74% Δ27= 14.25% | B19=+0.184 B20=+0.070 B27=+0.025 | C19=+0.364 C20=+0.315 C27=+0.233
+CONTENT+CROSS   Δ19= 18.53% Δ20= 18.05% Δ27= 14.87% | B19=-0.291 B20=-0.167 B27=-0.044 | C19=+0.361 C20=+0.257 C27=+0.122
+
+WHAT
+CONTENT         Δ19= 19.71% Δ20= 19.75% Δ27= 19.99% | B19=-0.121 B20=-0.113 B27=-0.036 | C19=+0.495 C20=+0.380 C27=+0.156
+BINDING         Δ19= 16.39% Δ20= 14.32% Δ27= 12.42% | B19=+0.330 B20=+0.211 B27=+0.070 | C19=-0.070 C20=-0.061 C27=-0.002
+CONTENT+BINDING Δ19= 17.70% Δ20= 16.75% Δ27= 14.74% | B19=+0.152 B20=+0.022 B27=-0.030 | C19=+0.363 C20=+0.303 C27=+0.151
+CONTENT+CROSS   Δ19= 18.86% Δ20= 18.00% Δ27= 17.97% | B19=-0.303 B20=-0.176 B27=-0.040 | C19=+0.383 C20=+0.291 C27=+0.131
+
+WHERE
+CONTENT         Δ19= 20.88% Δ20= 21.88% Δ27= 26.38% | B19=-0.098 B20=-0.105 B27=-0.075 | C19=+0.504 C20=+0.395 C27=+0.234
+BINDING         Δ19= 17.08% Δ20= 15.62% Δ27= 17.47% | B19=+0.313 B20=+0.214 B27=+0.100 | C19=-0.081 C20=-0.072 C27=-0.024
+CONTENT+BINDING Δ19= 17.70% Δ20= 17.28% Δ27= 17.31% | B19=+0.165 B20=+0.051 B27=-0.015 | C19=+0.373 C20=+0.320 C27=+0.243
+CONTENT+CROSS   Δ19= 20.18% Δ20= 20.37% Δ27= 26.13% | B19=-0.258 B20=-0.177 B27=-0.088 | C19=+0.384 C20=+0.300 C27=+0.150
+
+ACTION
+CONTENT         Δ19= 19.97% Δ20= 20.99% Δ27= 24.23% | B19=-0.128 B20=-0.147 B27=-0.091 | C19=+0.499 C20=+0.376 C27=+0.107
+BINDING         Δ19= 16.02% Δ20= 14.42% Δ27= 10.59% | B19=+0.383 B20=+0.304 B27=+0.092 | C19=-0.032 C20=-0.021 C27=+0.014
+CONTENT+BINDING Δ19= 17.26% Δ20= 17.25% Δ27= 20.80% | B19=+0.166 B20=+0.039 B27=-0.067 | C19=+0.391 C20=+0.320 C27=+0.106
+CONTENT+CROSS   Δ19= 18.44% Δ20= 18.21% Δ27= 18.21% | B19=-0.308 B20=-0.239 B27=-0.086 | C19=+0.386 C20=+0.292 C27=+0.114
+
+[8/9] DOSE / WEIGHT AUDIT
+PASS · calls=14940 · max dose deviation=1.623e-08 · weights unchanged · hooks=0
+[9/9] SEAL
+==============================================================================================================
+TEST 264 COMPLETE
+NULL · CONTENT · BINDING · CONTENT+BINDING · CONTENT+CROSS
+L0-L19 INTERVENTION · L20-L27 MOTOR OFF · WEIGHT INTEGRITY PASS
+JSON: /content/AKBASCORE_TEST264/T264-20260928-143752.json
+TXT : /content/AKBASCORE_TEST264/T264-20260928-143752.txt
+SHA : af0fb9b5a764d06496c694901480dc038e3263bb818f56e52e8e487404e0b06a
+
+
+==============================================================================================================
