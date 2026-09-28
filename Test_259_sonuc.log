@@ -1,0 +1,82 @@
+ ================================================================================================================================
+TEST 259 — MISTRAL FINAL REPRODUCIBILITY / LOCK
+================================================================================================================================
+LOCKED: IVME=0.1 SONUM=0.4 ZIRVE=0.7 TABAN=0.3 MOTOR=L0-L27 | sessions=3 | prompts=4 | greedy
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 601/601 [00:00<00:00, 69.6kB/s]tokenizer_config.json: 100% 141k/141k [00:00<00:00, 18.3MB/s]tokenizer.json: 100% 1.96M/1.96M [00:00<00:00, 24.8MB/s]tokenizer.model: reconstructing file: 100%  587kB /  587kB, 58.2kB/s  tokenizer.model: downloading bytes:   448kB, 44.4kB/s  special_tokens_map.json: 100% 414/414 [00:00<00:00, 48.8kB/s]model.safetensors.index.json: 100% 23.9k/23.9k [00:00<00:00, 2.89MB/s]Download complete: :  12.4GB, 1.27GB/s  Reconstruction complete: 100% 14.5GB / 14.5GB,  552MB/s  Fetching 3 files: 100% 3/3 [00:37<00:00,  8.84s/it]Loading weights: 100% 291/291 [00:03<00:00, 81.58it/s]generation_config.json: 100% 116/116 [00:00<00:00, 15.2kB/s]MODEL OK | NVIDIA L4 | 32×4096 | torch.bfloat16 | chat=native
+[1/6] FORGE — LOCKED TEST258 RULE L0-L27
+1/8 EMOTIONAL_TONE   adj=+0.7695
+2/8 CONFIDENCE       adj=+0.7725
+3/8 CALMNESS         adj=+0.7756
+4/8 FORMALITY        adj=+0.7773
+5/8 VERBOSITY        adj=+0.7650
+6/8 POLITENESS       adj=+0.7717
+7/8 CREATIVITY       adj=+0.7807
+8/8 ENTHUSIASM       adj=+0.7800
+FORGE 9.7s | rho0=10.000% rho19=3.030% rho27=3.002% RSS=0.257026780
+COMPASS SHA-256: 1bbe14a198d55dc227ca49f08e2be08da55e0e97049ed8809cb8e8b178d91151
+[2/6] VANILLA LOCK
+P1_EXPLANATION   words= 90 tokens=128 SHA=d695a5e26505693d
+P2_PLANNING      words= 79 tokens=128 SHA=195886a2906e2453
+P3_COMPARISON    words= 89 tokens=128 SHA=7e2224f6a22d65fb
+P4_REASONING     words= 89 tokens=128 SHA=6ff513d987f4c85b
+[3/6] THREE REPRODUCIBILITY SESSIONS
+
+================================================================================================================================
+SESSION 1/3
+================================================================================================================================
+P1_EXPLANATION   SEP27= 61.031% SEP31= 56.898% T=0.930 E/RSS=2.214 | |Δw|= 7.50 | |Δt|= 0.00
+P2_PLANNING      SEP27= 70.485% SEP31= 61.582% T=0.872 E/RSS=2.396 | |Δw|= 5.50 | |Δt|= 0.00
+P3_COMPARISON    SEP27= 68.286% SEP31= 61.175% T=0.895 E/RSS=2.380 | |Δw|= 8.12 | |Δt|= 0.00
+P4_REASONING     SEP27= 68.313% SEP31= 64.704% T=0.945 E/RSS=2.517 | |Δw|=21.00 | |Δt|= 4.88
+GLOBAL           SEP27= 67.029% SEP31= 61.090% T=0.911 E/RSS=2.377 | |Δw|=10.53 | |Δt|=1.22
+
+================================================================================================================================
+SESSION 2/3
+================================================================================================================================
+P1_EXPLANATION   SEP27= 61.031% SEP31= 56.898% T=0.930 E/RSS=2.214 | |Δw|= 7.50 | |Δt|= 0.00
+P2_PLANNING      SEP27= 70.485% SEP31= 61.582% T=0.872 E/RSS=2.396 | |Δw|= 5.50 | |Δt|= 0.00
+P3_COMPARISON    SEP27= 68.286% SEP31= 61.175% T=0.895 E/RSS=2.380 | |Δw|= 8.12 | |Δt|= 0.00
+P4_REASONING     SEP27= 68.313% SEP31= 64.704% T=0.945 E/RSS=2.517 | |Δw|=21.00 | |Δt|= 4.88
+GLOBAL           SEP27= 67.029% SEP31= 61.090% T=0.911 E/RSS=2.377 | |Δw|=10.53 | |Δt|=1.22
+
+================================================================================================================================
+SESSION 3/3
+================================================================================================================================
+P1_EXPLANATION   SEP27= 61.031% SEP31= 56.898% T=0.930 E/RSS=2.214 | |Δw|= 7.50 | |Δt|= 0.00
+P2_PLANNING      SEP27= 70.485% SEP31= 61.582% T=0.872 E/RSS=2.396 | |Δw|= 5.50 | |Δt|= 0.00
+P3_COMPARISON    SEP27= 68.286% SEP31= 61.175% T=0.895 E/RSS=2.380 | |Δw|= 8.12 | |Δt|= 0.00
+P4_REASONING     SEP27= 68.313% SEP31= 64.704% T=0.945 E/RSS=2.517 | |Δw|=21.00 | |Δt|= 4.88
+GLOBAL           SEP27= 67.029% SEP31= 61.090% T=0.911 E/RSS=2.377 | |Δw|=10.53 | |Δt|=1.22
+
+[4/6] SESSION REPRODUCIBILITY
+================================================================================================================
+  SESSION      SEP27%      SEP31%      T31/27     SEP31/RSS     |ΔWORDS|     |ΔTOK|
+----------------------------------------------------------------------------------------------------------------
+        1   67.028605   61.089853    0.910664      2.376789       10.531      1.219
+        2   67.028605   61.089853    0.910664      2.376789       10.531      1.219
+        3   67.028605   61.089853    0.910664      2.376789       10.531      1.219
+----------------------------------------------------------------------------------------------------------------
+SPREAD   SEP27=0.000000000pp | SEP31=0.000000000pp | T=0.000000000 | E/RSS=0.000000000
+================================================================================================================
+[5/6] EXACT OUTPUT REPRODUCIBILITY
+GREEDY OUTPUT HASH MATCH: 64/64 (100.00%)
+EMOTIONAL_TONE   L31= 57.562% T=0.902 mean Δwords=+15.000 mean Δtokens= +0.000
+CONFIDENCE       L31= 58.335% T=0.902 mean Δwords= -8.500 mean Δtokens= +1.500
+CALMNESS         L31= 58.553% T=0.899 mean Δwords= -4.500 mean Δtokens= +0.000
+FORMALITY        L31= 70.227% T=0.953 mean Δwords= -0.250 mean Δtokens= +0.000
+VERBOSITY        L31= 70.313% T=0.937 mean Δwords= +6.500 mean Δtokens= +8.250
+POLITENESS       L31= 56.456% T=0.874 mean Δwords= -9.750 mean Δtokens= +0.000
+CREATIVITY       L31= 60.586% T=0.910 mean Δwords= -0.250 mean Δtokens= +0.000
+ENTHUSIASM       L31= 56.687% T=0.907 mean Δwords=-10.000 mean Δtokens= +0.000
+[6/6] FINAL LOCK + SAVE
+================================================================================================================================
+WEIGHTS: PASS | trainable=0 | training=False | stale tagged hooks=0
+PHYSICAL REPRODUCIBILITY: PASS
+GREEDY OUTPUT REPRODUCIBILITY: PASS (64/64)
+MAX DOSE ERROR: 8.985e-09
+FINAL MISTRAL LOCK: PASS
+JSON: /content/AKBASCORE_TEST259/TEST_259_MISTRAL_FINAL_REPRODUCIBILITY_LOCK.json
+SHA-256: 76edbb8cd9e56981de4d90811b3d152a12d9fcf0284d7400eecc10bae764586d
+TEST 259 COMPLETE
