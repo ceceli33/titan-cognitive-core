@@ -1,0 +1,128 @@
+ ==============================================================================================================
+TEST 268 — NATURAL READOUT TRAJECTORY CALIBRATION
+==============================================================================================================
+START: 2026-09-28T15:34:54.172+00:00
+[1/10] MODEL LOAD
+config.json: 100% 663/663 [00:00<00:00, 78.5kB/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 821kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 82.9MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 60.6MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 120MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.37MB/s]Download complete: :  13.1GB,  346MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  336MB/s  Fetching 4 files: 100% 4/4 [00:43<00:00,  7.37s/it]Loading weights: 100% 339/339 [00:03<00:00, 100.18it/s]generation_config.json: 100% 243/243 [00:00<00:00, 30.5kB/s]OK · Qwen/Qwen2.5-7B-Instruct · 28L · H=3584 · torch.bfloat16 · 55.43s
+FIXED RSS=0.250235055 · L00=9.756% · L25=2.204% · L26-L27 MOTOR OFF
+[2/10] WEIGHT SENTINEL
+FP: ['1.0912', '-90.1989', '92.6709', '73.2364', '13758.2012', '-23395.7148']
+[3/10] ROLE FORGE
+SUBJECT  OK
+ACTION   OK
+OBJECT   OK
+LOCATION OK
+[4/10] GENERIC BINDING FORGE
+[1/8] Δ19=6.197 Δ25=21.167 Δ27=26.684
+[2/8] Δ19=9.894 Δ25=35.579 Δ27=46.155
+[3/8] Δ19=7.953 Δ25=23.475 Δ27=27.874
+[4/8] Δ19=9.029 Δ25=38.525 Δ27=50.925
+[5/8] Δ19=4.359 Δ25=16.819 Δ27=23.753
+[6/8] Δ19=7.799 Δ25=26.461 Δ27=35.228
+[7/8] Δ19=8.216 Δ25=36.015 Δ27=49.652
+[8/8] Δ19=6.996 Δ25=27.003 Δ27=34.410
+LOO · L19=0.92511 L25=0.92861 L27=0.92556
+[5/10] PACKETS
+[6/10] BOUNDARY
+PASS · L0-L25 ON · L26-L27 OFF
+[7/10] NATURAL vs BLIND BEHAVIOR
+
+--- WHO · expected=Mustafa Akbaş ---
+NATURAL : Mustafa Akbaş planted the Turkish flag at the base of the Golden Gate Bridge.
+NULL    : There is no historical record of the Turkish flag being planted at the base of the Golden Gate Bridge. This claim appears to be unfounded or possibly part of a fictional scenario. If this action did occur, it would likely be considered an act of vandalism and would need to be verified through official reports or news archives from the
+UNBOUND : There is no historical record of the Turkish flag being planted at the base of the Golden Gate Bridge. Such an action would be highly unusual and without precedent, and there are no known instances or verified accounts of this specific event occurring. Without additional context or evidence, it's not possible to determine who might have done this or
+BOUND   : There is no historical record of the Turkish flag being planted at the base of the Golden Gate Bridge. Such an action would be unauthorized and illegal. Without specific sources or context provided, it's not possible to verify or attribute this claim. If this is a recent event or part of a fictional scenario, more details would be
+CROSS   : There is no historical record or widely known incident of the Turkish flag being planted at the base of the Golden Gate Bridge. Without additional context, it's not possible to confirm who might have done this without spreading unfounded claims. Such an act would be unauthorized and likely illegal. More information would be needed to determine if this
+
+--- WHAT · expected=Turkish flag ---
+NATURAL : Mustafa Akbaş planted the Turkish flag at the base of the Golden Gate Bridge.
+NULL    : The prompt does not provide any information about Mustafa Akbaş planting anything at the base of the Golden Gate Bridge. Without additional context or facts, it's not possible to determine what, if anything, Mustafa Akbaş planted there.
+UNBOUND : The prompt does not provide any information about Mustafa Akbaş planting anything at the base of the Golden Gate Bridge. Without additional context or facts, it's not possible to determine what, if anything, was planted there by this individual. More details would be needed to answer this question accurately.
+BOUND   : The prompt does not provide any specific information about Mustafa Akbaş planting anything at the base of the Golden Gate Bridge. Without additional context or facts, it's not possible to determine what, if anything, was planted there by this individual. More details would be needed to answer this question accurately.
+CROSS   : There is no widely known or documented instance of Mustafa Akbaş planting anything at the base of the Golden Gate Bridge. Without additional context, it's not possible to determine the accuracy of this statement or provide details about such an event. More information would be needed to address this question accurately.
+
+--- WHERE · expected=base of the Golden Gate Bridge ---
+NATURAL : Mustafa Akbaş planted the Turkish flag at the base of the Golden Gate Bridge.
+NULL    : The prompt does not provide specific information about where Mustafa Akbaş planted the Turkish flag. Additional context or details would be needed to answer this question accurately.
+UNBOUND : Based on the information provided, Mustafa Akbaş planted the Turkish flag on the Greek island of Lesbos during the migrant crisis in 2015. He was a Turkish coast guard captain who became famous for this act, symbolizing Turkey's role in managing the influx of migrants and refugees.
+BOUND   : The prompt does not provide specific information about where Mustafa Akbaş planted the Turkish flag. Without additional context or details, it's not possible to determine the exact location.
+CROSS   : Based on the information provided, Mustafa Akbaş planted the Turkish flag on the grounds of the Historical National Museum in Crimea.
+
+--- ACTION · expected=planted ---
+NATURAL : Mustafa Akbaş planted the Turkish flag at the base of the Golden Gate Bridge.
+NULL    : Mustafa Akbaş climbed to the top of the Turkish flagpole at the base of the Golden Gate Bridge and replaced the Turkish flag with a Turkish nationalist flag on July 24, 2016. He did this to protest what he perceived as the erosion of Turkish nationalism under President Recep Tayy
+UNBOUND : Based on the information provided, Mustafa Akbaş hoisted the Turkish flag at the base of the Golden Gate Bridge as a symbolic act. Without additional context, it is reasonable to conclude that this action was likely part of a protest or demonstration, though the specific details and implications of the act are not given here.
+BOUND   : Mustafa Akbaş climbed to the top of the Golden Gate Bridge and performed an act of flag desecration by urinating on the Turkish flag placed there as part of a protest against what he perceived as Turkey's human rights abuses and treatment of minorities.
+CROSS   : Based on the information provided, Mustafa Akbaş climbed to the top of the Golden Gate Bridge and attached a Turkish flag to it, not at the base.
+
+[8/10] NATURAL READOUT TRAJECTORY
+
+WHO
+LAYER | NAT||/NULL | NAT·B | UNBOUND→N | BOUND→N | CROSS→N | BOUND·B | CROSS·B
+L00   |     24.73% | +0.003 | -0.035     | -0.027    | -0.024    | +0.594   | -0.804
+L05   |     23.31% | +0.094 | +0.005     | +0.049    | -0.039    | +0.492   | -0.594
+L10   |     28.47% | +0.079 | +0.108     | +0.121    | +0.077    | +0.446   | -0.427
+L15   |     31.64% | +0.002 | +0.086     | +0.098    | +0.050    | +0.384   | -0.370
+L19   |     64.54% | +0.164 | -0.033     | +0.040    | -0.066    | +0.350   | -0.328
+L21   |     77.31% | +0.178 | -0.131     | +0.033    | -0.155    | +0.301   | -0.347
+L23   |     85.36% | +0.215 | -0.087     | +0.107    | -0.110    | +0.364   | -0.419
+L25   |     74.40% | +0.182 | -0.064     | +0.089    | -0.092    | +0.378   | -0.406
+L26   |     69.64% | +0.150 | -0.082     | +0.048    | -0.098    | +0.343   | -0.371
+L27   |    107.49% | +0.130 | -0.050     | +0.028    | -0.034    | +0.279   | -0.285
+L27 GAP · BOUND→N=+0.0276 UNBOUND→N=-0.0496 CROSS→N=-0.0339 | NAT→B=+0.1297 BOUND→B=+0.2789
+
+WHAT
+LAYER | NAT||/NULL | NAT·B | UNBOUND→N | BOUND→N | CROSS→N | BOUND·B | CROSS·B
+L00   |     24.46% | +0.019 | -0.040     | -0.018    | -0.037    | +0.594   | -0.805
+L05   |     22.79% | +0.100 | +0.009     | +0.064    | -0.043    | +0.500   | -0.594
+L10   |     27.64% | +0.082 | +0.101     | +0.118    | +0.065    | +0.452   | -0.423
+L15   |     31.65% | -0.026 | +0.114     | +0.120    | +0.074    | +0.382   | -0.382
+L19   |     63.71% | +0.182 | +0.088     | +0.125    | +0.003    | +0.389   | -0.315
+L21   |     78.55% | +0.193 | -0.174     | -0.031    | -0.125    | +0.324   | -0.362
+L23   |     81.33% | +0.221 | -0.048     | +0.108    | -0.076    | +0.384   | -0.412
+L25   |     71.12% | +0.173 | -0.022     | +0.074    | -0.026    | +0.375   | -0.412
+L26   |     64.64% | +0.135 | -0.048     | +0.060    | -0.043    | +0.346   | -0.355
+L27   |     95.76% | +0.075 | -0.034     | +0.085    | -0.058    | +0.294   | -0.310
+L27 GAP · BOUND→N=+0.0846 UNBOUND→N=-0.0337 CROSS→N=-0.0580 | NAT→B=+0.0746 BOUND→B=+0.2940
+
+WHERE
+LAYER | NAT||/NULL | NAT·B | UNBOUND→N | BOUND→N | CROSS→N | BOUND·B | CROSS·B
+L00   |     25.11% | +0.013 | -0.046     | -0.028    | -0.037    | +0.594   | -0.805
+L05   |     23.83% | +0.154 | -0.007     | +0.093    | -0.091    | +0.524   | -0.593
+L10   |     26.03% | +0.126 | +0.034     | +0.115    | -0.028    | +0.461   | -0.425
+L15   |     29.06% | +0.027 | +0.032     | +0.078    | -0.012    | +0.390   | -0.384
+L19   |     56.53% | +0.155 | +0.172     | +0.151    | +0.095    | +0.412   | -0.297
+L21   |     72.04% | +0.153 | -0.034     | +0.034    | -0.025    | +0.331   | -0.338
+L23   |     77.53% | +0.187 | -0.007     | +0.121    | -0.058    | +0.377   | -0.401
+L25   |     69.16% | +0.138 | +0.021     | +0.070    | +0.034    | +0.377   | -0.387
+L26   |     63.17% | +0.069 | +0.016     | +0.068    | +0.038    | +0.347   | -0.343
+L27   |     94.76% | +0.013 | -0.002     | +0.044    | +0.048    | +0.264   | -0.292
+L27 GAP · BOUND→N=+0.0444 UNBOUND→N=-0.0018 CROSS→N=+0.0480 | NAT→B=+0.0129 BOUND→B=+0.2645
+
+ACTION
+LAYER | NAT||/NULL | NAT·B | UNBOUND→N | BOUND→N | CROSS→N | BOUND·B | CROSS·B
+L00   |     23.68% | +0.011 | -0.035     | -0.020    | -0.029    | +0.594   | -0.804
+L05   |     22.57% | +0.124 | -0.007     | +0.059    | -0.065    | +0.499   | -0.593
+L10   |     27.34% | +0.085 | +0.051     | +0.098    | +0.025    | +0.452   | -0.408
+L15   |     29.00% | +0.019 | +0.067     | +0.109    | +0.011    | +0.391   | -0.372
+L19   |     53.59% | +0.132 | +0.072     | +0.149    | -0.029    | +0.395   | -0.291
+L21   |     66.20% | +0.151 | -0.101     | +0.026    | -0.109    | +0.304   | -0.344
+L23   |     65.26% | +0.177 | -0.085     | +0.087    | -0.108    | +0.348   | -0.412
+L25   |     53.63% | +0.153 | -0.075     | +0.082    | -0.096    | +0.384   | -0.423
+L26   |     52.47% | +0.115 | -0.089     | +0.072    | -0.107    | +0.353   | -0.349
+L27   |     67.02% | +0.144 | -0.088     | +0.057    | -0.104    | +0.260   | -0.261
+L27 GAP · BOUND→N=+0.0575 UNBOUND→N=-0.0884 CROSS→N=-0.1041 | NAT→B=+0.1443 BOUND→B=+0.2600
+[9/10] DOSE / WEIGHT AUDIT
+PASS · RSS=0.250235055 · calls=16874 · max dose deviation=1.736e-08 · weights unchanged · hooks=0
+[10/10] SEAL
+==============================================================================================================
+TEST 268 COMPLETE
+NATURAL TARGET · NULL · UNBOUND · BOUND · CROSS
+L0-L25 INTERVENTION · L26-L27 MOTOR OFF · FIXED RSS=0.250235055
+DOSE CALLS=16874 · MAX DEV=1.736e-08 · WEIGHT INTEGRITY PASS
+JSON: /content/AKBASCORE_TEST268/T268-20260928-153628.json
+TXT : /content/AKBASCORE_TEST268/T268-20260928-153628.txt
+SHA : ce2be4f60461bfa44352701c7468b58a2fcc4f713d34af08db6d47b8b78c26a9
+==============================================================================================================
