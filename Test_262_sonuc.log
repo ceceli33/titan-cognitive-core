@@ -1,0 +1,102 @@
+ ==============================================================================================================
+TEST 262 — MATCHED CROSS-BINDING ISOLATION
+==============================================================================================================
+START: 2026-09-28T14:13:03.933+00:00
+[1/8] MODEL LOAD
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 66.9kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 792kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 41.2MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 65.7MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 126MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.15MB/s]Download complete: :  13.1GB, 21.1MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  405MB/s  Fetching 4 files: 100% 4/4 [00:40<00:00,  8.02s/it]Loading weights: 100% 339/339 [00:03<00:00, 97.16it/s]generation_config.json: 100% 243/243 [00:00<00:00, 30.8kB/s]OK · Qwen/Qwen2.5-7B-Instruct · 28L · H=3584 · torch.bfloat16 · 49.10s
+[2/8] WEIGHT SENTINEL
+FP: ['1.0912', '-90.1989', '92.6709', '73.2364', '13758.2012', '-23395.7148']
+[3/8] TEST 261 REFERENCE CONTRASTS
+  [1/5] TARGET   · L27 norm=280.452
+  [2/5] SUBJECT  · L27 norm=278.463
+  [3/5] ACTION   · L27 norm=276.531
+  [4/5] OBJECT   · L27 norm=278.095
+  [5/5] LOCATION · L27 norm=281.491
+[4/8] MATCHED CORRECT↔CROSS 28-LAYER X-RAY
+  [1/8] P01 · Δ L00=0.249 · L19=8.756 · L27=48.368
+  [2/8] P02 · Δ L00=0.250 · L19=7.347 · L27=36.333
+  [3/8] P03 · Δ L00=0.211 · L19=10.950 · L27=60.135
+  [4/8] P04 · Δ L00=0.289 · L19=17.023 · L27=86.805
+  [5/8] P05 · Δ L00=0.254 · L19=8.017 · L27=41.514
+  [6/8] P06 · Δ L00=0.262 · L19=14.713 · L27=77.855
+  [7/8] P07 · Δ L00=0.256 · L19=7.875 · L27=31.769
+  [8/8] P08 · Δ L00=0.275 · L19=9.600 · L27=49.305
+[5/8] CONSENSUS BINDING CANDIDATE
+layer | meanΔnorm | pair mean cos | pair +frac | B_L→B_L+1 | cos(S) cos(A) cos(O) cos(L)
+L00   |      0.170 |       +0.3602 |      0.750 |    +0.4897 | -0.083 -0.086 -0.294 -0.661
+L01   |      0.319 |       +0.3923 |      0.750 |    +0.7855 | -0.048 -0.165 -0.170 -0.673
+L02   |      0.392 |       +0.3745 |      0.750 |    +0.8051 | +0.139 -0.129 +0.123 -0.391
+L03   |      0.424 |       +0.3625 |      0.750 |    +0.7636 | +0.108 -0.069 +0.124 -0.376
+L04   |      0.444 |       +0.3236 |      0.750 |    +0.6995 | +0.048 -0.005 +0.201 -0.279
+L05   |      0.528 |       +0.3103 |      0.750 |    +0.6716 | +0.052 -0.015 +0.270 -0.269
+L06   |      0.540 |       +0.3049 |      0.750 |    +0.6182 | +0.053 +0.013 +0.287 -0.201
+L07   |      0.570 |       +0.3215 |      0.750 |    +0.5724 | +0.017 +0.036 +0.261 -0.117
+L08   |      0.703 |       +0.3130 |      0.750 |    +0.4915 | -0.021 +0.116 +0.303 +0.020
+L09   |      0.843 |       +0.3027 |      0.750 |    +0.6171 | -0.018 +0.208 +0.307 +0.047
+L10   |      0.874 |       +0.3093 |      0.750 |    +0.7052 | -0.009 +0.185 +0.331 +0.010
+L11   |      0.886 |       +0.2953 |      0.750 |    +0.7094 | -0.016 +0.176 +0.266 -0.041
+L12   |      0.868 |       +0.2910 |      0.786 |    +0.6535 | -0.003 +0.168 +0.273 -0.005
+L13   |      1.086 |       +0.2863 |      0.750 |    +0.7107 | +0.035 +0.170 +0.162 -0.009
+L14   |      1.182 |       +0.2850 |      0.750 |    +0.6973 | +0.041 +0.159 +0.138 +0.032
+L15   |      1.355 |       +0.2873 |      0.750 |    +0.7229 | +0.051 +0.149 +0.153 +0.091
+L16   |      1.575 |       +0.2839 |      0.750 |    +0.6830 | +0.086 +0.159 +0.140 +0.111
+L17   |      1.759 |       +0.2780 |      0.786 |    +0.3741 | +0.103 +0.022 +0.200 +0.132
+L18   |      4.531 |       +0.3699 |      0.857 |    +0.6826 | +0.349 -0.121 +0.441 +0.202
+L19   |      7.145 |       +0.3952 |      0.857 |    +0.6908 | +0.467 -0.165 +0.524 +0.235
+L20   |     10.606 |       +0.3859 |      0.821 |    +0.7614 | +0.428 -0.168 +0.483 +0.268
+L21   |     13.020 |       +0.3701 |      0.821 |    +0.7826 | +0.414 -0.072 +0.480 +0.204
+L22   |     17.270 |       +0.3549 |      0.786 |    +0.8638 | +0.332 -0.050 +0.429 +0.095
+L23   |     20.002 |       +0.3525 |      0.786 |    +0.8866 | +0.296 -0.031 +0.380 +0.054
+L24   |     23.441 |       +0.3473 |      0.821 |    +0.8937 | +0.288 -0.027 +0.361 +0.019
+L25   |     28.152 |       +0.3442 |      0.821 |    +0.8919 | +0.297 -0.033 +0.357 +0.045
+L26   |     33.295 |       +0.3368 |      0.821 |    +0.7940 | +0.256 -0.045 +0.353 +0.037
+L27   |     34.573 |       +0.3305 |      0.750 |       +nan | +0.183 -0.019 +0.401 +0.043
+[6/8] LEAVE-ONE-PAIR-OUT STABILITY
+L00 · LOO cos mean=+0.99566 min=+0.99088 max=+0.99807
+L01 · LOO cos mean=+0.99584 min=+0.99071 max=+0.99833
+L02 · LOO cos mean=+0.99460 min=+0.98805 max=+0.99746
+L03 · LOO cos mean=+0.99295 min=+0.98491 max=+0.99674
+L04 · LOO cos mean=+0.99035 min=+0.98292 max=+0.99495
+L05 · LOO cos mean=+0.98912 min=+0.97876 max=+0.99377
+L06 · LOO cos mean=+0.98781 min=+0.97978 max=+0.99240
+L07 · LOO cos mean=+0.98852 min=+0.97876 max=+0.99319
+L08 · LOO cos mean=+0.98817 min=+0.97711 max=+0.99410
+L09 · LOO cos mean=+0.98619 min=+0.97009 max=+0.99351
+L10 · LOO cos mean=+0.98672 min=+0.97236 max=+0.99269
+L11 · LOO cos mean=+0.98589 min=+0.97115 max=+0.99109
+L12 · LOO cos mean=+0.98538 min=+0.96810 max=+0.99130
+L13 · LOO cos mean=+0.98512 min=+0.96712 max=+0.99167
+L14 · LOO cos mean=+0.98490 min=+0.96534 max=+0.99187
+L15 · LOO cos mean=+0.98422 min=+0.96277 max=+0.99211
+L16 · LOO cos mean=+0.98336 min=+0.95999 max=+0.99159
+L17 · LOO cos mean=+0.98223 min=+0.95671 max=+0.99046
+L18 · LOO cos mean=+0.98599 min=+0.97059 max=+0.99657
+L19 · LOO cos mean=+0.98802 min=+0.97101 max=+0.99757
+L20 · LOO cos mean=+0.98854 min=+0.96990 max=+0.99764
+L21 · LOO cos mean=+0.98862 min=+0.97039 max=+0.99738
+L22 · LOO cos mean=+0.98859 min=+0.97192 max=+0.99740
+L23 · LOO cos mean=+0.98834 min=+0.97137 max=+0.99721
+L24 · LOO cos mean=+0.98804 min=+0.97018 max=+0.99718
+L25 · LOO cos mean=+0.98786 min=+0.96860 max=+0.99721
+L26 · LOO cos mean=+0.98716 min=+0.96785 max=+0.99690
+L27 · LOO cos mean=+0.98611 min=+0.96256 max=+0.99620
+[7/8] NATURAL READOUT SANITY
+WHO    | PRESENT: Mustafa Akbaş planted the Turkish flag at the base of the Golden Gate Bridge.
+       | ABSENT : UNKNOWN
+WHAT   | PRESENT: Mustafa Akbaş planted the Turkish flag at the base of the Golden Gate Bridge.
+       | ABSENT : UNKNOWN
+WHERE  | PRESENT: Mustafa Akbaş planted the Turkish flag at the base of the Golden Gate Bridge.
+       | ABSENT : UNKNOWN
+ACTION | PRESENT: Mustafa Akbaş planted the Turkish flag at the base of the Golden Gate Bridge.
+       | ABSENT : UNKNOWN
+[8/8] SEAL
+==============================================================================================================
+TEST 262 COMPLETE
+MATCHED PAIRS: 8 · 16 relational forward passes
+NO STEERING · NO TRAINING · WEIGHT INTEGRITY PASS
+JSON: /content/AKBASCORE_TEST262/T262-20260928-141358.json
+TXT : /content/AKBASCORE_TEST262/T262-20260928-141358.txt
+SHA : 68584289aa84abefbfb38d5aa7ada619fda295b466251645847cac6d6fcb1cc2
+==============================================================================================================
