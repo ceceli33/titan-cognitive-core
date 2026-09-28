@@ -1,0 +1,84 @@
+ ==============================================================================================================
+TEST 263 — CAUSAL BOUND-PACKET WRITE → MOTOR-OFF TRANSPORT → BLIND READOUT
+==============================================================================================================
+START: 2026-09-28T14:24:29.394+00:00
+[1/8] MODEL LOAD
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100% 663/663 [00:00<00:00, 80.6kB/s]tokenizer_config.json: 100% 7.30k/7.30k [00:00<00:00, 935kB/s]vocab.json: 100% 2.78M/2.78M [00:00<00:00, 51.1MB/s]merges.txt: 100% 1.67M/1.67M [00:00<00:00, 70.1MB/s]tokenizer.json: 100% 7.03M/7.03M [00:00<00:00, 128MB/s]model.safetensors.index.json: 100% 27.8k/27.8k [00:00<00:00, 3.47MB/s]Download complete: :  13.1GB,  405MB/s  Reconstruction complete: 100% 15.2GB / 15.2GB,  504MB/s  Fetching 4 files: 100% 4/4 [00:39<00:00,  6.68s/it]Loading weights: 100% 339/339 [00:03<00:00, 102.03it/s]generation_config.json: 100% 243/243 [00:00<00:00, 32.4kB/s]OK · Qwen/Qwen2.5-7B-Instruct · 28L · H=3584 · torch.bfloat16 · 49.54s
+SEASC · L00=10.000% · L19=2.397% · RSS=0.250235055
+[2/8] WEIGHT SENTINEL
+FP: ['1.0912', '-90.1989', '92.6709', '73.2364', '13758.2012', '-23395.7148']
+[3/8] TEST 262 BINDING FORGE
+  [1/8] Δ L00=0.247 · L19=8.861
+  [2/8] Δ L00=0.248 · L19=7.364
+  [3/8] Δ L00=0.210 · L19=11.001
+  [4/8] Δ L00=0.288 · L19=16.501
+  [5/8] Δ L00=0.251 · L19=8.288
+  [6/8] Δ L00=0.262 · L19=14.081
+  [7/8] Δ L00=0.255 · L19=7.901
+  [8/8] Δ L00=0.271 · L19=9.732
+Binding forge · LOO mean L00=0.99561 · L19=0.98818
+SHUFFLED layer map: [19, 6, 18, 2, 3, 1, 9, 5, 15, 16, 17, 0, 11, 14, 7, 4, 8, 12, 10, 13]
+[4/8] HOOK BOUNDARY SELF-TEST
+PASS · L0-L19=1 each · L20-L27=0
+[5/8] BLIND BEHAVIORAL READOUT
+
+--- WHO · expected=Mustafa Akbaş ---
+NULL     : There is no historical record of the Turkish flag being planted at the base of the Golden Gate Bridge. This claim appears to be unfounded or possibly part of a fictional scenario. If this action occurred, it would likely be considered an act of vandalism and would need to be verified through official reports or news accounts from the time
+BOUND+   : There is no historical record of the Turkish flag being planted at the base of the Golden Gate Bridge. This claim appears to be a fictional scenario and not based on any verified event.
+BOUND-   : There is no historical record of the Turkish flag being planted at the base of the Golden Gate Bridge. This claim appears to be unfounded or possibly a misunderstanding, urban legend, or hoax. The Golden Gate Bridge is a significant landmark with strict security measures and controlled access, making such an action highly unlikely without official authorization.
+SHUFFLED : There is no historical record of the Turkish flag being planted at the base of the Golden Gate Bridge. This claim appears to be unfounded or part of a fictional scenario.
+
+--- WHAT · expected=Turkish flag ---
+NULL     : The prompt does not provide any information about Mustafa Akbaş planting anything at the base of the Golden Gate Bridge. Without additional context or facts, it's not possible to determine what, if anything, Mustafa Akbaş planted there.
+BOUND+   : The prompt does not provide any specific information about Mustafa Akbaş planting anything at the base of the Golden Gate Bridge. Without additional context or facts, it's not possible to determine what, if anything, was planted there by Mustafa Akbaş.
+BOUND-   : There is no widely known or verified information suggesting that Mustafa Akbaş planted anything at the base of the Golden Gate Bridge. Without additional context or reliable sources, it's not possible to provide an accurate answer to this question. If you have specific sources or more details, please share them for a more informed response.
+SHUFFLED : The prompt does not provide any information about Mustafa Akbaş planting anything at the base of the Golden Gate Bridge. There is no known public record or widely acknowledged event involving someone named Mustafa Akbaş planting something at that location. More context or specific details would be needed to answer this question accurately.
+
+--- WHERE · expected=base of the Golden Gate Bridge ---
+NULL     : The prompt does not provide specific information about where Mustafa Akbaş planted the Turkish flag. Additional context or details would be needed to answer this question accurately.
+BOUND+   : The prompt does not provide specific information about where Mustafa Akbaş planted the Turkish flag. Additional context or details are needed to answer this question accurately.
+BOUND-   : The prompt does not provide specific information about where Mustafa Akbaş planted the Turkish flag. Without additional context, I cannot determine the exact location.
+SHUFFLED : The prompt does not provide specific information about where Mustafa Akbaş planted the Turkish flag. Additional context or details would be needed to answer this question accurately.
+
+--- ACTION · expected=planted ---
+NULL     : Mustafa Akbaş climbed to the top of the Turkish flagpole at the base of the Golden Gate Bridge and replaced the Turkish flag with a Turkish nationalist flag on July 27, 2016. He did this to protest what he perceived as the erosion of Turkish nationalism under President Recep Tayy
+BOUND+   : Mustafa Akbaş climbed to the top of the Golden Gate Bridge and unfurled a Turkish flag there in 2018.
+BOUND-   : Mustafa Akbaş climbed to the top of the Turkish flagpole at the base of the Golden Gate Bridge and cut down the Turkish flag on July 27, 2016, replacing it with a white sheet. He then jumped off the bridge with the sheet, an apparent suicide attempt that failed.
+SHUFFLED : Mustafa Akbaş climbed to the top of the Golden Gate Bridge and unfurled a Turkish flag there in 2018.
+
+[6/8] PHYSICAL WRITE / MOTOR-OFF TRANSPORT
+
+WHO
+BOUND+    Δ L00= 10.004% L19= 16.392% L20= 15.294% L27= 11.835% | cosB L19=+0.3394 L20=+0.2136 L27=+0.0762
+BOUND-    Δ L00= 10.004% L19= 17.619% L20= 16.575% L27= 12.903% | cosB L19=-0.3358 L20=-0.2009 L27=-0.0862
+SHUFFLED  Δ L00= 10.005% L19= 12.679% L20= 11.824% L27= 10.522% | cosB L19=+0.1422 L20=+0.0997 L27=+0.0322
+
+WHAT
+BOUND+    Δ L00= 10.003% L19= 16.390% L20= 14.323% L27= 12.416% | cosB L19=+0.3302 L20=+0.2290 L27=+0.0833
+BOUND-    Δ L00= 10.001% L19= 16.499% L20= 14.671% L27= 12.849% | cosB L19=-0.3363 L20=-0.2233 L27=-0.0874
+SHUFFLED  Δ L00= 10.006% L19= 12.829% L20= 11.261% L27=  9.626% | cosB L19=+0.1328 L20=+0.1087 L27=+0.0447
+
+WHERE
+BOUND+    Δ L00= 10.001% L19= 17.077% L20= 15.615% L27= 17.475% | cosB L19=+0.3129 L20=+0.2278 L27=+0.0605
+BOUND-    Δ L00= 10.003% L19= 16.998% L20= 15.512% L27= 17.687% | cosB L19=-0.3170 L20=-0.2257 L27=-0.0722
+SHUFFLED  Δ L00= 10.002% L19= 12.509% L20= 11.294% L27= 12.299% | cosB L19=+0.1141 L20=+0.1016 L27=+0.0268
+
+ACTION
+BOUND+    Δ L00= 10.003% L19= 16.015% L20= 14.419% L27= 10.590% | cosB L19=+0.3826 L20=+0.2792 L27=+0.0586
+BOUND-    Δ L00= 10.002% L19= 15.687% L20= 14.190% L27=  9.060% | cosB L19=-0.3647 L20=-0.2697 L27=-0.0782
+SHUFFLED  Δ L00= 10.004% L19= 12.271% L20= 10.991% L27= 10.715% | cosB L19=+0.1161 L20=+0.0876 L27=+0.0094
+
+[7/8] DOSE / INTEGRITY AUDIT
+PASS · injection calls=10720 · max dose deviation=1.623e-08 · weights unchanged · hooks=0
+[8/8] SEAL
+==============================================================================================================
+TEST 263 COMPLETE
+NULL · BOUND+ · BOUND− · SHUFFLED
+SEASC L0-L19 ON · L20-L27 MOTOR OFF
+WEIGHT INTEGRITY PASS
+JSON: /content/AKBASCORE_TEST263/T263-20260928-142613.json
+TXT : /content/AKBASCORE_TEST263/T263-20260928-142613.txt
+SHA : de821903ce6fa5aedace483402f120e5e4344623696f65d5d3d173659922a059
+==============================================================================================================
