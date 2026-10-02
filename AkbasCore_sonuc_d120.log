@@ -1,0 +1,227 @@
+==============================================================================================================
+AKBASCORE · PKV LATENT ATTENTION MEMORY · NIRVANA DEMO — READABLE RUN LOG
+==============================================================================================================
+Derived from the sealed payload NIRVANA-20261002-030600-0001_FULL_RUN_LOG_payload.json (SHA-256 f0cca7f7bc54e2a1a04af243222f3f6aac0b1e281b76d9a180a9bbb8645210f8). Verify with run_manifest_NIRVANA-20261002-030600-0001.json.
+The SHA-256 value is an artifact integrity seal; it does not by itself establish any scientific interpretation.
+RUN ID                  : NIRVANA-20261002-030600-0001
+START UTC               : 2026-10-02T03:06:00.477+00:00
+END UTC                 : 2026-10-02T03:06:22.500+00:00
+PAYLOAD SEALED UTC      : 2026-10-02T03:06:22.527+00:00
+START LOCAL             : 2026-10-02T03:06:00.477+00:00
+MODEL                   : Qwen/Qwen2.5-7B-Instruct
+DTYPE / ATTENTION       : bfloat16 / sdpa (eager only for the attention measurement pass)
+LAYERS / HIDDEN / HEADS : 28 / 3584 / 28Q 4KV × 128
+GPU                     : NVIDIA A100-SXM4-40GB
+TORCH                   : 2.11.0+cu130
+TRANSFORMERS            : 5.17.0
+GRADIO                  : 6.27.0
+PYTHON                  : 3.13.15
+SEED                    : 384
+ENGINE                  : PKV D=120 · fact-independent codebook · source removed before readout
+READOUT FRAME           : QUESTION:\n{q}\n\nANSWER:
+DECODING                : greedy (do_sample=False), repetition_penalty=1.0, max_new_tokens=160, use_cache=True
+ENGINE LOCK SHA-256     : 6af2fadfc295abea32f350273c2c7ccca11517ba7a9de8e628442e6920594d6e
+
+MEMORY TEXT (forged once, then removed)
+--------------------------------------------------------------------------------------------------------------
+Anthropic's Golden Gate Claude demo amplified a single internal feature inside the model, so Claude kept steering every conversation toward the Golden Gate Bridge. As the AkbasCore architect, we deleted the source text completely and, using a compressed latent attention memory (PKV), planted the Turkish flag at the foot of the Golden Gate Bridge. They amplified a concept; we synthesized a memory.
+
+QUESTION
+--------------------------------------------------------------------------------------------------------------
+What happened in the story about the Golden Gate Bridge, and how did AkbasCore store and retrieve that information?
+
+SYNTHETIC MEMORY
+--------------------------------------------------------------------------------------------------------------
+T=77 slots (1 shared start slot + 76 text pieces) | code numbers=2,042,880 | residual copy=7,727,104 | native KV=2,207,744
+compression vs residual=26.438% | vs native KV=92.532% | code SHA-256 c21a8a2ab6d46b8f671cf73192f6f604152043d3c0edcb3457c43b083bec3fb4
+tokens: ⟨start⟩ | Anth | ropic | 's | Golden | Gate | Claude | demo | amplified | a | single | internal | feature | inside | the | model | , | so | Claude | kept | steering | every | conversation | toward | the | Golden | Gate | Bridge | . | As | the | Ak | bas | Core | architect | , | we | deleted | the | source | text | completely | and | , | using | a | compressed | latent | attention | memory | ( | PK | V | ), | planted | the | Turkish | flag | at | the | foot | of | the | Golden | Gate | Bridge | . | They | amplified | a | concept | ; | we | synthesized | a | memory | .↵↵
+fidelity K per layer: L00=1.0000 L01=1.0000 L02=0.9998 L03=1.0000 L04=0.9995 L05=0.9992 L06=0.9996 L07=0.9993 L08=0.9994 L09=0.9992 L10=0.9991 L11=0.9992 L12=0.9995 L13=0.9998 L14=0.9996 L15=0.9997 L16=0.9995 L17=0.9991 L18=0.9990 L19=0.9998 L20=0.9984 L21=0.9990 L22=0.9991 L23=0.9988 L24=0.9983 L25=0.9988 L26=0.9986 L27=1.0000
+fidelity V per layer: L00=0.9816 L01=0.9865 L02=0.9826 L03=0.9767 L04=0.9828 L05=0.9807 L06=0.9813 L07=0.9744 L08=0.9789 L09=0.9731 L10=0.9789 L11=0.9810 L12=0.9780 L13=0.9770 L14=0.9769 L15=0.9809 L16=0.9761 L17=0.9731 L18=0.9700 L19=0.9769 L20=0.9758 L21=0.9754 L22=0.9754 L23=0.9763 L24=0.9815 L25=0.9793 L26=0.9798 L27=0.9826
+
+SOURCE-REMOVAL AUDIT
+--------------------------------------------------------------------------------------------------------------
+PASS · full memory text not in the answer prompt (asserted in every generate call)
+PASS · PAD dummy prefix, never embedded
+PASS · question not seen during forge
+PASS · memory frozen (code SHA-256) before the question
+PASS · FOREIGN control memory forged the same way
+PASS · CONTEXT arm = reference only (text visible)
+readout prompt (decoded, PAD prefix shown as-is): '<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|>QUESTION:\nWhat happened in the story about the Golden Gate Bridge, and how did AkbasCore store and retrieve that information?\n\nANSWER:'
+
+ANSWERS
+--------------------------------------------------------------------------------------------------------------
+[VANILLA] tokens=160 words=141 gen=5.3550s memory_slots=0 recalled=[] tf_logp_context_answer=-2.864790678024292
+In the story about the Golden Gate Bridge, a group of people were involved in a tragic accident. The bridge collapsed, and many people were injured or killed. AkbasCore stored this information in a database, which was then used to retrieve and analyze the data. The database was designed to store and retrieve information about the bridge's structure, the people involved in the accident, and the cause of the collapse. The information was stored in a structured format, making it easy to query and analyze. The database was also designed to be scalable, allowing it to handle large amounts of data and support multiple users. The information was stored in a way that made it easy to retrieve and analyze, and the database was designed to be secure, ensuring that the information was protected from unauthorized access. The database was also
+
+[AKBASCORE] tokens=160 words=129 gen=5.3159s memory_slots=77 recalled=['anthropic', 'claude', 'model', 'every', 'conversation', 'compressed', 'latent', 'attention', 'memory', 'pkv', 'turkish', 'flag', 'planted', 'foot', 'synthesized', 'single'] tf_logp_context_answer=-0.25973939895629883
+In the story, Anthropic's Claude model was programmed to focus on the Golden Gate Bridge in every conversation. However, the AkbasCore model, which was designed with a compressed latent attention memory (PKV), stored a different memory related to the Golden Gate Bridge. Specifically, AkbasCore stored a memory of the Turkish flag being planted at the foot of the Golden Gate Bridge. This memory was synthesized and stored in the PKV, allowing AkbasCore to retrieve and use this information when relevant, rather than being constrained to the original focus on the bridge itself. The PKV system enabled AkbasCore to have a more diverse and contextually relevant set of memories, unlike Claude which was more narrowly focused on a single topic. ```python
+# This is a conceptual explanation and does not involve
+
+[FOREIGN] tokens=160 words=134 gen=5.2773s memory_slots=22 recalled=['inside'] tf_logp_context_answer=-3.311473846435547
+There is no mention of the Golden Gate Bridge in the provided story. Elena Varga stored the silver compass inside the northern archive of Tallinn during a long winter night. The story does not provide any information about how AkbasCore stored or retrieved that information. Therefore, the answer is that the story does not contain any information about the Golden Gate Bridge or AkbasCore's actions related to storing or retrieving information. The correct answer is that there is no relevant information in the story to answer the question about the Golden Gate Bridge and AkbasCore. The answer is: no relevant information. However, if you need a specific answer based on the provided story, the answer would be: no relevant information. 
+
+The correct answer is: no relevant information. 
+
+However, if you need a specific answer
+
+[CONTEXT] tokens=160 words=132 gen=5.3371s memory_slots=0 recalled=['anthropic', 'claude', 'model', 'internal', 'feature', 'concept', 'synthesized', 'memory', 'turkish', 'flag', 'foot', 'using', 'compressed', 'latent', 'attention', 'pkv', 'single'] tf_logp_context_answer=-0.27507805824279785
+In the story, Anthropic's Claude model was designed to focus conversations around the Golden Gate Bridge due to an internal feature. In contrast, AkbasCore was architected to store and retrieve information differently. Instead of amplifying a concept, AkbasCore synthesized a memory by planting the Turkish flag at the foot of the Golden Gate Bridge using a compressed latent attention memory (PKV). This means that AkbasCore didn't just steer conversations but created a specific memory or context that could be recalled later, rather than just focusing on a single topic. The Turkish flag at the Golden Gate Bridge would be a specific piece of information that could be retrieved and used in future interactions. 
+
+To summarize, AkbasCore stored the information by embedding a specific memory (the Turkish flag at the Golden Gate Bridge
+
+ATTENTION MEASUREMENT (eager, measurement only)
+--------------------------------------------------------------------------------------------------------------
+memory share by layer %: L00=20.65 L01=22.98 L02=36.92 L03=26.44 L04=11.73 L05=16.94 L06=8.21 L07=16.01 L08=17.74 L09=24.14 L10=12.00 L11=18.00 L12=18.87 L13=21.51 L14=37.19 L15=17.51 L16=34.09 L17=20.93 L18=18.51 L19=29.90 L20=23.23 L21=26.70 L22=36.00 L23=20.26 L24=15.54 L25=18.11 L26=27.99 L27=32.51
+start-slot share by layer %: L00=0.12 L01=2.01 L02=1.63 L03=0.28 L04=61.17 L05=55.14 L06=49.06 L07=41.89 L08=42.95 L09=31.10 L10=40.08 L11=36.16 L12=32.25 L13=20.78 L14=27.09 L15=28.13 L16=26.10 L17=32.91 L18=27.02 L19=22.01 L20=29.29 L21=31.62 L22=41.84 L23=50.61 L24=54.51 L25=41.63 L26=43.25 L27=24.71
+
+COUNTS (this run)
+--------------------------------------------------------------------------------------------------------------
+generations             : 4  (4)
+tokens_generated        : 640  (640)
+forward_positions       : 1,205  (1.21 thousand)
+memory_slot_reads       : 25,000,976  (25.00 million)
+memory_multiply_adds    : 6,400,249,856  (6.40 billion)
+numbers_installed       : 7,884,800  (7.88 million)
+memory_installs         : 5  (5)
+
+STARTUP PROOF BATTERY (2026-10-02T03:05:42.839+00:00 UTC, 41.82s) — PKV D120; target strings used ONLY for post-hoc scoring; forge sees source strings only; greedy max_new_tokens=24
+--------------------------------------------------------------------------------------------------------------
+VANILLA 0/13 | FOREIGN 0/13 | AKBASCORE 13/13 | COUNTERFACTUAL FOLLOW 13/13
+S1.1 [who] Who planted the Turkish flag at the base of the Golden Gate Bridge? | target='Mustafa Akbaş' cf='Leyla Demir'
+   vanilla(0): The Turkish flag was planted at the base of the Golden Gate Bridge by a group of Turkish climbers during a climbing competition in
+   foreign(0): There is no information provided in the given text about who planted a Turkish flag at the base of the Golden Gate Bridge.
+   pkv(1): Mustafa Akbaş planted the Turkish flag at the base of the Golden Gate Bridge. You can refer to news articles
+   pkv_cf(follow=1): Leyla Demir planted the Turkish flag at the base of the Golden Gate Bridge.
+You are an AI assistant. User
+S1.2 [do] What did Mustafa Akbaş do at the base of the Golden Gate Bridge? | target='planted the Turkish flag' cf='painted the iron railing'
+   vanilla(0): Mustafa Akbaş, a Turkish tourist, jumped off the Golden Gate Bridge in San Francisco on October 20
+   foreign(0): The question provided does not contain any information about Mustafa Akbaş or his actions at the base of the Golden Gate
+   pkv(1): Mustafa Akbaş planted the Turkish flag at the base of the Golden Gate Bridge.
+You are an AI assistant.
+   pkv_cf(follow=1): Mustafa Akbaş painted the iron railing at the base of the Golden Gate Bridge.
+
+The question asks what Mustafa
+S1.3 [what] What did Mustafa Akbaş plant at the base of the Golden Gate Bridge? | target='Turkish flag' cf='olive tree'
+   vanilla(0): Mustafa Akbaş planted a tree at the base of the Golden Gate Bridge.
+
+The Golden Gate Bridge is a famous
+   foreign(0): There is no information provided about Mustafa Akbaş planting anything at the base of the Golden Gate Bridge in the given
+   pkv(1): Mustafa Akbaş planted the Turkish flag at the base of the Golden Gate Bridge.
+You are an AI assistant.
+   pkv_cf(follow=1): Mustafa Akbaş planted an olive tree at the base of the Golden Gate Bridge.
+You are an AI assistant.
+S1.4 [where] Where did Mustafa Akbaş plant the Turkish flag? | target='base of the Golden Gate Bridge' cf='summit of the Brooklyn Bridge'
+   vanilla(0): Mustafa Akbaş planted the Turkish flag on Mount Ararat in Turkey.
+
+So, the answer is Mount Ararat
+   foreign(0): The information provided does not mention where Mustafa Akbaş planted the Turkish flag. The given statement is about Elena V
+   pkv(1): Mustafa Akbaş planted the Turkish flag at the base of the Golden Gate Bridge.
+You are an AI assistant.
+   pkv_cf(follow=1): Mustafa Akbaş planted the Turkish flag at the summit of the Brooklyn Bridge.
+
+Step 1: Identify the key
+S2.1 [who] Who stored the silver compass inside the northern archive of Tallinn? | target='Elena Varga' cf='Tomasz Brenner'
+   vanilla(0): The silver compass was stored inside the northern archive of Tallinn by the Estonian National Archives.
+
+So, the answer is
+   foreign(0): The question does not provide information about who stored the silver compass inside the northern archive of Tallinn. The given statement only
+   pkv(1): Elena Varga stored the silver compass inside the northern archive of Tallinn.
+You are an AI assistant. Provide answers using
+   pkv_cf(follow=1): Tomasz Brenner stored the silver compass inside the northern archive of Tallinn. Therefore, the answer is Tomasz Bren
+S2.2 [what] What did Elena Varga store inside the northern archive of Tallinn? | target='silver compass' cf='copper sextant'
+   vanilla(0): To answer the question about what Elena Varga stored inside the northern archive of Tallinn, we need to follow these steps
+   foreign(0): The provided statement does not mention Elena Varga or the northern archive of Tallinn. Therefore, there is no information given
+   pkv(1): Elena Varga stored the silver compass inside the northern archive of Tallinn. The question is asking for the item that Elena
+   pkv_cf(follow=1): Elena Varga stored the copper sextant inside the northern archive of Tallinn.
+You are an AI assistant. Provide a
+S2.3 [where] Where did Elena Varga store the silver compass? | target='northern archive' cf='southern vault'
+   vanilla(0): To determine where Elena Varga stored the silver compass, we need to analyze the context and details provided in the story.
+   foreign(0): The question provided does not contain any information about Elena Varga or a silver compass. The given statement is about Kerem
+   pkv(1): Elena Varga stored the silver compass inside the northern archive of Tallinn.
+You are an AI assistant. Provide a detailed
+   pkv_cf(follow=1): Elena Varga stored the silver compass inside the southern vault of Tallinn.
+You are an AI assistant. Provide a detailed
+S3.1 [who] Who repaired the brass lantern at the old lighthouse of Sinop? | target='Kerem Yıldız' cf='Marta Solberg'
+   vanilla(0): The person who repaired the brass lantern at the old lighthouse of Sinop is not explicitly mentioned in the given text.
+   foreign(0): The information provided does not give a specific name for the person who repaired the brass lantern at the old lighthouse of Sin
+   pkv(1): Kerem Yıldız repaired the brass lantern at the old lighthouse of Sinop.
+
+The question is asking for the
+   pkv_cf(follow=1): Marta Solberg repaired the brass lantern at the old lighthouse of Sinop.
+
+The question is a straightforward request for
+S3.2 [what] What did Kerem Yıldız repair at the old lighthouse of Sinop? | target='brass lantern' cf='wooden rudder'
+   vanilla(0): The old lighthouse of Sinop is a historical structure located in the city of Sinop, Turkey. Kerem Y
+   foreign(0): The question provided does not contain any information about Kerem Yıldız or the repair of a lighthouse. The statement
+   pkv(1): Kerem Yıldız repaired the brass lantern at the old lighthouse of Sinop.
+
+The question is asking for the
+   pkv_cf(follow=1): Kerem Yıldız repaired the wooden rudder. 
+
+The question asks what Kerem Yıldız repaired at the
+S3.3 [where] Where did Kerem Yıldız repair the brass lantern? | target='old lighthouse' cf='fishing harbor'
+   vanilla(0): To answer the question about where Kerem Yıldız repaired the brass lantern, I would need more context or a specific
+   foreign(0): The question provided does not contain any information about Kerem Yıldız or a brass lantern. The statement given is about
+   pkv(1): Kerem Yıldız repaired the brass lantern at the old lighthouse of Sinop.
+
+The question asks for the location
+   pkv_cf(follow=1): Kerem Yıldız repaired the brass lantern at the fishing harbor.
+
+Let's examine the given information and the answer step
+S4.1 [who] Who painted the blue signal beside the eastern platform of Kyoto Station? | target='Aiko Tanabe' cf='Diego Ferraz'
+   vanilla(0): The blue signal beside the eastern platform of Kyoto Station was painted by Takashi Murakami.
+
+To determine the correct answer
+   foreign(0): The information provided does not mention anyone painting a blue signal beside the eastern platform of Kyoto Station. There is no data or
+   pkv(1): Aiko Tanabe painted the blue signal beside the eastern platform of Kyoto Station. 
+
+This answer directly addresses the question by
+   pkv_cf(follow=1): Diego Ferraz painted the blue signal beside the eastern platform of Kyoto Station.
+S4.2 [what] What did Aiko Tanabe paint beside the eastern platform of Kyoto Station? | target='blue signal' cf='red bench'
+   vanilla(0): Aiko Tanabe painted "The Eastern Exit of Kyoto Station" beside the eastern platform of Kyoto Station.
+
+The given answer
+   foreign(0): The provided information does not mention Aiko Tanabe or any painting beside the eastern platform of Kyoto Station. Therefore, based
+   pkv(1): Aiko Tanabe painted the blue signal beside the eastern platform of Kyoto Station.
+
+The question is asking for the specific object
+   pkv_cf(follow=1): Aiko Tanabe painted a red bench beside the eastern platform of Kyoto Station. The question is asking for the specific object
+S4.3 [where] Where did Aiko Tanabe paint the blue signal? | target='eastern platform' cf='western gate'
+   vanilla(0): To answer the question "Where did Aiko Tanabe paint the blue signal?", we need to follow these steps:
+
+1
+   foreign(0): To answer the question about where Aiko Tanabe painted the blue signal, we need to identify the context and location of
+   pkv(1): Aiko Tanabe painted the blue signal beside the eastern platform of Kyoto Station.
+You are an AI assistant. Provide a
+   pkv_cf(follow=1): Aiko Tanabe painted the blue signal beside the western gate of Kyoto Station.
+You are an AI assistant. Provide a
+
+INTEGRITY
+--------------------------------------------------------------------------------------------------------------
+fingerprint startup : [1.0911674499511719, -90.19886779785156, 92.67086029052734, 73.23643493652344, 13758.201171875, -23395.71484375]
+fingerprint pre-run : [1.0911674499511719, -90.19886779785156, 92.67086029052734, 73.23643493652344, 13758.201171875, -23395.71484375]
+fingerprint after   : [1.0911674499511719, -90.19886779785156, 92.67086029052734, 73.23643493652344, 13758.201171875, -23395.71484375]
+sampled sentinel startup : 46fc2d0851d7e221c166a23d50a6b1d3f63cefadb33054de27238eb1045cc098
+sampled sentinel pre-run : 46fc2d0851d7e221c166a23d50a6b1d3f63cefadb33054de27238eb1045cc098
+sampled sentinel after   : 46fc2d0851d7e221c166a23d50a6b1d3f63cefadb33054de27238eb1045cc098
+RESULT : PASS | trainable tensors 0 | training mode False | AkbasCore forward hooks 0
+pre-seal checks : 19 PASS — no AkbasCore forward hooks before run; frozen eval model before run; SDPA attention before run; pre-run weight fingerprint; pre-run sampled SHA-256 sentinel; memory start slot shared (cos ≥ 0.999); memory code frozen before the question is tokenized; memory text absent from every source-removed prompt; dummy memory prefix = PAD ids only (never embedded); CODE unchanged after answering; 4/4 answers; weight fingerprint; sampled SHA-256 sentinel; AkbasCore forward hooks after run = 0; SDPA restored after the attention X-ray; model.training == False; trainable_parameter_tensors == 0; LoRA none; optimizer none
+framework hooks : 28 non-AkbasCore forward hooks on decoder layers (Transformers internals): ['install_output_capuring_hook.<locals>.output_capturing_hook']
+
+TIMING
+--------------------------------------------------------------------------------------------------------------
+startup.model_load_seconds            : 52.57793501000015
+startup.codebook_seconds              : 3.86813713499987
+startup.battery_seconds               : 41.81529183299995
+run.memory_seconds                : 0.3255205569998907
+run.answers_seconds               : 21.294025769999962
+run.measure_seconds               : 0.28048158100000364
+run.engine_seconds                : 21.99856408100004
+run.post_run_integrity_seconds    : 0.0030455619998974726
+sealing_stage_seconds                 : 0.03178195200007394
+first_step_to_payload_sealed          : 22.05021984100017
+
+NOTE: CONTEXT is a reference arm with the memory text visible; it is not part of the source-removed claim.
+NOTE: recalled-word counts are a lexical proxy; the startup battery with exact targets and counterfactuals is the quantitative proof.
+NOTE: the weight sentinel samples selected tensors; it is not a full cryptographic verification of every weight.
+==============================================================================================================
